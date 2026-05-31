@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\luiz\\Documents\\morae-app\\backend\\backend.csproj": {}
+    "/Users/luizcampos/Documents/morae-app/backend/backend.csproj": {}
   },
   "projects": {
-    "C:\\Users\\luiz\\Documents\\morae-app\\backend\\backend.csproj": {
+    "/Users/luizcampos/Documents/morae-app/backend/backend.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\luiz\\Documents\\morae-app\\backend\\backend.csproj",
+        "projectUniqueName": "/Users/luizcampos/Documents/morae-app/backend/backend.csproj",
         "projectName": "backend",
-        "projectPath": "C:\\Users\\luiz\\Documents\\morae-app\\backend\\backend.csproj",
-        "packagesPath": "C:\\Users\\luiz\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\luiz\\Documents\\morae-app\\backend\\obj\\",
+        "projectPath": "/Users/luizcampos/Documents/morae-app/backend/backend.csproj",
+        "packagesPath": "/Users/luizcampos/.nuget/packages/",
+        "outputPath": "/Users/luizcampos/Documents/morae-app/backend/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\luiz\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "/Users/luizcampos/.nuget/NuGet/NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
@@ -43,6 +43,10 @@
         "net8.0": {
           "targetAlias": "net8.0",
           "dependencies": {
+            "AutoMapper.Extensions.Microsoft.DependencyInjection": {
+              "target": "Package",
+              "version": "[12.0.1, )"
+            },
             "Microsoft.AspNetCore.Authentication.JwtBearer": {
               "target": "Package",
               "version": "[8.*, )"
@@ -89,7 +93,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.418/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/8.0.421/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
