@@ -25,7 +25,9 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>()
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
-builder.Services.AddAutoMapper(typeof(CondominiumProfile));
+builder.Services.AddAutoMapper(
+    typeof(CondominiumProfile), 
+    typeof(CondominiumProfile));
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICondominiumService, CondominiumService>();
 

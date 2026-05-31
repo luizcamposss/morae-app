@@ -48,7 +48,6 @@ public class CondominiumService : ICondominiumService
             .ToListAsync();
 
         return _mapper.Map<IEnumerable<CondominiumResponseDto>>(condominiums);
-
     }
     public async Task<CondominiumResponseDto?> GetByIdAsync(int id)
     {
