@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using backend.DTOs.Building;
 
-namespace backend.Services.Building;
+namespace backend.Services.Buildings;
 
 public interface IBuildingService
 {

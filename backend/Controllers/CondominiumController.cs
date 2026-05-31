@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace backend.Controllers;
 
 [ApiController]
-[Route("[controller]")]
+[Route("api/[controller]")]
 [Authorize]
 public class CondominiumController : ControllerBase
 {
@@ -23,16 +23,13 @@ public class CondominiumController : ControllerBase
     }
     [HttpPost]
     [Authorize(Roles = AppRoles.Master)]
-    public async Task<IActionResult> Create(CreateCondominiumDto dto)
+    public async Task<IActionResult> Create([FromBody] CreateCondominiumDto dto)
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         var condominium = await _condominium.CreateAsync(dto, userId);
 
-        return CreatedAtAction(
-            nameof(GetById),
-            new { id = condominium.Id },
-            condominium);
+        return CreatedAtAction(nameof(GetById), new { id = condominium.Id }, condominium);
     }
 
     [HttpGet]
@@ -55,7 +52,7 @@ public class CondominiumController : ControllerBase
 
     [HttpPut("{id}")]
     [Authorize(Roles = AppRoles.Master)]
-    public async Task<IActionResult> Update(int id, UpdateCondominiumDto dto)
+    public async Task<IActionResult> Update(int id, [FromBody] UpdateCondominiumDto dto)
     {
         var updated = await _condominium.UpdateAsync(id, dto);
 
@@ -75,5 +72,5 @@ public class CondominiumController : ControllerBase
             return NotFound();
 
         return NoContent();
-}
+    }
 }

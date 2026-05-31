@@ -6,9 +6,8 @@ using AutoMapper;
 using backend.Data;
 using backend.DTOs.Building;
 using backend.Models;
-using backend.Services.Building;
+using backend.Services.Buildings;
 using Microsoft.EntityFrameworkCore;
-
 public class BuildingService : IBuildingService
 {
     private readonly AppDbContext _context;
@@ -42,7 +41,7 @@ public class BuildingService : IBuildingService
         building.UpdatedAt = DateTime.UtcNow;
 
         _context.Buildings.Add(building);
-        _context.SaveChanges();
+        await _context.SaveChangesAsync();
 
         return _mapper.Map<BuildingResponseDto>(building);
     }
