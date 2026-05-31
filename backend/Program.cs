@@ -11,6 +11,7 @@ using System.Text;
 using dotenv.net;
 using backend.Profiles;
 using backend.Services.Condominium;
+using backend.Services.Buildings;
 
 DotEnv.Load();
 
@@ -30,6 +31,7 @@ builder.Services.AddAutoMapper(
     typeof(CondominiumProfile));
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICondominiumService, CondominiumService>();
+builder.Services.AddScoped<IBuildingService, BuildingService>();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
