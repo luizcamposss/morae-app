@@ -15,4 +15,5 @@ public class ApplicationUser : IdentityUser<int>
     public int PersonId { get; set; }
     public Person Person { get; set; } = null!;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

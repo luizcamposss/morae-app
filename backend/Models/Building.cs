@@ -23,5 +23,7 @@ public class Building
     [Required]
     [StringLength(30)]
     public string Code { get; set; } = string.Empty;
+    public ICollection<Unit> Units { get; set; } = new List<Unit>();
     public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

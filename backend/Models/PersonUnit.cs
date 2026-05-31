@@ -22,6 +22,5 @@ public class PersonUnit
 
     [Required]
     public UnitRelationshipType RelationshipType { get; set; } = UnitRelationshipType.Undefined;
-
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

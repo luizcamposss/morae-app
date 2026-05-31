@@ -1,0 +1,35 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.rsuser
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets / configs locais
+.env
+.env.*
+appsettings.Development.json
+appsettings.Production.json
+appsettings.Local.json
+
+# Banco local
+*.db
+*.sqlite
+*.sqlite3
+*.mdf
+*.ldf
+
+# Testes
+TestResults/
+coverage/

@@ -64,6 +64,10 @@
             "Swashbuckle.AspNetCore": {
               "target": "Package",
               "version": "[6.6.2, )"
+            },
+            "dotenv.net": {
+              "target": "Package",
+              "version": "[4.0.2, )"
             }
           },
           "imports": [

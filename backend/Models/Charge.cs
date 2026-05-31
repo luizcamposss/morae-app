@@ -28,6 +28,5 @@ public class Charge
 
     [Required]
     public ChargeStatus Status { get; set; } = ChargeStatus.Pending;
-
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

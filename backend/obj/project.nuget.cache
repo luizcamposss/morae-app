@@ -1,9 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "/t5Ge6IeURw=",
+  "dgSpecHash": "GlxN01VouLI=",
   "success": true,
   "projectFilePath": "C:\\Users\\luiz\\Documents\\morae-app\\backend\\backend.csproj",
   "expectedPackageFiles": [
+    "C:\\Users\\luiz\\.nuget\\packages\\dotenv.net\\4.0.2\\dotenv.net.4.0.2.nupkg.sha512",
     "C:\\Users\\luiz\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\luiz\\.nuget\\packages\\microsoft.aspnetcore.authentication.jwtbearer\\8.0.27\\microsoft.aspnetcore.authentication.jwtbearer.8.0.27.nupkg.sha512",
     "C:\\Users\\luiz\\.nuget\\packages\\microsoft.aspnetcore.cryptography.internal\\8.0.27\\microsoft.aspnetcore.cryptography.internal.8.0.27.nupkg.sha512",

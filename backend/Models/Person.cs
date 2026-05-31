@@ -26,4 +26,5 @@ public class Person
     public string PhoneNumber { get; set; } = string.Empty;
     public ApplicationUser? User { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdateAt { get; set; } = DateTime.UtcNow;
 }

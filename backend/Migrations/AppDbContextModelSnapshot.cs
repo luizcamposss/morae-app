@@ -211,6 +211,9 @@ namespace backend.Migrations
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<string>("UserName")
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)");
@@ -254,9 +257,13 @@ namespace backend.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("CondominiumId");
+                    b.HasIndex("CondominiumId", "Code")
+                        .IsUnique();
 
                     b.ToTable("Buildings");
                 });
@@ -322,6 +329,9 @@ namespace backend.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<string>("EmailContact")
                         .IsRequired()
                         .HasMaxLength(150)
@@ -346,7 +356,15 @@ namespace backend.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("int");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("CNPJ")
+                        .IsUnique();
+
+                    b.HasIndex("CreatedByUserId");
 
                     b.ToTable("Condominiums");
                 });
@@ -500,6 +518,9 @@ namespace backend.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
+                    b.Property<DateTime>("UpdateAt")
+                        .HasColumnType("datetime(6)");
+
                     b.HasKey("Id");
 
                     b.ToTable("Persons");
@@ -542,8 +563,7 @@ namespace backend.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("Bathrooms")
-                        .IsRequired()
+                    b.Property<int>("Bathrooms")
                         .HasColumnType("int");
 
                     b.Property<int>("BuildingId")
@@ -561,20 +581,22 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
-                    b.Property<int?>("Rooms")
-                        .IsRequired()
+                    b.Property<int>("Rooms")
                         .HasColumnType("int");
 
-                    b.Property<double?>("SquareMeters")
-                        .IsRequired()
+                    b.Property<double>("SquareMeters")
                         .HasColumnType("double");
 
                     b.Property<int>("UnitType")
                         .HasColumnType("int");
 
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("BuildingId");
+                    b.HasIndex("BuildingId", "Number")
+                        .IsUnique();
 
                     b.ToTable("Units");
                 });
@@ -635,7 +657,7 @@ namespace backend.Migrations
                     b.HasOne("backend.Models.Person", "Person")
                         .WithOne("User")
                         .HasForeignKey("backend.Models.ApplicationUser", "PersonId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Person");
@@ -644,7 +666,7 @@ namespace backend.Migrations
             modelBuilder.Entity("backend.Models.Building", b =>
                 {
                     b.HasOne("backend.Models.Condominium", "Condominium")
-                        .WithMany()
+                        .WithMany("Buildings")
                         .HasForeignKey("CondominiumId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -661,6 +683,17 @@ namespace backend.Migrations
                         .IsRequired();
 
                     b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("backend.Models.Condominium", b =>
+                {
+                    b.HasOne("backend.Models.ApplicationUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByUser");
                 });
 
             modelBuilder.Entity("backend.Models.Invitation", b =>
@@ -740,12 +773,22 @@ namespace backend.Migrations
             modelBuilder.Entity("backend.Models.Unit", b =>
                 {
                     b.HasOne("backend.Models.Building", "Building")
-                        .WithMany()
+                        .WithMany("Units")
                         .HasForeignKey("BuildingId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Building");
+                });
+
+            modelBuilder.Entity("backend.Models.Building", b =>
+                {
+                    b.Navigation("Units");
+                });
+
+            modelBuilder.Entity("backend.Models.Condominium", b =>
+                {
+                    b.Navigation("Buildings");
                 });
 
             modelBuilder.Entity("backend.Models.Person", b =>
