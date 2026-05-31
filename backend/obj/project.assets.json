@@ -2,6 +2,15 @@
   "version": 3,
   "targets": {
     "net8.0": {
+      "dotenv.net/4.0.2": {
+        "type": "package",
+        "compile": {
+          "lib/netstandard2.1/dotenv.net.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard2.1/dotenv.net.dll": {}
+        }
+      },
       "Humanizer.Core/2.14.1": {
         "type": "package",
         "compile": {
@@ -1120,6 +1129,20 @@
     }
   },
   "libraries": {
+    "dotenv.net/4.0.2": {
+      "sha512": "6xpiqKV1aKWIkSSDP7J+60GEKUitiDweD4yOsn9giCMysSfCghJQuYfXQwbzgdmt0Bsv/2ajUCbjvemGavqItA==",
+      "type": "package",
+      "path": "dotenv.net/4.0.2",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "README.md",
+        "dotenv.net.4.0.2.nupkg.sha512",
+        "dotenv.net.nuspec",
+        "lib/netstandard2.0/dotenv.net.dll",
+        "lib/netstandard2.1/dotenv.net.dll"
+      ]
+    },
     "Humanizer.Core/2.14.1": {
       "sha512": "lQKvtaTDOXnoVJ20ibTuSIOf2i0uO0MPbDhd1jm238I+U/2ZnRENj0cktKZhtchBMtCUSRQ5v4xBCUbKNmyVMw==",
       "type": "package",
@@ -3027,7 +3050,8 @@
       "Microsoft.AspNetCore.Identity.EntityFrameworkCore >= 8.0.27",
       "Microsoft.EntityFrameworkCore.Design >= 8.0.27",
       "Pomelo.EntityFrameworkCore.MySql >= 8.0.2",
-      "Swashbuckle.AspNetCore >= 6.6.2"
+      "Swashbuckle.AspNetCore >= 6.6.2",
+      "dotenv.net >= 4.0.2"
     ]
   },
   "packageFolders": {
@@ -3093,6 +3117,10 @@
           "Swashbuckle.AspNetCore": {
             "target": "Package",
             "version": "[6.6.2, )"
+          },
+          "dotenv.net": {
+            "target": "Package",
+            "version": "[4.0.2, )"
           }
         },
         "imports": [

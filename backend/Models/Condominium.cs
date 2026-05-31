@@ -44,6 +44,11 @@ public class Condominium
     [Required]
     [StringLength(20)]
     public Status Status { get; set; } = Status.Active;
+
+    public int CreatedByUserId { get; set; }
+    public ApplicationUser CreatedByUser { get; set; } = null!;
+    public ICollection<Building> Buildings { get; set; } = new List<Building>();
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
 }

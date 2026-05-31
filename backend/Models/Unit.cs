@@ -24,13 +24,14 @@ public class Unit
     public UnitType UnitType { get; set; }
 
     [Required]
-    public int? Rooms { get; set; }
+    public int Rooms { get; set; }
 
     [Required]
-    public int? Bathrooms { get; set; }
+    public int Bathrooms { get; set; }
 
     [Required]
-    public double? SquareMeters { get; set; }
+    public double SquareMeters { get; set; }
     public string Observations { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

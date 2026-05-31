@@ -13,7 +13,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
 {
     public AppDbContext(DbContextOptions<AppDbContext> opts) : base(opts)
     {
-        
+
     }
     public DbSet<Person> Persons { get; set; }
     public DbSet<Condominium> Condominiums { get; set; }
@@ -24,4 +24,44 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<Invitation> Invitations { get; set; }
     public DbSet<Charge> Charges { get; set; }
     public DbSet<Payment> Payments { get; set; }
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        base.OnModelCreating(builder);
+
+        builder.Entity<ApplicationUser>()
+            .HasOne(u => u.Person)
+            .WithOne(p => p.User)
+            .HasForeignKey<ApplicationUser>(u => u.PersonId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Condominium>()
+            .HasIndex(c => c.CNPJ)
+            .IsUnique();
+
+        builder.Entity<Condominium>()
+            .HasOne(c => c.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(c => c.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Condominium>()
+            .HasMany(b => b.Buildings)
+            .WithOne(c => c.Condominium)
+            .HasForeignKey(c => c.CondominiumId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Building>()
+            .HasMany(b => b.Units)
+            .WithOne(c => c.Building)
+            .HasForeignKey(c => c.BuildingId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Building>()
+            .HasIndex(b => new { b.CondominiumId, b.Code })
+            .IsUnique();
+
+        builder.Entity<Unit>()
+            .HasIndex(u => new { u.BuildingId, u.Number })
+            .IsUnique();
+    }
 }
