@@ -5,17 +5,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using backend.Enums;
 
-namespace backend.Models;
+namespace backend.DTOs.Unit;
 
-public class Unit
+public class CreateUnitDto
 {
-    [Key]
-    public int Id { get; set; }
-
-    [Required]
-    public int BuildingId { get; set; }
-    public Building Building { get; set; } = null!;
-
     [Required]
     [StringLength(20)]
     public string Number { get; set; } = string.Empty;
@@ -35,6 +28,4 @@ public class Unit
     [Range(0, 10000)]
     public double SquareMeters { get; set; }
     public string Observations { get; set; } = string.Empty;
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using backend.Constants;
 using backend.DTOs.Building;
 using backend.Services.Buildings;
@@ -53,7 +49,7 @@ public class BuildingsController : ControllerBase
 
     [HttpPut("{id}")]
     [Authorize(Roles = AppRoles.Master)]
-    public async Task<IActionResult> Update(int id, UpdateBuildingDto dto)
+    public async Task<IActionResult> Update(int id, [FromBody] UpdateBuildingDto dto)
     {
         var updated = await _buildingService
             .UpdateAsync(id, dto);
