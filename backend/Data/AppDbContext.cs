@@ -63,5 +63,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
         builder.Entity<Unit>()
             .HasIndex(u => new { u.BuildingId, u.Number })
             .IsUnique();
+
+        builder.Entity<Person>()
+            .HasIndex(p => p.CPF)
+            .IsUnique();
     }
 }
