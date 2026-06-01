@@ -18,7 +18,7 @@ public class UnitsController : ControllerBase
     }
 
     [HttpPost("/api/buildings/{buildingId}/units")]
-    [Authorize(Roles = AppRoles.Master)]
+    [Authorize(Roles = $"{AppRoles.Admin}")]
     public async Task<IActionResult> Create([FromRoute] int buildingId, [FromBody] CreateUnitDto dto)
     {
         var unit = await _unitService.CreateAsync(buildingId, dto);
@@ -48,7 +48,7 @@ public class UnitsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize(Roles = AppRoles.Master)]
+    [Authorize(Roles = $"{AppRoles.Admin}")]
     public async Task<IActionResult> Update([FromRoute] int id, [FromBody] UpdateUnitDto dto)
     {
         var updated = await _unitService
@@ -61,7 +61,7 @@ public class UnitsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = AppRoles.Master)]
+    [Authorize(Roles = $"{AppRoles.Admin}")]
     public async Task<IActionResult> Delete([FromRoute] int id)
     {
         var deleted = await _unitService

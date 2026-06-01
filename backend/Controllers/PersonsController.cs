@@ -19,7 +19,7 @@ public class PersonsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = AppRoles.Master)]
+    [Authorize(Roles = $"{AppRoles.Master},{AppRoles.Admin}")]
     public async Task<IActionResult> Create([FromBody] CreatePersonDto dto)
     {
         var person = await _personService.CreateAsync(dto);

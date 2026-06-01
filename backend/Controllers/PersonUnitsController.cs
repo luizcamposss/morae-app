@@ -22,14 +22,14 @@ public class PersonUnitsController : ControllerBase
     }
 
     [HttpPost("api/units/{unitId}/persons")]
-    [Authorize(Roles = AppRoles.Master)]
+    [Authorize(Roles = $"{AppRoles.Admin}")]
     public async Task<IActionResult> Create([FromRoute] int unitId, [FromBody] CreatePersonUnitDto dto)
     {
         var personUnit = await _personUnitService.CreateAsync(unitId, dto);
 
         return Created($"api/person-units/{personUnit.Id}", personUnit);
     }
-
+    
     [HttpGet("api/units/{unitId}/persons")]
     public async Task<IActionResult> GetByUnit([FromRoute] int unitId)
     {
@@ -39,7 +39,7 @@ public class PersonUnitsController : ControllerBase
     }
 
     [HttpDelete("api/person-units/{id}")]
-    [Authorize(Roles = AppRoles.Master)]
+    [Authorize(Roles = $"{AppRoles.Admin}")]
     public async Task<IActionResult> Delete([FromRoute] int id)
     {
         var deleted = await _personUnitService.DeleteAsync(id);

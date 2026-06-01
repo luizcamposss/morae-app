@@ -18,7 +18,7 @@ public class BuildingsController : ControllerBase
     }
 
     [HttpPost("/api/condominiums/{condominiumId}/buildings")]
-    [Authorize(Roles = AppRoles.Master)]
+    [Authorize(Roles = $"{AppRoles.Admin}")]
     public async Task<IActionResult> Create(int condominiumId, [FromBody] CreateBuildingDto dto)
     {
         var building = await _buildingService.CreateAsync(condominiumId, dto);
@@ -61,7 +61,7 @@ public class BuildingsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = AppRoles.Master)]
+    [Authorize(Roles = $"{AppRoles.Admin}")]
     public async Task<IActionResult> Delete(int id)
     {
         var deleted = await _buildingService
