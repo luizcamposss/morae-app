@@ -81,7 +81,7 @@ public class BuildingService : IBuildingService
         var building = await _context.Buildings
             .FirstOrDefaultAsync(b => b.Id == id);
 
-        if (building == null)
+        if (building is null)
             return false;
 
         var codeExists = await _context.Buildings

@@ -12,6 +12,7 @@ using dotenv.net;
 using backend.Profiles;
 using backend.Services.Condominium;
 using backend.Services.Buildings;
+using backend.Services.Units;
 
 DotEnv.Load();
 
@@ -28,10 +29,13 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>()
 
 builder.Services.AddAutoMapper(
     typeof(CondominiumProfile), 
-    typeof(CondominiumProfile));
+    typeof(CondominiumProfile),
+    typeof(UnitProfile));
+
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICondominiumService, CondominiumService>();
 builder.Services.AddScoped<IBuildingService, BuildingService>();
+builder.Services.AddScoped<IUnitService, UnitService>();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
