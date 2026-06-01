@@ -5,12 +5,14 @@ using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
+using AutoMapper;
 using backend.Constants;
 using backend.Data;
 using backend.DTOs;
 using backend.DTOs.Auth;
 using backend.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 namespace backend.Services;
@@ -21,12 +23,14 @@ public class AuthService : IAuthService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly IConfiguration _configuration;
-    public AuthService(AppDbContext context, UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration configuration)
+    private readonly IMapper _mapper;
+    public AuthService(AppDbContext context, UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration configuration, IMapper mapper)
     {
         _context = context;
         _userManager = userManager;
         _signInManager = signInManager;
         _configuration = configuration;
+        _mapper = mapper;
     }
     public async Task<AuthResponseDto> RegisterAsync(RegisterDto dto)
     {
@@ -58,12 +62,13 @@ public class AuthService : IAuthService
             };
         }
 
-        var person = new Person
-        {
-            Name = dto.Name,
-            CPF = dto.CPF,
-            PhoneNumber = dto.PhoneNumber
-        };
+        var cpfExists = await _context.Persons
+            .AnyAsync(p => p.CPF == dto.CPF);
+
+        if (cpfExists)
+            throw new Exception("CPF already registered.");
+
+        var person = _mapper.Map<Person>(dto);
 
         _context.Persons.Add(person);
         await _context.SaveChangesAsync();
