@@ -14,6 +14,7 @@ using backend.Services.Condominium;
 using backend.Services.Buildings;
 using backend.Services.Units;
 using backend.Services.Persons;
+using backend.Services.PersonUnits;
 
 DotEnv.Load();
 
@@ -29,16 +30,19 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>()
     .AddDefaultTokenProviders();
 
 builder.Services.AddAutoMapper(
+    typeof(AuthProfile),
     typeof(CondominiumProfile), 
     typeof(CondominiumProfile),
     typeof(UnitProfile),
-    typeof(PersonProfile));
+    typeof(PersonProfile),
+    typeof(PersonUnitProfile));
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICondominiumService, CondominiumService>();
 builder.Services.AddScoped<IBuildingService, BuildingService>();
 builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<IPersonService, PersonService>();
+builder.Services.AddScoped<IPersonUnitService, PersonUnitService>();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
