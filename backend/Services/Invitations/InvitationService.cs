@@ -122,6 +122,14 @@ public class InvitationService : IInvitationService
             CreatedAt = DateTime.UtcNow
         };
 
+        _context.UserCondominiums.Add(new UserCondominium
+        {
+            UserId = user.Id,
+            CondominiumId = invitation.CondominiumId,
+            Role = invitation.Role.ToString(),
+            CreatedAt = DateTime.UtcNow
+        });
+
         var result = await _userManager.CreateAsync(user, dto.Password);
 
         if (!result.Succeeded)
