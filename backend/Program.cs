@@ -15,6 +15,7 @@ using backend.Services.Buildings;
 using backend.Services.Units;
 using backend.Services.Persons;
 using backend.Services.PersonUnits;
+using backend.Middlewares;
 
 DotEnv.Load();
 
@@ -97,7 +98,6 @@ builder.Services.AddAuthentication(options =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -105,7 +105,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
+app.UseMiddleware<ExceptionMiddleware>();
 app.UseAuthorization();
 
 app.MapControllers();
