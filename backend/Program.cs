@@ -16,6 +16,7 @@ using backend.Services.Units;
 using backend.Services.Persons;
 using backend.Services.PersonUnits;
 using backend.Middlewares;
+using backend.Services.Invitations;
 
 DotEnv.Load();
 
@@ -36,7 +37,8 @@ builder.Services.AddAutoMapper(
     typeof(CondominiumProfile),
     typeof(UnitProfile),
     typeof(PersonProfile),
-    typeof(PersonUnitProfile));
+    typeof(PersonUnitProfile),
+    typeof(InvitationProfile));
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICondominiumService, CondominiumService>();
@@ -44,6 +46,7 @@ builder.Services.AddScoped<IBuildingService, BuildingService>();
 builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<IPersonService, PersonService>();
 builder.Services.AddScoped<IPersonUnitService, PersonUnitService>();
+builder.Services.AddScoped<IInvitationService, InvitationService>();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
@@ -107,7 +110,6 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseAuthorization();
-
 app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
