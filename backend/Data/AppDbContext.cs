@@ -24,6 +24,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<Invitation> Invitations { get; set; }
     public DbSet<Charge> Charges { get; set; }
     public DbSet<Payment> Payments { get; set; }
+    public DbSet<UserCondominium> UserCondominiums { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -76,5 +77,21 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
                 pu.RelationshipType
             })
             .IsUnique();
+
+        builder.Entity<UserCondominium>()
+            .HasIndex(uc => new { uc.UserId, uc.CondominiumId, uc.Role })
+            .IsUnique(); ;  
+
+        builder.Entity<UserCondominium>()
+            .HasOne(uc => uc.User)
+            .WithMany()
+            .HasForeignKey(uc => uc.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<UserCondominium>()
+            .HasOne(uc => uc.Condominium)
+            .WithMany()
+            .HasForeignKey(uc => uc.CondominiumId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }
