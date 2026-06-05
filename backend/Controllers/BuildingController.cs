@@ -48,7 +48,7 @@ public class BuildingsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize(Roles = AppRoles.Master)]
+    [Authorize(Roles = $"{AppRoles.Admin}")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateBuildingDto dto)
     {
         var updated = await _buildingService

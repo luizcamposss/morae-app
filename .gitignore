@@ -4,6 +4,7 @@
 /*.user
 *.suo
 *.rsuser
+./AI_CONTEXT.md
 
 # Visual Studio / VS Code
 .vs/

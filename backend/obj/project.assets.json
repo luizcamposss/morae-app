@@ -3192,19 +3192,19 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\159347624\\.nuget\\packages\\": {}
+    "C:\\Users\\luiz\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\159347624\\Documents\\morae-app\\backend\\backend.csproj",
+      "projectUniqueName": "C:\\Users\\luiz\\Documents\\morae-app\\backend\\backend.csproj",
       "projectName": "backend",
-      "projectPath": "C:\\Users\\159347624\\Documents\\morae-app\\backend\\backend.csproj",
-      "packagesPath": "C:\\Users\\159347624\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\159347624\\Documents\\morae-app\\backend\\obj\\",
+      "projectPath": "C:\\Users\\luiz\\Documents\\morae-app\\backend\\backend.csproj",
+      "packagesPath": "C:\\Users\\luiz\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\luiz\\Documents\\morae-app\\backend\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "C:\\Users\\159347624\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        "C:\\Users\\luiz\\AppData\\Roaming\\NuGet\\NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net8.0"
@@ -3283,7 +3283,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.302/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.418/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

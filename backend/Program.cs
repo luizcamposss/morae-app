@@ -34,7 +34,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>()
 builder.Services.AddAutoMapper(
     typeof(AuthProfile),
     typeof(CondominiumProfile), 
-    typeof(CondominiumProfile),
+    typeof(BuildingProfile),
     typeof(UnitProfile),
     typeof(PersonProfile),
     typeof(PersonUnitProfile),
@@ -108,8 +108,13 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
 app.UseMiddleware<ExceptionMiddleware>();
+
+app.UseAuthentication();
+
 app.UseAuthorization();
+
 app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
