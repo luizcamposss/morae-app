@@ -19,7 +19,7 @@ public class InvitationsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = AppRoles.Admin)]
+    [Authorize(Roles = $"{AppRoles.Master},{AppRoles.Admin}")]
     public async Task<IActionResult> Create([FromBody] CreateInvitationDto dto)
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);

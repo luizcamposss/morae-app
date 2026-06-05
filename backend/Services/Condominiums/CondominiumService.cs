@@ -36,7 +36,7 @@ public class CondominiumService : ICondominiumService
         condominium.UpdatedAt = DateTime.UtcNow;
 
         _context.Condominiums.Add(condominium);
-        _context.SaveChanges();
+        await _context.SaveChangesAsync();
 
         return _mapper.Map<CondominiumResponseDto>(condominium);
 

@@ -114,6 +114,8 @@ public class InvitationService : IInvitationService
         if (emailAlreadyUsed != null)
             throw new Exception("Email already registered.");
 
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
         var user = new ApplicationUser
         {
             UserName = dto.Email,
@@ -121,14 +123,6 @@ public class InvitationService : IInvitationService
             PersonId = invitation.PersonId,
             CreatedAt = DateTime.UtcNow
         };
-
-        _context.UserCondominiums.Add(new UserCondominium
-        {
-            UserId = user.Id,
-            CondominiumId = invitation.CondominiumId,
-            Role = invitation.Role.ToString(),
-            CreatedAt = DateTime.UtcNow
-        });
 
         var result = await _userManager.CreateAsync(user, dto.Password);
 
@@ -138,11 +132,26 @@ public class InvitationService : IInvitationService
             throw new Exception(errors);
         }
 
-        await _userManager.AddToRoleAsync(user, invitation.Role.ToString());
+        var roleResult = await _userManager.AddToRoleAsync(user, invitation.Role.ToString());
+
+        if (!roleResult.Succeeded)
+        {
+            var errors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
+            throw new Exception(errors);
+        }
+
+        _context.UserCondominiums.Add(new UserCondominium
+        {
+            UserId = user.Id,
+            CondominiumId = invitation.CondominiumId,
+            Role = invitation.Role.ToString(),
+            CreatedAt = DateTime.UtcNow
+        });
 
         invitation.InvitationStatus = InvitationStatus.Accepted;
         invitation.AcceptedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
     }
 }

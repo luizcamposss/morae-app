@@ -68,6 +68,8 @@ public class AuthService : IAuthService
         if (cpfExists)
             throw new Exception("CPF already registered.");
 
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
         var person = _mapper.Map<Person>(dto);
 
         _context.Persons.Add(person);
@@ -91,7 +93,18 @@ public class AuthService : IAuthService
             };
         }
 
-        await _userManager.AddToRoleAsync(user, dto.Role);
+        var roleResult = await _userManager.AddToRoleAsync(user, dto.Role);
+
+        if (!roleResult.Succeeded)
+        {
+            return new AuthResponseDto
+            {
+                Success = false,
+                Message = string.Join(" | ", roleResult.Errors.Select(e => e.Description))
+            };
+        }
+
+        await transaction.CommitAsync();
 
         return new AuthResponseDto
         {
