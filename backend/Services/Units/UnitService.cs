@@ -1,11 +1,8 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using AutoMapper;
 using backend.Data;
 using backend.DTOs.Unit;
 using backend.Models;
+using backend.Services.Permissions;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services.Units;
@@ -14,28 +11,35 @@ public class UnitService : IUnitService
 {
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
-
-    public UnitService(AppDbContext context, IMapper mapper)
+    private readonly IPermissionService _permissionService;
+    public UnitService(AppDbContext context, IMapper mapper, IPermissionService permissionService)
     {
         _context = context;
         _mapper = mapper;
+        _permissionService = permissionService;
     }
-
-    public async Task<UnitResponseDto> CreateAsync(int buildingId, CreateUnitDto dto)
+    public async Task<UnitResponseDto> CreateAsync(int userId,int buildingId,CreateUnitDto dto)
     {
-        var buildingExists = await _context.Buildings.AnyAsync(c => c.Id == buildingId);
+        var building = await _context.Buildings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(b => b.Id == buildingId);
 
-        if (!buildingExists)
-        {
-            throw new Exception("Building not found");
-        }
+        if (building is null)
+            throw new Exception("Building not found.");
 
-        var numberExists = await _context.Units.AnyAsync(c => c.BuildingId == buildingId && c.Number == dto.Number);
+        var hasAccess = await _permissionService
+            .HasBuildingAccessAsync(userId, buildingId);
+
+        if (!hasAccess)
+            throw new Exception("You do not have access to this building.");
+
+        var numberExists = await _context.Units
+            .AnyAsync(u =>
+                u.BuildingId == buildingId &&
+                u.Number == dto.Number);
 
         if (numberExists)
-        {
-            throw new Exception("Unit number already exists in this Building");
-        }
+            throw new Exception("Unit number already exists in this building.");
 
         var unit = _mapper.Map<Unit>(dto);
 
@@ -49,48 +53,66 @@ public class UnitService : IUnitService
         return _mapper.Map<UnitResponseDto>(unit);
     }
 
-    public async Task<IEnumerable<UnitResponseDto>> GetByBuildingAsync(int buildingId)
+    public async Task<IEnumerable<UnitResponseDto>> GetByBuildingAsync(int userId,int buildingId)
     {
-        var buildingExists = await _context.Buildings.AnyAsync(c => c.Id == buildingId);
+        var building = await _context.Buildings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(b => b.Id == buildingId);
 
-        if (!buildingExists)
-        {
-            throw new Exception("Building wasn't registered");
-        }
+        if (building is null)
+            throw new Exception("Building not found.");
+
+        var hasAccess = await _permissionService
+            .HasBuildingAccessAsync(userId, buildingId);
+
+        if (!hasAccess)
+            throw new Exception("You do not have access to this building.");
 
         var units = await _context.Units
             .AsNoTracking()
-            .Where(c => c.BuildingId == buildingId)
+            .Where(u => u.BuildingId == buildingId)
             .ToListAsync();
 
         return _mapper.Map<IEnumerable<UnitResponseDto>>(units);
     }
 
-    public async Task<UnitResponseDto?> GetByIdAsync(int id)
+    public async Task<UnitResponseDto?> GetByIdAsync(int userId,int unitId)
     {
         var unit = await _context.Units
-           .AsNoTracking()
-           .FirstOrDefaultAsync(b => b.Id == id);
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == unitId);
 
         if (unit is null)
             return null;
 
+        var hasAccess = await _permissionService
+            .HasUnitAccessAsync(userId, unitId);
+
+        if (!hasAccess)
+            throw new Exception("You do not have access to this unit.");
+
         return _mapper.Map<UnitResponseDto>(unit);
     }
 
-    public async Task<bool> UpdateAsync(int id, UpdateUnitDto dto)
+    public async Task<bool> UpdateAsync(int userId,int unitId,UpdateUnitDto dto)
     {
         var unit = await _context.Units
-            .FirstOrDefaultAsync(b => b.Id == id);
+            .FirstOrDefaultAsync(u => u.Id == unitId);
 
         if (unit is null)
             return false;
 
+        var hasAccess = await _permissionService
+            .HasUnitAccessAsync(userId, unitId);
+
+        if (!hasAccess)
+            throw new Exception("You do not have access to this unit.");
+
         var numberExists = await _context.Units
-            .AnyAsync(b =>
-                b.BuildingId == unit.BuildingId &&
-                b.Number == dto.Number &&
-                b.Id != id);
+            .AnyAsync(u =>
+                u.BuildingId == unit.BuildingId &&
+                u.Number == dto.Number &&
+                u.Id != unitId);
 
         if (numberExists)
             throw new Exception("Unit number already exists in this building.");
@@ -103,13 +125,20 @@ public class UnitService : IUnitService
 
         return true;
     }
-    public async Task<bool> DeleteAsync(int id)
+
+    public async Task<bool> DeleteAsync(int userId,int unitId)
     {
         var unit = await _context.Units
-            .FirstOrDefaultAsync(b => b.Id == id);
+            .FirstOrDefaultAsync(u => u.Id == unitId);
 
         if (unit is null)
             return false;
+
+        var hasAccess = await _permissionService
+            .HasUnitAccessAsync(userId, unitId);
+
+        if (!hasAccess)
+            throw new Exception("You do not have access to this unit.");
 
         _context.Units.Remove(unit);
         await _context.SaveChangesAsync();

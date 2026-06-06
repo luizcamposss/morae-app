@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using System.Security.Claims;
 using backend.Constants;
 using backend.DTOs.PersonUnit;
 using backend.Services.PersonUnits;
@@ -22,27 +19,33 @@ public class PersonUnitsController : ControllerBase
     }
 
     [HttpPost("api/units/{unitId}/persons")]
-    [Authorize(Roles = $"{AppRoles.Admin}")]
+    [Authorize(Roles = AppRoles.Admin)]
     public async Task<IActionResult> Create([FromRoute] int unitId, [FromBody] CreatePersonUnitDto dto)
     {
-        var personUnit = await _personUnitService.CreateAsync(unitId, dto);
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var personUnit = await _personUnitService.CreateAsync(userId, unitId, dto);
 
         return Created($"api/person-units/{personUnit.Id}", personUnit);
     }
-    
+
     [HttpGet("api/units/{unitId}/persons")]
     public async Task<IActionResult> GetByUnit([FromRoute] int unitId)
     {
-        var people = await _personUnitService.GetByUnitAsync(unitId);
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var people = await _personUnitService.GetByUnitAsync(userId, unitId);
 
         return Ok(people);
     }
 
     [HttpDelete("api/person-units/{id}")]
-    [Authorize(Roles = $"{AppRoles.Admin}")]
+    [Authorize(Roles = AppRoles.Admin)]
     public async Task<IActionResult> Delete([FromRoute] int id)
     {
-        var deleted = await _personUnitService.DeleteAsync(id);
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var deleted = await _personUnitService.DeleteAsync(userId, id);
 
         if (!deleted)
             return NotFound();

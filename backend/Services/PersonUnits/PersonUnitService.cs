@@ -2,6 +2,7 @@ using AutoMapper;
 using backend.Data;
 using backend.DTOs.PersonUnit;
 using backend.Models;
+using backend.Services.Permissions;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services.PersonUnits;
@@ -10,19 +11,26 @@ public class PersonUnitService : IPersonUnitService
 {
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
+    private readonly IPermissionService _permissionService;
 
-    public PersonUnitService(AppDbContext context, IMapper mapper)
+    public PersonUnitService(AppDbContext context, IMapper mapper, IPermissionService permissionService)
     {
         _context = context;
         _mapper = mapper;
+        _permissionService = permissionService;
     }
 
-    public async Task<PersonUnitResponseDto> CreateAsync(int unitId, CreatePersonUnitDto dto)
+    public async Task<PersonUnitResponseDto> CreateAsync(int userId, int unitId, CreatePersonUnitDto dto)
     {
         var unitExists = await _context.Units.AnyAsync(u => u.Id == unitId);
 
         if (!unitExists)
             throw new Exception("Unit not found.");
+
+        var hasAccess = await _permissionService.HasUnitAccessAsync(userId, unitId);
+
+        if (!hasAccess)
+            throw new Exception("You do not have access to this unit.");
 
         var personExists = await _context.Persons.AnyAsync(p => p.Id == dto.PersonId);
 
@@ -54,12 +62,17 @@ public class PersonUnitService : IPersonUnitService
         return _mapper.Map<PersonUnitResponseDto>(result);
     }
 
-    public async Task<IEnumerable<PersonUnitResponseDto>> GetByUnitAsync(int unitId)
+    public async Task<IEnumerable<PersonUnitResponseDto>> GetByUnitAsync(int userId, int unitId)
     {
         var unitExists = await _context.Units.AnyAsync(u => u.Id == unitId);
 
         if (!unitExists)
             throw new Exception("Unit not found.");
+
+        var hasAccess = await _permissionService.HasUnitAccessAsync(userId, unitId);
+
+        if (!hasAccess)
+            throw new Exception("You do not have access to this unit.");
 
         var people = await _context.PersonUnits
             .AsNoTracking()
@@ -71,13 +84,18 @@ public class PersonUnitService : IPersonUnitService
         return _mapper.Map<IEnumerable<PersonUnitResponseDto>>(people);
     }
 
-    public async Task<bool> DeleteAsync(int id)
+    public async Task<bool> DeleteAsync(int userId, int id)
     {
         var personUnit = await _context.PersonUnits
             .FirstOrDefaultAsync(pu => pu.Id == id);
 
         if (personUnit is null)
             return false;
+
+        var hasAccess = await _permissionService.HasUnitAccessAsync(userId, personUnit.UnitId);
+
+        if (!hasAccess)
+            throw new Exception("You do not have access to this unit.");
 
         _context.PersonUnits.Remove(personUnit);
         await _context.SaveChangesAsync();

@@ -3,6 +3,7 @@ using backend.Data;
 using backend.DTOs.Invitation;
 using backend.Enums;
 using backend.Models;
+using backend.Services.Permissions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,21 +14,28 @@ public class InvitationService : IInvitationService
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IPermissionService _permissionService;
 
-    public InvitationService(AppDbContext context, IMapper mapper, UserManager<ApplicationUser> userManager)
+    public InvitationService(AppDbContext context, IMapper mapper, UserManager<ApplicationUser> userManager, IPermissionService permissionService)
     {
         _context = context;
         _mapper = mapper;
         _userManager = userManager;
+        _permissionService = permissionService;
     }
 
-    public async Task<InvitationResponseDto> CreateAsync(CreateInvitationDto dto, int createdByUserId)
+    public async Task<InvitationResponseDto> CreateAsync(int userId, CreateInvitationDto dto)
     {
         var condominiumExists = await _context.Condominiums
             .AnyAsync(c => c.Id == dto.CondominiumId);
 
         if (!condominiumExists)
             throw new Exception("Condominium not found.");
+
+        var hasAccess = await _permissionService.HasCondominiumAccessAsync(userId, dto.CondominiumId);
+
+        if (!hasAccess)
+            throw new Exception("You do not have access to this condominium.");
 
         var personExists = await _context.Persons
             .AnyAsync(p => p.Id == dto.PersonId);
@@ -46,12 +54,12 @@ public class InvitationService : IInvitationService
 
         var emailAlreadyUsed = await _userManager.FindByEmailAsync(dto.Email);
 
-        if (emailAlreadyUsed != null)
+        if (emailAlreadyUsed is not null)
             throw new Exception("Email already registered.");
 
         var invitation = _mapper.Map<Invitation>(dto);
 
-        invitation.CreatedByUserId = createdByUserId;
+        invitation.CreatedByUserId = userId;
         invitation.Token = Guid.NewGuid().ToString("N");
         invitation.InvitationStatus = InvitationStatus.Pending;
         invitation.ExpiresAt = DateTime.UtcNow.AddDays(7);
@@ -95,7 +103,7 @@ public class InvitationService : IInvitationService
         if (invitation is null)
             throw new Exception("Invitation not found.");
 
-        if (invitation.InvitationStatus != InvitationStatus.Pending)
+        if (invitation.InvitationStatus is not InvitationStatus.Pending)
             throw new Exception("Invitation is not pending.");
 
         if (invitation.ExpiresAt < DateTime.UtcNow)
@@ -111,7 +119,7 @@ public class InvitationService : IInvitationService
 
         var emailAlreadyUsed = await _userManager.FindByEmailAsync(dto.Email);
 
-        if (emailAlreadyUsed != null)
+        if (emailAlreadyUsed is not null)
             throw new Exception("Email already registered.");
 
         await using var transaction = await _context.Database.BeginTransactionAsync();

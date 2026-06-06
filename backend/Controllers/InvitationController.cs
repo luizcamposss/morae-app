@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace backend.Controllers;
 
 [ApiController]
-[Route("api/[Controller]")]
+[Route("api/[controller]")]
 public class InvitationsController : ControllerBase
 {
     private readonly IInvitationService _invitationService;
@@ -24,12 +24,9 @@ public class InvitationsController : ControllerBase
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        var invitation = await _invitationService.CreateAsync(dto, userId);
+        var invitation = await _invitationService.CreateAsync(userId, dto);
 
-        return CreatedAtAction(
-            nameof(GetByToken),
-            new { token = invitation.Token },
-            invitation);
+        return CreatedAtAction(nameof(GetByToken), new { token = invitation.Token }, invitation);
     }
 
     [HttpGet("{token}")]
