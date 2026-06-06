@@ -1,7 +1,10 @@
 using AutoMapper;
+using backend.Constants;
 using backend.Data;
 using backend.DTOs.Person;
 using backend.Models;
+using backend.Services.Permissions;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services.Persons;
@@ -10,15 +13,51 @@ public class PersonService : IPersonService
 {
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
+    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IPermissionService _permissionService;
 
-    public PersonService(AppDbContext context,IMapper mapper)
+    public PersonService(AppDbContext context,IMapper mapper,UserManager<ApplicationUser> userManager,IPermissionService permissionService)
     {
         _context = context;
         _mapper = mapper;
+        _userManager = userManager;
+        _permissionService = permissionService;
     }
 
-    public async Task<PersonResponseDto> CreateAsync(CreatePersonDto dto)
+    public async Task<PersonResponseDto> CreateAsync(int userId, int? condominiumId, CreatePersonDto dto)
     {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+
+        if (user is null)
+            throw new Exception("User not found.");
+
+        var isMaster = await _userManager.IsInRoleAsync(user, AppRoles.Master);
+        var isAdmin = await _userManager.IsInRoleAsync(user, AppRoles.Admin);
+
+        if (!isMaster && !isAdmin)
+            throw new Exception("User cannot create persons.");
+
+        if (isAdmin)
+        {
+            if (condominiumId is null)
+                throw new Exception("Condominium is required to create a person.");
+
+            var hasAccess = await _permissionService
+                .HasCondominiumAccessAsync(userId, condominiumId.Value);
+
+            if (!hasAccess)
+                throw new Exception("You do not have access to this condominium.");
+        }
+
+        if (isMaster && condominiumId is not null)
+        {
+            var condominiumExists = await _context.Condominiums
+                .AnyAsync(c => c.Id == condominiumId.Value);
+
+            if (!condominiumExists)
+                throw new Exception("Condominium not found.");
+        }
+
         var cpfExists = await _context.Persons
             .AnyAsync(p => p.CPF == dto.CPF);
 
@@ -36,22 +75,89 @@ public class PersonService : IPersonService
         return _mapper.Map<PersonResponseDto>(person);
     }
 
-    public async Task<IEnumerable<PersonResponseDto>> GetAllAsync()
+    public async Task<IEnumerable<PersonResponseDto>> GetAllAsync(int userId)
     {
-        var persons = await _context.Persons
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+
+        if (user is null)
+            return Enumerable.Empty<PersonResponseDto>();
+
+        List<Person> persons;
+
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
+        {
+            persons = await _context.Persons
+                .AsNoTracking()
+                .ToListAsync();
+
+            return _mapper.Map<IEnumerable<PersonResponseDto>>(persons);
+        }
+
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
+        {
+            var condominiumIds = await _context.UserCondominiums
+                .AsNoTracking()
+                .Where(uc => uc.UserId == userId)
+                .Select(uc => uc.CondominiumId)
+                .ToListAsync();
+
+            var personIds = await _context.PersonUnits
+                .AsNoTracking()
+                .Where(pu => condominiumIds.Contains(pu.Unit.Building.CondominiumId))
+                .Select(pu => pu.PersonId)
+                .Distinct()
+                .ToListAsync();
+
+            persons = await _context.Persons
+                .AsNoTracking()
+                .Where(p => personIds.Contains(p.Id))
+                .ToListAsync();
+
+            return _mapper.Map<IEnumerable<PersonResponseDto>>(persons);
+        }
+
+        persons = await _context.Persons
             .AsNoTracking()
+            .Where(p => p.Id == user.PersonId)
             .ToListAsync();
 
         return _mapper.Map<IEnumerable<PersonResponseDto>>(persons);
     }
 
-    public async Task<PersonResponseDto?> GetByIdAsync(int id)
+    public async Task<PersonResponseDto?> GetByIdAsync(int userId, int personId)
     {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+
+        if (user is null)
+            return null;
+
         var person = await _context.Persons
             .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == id);
+            .FirstOrDefaultAsync(p => p.Id == personId);
 
         if (person is null)
+            return null;
+
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
+            return _mapper.Map<PersonResponseDto>(person);
+
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
+        {
+            var hasAccess = await _context.PersonUnits
+                .AsNoTracking()
+                .AnyAsync(pu =>
+                    pu.PersonId == personId &&
+                    _context.UserCondominiums.Any(uc =>
+                        uc.UserId == userId &&
+                        uc.CondominiumId == pu.Unit.Building.CondominiumId));
+
+            if (hasAccess)
+                return _mapper.Map<PersonResponseDto>(person);
+
+            return null;
+        }
+
+        if (user.PersonId != personId)
             return null;
 
         return _mapper.Map<PersonResponseDto>(person);

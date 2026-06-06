@@ -1,9 +1,8 @@
 services:
   morae-mysql:
     image: mysql:8.4
-    environment:
-      MYSQL_ROOT_PASSWORD: docker
-      MYSQL_DATABASE: moraeDB
+    env_file:
+      - ./backend/.env
     ports:
       - 3306:3306
     volumes:
