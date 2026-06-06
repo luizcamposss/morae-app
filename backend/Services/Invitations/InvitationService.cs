@@ -1,4 +1,5 @@
 using AutoMapper;
+using backend.Constants;
 using backend.Data;
 using backend.DTOs.Invitation;
 using backend.Enums;
@@ -26,6 +27,26 @@ public class InvitationService : IInvitationService
 
     public async Task<InvitationResponseDto> CreateAsync(int userId, CreateInvitationDto dto)
     {
+        var creator = await _userManager.FindByIdAsync(userId.ToString());
+
+        if (creator is null)
+            throw new Exception("User not found.");
+
+        var creatorIsMaster = await _userManager.IsInRoleAsync(creator, AppRoles.Master);
+        var creatorIsAdmin = await _userManager.IsInRoleAsync(creator, AppRoles.Admin);
+
+        if (dto.Role is UserRole.Undefined or UserRole.Master)
+            throw new Exception("Invalid invitation role.");
+
+        if (creatorIsMaster && dto.Role is not UserRole.Admin)
+            throw new Exception("Master users can only invite condominium admins.");
+
+        if (creatorIsAdmin && dto.Role is not UserRole.Syndic and not UserRole.Resident)
+            throw new Exception("Admin users can only invite syndics or residents.");
+
+        if (!creatorIsMaster && !creatorIsAdmin)
+            throw new Exception("User cannot create invitations.");
+
         var condominiumExists = await _context.Condominiums
             .AnyAsync(c => c.Id == dto.CondominiumId);
 
@@ -42,6 +63,12 @@ public class InvitationService : IInvitationService
 
         if (!personExists)
             throw new Exception("Person not found.");
+
+        var personAlreadyHasUser = await _context.Users
+            .AnyAsync(u => u.PersonId == dto.PersonId);
+
+        if (personAlreadyHasUser)
+            throw new Exception("Person already has a registered user.");
 
         var pendingInvitationExists = await _context.Invitations
             .AnyAsync(i =>
@@ -121,6 +148,12 @@ public class InvitationService : IInvitationService
 
         if (emailAlreadyUsed is not null)
             throw new Exception("Email already registered.");
+
+        var personAlreadyHasUser = await _context.Users
+            .AnyAsync(u => u.PersonId == invitation.PersonId);
+
+        if (personAlreadyHasUser)
+            throw new Exception("Person already has a registered user.");
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
 

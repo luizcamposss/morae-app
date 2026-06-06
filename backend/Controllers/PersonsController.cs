@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using backend.Constants;
 using backend.DTOs.Person;
 using backend.Services.Persons;
@@ -19,10 +20,26 @@ public class PersonsController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = $"{AppRoles.Master},{AppRoles.Admin}")]
+    [Authorize(Roles = AppRoles.Master)]
     public async Task<IActionResult> Create([FromBody] CreatePersonDto dto)
     {
-        var person = await _personService.CreateAsync(dto);
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var person = await _personService.CreateAsync(userId, null, dto);
+
+        return CreatedAtAction(
+            nameof(GetById),
+            new { id = person.Id },
+            person);
+    }
+
+    [HttpPost("/api/condominiums/{condominiumId}/persons")]
+    [Authorize(Roles = $"{AppRoles.Master},{AppRoles.Admin}")]
+    public async Task<IActionResult> CreateInCondominium([FromRoute] int condominiumId, [FromBody] CreatePersonDto dto)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var person = await _personService.CreateAsync(userId, condominiumId, dto);
 
         return CreatedAtAction(
             nameof(GetById),
@@ -33,7 +50,9 @@ public class PersonsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var persons = await _personService.GetAllAsync();
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var persons = await _personService.GetAllAsync(userId);
 
         return Ok(persons);
     }
@@ -41,7 +60,9 @@ public class PersonsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById([FromRoute] int id)
     {
-        var person = await _personService.GetByIdAsync(id);
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var person = await _personService.GetByIdAsync(userId, id);
 
         if (person is null)
             return NotFound();
