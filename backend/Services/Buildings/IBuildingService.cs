@@ -8,9 +8,9 @@ namespace backend.Services.Buildings;
 
 public interface IBuildingService
 {
-    Task<BuildingResponseDto> CreateAsync(int condominiumId, CreateBuildingDto dto);
-    Task<IEnumerable<BuildingResponseDto>> GetByCondominiumAsync(int condominiumId);
-    Task<BuildingResponseDto?> GetByIdAsync(int id);
-    Task<bool> UpdateAsync(int id, UpdateBuildingDto dto);
-    Task<bool> DeleteAsync(int id);
+    Task<BuildingResponseDto> CreateAsync(int userId, int condominiumId, CreateBuildingDto dto);
+    Task<IEnumerable<BuildingResponseDto>> GetByCondominiumAsync(int userId, int condominiumId);
+    Task<BuildingResponseDto?> GetByIdAsync(int userId, int buildingId);
+    Task<bool> UpdateAsync(int userId, int buildingId, UpdateBuildingDto dto);
+    Task<bool> DeleteAsync(int userId, int buildingId);
 }

@@ -17,6 +17,7 @@ using backend.Services.Persons;
 using backend.Services.PersonUnits;
 using backend.Middlewares;
 using backend.Services.Invitations;
+using backend.Services.Permissions;
 
 DotEnv.Load();
 
@@ -47,6 +48,7 @@ builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<IPersonService, PersonService>();
 builder.Services.AddScoped<IPersonUnitService, PersonUnitService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 

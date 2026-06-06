@@ -7,18 +7,21 @@ using backend.Data;
 using backend.DTOs.Building;
 using backend.Models;
 using backend.Services.Buildings;
+using backend.Services.Permissions;
 using Microsoft.EntityFrameworkCore;
 public class BuildingService : IBuildingService
 {
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
+    private readonly IPermissionService _permissionService;
 
-    public BuildingService(AppDbContext context, IMapper mapper)
+    public BuildingService(AppDbContext context, IMapper mapper, IPermissionService permissionService)
     {
         _context = context;
         _mapper = mapper;
+        _permissionService = permissionService;
     }
-    public async Task<BuildingResponseDto> CreateAsync(int condominiumId, CreateBuildingDto dto)
+    public async Task<BuildingResponseDto> CreateAsync(int userId, int condominiumId, CreateBuildingDto dto)
     {
         var condominiumExists = await _context.Condominiums.AnyAsync(c => c.Id == condominiumId);
 
@@ -26,6 +29,11 @@ public class BuildingService : IBuildingService
         {
             throw new Exception("Condominium not found");
         }
+
+        bool hasAccess = await _permissionService.HasCondominiumAccessAsync(userId, condominiumId);
+
+        if (!hasAccess)
+            throw new Exception("You do not have access to this condominium.");
 
         var codeExists = await _context.Buildings.AnyAsync(c => c.CondominiumId == condominiumId && c.Code == dto.Code);
 
@@ -45,9 +53,7 @@ public class BuildingService : IBuildingService
 
         return _mapper.Map<BuildingResponseDto>(building);
     }
-
-
-    public async Task<IEnumerable<BuildingResponseDto>> GetByCondominiumAsync(int condominiumId)
+    public async Task<IEnumerable<BuildingResponseDto>> GetByCondominiumAsync(int userId, int condominiumId)
     {
         var condominiumExists = await _context.Condominiums.AnyAsync(c => c.Id == condominiumId);
 
@@ -55,6 +61,11 @@ public class BuildingService : IBuildingService
         {
             throw new Exception("Condominium wasn't registered");
         }
+
+        bool hasAccess = await _permissionService.HasCondominiumAccessAsync(userId, condominiumId);
+
+        if (!hasAccess)
+            throw new Exception("You do not have access to this condominium.");
 
         var buildings = await _context.Buildings
             .AsNoTracking()
@@ -64,31 +75,41 @@ public class BuildingService : IBuildingService
         return _mapper.Map<IEnumerable<BuildingResponseDto>>(buildings);
     }
 
-    public async Task<BuildingResponseDto?> GetByIdAsync(int id)
+    public async Task<BuildingResponseDto?> GetByIdAsync(int userId, int buildingId)
     {
         var building = await _context.Buildings
             .AsNoTracking()
-            .FirstOrDefaultAsync(b => b.Id == id);
+            .FirstOrDefaultAsync(b => b.Id == buildingId);
 
         if (building is null)
             return null;
 
+        bool hasAccess = await _permissionService.HasBuildingAccessAsync(userId, buildingId);
+
+        if (!hasAccess)
+            throw new Exception("You do not have access to this building.");
+
         return _mapper.Map<BuildingResponseDto>(building);
     }
 
-    public async Task<bool> UpdateAsync(int id, UpdateBuildingDto dto)
+    public async Task<bool> UpdateAsync(int userId, int buildingId, UpdateBuildingDto dto)
     {
         var building = await _context.Buildings
-            .FirstOrDefaultAsync(b => b.Id == id);
+            .FirstOrDefaultAsync(b => b.Id == buildingId);
 
         if (building is null)
             return false;
+
+        bool hasAccess = await _permissionService.HasBuildingAccessAsync(userId, buildingId);
+
+        if (!hasAccess)
+            throw new Exception("You do not have access to this building.");
 
         var codeExists = await _context.Buildings
             .AnyAsync(b =>
                 b.CondominiumId == building.CondominiumId &&
                 b.Code == dto.Code &&
-                b.Id != id);
+                b.Id != buildingId);
 
         if (codeExists)
             throw new Exception("Building code already exists in this condominium.");
@@ -101,13 +122,18 @@ public class BuildingService : IBuildingService
 
         return true;
     }
-    public async Task<bool> DeleteAsync(int id)
+    public async Task<bool> DeleteAsync(int userId, int buildingId)
     {
         var building = await _context.Buildings
-            .FirstOrDefaultAsync(b => b.Id == id);
+            .FirstOrDefaultAsync(b => b.Id == buildingId);
 
         if (building is null)
             return false;
+
+        bool hasAccess = await _permissionService.HasBuildingAccessAsync(userId, buildingId);
+
+        if (!hasAccess)
+            throw new Exception("You do not have access to this building.");
 
         _context.Buildings.Remove(building);
         await _context.SaveChangesAsync();

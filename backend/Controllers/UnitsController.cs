@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using backend.Constants;
 using backend.DTOs.Unit;
 using backend.Services.Units;
@@ -16,30 +17,33 @@ public class UnitsController : ControllerBase
     {
         _unitService = unitService;
     }
-
     [HttpPost("/api/buildings/{buildingId}/units")]
-    [Authorize(Roles = $"{AppRoles.Admin}")]
+    [Authorize(Roles = AppRoles.Admin)]
     public async Task<IActionResult> Create([FromRoute] int buildingId, [FromBody] CreateUnitDto dto)
     {
-        var unit = await _unitService.CreateAsync(buildingId, dto);
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        return CreatedAtAction(nameof(GetById), new { id = unit.Id }, unit);
+        var unit = await _unitService.CreateAsync(userId, buildingId, dto);
+
+        return CreatedAtAction(nameof(GetById), new { unitId = unit.Id }, unit);
     }
 
     [HttpGet("/api/buildings/{buildingId}/units")]
     public async Task<IActionResult> GetAll([FromRoute] int buildingId)
     {
-        var units = await _unitService
-            .GetByBuildingAsync(buildingId);
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var units = await _unitService.GetByBuildingAsync(userId, buildingId);
 
         return Ok(units);
     }
 
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetById([FromRoute] int id)
+    [HttpGet("{unitId}")]
+    public async Task<IActionResult> GetById([FromRoute] int unitId)
     {
-        var unit = await _unitService
-            .GetByIdAsync(id);
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var unit = await _unitService.GetByIdAsync(userId, unitId);
 
         if (unit is null)
             return NotFound();
@@ -47,12 +51,13 @@ public class UnitsController : ControllerBase
         return Ok(unit);
     }
 
-    [HttpPut("{id}")]
-    [Authorize(Roles = $"{AppRoles.Admin}")]
-    public async Task<IActionResult> Update([FromRoute] int id, [FromBody] UpdateUnitDto dto)
+    [HttpPut("{unitId}")]
+    [Authorize(Roles = AppRoles.Admin)]
+    public async Task<IActionResult> Update([FromRoute] int unitId, [FromBody] UpdateUnitDto dto)
     {
-        var updated = await _unitService
-            .UpdateAsync(id, dto);
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var updated = await _unitService.UpdateAsync(userId, unitId, dto);
 
         if (!updated)
             return NotFound();
@@ -60,12 +65,13 @@ public class UnitsController : ControllerBase
         return NoContent();
     }
 
-    [HttpDelete("{id}")]
-    [Authorize(Roles = $"{AppRoles.Admin}")]
-    public async Task<IActionResult> Delete([FromRoute] int id)
+    [HttpDelete("{unitId}")]
+    [Authorize(Roles = AppRoles.Admin)]
+    public async Task<IActionResult> Delete([FromRoute] int unitId)
     {
-        var deleted = await _unitService
-            .DeleteAsync(id);
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var deleted = await _unitService.DeleteAsync(userId, unitId);
 
         if (!deleted)
             return NotFound();

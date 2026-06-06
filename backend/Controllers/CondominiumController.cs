@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Security.Claims;
 using backend.Constants;
 using backend.DTOs.Condominium;
@@ -12,7 +9,7 @@ namespace backend.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Roles = AppRoles.Master)]
 public class CondominiumController : ControllerBase
 {
     private readonly ICondominiumService _condominium;
@@ -21,8 +18,8 @@ public class CondominiumController : ControllerBase
     {
         _condominium = condominium;
     }
+
     [HttpPost]
-    [Authorize(Roles = AppRoles.Master)]
     public async Task<IActionResult> Create([FromBody] CreateCondominiumDto dto)
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -36,6 +33,7 @@ public class CondominiumController : ControllerBase
     public async Task<IActionResult> GetAll()
     {
         var condominiums = await _condominium.GetAllAsync();
+
         return Ok(condominiums);
     }
 
@@ -44,14 +42,13 @@ public class CondominiumController : ControllerBase
     {
         var condominium = await _condominium.GetByIdAsync(id);
 
-        if (condominium == null)
+        if (condominium is null)
             return NotFound();
 
         return Ok(condominium);
     }
 
     [HttpPut("{id}")]
-    [Authorize(Roles = AppRoles.Master)]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateCondominiumDto dto)
     {
         var updated = await _condominium.UpdateAsync(id, dto);
@@ -63,7 +60,6 @@ public class CondominiumController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = AppRoles.Master)]
     public async Task<IActionResult> Delete(int id)
     {
         var deleted = await _condominium.DeleteAsync(id);
