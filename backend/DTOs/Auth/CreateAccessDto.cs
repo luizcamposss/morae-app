@@ -2,19 +2,14 @@ using System.ComponentModel.DataAnnotations;
 
 namespace backend.DTOs.Auth;
 
-public class RegisterDto
+public class CreateAccessDto
 {
+    [Required]
+    public int PersonId { get; set; }
+
     [Required]
     [StringLength(100)]
     public string Name { get; set; } = string.Empty;
-
-    [Required]
-    [StringLength(11, MinimumLength = 11)]
-    public string CPF { get; set; } = string.Empty;
-
-    [Required]
-    [StringLength(20)]
-    public string PhoneNumber { get; set; } = string.Empty;
 
     [Required]
     [EmailAddress]
