@@ -24,9 +24,12 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
-    public async Task<IActionResult> Register([FromBody] RegisterDto dto)
+    [Authorize(Roles = $"{AppRoles.Master},{AppRoles.Admin}")]
+    public async Task<IActionResult> Register([FromBody] CreateAccessDto dto)
     {
-        var result = await _authService.RegisterAsync(dto);
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var result = await _authService.CreateAccessAsync(userId, dto);
 
         if (!result.Success)
         {

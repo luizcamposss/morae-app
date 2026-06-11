@@ -23,57 +23,55 @@ public class AuthService : IAuthService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly IConfiguration _configuration;
-    private readonly IMapper _mapper;
     public AuthService(AppDbContext context, UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration configuration, IMapper mapper)
     {
         _context = context;
         _userManager = userManager;
         _signInManager = signInManager;
         _configuration = configuration;
-        _mapper = mapper;
     }
-    public async Task<AuthResponseDto> RegisterAsync(RegisterDto dto)
+    public async Task<AuthResponseDto> CreateAccessAsync(int userId, CreateAccessDto dto)
     {
-        var roleExists = new[]
-        {
-            AppRoles.Master,
-            AppRoles.Admin,
-            AppRoles.Syndic,
-            AppRoles.Resident,
-        }.Contains(dto.Role);
+        var userCreator = await _userManager.FindByIdAsync(userId.ToString());
 
-        if (!roleExists)
+        if (userCreator is null)
+            throw new Exception("User not found.");
+
+        var isMaster = await _userManager.IsInRoleAsync(userCreator, AppRoles.Master);
+        var isAdmin = await _userManager.IsInRoleAsync(userCreator, AppRoles.Admin);
+
+        if (!isMaster && !isAdmin)
+            throw new Exception("User cannot create users.");
+
+        var allowedRoles = new[]
         {
-            return new AuthResponseDto
-            {
-                Success = false,
-                Message = "Role is invalid"
-            };
-        }
+        AppRoles.Admin,
+        AppRoles.Syndic,
+        AppRoles.Resident
+    };
+
+        if (!allowedRoles.Contains(dto.Role))
+            return new AuthResponseDto { Success = false, Message = "Role is invalid" };
+
+        if (!isMaster && dto.Role == AppRoles.Admin)
+            throw new Exception("Only Master can create Admin.");
+
+        var person = await _context.Persons
+            .FirstOrDefaultAsync(p => p.Id == dto.PersonId);
+
+        if (person is null)
+            throw new Exception("Person not found.");
+
+        var personAlreadyHasUser = await _context.Users
+            .AnyAsync(u => u.PersonId == dto.PersonId);
+
+        if (personAlreadyHasUser)
+            throw new Exception("This person already has access.");
 
         var emailAlreadyExists = await _userManager.FindByEmailAsync(dto.Email);
 
         if (emailAlreadyExists is not null)
-        {
-            return new AuthResponseDto
-            {
-                Success = false,
-                Message = "Email is already registered"
-            };
-        }
-
-        var cpfExists = await _context.Persons
-            .AnyAsync(p => p.CPF == dto.CPF);
-
-        if (cpfExists)
-            throw new Exception("CPF already registered.");
-
-        await using var transaction = await _context.Database.BeginTransactionAsync();
-
-        var person = _mapper.Map<Person>(dto);
-
-        _context.Persons.Add(person);
-        await _context.SaveChangesAsync();
+            return new AuthResponseDto { Success = false, Message = "Email is already registered" };
 
         var user = new ApplicationUser
         {
@@ -85,31 +83,25 @@ public class AuthService : IAuthService
         var result = await _userManager.CreateAsync(user, dto.Password);
 
         if (!result.Succeeded)
-        {
             return new AuthResponseDto
             {
                 Success = false,
                 Message = string.Join(" | ", result.Errors.Select(e => e.Description))
             };
-        }
 
         var roleResult = await _userManager.AddToRoleAsync(user, dto.Role);
 
         if (!roleResult.Succeeded)
-        {
             return new AuthResponseDto
             {
                 Success = false,
                 Message = string.Join(" | ", roleResult.Errors.Select(e => e.Description))
             };
-        }
-
-        await transaction.CommitAsync();
 
         return new AuthResponseDto
         {
             Success = true,
-            Message = "Usuário cadastrado com sucesso."
+            Message = "Acesso criado com sucesso."
         };
     }
 

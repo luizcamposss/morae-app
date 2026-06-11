@@ -11,7 +11,7 @@ namespace backend.Services;
 
 public interface IAuthService
 {
-    Task<AuthResponseDto> RegisterAsync(RegisterDto dto);
+    Task<AuthResponseDto> CreateAccessAsync(int userId, CreateAccessDto dto);
     Task<AuthResponseDto> LoginAsync(LoginDto dto);
     Task<string> GenerateJwtToken(ApplicationUser user);
 }
