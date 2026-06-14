@@ -80,7 +80,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
 
         builder.Entity<UserCondominium>()
             .HasIndex(uc => new { uc.UserId, uc.CondominiumId})
-            .IsUnique(); ;  
+            .IsUnique();
 
         builder.Entity<UserCondominium>()
             .HasOne(uc => uc.User)

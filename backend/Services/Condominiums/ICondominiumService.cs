@@ -4,6 +4,7 @@ namespace backend.Services.Condominium;
 
 public interface ICondominiumService
 {
+    Task<CondominiumResponseDto> OnboardAsync(CreateCondominiumOnboardingDto dto, int masterUserId);
     Task<CondominiumResponseDto> CreateAsync(CreateCondominiumDto dto, int userId);
     Task<IEnumerable<CondominiumResponseDto>> GetAllAsync();
     Task<CondominiumResponseDto?> GetByIdAsync(int id);
