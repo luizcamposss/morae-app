@@ -19,6 +19,17 @@ public class CondominiumController : ControllerBase
         _condominium = condominium;
     }
 
+    [HttpPost("onboarding")]
+    public async Task<IActionResult> Onboard([FromBody] CreateCondominiumOnboardingDto dto)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var condominium = await _condominium.OnboardAsync(dto, userId);
+
+        return CreatedAtAction(nameof(GetById), new { id = condominium.Id }, condominium);
+
+    }
+
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateCondominiumDto dto)
     {
