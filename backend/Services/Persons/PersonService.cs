@@ -122,39 +122,14 @@ public class PersonService : IPersonService
 
     public async Task<PersonResponseDto?> GetByIdAsync(int userId, int personId)
     {
-        var user = await _userManager.FindByIdAsync(userId.ToString());
-
-        if (user is null)
-            return null;
-
         var person = await _context.Persons
             .AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == personId);
 
         if (person is null)
             return null;
-
-        if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
-            return _mapper.Map<PersonResponseDto>(person);
-
-        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
-        {
-            var hasAccess = await _context.PersonUnits
-                .AsNoTracking()
-                .AnyAsync(pu =>
-                    pu.PersonId == personId &&
-                    _context.UserCondominiums.Any(uc =>
-                        uc.UserId == userId &&
-                        uc.CondominiumId == pu.Unit.Building.CondominiumId));
-
-            if (hasAccess)
-                return _mapper.Map<PersonResponseDto>(person);
-
-            return null;
-        }
-
-        if (user.PersonId != personId)
-            return null;
+            
+        await _permissionService.EnsurePersonAccessAsync(userId, personId);
 
         return _mapper.Map<PersonResponseDto>(person);
     }

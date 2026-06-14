@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using backend.Constants;
 using backend.Data;
 using backend.Models;
@@ -78,6 +74,36 @@ public class PermissionService : IPermissionService
 
         return await HasCondominiumAccessAsync(userId, unit.Building.CondominiumId);
     }
+    public async Task<bool> HasPersonAccessAsync(int userId, int personId)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+
+        if (user is null)
+            return false;
+
+        var personExists = await _context.Persons
+            .AsNoTracking()
+            .AnyAsync(p => p.Id == personId);
+
+        if (!personExists)
+            return false;
+
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
+            return true;
+
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
+        {
+            return await _context.PersonUnits
+                .AsNoTracking()
+                .AnyAsync(pu =>
+                    pu.PersonId == personId &&
+                    _context.UserCondominiums.Any(uc =>
+                        uc.UserId == userId &&
+                        uc.CondominiumId == pu.Unit.Building.CondominiumId));
+        }
+
+        return user.PersonId == personId;
+    }
     public async Task EnsureCondominiumAccessAsync(int userId, int condominiumId)
     {
         var hasAccess = await HasCondominiumAccessAsync(userId, condominiumId);
@@ -100,5 +126,13 @@ public class PermissionService : IPermissionService
 
         if (!hasAccess)
             throw new Exception("You do not have access to this unit.");
+    }
+
+    public async Task EnsurePersonAccessAsync(int userId, int personId)
+    {
+        var hasAccess = await HasPersonAccessAsync(userId, personId);
+
+        if (!hasAccess)
+            throw new Exception("You do not have access to this person.");
     }
 }
