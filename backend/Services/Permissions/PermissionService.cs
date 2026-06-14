@@ -21,6 +21,24 @@ public class PermissionService : IPermissionService
         _userManager = userManager;
     }
 
+    public async Task<bool> IsMasterAsync(int userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+
+        if (user is null)
+            return false;
+
+        return await _userManager.IsInRoleAsync(user, AppRoles.Master);
+    }
+
+    public async Task EnsureMasterAsync(int userId)
+    {
+        var isMaster = await IsMasterAsync(userId);
+
+        if (!isMaster)
+            throw new Exception("Only Master can perform this action.");
+    }
+
     public async Task<bool> HasCondominiumAccessAsync(int userId, int condominiumId)
     {
         var user = await _userManager.FindByIdAsync(userId.ToString());
@@ -59,5 +77,28 @@ public class PermissionService : IPermissionService
             return false;
 
         return await HasCondominiumAccessAsync(userId, unit.Building.CondominiumId);
+    }
+    public async Task EnsureCondominiumAccessAsync(int userId, int condominiumId)
+    {
+        var hasAccess = await HasCondominiumAccessAsync(userId, condominiumId);
+
+        if (!hasAccess)
+            throw new Exception("You do not have access to this condominium.");
+    }
+
+    public async Task EnsureBuildingAccessAsync(int userId, int buildingId)
+    {
+        var hasAccess = await HasBuildingAccessAsync(userId, buildingId);
+
+        if (!hasAccess)
+            throw new Exception("You do not have access to this building.");
+    }
+
+    public async Task EnsureUnitAccessAsync(int userId, int unitId)
+    {
+        var hasAccess = await HasUnitAccessAsync(userId, unitId);
+
+        if (!hasAccess)
+            throw new Exception("You do not have access to this unit.");
     }
 }

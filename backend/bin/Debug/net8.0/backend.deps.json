@@ -9,7 +9,7 @@
       "backend/1.0.0": {
         "dependencies": {
           "AutoMapper.Extensions.Microsoft.DependencyInjection": "12.0.1",
-          "Microsoft.AspNetCore.Authentication.JwtBearer": "8.0.27",
+          "Microsoft.AspNetCore.Authentication.JwtBearer": "8.0.28",
           "Microsoft.AspNetCore.Identity.EntityFrameworkCore": "8.0.27",
           "Microsoft.EntityFrameworkCore.Design": "8.0.27",
           "Pomelo.EntityFrameworkCore.MySql": "8.0.2",
@@ -59,14 +59,14 @@
           }
         }
       },
-      "Microsoft.AspNetCore.Authentication.JwtBearer/8.0.27": {
+      "Microsoft.AspNetCore.Authentication.JwtBearer/8.0.28": {
         "dependencies": {
           "Microsoft.IdentityModel.Protocols.OpenIdConnect": "7.1.2"
         },
         "runtime": {
           "lib/net8.0/Microsoft.AspNetCore.Authentication.JwtBearer.dll": {
-            "assemblyVersion": "8.0.27.0",
-            "fileVersion": "8.0.2726.23008"
+            "assemblyVersion": "8.0.28.0",
+            "fileVersion": "8.0.2826.26913"
           }
         }
       },
@@ -776,12 +776,12 @@
       "path": "humanizer.core/2.14.1",
       "hashPath": "humanizer.core.2.14.1.nupkg.sha512"
     },
-    "Microsoft.AspNetCore.Authentication.JwtBearer/8.0.27": {
+    "Microsoft.AspNetCore.Authentication.JwtBearer/8.0.28": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-OMYSRCQQyj2b2RxjIJqMg2kSRvN1X5VDk3tCHcR/gzQPMMiLQ04zUUH12ObFFdLj2zZAQq1E2A+owJCyKXXUrw==",
-      "path": "microsoft.aspnetcore.authentication.jwtbearer/8.0.27",
-      "hashPath": "microsoft.aspnetcore.authentication.jwtbearer.8.0.27.nupkg.sha512"
+      "sha512": "sha512-+G3RdPYOgWkeB+CCIsLHTmIUjqMeoqRG7VKMOL1cGrXJeXtDP6UN1V2NVKn4ucLAjo3yfPdA6VUmbiXpfHxwpQ==",
+      "path": "microsoft.aspnetcore.authentication.jwtbearer/8.0.28",
+      "hashPath": "microsoft.aspnetcore.authentication.jwtbearer.8.0.28.nupkg.sha512"
     },
     "Microsoft.AspNetCore.Cryptography.Internal/8.0.27": {
       "type": "package",
