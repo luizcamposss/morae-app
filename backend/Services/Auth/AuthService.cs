@@ -45,10 +45,10 @@ public class AuthService : IAuthService
 
         var allowedRoles = new[]
         {
-        AppRoles.Admin,
-        AppRoles.Syndic,
-        AppRoles.Resident
-    };
+            AppRoles.Admin,
+            AppRoles.Syndic,
+            AppRoles.Resident
+        };
 
         if (!allowedRoles.Contains(dto.Role))
             return new AuthResponseDto { Success = false, Message = "Role is invalid" };

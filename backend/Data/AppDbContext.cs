@@ -79,18 +79,18 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .IsUnique();
 
         builder.Entity<UserCondominium>()
-            .HasIndex(uc => new { uc.UserId, uc.CondominiumId, uc.Role })
+            .HasIndex(uc => new { uc.UserId, uc.CondominiumId})
             .IsUnique(); ;  
 
         builder.Entity<UserCondominium>()
             .HasOne(uc => uc.User)
-            .WithMany()
+            .WithMany(u => u.UserCondominiums)
             .HasForeignKey(uc => uc.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.Entity<UserCondominium>()
             .HasOne(uc => uc.Condominium)
-            .WithMany()
+            .WithMany(c => c.UserCondominiums)
             .HasForeignKey(uc => uc.CondominiumId)
             .OnDelete(DeleteBehavior.Cascade);
     }

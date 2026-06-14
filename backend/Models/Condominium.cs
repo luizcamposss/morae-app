@@ -48,6 +48,7 @@ public class Condominium
     public int CreatedByUserId { get; set; }
     public ApplicationUser CreatedByUser { get; set; } = null!;
     public ICollection<Building> Buildings { get; set; } = new List<Building>();
+    public ICollection<UserCondominium> UserCondominiums { get; set; } = [];
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

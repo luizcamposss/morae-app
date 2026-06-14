@@ -14,6 +14,7 @@ public class ApplicationUser : IdentityUser<int>
     [Required]
     public int PersonId { get; set; }
     public Person Person { get; set; } = null!;
+    public ICollection<UserCondominium> UserCondominiums { get; set; } = [];
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
