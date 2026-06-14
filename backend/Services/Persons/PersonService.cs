@@ -16,7 +16,7 @@ public class PersonService : IPersonService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IPermissionService _permissionService;
 
-    public PersonService(AppDbContext context,IMapper mapper,UserManager<ApplicationUser> userManager,IPermissionService permissionService)
+    public PersonService(AppDbContext context, IMapper mapper, UserManager<ApplicationUser> userManager, IPermissionService permissionService)
     {
         _context = context;
         _mapper = mapper;
@@ -42,11 +42,7 @@ public class PersonService : IPersonService
             if (condominiumId is null)
                 throw new Exception("Condominium is required to create a person.");
 
-            var hasAccess = await _permissionService
-                .HasCondominiumAccessAsync(userId, condominiumId.Value);
-
-            if (!hasAccess)
-                throw new Exception("You do not have access to this condominium.");
+            await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId.Value);
         }
 
         if (isMaster && condominiumId is not null)
@@ -163,8 +159,13 @@ public class PersonService : IPersonService
         return _mapper.Map<PersonResponseDto>(person);
     }
 
-    public async Task<bool> UpdateAsync(int id,UpdatePersonDto dto)
+    public async Task<bool> UpdateAsync(
+        int userId,
+        int id,
+        UpdatePersonDto dto)
     {
+        await _permissionService.EnsureMasterAsync(userId);
+
         var person = await _context.Persons
             .FirstOrDefaultAsync(p => p.Id == id);
 
@@ -187,8 +188,11 @@ public class PersonService : IPersonService
     }
 
     public async Task<bool> DeleteAsync(
+        int userId,
         int id)
     {
+        await _permissionService.EnsureMasterAsync(userId);
+
         var person = await _context.Persons
             .FirstOrDefaultAsync(p => p.Id == id);
 

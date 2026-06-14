@@ -27,11 +27,7 @@ public class UnitService : IUnitService
         if (building is null)
             throw new Exception("Building not found.");
 
-        var hasAccess = await _permissionService
-            .HasBuildingAccessAsync(userId, buildingId);
-
-        if (!hasAccess)
-            throw new Exception("You do not have access to this building.");
+        await _permissionService.EnsureBuildingAccessAsync(userId, buildingId);
 
         var numberExists = await _context.Units
             .AnyAsync(u =>
@@ -62,11 +58,7 @@ public class UnitService : IUnitService
         if (building is null)
             throw new Exception("Building not found.");
 
-        var hasAccess = await _permissionService
-            .HasBuildingAccessAsync(userId, buildingId);
-
-        if (!hasAccess)
-            throw new Exception("You do not have access to this building.");
+        await _permissionService.EnsureBuildingAccessAsync(userId, buildingId);
 
         var units = await _context.Units
             .AsNoTracking()
@@ -85,11 +77,7 @@ public class UnitService : IUnitService
         if (unit is null)
             return null;
 
-        var hasAccess = await _permissionService
-            .HasUnitAccessAsync(userId, unitId);
-
-        if (!hasAccess)
-            throw new Exception("You do not have access to this unit.");
+        await _permissionService.EnsureUnitAccessAsync(userId, unitId);
 
         return _mapper.Map<UnitResponseDto>(unit);
     }
@@ -102,11 +90,7 @@ public class UnitService : IUnitService
         if (unit is null)
             return false;
 
-        var hasAccess = await _permissionService
-            .HasUnitAccessAsync(userId, unitId);
-
-        if (!hasAccess)
-            throw new Exception("You do not have access to this unit.");
+        await _permissionService.EnsureUnitAccessAsync(userId, unitId);
 
         var numberExists = await _context.Units
             .AnyAsync(u =>
@@ -134,11 +118,7 @@ public class UnitService : IUnitService
         if (unit is null)
             return false;
 
-        var hasAccess = await _permissionService
-            .HasUnitAccessAsync(userId, unitId);
-
-        if (!hasAccess)
-            throw new Exception("You do not have access to this unit.");
+        await _permissionService.EnsureUnitAccessAsync(userId, unitId);
 
         _context.Units.Remove(unit);
         await _context.SaveChangesAsync();

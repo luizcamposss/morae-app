@@ -33,7 +33,6 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>()
     .AddDefaultTokenProviders();
 
 builder.Services.AddAutoMapper(
-    typeof(AuthProfile),
     typeof(CondominiumProfile), 
     typeof(BuildingProfile),
     typeof(UnitProfile),

@@ -53,10 +53,7 @@ public class InvitationService : IInvitationService
         if (!condominiumExists)
             throw new Exception("Condominium not found.");
 
-        var hasAccess = await _permissionService.HasCondominiumAccessAsync(userId, dto.CondominiumId);
-
-        if (!hasAccess)
-            throw new Exception("You do not have access to this condominium.");
+        await _permissionService.EnsureCondominiumAccessAsync(userId, dto.CondominiumId);
 
         var personExists = await _context.Persons
             .AnyAsync(p => p.Id == dto.PersonId);

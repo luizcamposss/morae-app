@@ -38,7 +38,7 @@ public class IdentitySeeder
         IConfiguration configuration)
     {
         var masterEmail = configuration["MasterUser:Email"];
-        var masterPassword = configuration["MasterPassword:Password"];
+        var masterPassword = configuration["MasterUser:Password"];
 
         if (string.IsNullOrWhiteSpace(masterEmail) || string.IsNullOrWhiteSpace(masterPassword))
             throw new InvalidOperationException("Master user credentials not configured.");

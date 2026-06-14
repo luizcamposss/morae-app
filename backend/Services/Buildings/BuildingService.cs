@@ -30,10 +30,7 @@ public class BuildingService : IBuildingService
             throw new Exception("Condominium not found");
         }
 
-        bool hasAccess = await _permissionService.HasCondominiumAccessAsync(userId, condominiumId);
-
-        if (!hasAccess)
-            throw new Exception("You do not have access to this condominium.");
+        await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
 
         var codeExists = await _context.Buildings.AnyAsync(c => c.CondominiumId == condominiumId && c.Code == dto.Code);
 
@@ -62,10 +59,7 @@ public class BuildingService : IBuildingService
             throw new Exception("Condominium wasn't registered");
         }
 
-        bool hasAccess = await _permissionService.HasCondominiumAccessAsync(userId, condominiumId);
-
-        if (!hasAccess)
-            throw new Exception("You do not have access to this condominium.");
+        await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
 
         var buildings = await _context.Buildings
             .AsNoTracking()
@@ -84,10 +78,7 @@ public class BuildingService : IBuildingService
         if (building is null)
             return null;
 
-        bool hasAccess = await _permissionService.HasBuildingAccessAsync(userId, buildingId);
-
-        if (!hasAccess)
-            throw new Exception("You do not have access to this building.");
+        await _permissionService.EnsureBuildingAccessAsync(userId, buildingId);
 
         return _mapper.Map<BuildingResponseDto>(building);
     }
@@ -100,10 +91,7 @@ public class BuildingService : IBuildingService
         if (building is null)
             return false;
 
-        bool hasAccess = await _permissionService.HasBuildingAccessAsync(userId, buildingId);
-
-        if (!hasAccess)
-            throw new Exception("You do not have access to this building.");
+        await _permissionService.EnsureBuildingAccessAsync(userId, buildingId);
 
         var codeExists = await _context.Buildings
             .AnyAsync(b =>
@@ -129,11 +117,8 @@ public class BuildingService : IBuildingService
 
         if (building is null)
             return false;
-
-        bool hasAccess = await _permissionService.HasBuildingAccessAsync(userId, buildingId);
-
-        if (!hasAccess)
-            throw new Exception("You do not have access to this building.");
+        
+        await _permissionService.EnsureBuildingAccessAsync(userId, buildingId);
 
         _context.Buildings.Remove(building);
         await _context.SaveChangesAsync();

@@ -76,7 +76,9 @@ public class PersonsController : ControllerBase
         [FromRoute] int id,
         [FromBody] UpdatePersonDto dto)
     {
-        var updated = await _personService.UpdateAsync(id, dto);
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var updated = await _personService.UpdateAsync(userId, id, dto);
 
         if (!updated)
             return NotFound();
@@ -88,7 +90,9 @@ public class PersonsController : ControllerBase
     [Authorize(Roles = AppRoles.Master)]
     public async Task<IActionResult> Delete([FromRoute] int id)
     {
-        var deleted = await _personService.DeleteAsync(id);
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var deleted = await _personService.DeleteAsync(userId, id);
 
         if (!deleted)
             return NotFound();

@@ -27,10 +27,7 @@ public class PersonUnitService : IPersonUnitService
         if (!unitExists)
             throw new Exception("Unit not found.");
 
-        var hasAccess = await _permissionService.HasUnitAccessAsync(userId, unitId);
-
-        if (!hasAccess)
-            throw new Exception("You do not have access to this unit.");
+        await _permissionService.EnsureUnitAccessAsync(userId, unitId);
 
         var personExists = await _context.Persons.AnyAsync(p => p.Id == dto.PersonId);
 
@@ -69,10 +66,7 @@ public class PersonUnitService : IPersonUnitService
         if (!unitExists)
             throw new Exception("Unit not found.");
 
-        var hasAccess = await _permissionService.HasUnitAccessAsync(userId, unitId);
-
-        if (!hasAccess)
-            throw new Exception("You do not have access to this unit.");
+        await _permissionService.EnsureUnitAccessAsync(userId, unitId);
 
         var people = await _context.PersonUnits
             .AsNoTracking()
@@ -92,10 +86,7 @@ public class PersonUnitService : IPersonUnitService
         if (personUnit is null)
             return false;
 
-        var hasAccess = await _permissionService.HasUnitAccessAsync(userId, personUnit.UnitId);
-
-        if (!hasAccess)
-            throw new Exception("You do not have access to this unit.");
+        await _permissionService.EnsureUnitAccessAsync(userId, personUnit.UnitId);
 
         _context.PersonUnits.Remove(personUnit);
         await _context.SaveChangesAsync();

@@ -11,6 +11,6 @@ public interface IPersonService
     Task<PersonResponseDto> CreateAsync(int userId, int? condominiumId, CreatePersonDto dto);
     Task<IEnumerable<PersonResponseDto>> GetAllAsync(int userId);
     Task<PersonResponseDto?> GetByIdAsync(int userId, int personId);
-    Task<bool> UpdateAsync(int id, UpdatePersonDto dto);
-    Task<bool> DeleteAsync(int id);
+    Task<bool> UpdateAsync(int userId, int id, UpdatePersonDto dto);
+    Task<bool> DeleteAsync(int userId, int id);
 }
