@@ -8,6 +8,9 @@ namespace backend.Services.Permissions;
 public interface IPermissionService
 {
     Task<bool> IsMasterAsync(int userId);
+    Task<bool> IsAdminAsync(int userId);
+    Task<bool> IsSyndicAsync(int userId);
+    Task<bool> IsResidentAsync(int userId);
 
     Task<bool> HasCondominiumAccessAsync(int userId, int condominiumId);
     Task<bool> HasBuildingAccessAsync(int userId, int buildingId);

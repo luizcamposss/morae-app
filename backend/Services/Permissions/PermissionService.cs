@@ -28,6 +28,36 @@ public class PermissionService : IPermissionService
         return await _userManager.IsInRoleAsync(user, AppRoles.Master);
     }
 
+    public async Task<bool> IsAdminAsync(int userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+
+        if (user is null)
+            return false;
+
+        return await _userManager.IsInRoleAsync(user, AppRoles.Admin);
+    }
+
+    public async Task<bool> IsSyndicAsync(int userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+
+        if (user is null)
+            return false;
+
+        return await _userManager.IsInRoleAsync(user, AppRoles.Syndic);
+    }
+
+    public async Task<bool> IsResidentAsync(int userId)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+
+        if (user is null)
+            return false;
+
+        return await _userManager.IsInRoleAsync(user, AppRoles.Resident);
+    }
+
     public async Task EnsureMasterAsync(int userId)
     {
         var isMaster = await IsMasterAsync(userId);
