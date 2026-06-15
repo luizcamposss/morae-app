@@ -13,5 +13,6 @@ public class UserCondominium
     public int CondominiumId { get; set; }
     public Condominium Condominium { get; set; } = null!;
     public string Role { get; set; } = string.Empty;
+    public ICollection<UserCondominiumPermission> Permissions { get; set; } = [];
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
