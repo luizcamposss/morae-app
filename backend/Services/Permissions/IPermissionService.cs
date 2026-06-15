@@ -11,15 +11,19 @@ public interface IPermissionService
     Task<bool> IsAdminAsync(int userId);
     Task<bool> IsSyndicAsync(int userId);
     Task<bool> IsResidentAsync(int userId);
+    Task<bool> IsCondominiumAdminAsync(int userId, int condominiumId);
 
     Task<bool> HasCondominiumAccessAsync(int userId, int condominiumId);
     Task<bool> HasBuildingAccessAsync(int userId, int buildingId);
     Task<bool> HasUnitAccessAsync(int userId, int unitId);
     Task<bool> HasPersonAccessAsync(int userId, int personId);
+    Task<bool> HasCondominiumPermissionAsync(int userId, int condominiumId, string permissionKey);
 
     Task EnsureMasterAsync(int userId);
+    Task EnsureCondominiumAdminAsync(int userId, int condominiumId);
     Task EnsureCondominiumAccessAsync(int userId, int condominiumId);
     Task EnsureBuildingAccessAsync(int userId, int buildingId);
     Task EnsureUnitAccessAsync(int userId, int unitId);
     Task EnsurePersonAccessAsync(int userId, int personId);
+    Task EnsureCondominiumPermissionAsync(int userId, int condominiumId, string permissionKey);
 }

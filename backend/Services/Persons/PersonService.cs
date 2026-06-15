@@ -90,7 +90,8 @@ public class PersonService : IPersonService
             return _mapper.Map<IEnumerable<PersonResponseDto>>(persons);
         }
 
-        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin) ||
+            await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
         {
             var condominiumIds = await _context.UserCondominiums
                 .AsNoTracking()
