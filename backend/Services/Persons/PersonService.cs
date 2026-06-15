@@ -2,6 +2,7 @@ using AutoMapper;
 using backend.Constants;
 using backend.Data;
 using backend.DTOs.Person;
+using backend.Exceptions;
 using backend.Models;
 using backend.Services.Permissions;
 using Microsoft.AspNetCore.Identity;
@@ -29,18 +30,18 @@ public class PersonService : IPersonService
         var user = await _userManager.FindByIdAsync(userId.ToString());
 
         if (user is null)
-            throw new Exception("User not found.");
+            throw new NotFoundException("User not found.");
 
         var isMaster = await _userManager.IsInRoleAsync(user, AppRoles.Master);
         var isAdmin = await _userManager.IsInRoleAsync(user, AppRoles.Admin);
 
         if (!isMaster && !isAdmin)
-            throw new Exception("User cannot create persons.");
+            throw new ForbiddenException("User cannot create persons.");
 
         if (isAdmin)
         {
             if (condominiumId is null)
-                throw new Exception("Condominium is required to create a person.");
+                throw new BadRequestException("Condominium is required to create a person.");
 
             await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId.Value);
         }
@@ -51,14 +52,14 @@ public class PersonService : IPersonService
                 .AnyAsync(c => c.Id == condominiumId.Value);
 
             if (!condominiumExists)
-                throw new Exception("Condominium not found.");
+                throw new NotFoundException("Condominium not found.");
         }
 
         var cpfExists = await _context.Persons
             .AnyAsync(p => p.CPF == dto.CPF);
 
         if (cpfExists)
-            throw new Exception("CPF already registered.");
+            throw new ConflictException("CPF already registered.");
 
         var person = _mapper.Map<Person>(dto);
 
@@ -151,7 +152,7 @@ public class PersonService : IPersonService
             .AnyAsync(p => p.CPF == dto.CPF && p.Id != id);
 
         if (cpfExists)
-            throw new Exception("CPF already registered.");
+            throw new ConflictException("CPF already registered.");
 
         _mapper.Map(dto, person);
 

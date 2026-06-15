@@ -6,8 +6,10 @@ using AutoMapper;
 using backend.Constants;
 using backend.Data;
 using backend.DTOs.Condominium;
+using backend.Exceptions;
 using backend.Models;
 using backend.Services.Condominium;
+using backend.Services.Permissions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -16,31 +18,35 @@ public class CondominiumService : ICondominiumService
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IPermissionService _permissionService;
 
-    public CondominiumService(AppDbContext context, IMapper mapper, UserManager<ApplicationUser> userManager)
+    public CondominiumService(AppDbContext context, IMapper mapper, UserManager<ApplicationUser> userManager, IPermissionService permissionService)
     {
         _context = context;
         _mapper = mapper;
         _userManager = userManager;
+        _permissionService = permissionService;
     }
-    public async Task<CondominiumResponseDto> OnboardAsync(CreateCondominiumOnboardingDto dto, int masterUserId)
+    public async Task<CondominiumResponseDto> OnboardAsync(int masterUserId, CreateCondominiumOnboardingDto dto)
     {
+        await _permissionService.EnsureMasterAsync(masterUserId);
+
         var cnpjExists = await _context.Condominiums
             .AnyAsync(c => c.CNPJ == dto.Condominium.CNPJ);
 
         if (cnpjExists)
-            throw new Exception("CNPJ already registered.");
+            throw new ConflictException("CNPJ already registered.");
 
         var cpfExists = await _context.Persons
             .AnyAsync(c => c.CPF == dto.Admin.CPF);
 
         if (cpfExists)
-            throw new Exception("CPF already registered.");
+            throw new ConflictException("CPF already registered.");
 
         var emailExists = await _userManager.FindByEmailAsync(dto.Admin.Email);
 
         if (emailExists is not null)
-            throw new Exception("Email already registered.");
+            throw new ConflictException("Email already registered.");
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -68,12 +74,12 @@ public class CondominiumService : ICondominiumService
         var createUserResult = await _userManager.CreateAsync(adminUser, dto.Admin.Password);
 
         if (!createUserResult.Succeeded)
-            throw new Exception(string.Join(" | ", createUserResult.Errors.Select(e => e.Description)));
+            throw new BadRequestException(string.Join(" | ", createUserResult.Errors.Select(e => e.Description)));
 
         var addRoleResult = await _userManager.AddToRoleAsync(adminUser, AppRoles.Admin);
 
         if (!addRoleResult.Succeeded)
-            throw new Exception(string.Join(" | ", addRoleResult.Errors.Select(e => e.Description)));
+            throw new BadRequestException(string.Join(" | ", addRoleResult.Errors.Select(e => e.Description)));
 
         var condominium = _mapper.Map<Condominium>(dto.Condominium);
 
@@ -100,13 +106,15 @@ public class CondominiumService : ICondominiumService
         return _mapper.Map<CondominiumResponseDto>(condominium);
     }
 
-    public async Task<CondominiumResponseDto> CreateAsync(CreateCondominiumDto dto, int userId)
+    public async Task<CondominiumResponseDto> CreateAsync(int userId, CreateCondominiumDto dto)
     {
+        await _permissionService.EnsureMasterAsync(userId);
+
         var cnpjExists = await _context.Condominiums.AnyAsync(c => c.CNPJ == dto.CNPJ);
 
         if (cnpjExists)
         {
-            throw new Exception("CNPJ already registered");
+            throw new ConflictException("CNPJ already registered");
         }
 
         var condominium = _mapper.Map<Condominium>(dto);
@@ -121,16 +129,20 @@ public class CondominiumService : ICondominiumService
         return _mapper.Map<CondominiumResponseDto>(condominium);
 
     }
-    public async Task<IEnumerable<CondominiumResponseDto>> GetAllAsync()
+    public async Task<IEnumerable<CondominiumResponseDto>> GetAllAsync(int userId)
     {
+        await _permissionService.EnsureMasterAsync(userId);
+
         var condominiums = await _context.Condominiums
             .AsNoTracking()
             .ToListAsync();
 
         return _mapper.Map<IEnumerable<CondominiumResponseDto>>(condominiums);
     }
-    public async Task<CondominiumResponseDto?> GetByIdAsync(int id)
+    public async Task<CondominiumResponseDto?> GetByIdAsync(int userId, int id)
     {
+        await _permissionService.EnsureMasterAsync(userId);
+
         var condominium = await _context.Condominiums
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == id);
@@ -139,8 +151,10 @@ public class CondominiumService : ICondominiumService
 
         return _mapper.Map<CondominiumResponseDto>(condominium);
     }
-    public async Task<bool> UpdateAsync(int id, UpdateCondominiumDto dto)
+    public async Task<bool> UpdateAsync(int userId, int id, UpdateCondominiumDto dto)
     {
+        await _permissionService.EnsureMasterAsync(userId);
+
         var condominium = await _context.Condominiums
             .FirstOrDefaultAsync(c => c.Id == id);
 
@@ -154,8 +168,10 @@ public class CondominiumService : ICondominiumService
 
         return true;
     }
-    public async Task<bool> DeleteAsync(int id)
+    public async Task<bool> DeleteAsync(int userId, int id)
     {
+        await _permissionService.EnsureMasterAsync(userId);
+
         var condominium = await _context.Condominiums
             .FirstOrDefaultAsync(c => c.Id == id);
 

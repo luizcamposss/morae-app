@@ -1,5 +1,6 @@
 using backend.Constants;
 using backend.Data;
+using backend.Exceptions;
 using backend.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -32,7 +33,7 @@ public class PermissionService : IPermissionService
         var isMaster = await IsMasterAsync(userId);
 
         if (!isMaster)
-            throw new Exception("Only Master can perform this action.");
+            throw new ForbiddenException("Only Master can perform this action.");
     }
 
     public async Task<bool> HasCondominiumAccessAsync(int userId, int condominiumId)
@@ -109,7 +110,7 @@ public class PermissionService : IPermissionService
         var hasAccess = await HasCondominiumAccessAsync(userId, condominiumId);
 
         if (!hasAccess)
-            throw new Exception("You do not have access to this condominium.");
+            throw new ForbiddenException("You do not have access to this condominium.");
     }
 
     public async Task EnsureBuildingAccessAsync(int userId, int buildingId)
@@ -117,7 +118,7 @@ public class PermissionService : IPermissionService
         var hasAccess = await HasBuildingAccessAsync(userId, buildingId);
 
         if (!hasAccess)
-            throw new Exception("You do not have access to this building.");
+            throw new ForbiddenException("You do not have access to this building.");
     }
 
     public async Task EnsureUnitAccessAsync(int userId, int unitId)
@@ -125,7 +126,7 @@ public class PermissionService : IPermissionService
         var hasAccess = await HasUnitAccessAsync(userId, unitId);
 
         if (!hasAccess)
-            throw new Exception("You do not have access to this unit.");
+            throw new ForbiddenException("You do not have access to this unit.");
     }
 
     public async Task EnsurePersonAccessAsync(int userId, int personId)
@@ -133,6 +134,6 @@ public class PermissionService : IPermissionService
         var hasAccess = await HasPersonAccessAsync(userId, personId);
 
         if (!hasAccess)
-            throw new Exception("You do not have access to this person.");
+            throw new ForbiddenException("You do not have access to this person.");
     }
 }

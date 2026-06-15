@@ -4,10 +4,10 @@ namespace backend.Services.Condominium;
 
 public interface ICondominiumService
 {
-    Task<CondominiumResponseDto> OnboardAsync(CreateCondominiumOnboardingDto dto, int masterUserId);
-    Task<CondominiumResponseDto> CreateAsync(CreateCondominiumDto dto, int userId);
-    Task<IEnumerable<CondominiumResponseDto>> GetAllAsync();
-    Task<CondominiumResponseDto?> GetByIdAsync(int id);
-    Task<bool> UpdateAsync(int id, UpdateCondominiumDto dto);
-    Task<bool> DeleteAsync(int id);
+    Task<CondominiumResponseDto> OnboardAsync(int masterUserId, CreateCondominiumOnboardingDto dto);
+    Task<CondominiumResponseDto> CreateAsync(int userId, CreateCondominiumDto dto);
+    Task<IEnumerable<CondominiumResponseDto>> GetAllAsync(int userId);
+    Task<CondominiumResponseDto?> GetByIdAsync(int userId, int id);
+    Task<bool> UpdateAsync(int userId, int id, UpdateCondominiumDto dto);
+    Task<bool> DeleteAsync(int userId, int id);
 }
