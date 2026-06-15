@@ -1,6 +1,7 @@
 using AutoMapper;
 using backend.Data;
 using backend.DTOs.Unit;
+using backend.Exceptions;
 using backend.Models;
 using backend.Services.Permissions;
 using Microsoft.EntityFrameworkCore;
@@ -25,7 +26,7 @@ public class UnitService : IUnitService
             .FirstOrDefaultAsync(b => b.Id == buildingId);
 
         if (building is null)
-            throw new Exception("Building not found.");
+            throw new NotFoundException("Building not found.");
 
         await _permissionService.EnsureBuildingAccessAsync(userId, buildingId);
 
@@ -35,7 +36,7 @@ public class UnitService : IUnitService
                 u.Number == dto.Number);
 
         if (numberExists)
-            throw new Exception("Unit number already exists in this building.");
+            throw new ConflictException("Unit number already exists in this building.");
 
         var unit = _mapper.Map<Unit>(dto);
 
@@ -56,7 +57,7 @@ public class UnitService : IUnitService
             .FirstOrDefaultAsync(b => b.Id == buildingId);
 
         if (building is null)
-            throw new Exception("Building not found.");
+            throw new NotFoundException("Building not found.");
 
         await _permissionService.EnsureBuildingAccessAsync(userId, buildingId);
 
@@ -99,7 +100,7 @@ public class UnitService : IUnitService
                 u.Id != unitId);
 
         if (numberExists)
-            throw new Exception("Unit number already exists in this building.");
+            throw new ConflictException("Unit number already exists in this building.");
 
         _mapper.Map(dto, unit);
 

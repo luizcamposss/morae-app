@@ -24,7 +24,7 @@ public class CondominiumController : ControllerBase
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        var condominium = await _condominium.OnboardAsync(dto, userId);
+        var condominium = await _condominium.OnboardAsync(userId, dto);
 
         return CreatedAtAction(nameof(GetById), new { id = condominium.Id }, condominium);
 
@@ -35,7 +35,7 @@ public class CondominiumController : ControllerBase
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        var condominium = await _condominium.CreateAsync(dto, userId);
+        var condominium = await _condominium.CreateAsync(userId, dto);
 
         return CreatedAtAction(nameof(GetById), new { id = condominium.Id }, condominium);
     }
@@ -43,7 +43,9 @@ public class CondominiumController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll()
     {
-        var condominiums = await _condominium.GetAllAsync();
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var condominiums = await _condominium.GetAllAsync(userId);
 
         return Ok(condominiums);
     }
@@ -51,7 +53,9 @@ public class CondominiumController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)
     {
-        var condominium = await _condominium.GetByIdAsync(id);
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var condominium = await _condominium.GetByIdAsync(userId, id);
 
         if (condominium is null)
             return NotFound();
@@ -62,7 +66,9 @@ public class CondominiumController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateCondominiumDto dto)
     {
-        var updated = await _condominium.UpdateAsync(id, dto);
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var updated = await _condominium.UpdateAsync(userId, id, dto);
 
         if (!updated)
             return NotFound();
@@ -73,7 +79,9 @@ public class CondominiumController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var deleted = await _condominium.DeleteAsync(id);
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var deleted = await _condominium.DeleteAsync(userId, id);
 
         if (!deleted)
             return NotFound();

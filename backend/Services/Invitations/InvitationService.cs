@@ -3,6 +3,7 @@ using backend.Constants;
 using backend.Data;
 using backend.DTOs.Invitation;
 using backend.Enums;
+using backend.Exceptions;
 using backend.Models;
 using backend.Services.Permissions;
 using Microsoft.AspNetCore.Identity;
@@ -30,28 +31,28 @@ public class InvitationService : IInvitationService
         var creator = await _userManager.FindByIdAsync(userId.ToString());
 
         if (creator is null)
-            throw new Exception("User not found.");
+            throw new NotFoundException("User not found.");
 
         var creatorIsMaster = await _userManager.IsInRoleAsync(creator, AppRoles.Master);
         var creatorIsAdmin = await _userManager.IsInRoleAsync(creator, AppRoles.Admin);
 
         if (dto.Role is UserRole.Undefined or UserRole.Master)
-            throw new Exception("Invalid invitation role.");
+            throw new BadRequestException("Invalid invitation role.");
 
         if (creatorIsMaster && dto.Role is not UserRole.Admin)
-            throw new Exception("Master users can only invite condominium admins.");
+            throw new ForbiddenException("Master users can only invite condominium admins.");
 
         if (creatorIsAdmin && dto.Role is not UserRole.Syndic and not UserRole.Resident)
-            throw new Exception("Admin users can only invite syndics or residents.");
+            throw new ForbiddenException("Admin users can only invite syndics or residents.");
 
         if (!creatorIsMaster && !creatorIsAdmin)
-            throw new Exception("User cannot create invitations.");
+            throw new ForbiddenException("User cannot create invitations.");
 
         var condominiumExists = await _context.Condominiums
             .AnyAsync(c => c.Id == dto.CondominiumId);
 
         if (!condominiumExists)
-            throw new Exception("Condominium not found.");
+            throw new NotFoundException("Condominium not found.");
 
         await _permissionService.EnsureCondominiumAccessAsync(userId, dto.CondominiumId);
 
@@ -59,13 +60,13 @@ public class InvitationService : IInvitationService
             .AnyAsync(p => p.Id == dto.PersonId);
 
         if (!personExists)
-            throw new Exception("Person not found.");
+            throw new NotFoundException("Person not found.");
 
         var personAlreadyHasUser = await _context.Users
             .AnyAsync(u => u.PersonId == dto.PersonId);
 
         if (personAlreadyHasUser)
-            throw new Exception("Person already has a registered user.");
+            throw new ConflictException("Person already has a registered user.");
 
         var pendingInvitationExists = await _context.Invitations
             .AnyAsync(i =>
@@ -74,12 +75,12 @@ public class InvitationService : IInvitationService
                 i.InvitationStatus == InvitationStatus.Pending);
 
         if (pendingInvitationExists)
-            throw new Exception("There is already a pending invitation for this person.");
+            throw new ConflictException("There is already a pending invitation for this person.");
 
         var emailAlreadyUsed = await _userManager.FindByEmailAsync(dto.Email);
 
         if (emailAlreadyUsed is not null)
-            throw new Exception("Email already registered.");
+            throw new ConflictException("Email already registered.");
 
         var invitation = _mapper.Map<Invitation>(dto);
 
@@ -111,10 +112,10 @@ public class InvitationService : IInvitationService
             return null;
 
         if (invitation.InvitationStatus != InvitationStatus.Pending)
-            throw new Exception("Invitation is not pending.");
+            throw new BadRequestException("Invitation is not pending.");
 
         if (invitation.ExpiresAt < DateTime.UtcNow)
-            throw new Exception("Invitation expired.");
+            throw new BadRequestException("Invitation expired.");
 
         return _mapper.Map<InvitationResponseDto>(invitation);
     }
@@ -125,32 +126,32 @@ public class InvitationService : IInvitationService
             .FirstOrDefaultAsync(i => i.Token == dto.Token);
 
         if (invitation is null)
-            throw new Exception("Invitation not found.");
+            throw new NotFoundException("Invitation not found.");
 
         if (invitation.InvitationStatus is not InvitationStatus.Pending)
-            throw new Exception("Invitation is not pending.");
+            throw new BadRequestException("Invitation is not pending.");
 
         if (invitation.ExpiresAt < DateTime.UtcNow)
         {
             invitation.InvitationStatus = InvitationStatus.Expired;
             await _context.SaveChangesAsync();
 
-            throw new Exception("Invitation expired.");
+            throw new BadRequestException("Invitation expired.");
         }
 
         if (!string.Equals(invitation.Email, dto.Email, StringComparison.OrdinalIgnoreCase))
-            throw new Exception("Email does not match invitation.");
+            throw new BadRequestException("Email does not match invitation.");
 
         var emailAlreadyUsed = await _userManager.FindByEmailAsync(dto.Email);
 
         if (emailAlreadyUsed is not null)
-            throw new Exception("Email already registered.");
+            throw new ConflictException("Email already registered.");
 
         var personAlreadyHasUser = await _context.Users
             .AnyAsync(u => u.PersonId == invitation.PersonId);
 
         if (personAlreadyHasUser)
-            throw new Exception("Person already has a registered user.");
+            throw new ConflictException("Person already has a registered user.");
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -167,7 +168,7 @@ public class InvitationService : IInvitationService
         if (!result.Succeeded)
         {
             var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-            throw new Exception(errors);
+            throw new BadRequestException(errors);
         }
 
         var roleResult = await _userManager.AddToRoleAsync(user, invitation.Role.ToString());
@@ -175,7 +176,7 @@ public class InvitationService : IInvitationService
         if (!roleResult.Succeeded)
         {
             var errors = string.Join(", ", roleResult.Errors.Select(e => e.Description));
-            throw new Exception(errors);
+            throw new BadRequestException(errors);
         }
 
         _context.UserCondominiums.Add(new UserCondominium

@@ -1,6 +1,7 @@
 using AutoMapper;
 using backend.Data;
 using backend.DTOs.PersonUnit;
+using backend.Exceptions;
 using backend.Models;
 using backend.Services.Permissions;
 using Microsoft.EntityFrameworkCore;
@@ -25,14 +26,14 @@ public class PersonUnitService : IPersonUnitService
         var unitExists = await _context.Units.AnyAsync(u => u.Id == unitId);
 
         if (!unitExists)
-            throw new Exception("Unit not found.");
+            throw new NotFoundException("Unit not found.");
 
         await _permissionService.EnsureUnitAccessAsync(userId, unitId);
 
         var personExists = await _context.Persons.AnyAsync(p => p.Id == dto.PersonId);
 
         if (!personExists)
-            throw new Exception("Person not found.");
+            throw new NotFoundException("Person not found.");
 
         var relationshipExists = await _context.PersonUnits.AnyAsync(pu =>
             pu.UnitId == unitId &&
@@ -40,7 +41,7 @@ public class PersonUnitService : IPersonUnitService
             pu.RelationshipType == dto.RelationshipType);
 
         if (relationshipExists)
-            throw new Exception("This person already has this relationship with this unit.");
+            throw new ConflictException("This person already has this relationship with this unit.");
 
         var personUnit = _mapper.Map<PersonUnit>(dto);
 
@@ -64,7 +65,7 @@ public class PersonUnitService : IPersonUnitService
         var unitExists = await _context.Units.AnyAsync(u => u.Id == unitId);
 
         if (!unitExists)
-            throw new Exception("Unit not found.");
+            throw new NotFoundException("Unit not found.");
 
         await _permissionService.EnsureUnitAccessAsync(userId, unitId);
 

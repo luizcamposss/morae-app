@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using AutoMapper;
 using backend.Data;
 using backend.DTOs.Building;
+using backend.Exceptions;
 using backend.Models;
 using backend.Services.Buildings;
 using backend.Services.Permissions;
@@ -27,7 +28,7 @@ public class BuildingService : IBuildingService
 
         if (!condominiumExists)
         {
-            throw new Exception("Condominium not found");
+            throw new NotFoundException("Condominium not found");
         }
 
         await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
@@ -36,7 +37,7 @@ public class BuildingService : IBuildingService
 
         if (codeExists)
         {
-            throw new Exception("Building code already exists in this condominium");
+            throw new ConflictException("Building code already exists in this condominium");
         }
 
         var building = _mapper.Map<Building>(dto);
@@ -56,7 +57,7 @@ public class BuildingService : IBuildingService
 
         if (!condominiumExists)
         {
-            throw new Exception("Condominium wasn't registered");
+            throw new NotFoundException("Condominium wasn't registered");
         }
 
         await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
@@ -100,7 +101,7 @@ public class BuildingService : IBuildingService
                 b.Id != buildingId);
 
         if (codeExists)
-            throw new Exception("Building code already exists in this condominium.");
+            throw new ConflictException("Building code already exists in this condominium.");
 
         _mapper.Map(dto, building);
 
