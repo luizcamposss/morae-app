@@ -139,6 +139,18 @@ public class CondominiumService : ICondominiumService
 
         return _mapper.Map<IEnumerable<CondominiumResponseDto>>(condominiums);
     }
+
+    public async Task<IEnumerable<CondominiumResponseDto>> GetMineAsync(int userId)
+    {
+        var condominiums = await _context.UserCondominiums
+            .AsNoTracking()
+            .Where(uc => uc.UserId == userId)
+            .Select(uc => uc.Condominium)
+            .ToListAsync();
+
+        return _mapper.Map<IEnumerable<CondominiumResponseDto>>(condominiums);
+    }
+
     public async Task<CondominiumResponseDto?> GetByIdAsync(int userId, int id)
     {
         await _permissionService.EnsureMasterAsync(userId);

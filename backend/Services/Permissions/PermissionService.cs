@@ -58,12 +58,30 @@ public class PermissionService : IPermissionService
         return await _userManager.IsInRoleAsync(user, AppRoles.Resident);
     }
 
+    public async Task<bool> IsCondominiumAdminAsync(int userId, int condominiumId)
+    {
+        return await _context.UserCondominiums
+            .AsNoTracking()
+            .AnyAsync(uc =>
+                uc.UserId == userId &&
+                uc.CondominiumId == condominiumId &&
+                uc.Role == AppRoles.Admin);
+    }
+
     public async Task EnsureMasterAsync(int userId)
     {
         var isMaster = await IsMasterAsync(userId);
 
         if (!isMaster)
             throw new ForbiddenException("Only Master can perform this action.");
+    }
+
+    public async Task EnsureCondominiumAdminAsync(int userId, int condominiumId)
+    {
+        var isCondominiumAdmin = await IsCondominiumAdminAsync(userId, condominiumId);
+
+        if (!isCondominiumAdmin)
+            throw new ForbiddenException("Only condominium admins can perform this action.");
     }
 
     public async Task<bool> HasCondominiumAccessAsync(int userId, int condominiumId)
@@ -122,7 +140,8 @@ public class PermissionService : IPermissionService
         if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
             return true;
 
-        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin) ||
+            await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
         {
             return await _context.PersonUnits
                 .AsNoTracking()
@@ -135,6 +154,39 @@ public class PermissionService : IPermissionService
 
         return user.PersonId == personId;
     }
+
+    public async Task<bool> HasCondominiumPermissionAsync(int userId, int condominiumId, string permissionKey)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+
+        if (user is null)
+            return false;
+
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
+            return true;
+
+        var userCondominium = await _context.UserCondominiums
+            .AsNoTracking()
+            .FirstOrDefaultAsync(uc =>
+                uc.UserId == userId &&
+                uc.CondominiumId == condominiumId);
+
+        if (userCondominium is null)
+            return false;
+
+        if (userCondominium.Role == AppRoles.Admin)
+            return true;
+
+        if (userCondominium.Role != AppRoles.Syndic)
+            return false;
+
+        return await _context.UserCondominiumPermissions
+            .AsNoTracking()
+            .AnyAsync(p =>
+                p.UserCondominiumId == userCondominium.Id &&
+                p.PermissionKey == permissionKey);
+    }
+
     public async Task EnsureCondominiumAccessAsync(int userId, int condominiumId)
     {
         var hasAccess = await HasCondominiumAccessAsync(userId, condominiumId);
@@ -165,5 +217,13 @@ public class PermissionService : IPermissionService
 
         if (!hasAccess)
             throw new ForbiddenException("You do not have access to this person.");
+    }
+
+    public async Task EnsureCondominiumPermissionAsync(int userId, int condominiumId, string permissionKey)
+    {
+        var hasPermission = await HasCondominiumPermissionAsync(userId, condominiumId, permissionKey);
+
+        if (!hasPermission)
+            throw new ForbiddenException("You do not have permission to perform this action.");
     }
 }

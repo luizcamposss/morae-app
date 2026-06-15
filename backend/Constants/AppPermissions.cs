@@ -8,4 +8,14 @@ public static class AppPermissions
     public const string ChargesMarkAsPaid = "charges.mark_as_paid";
     public const string DelinquencyView = "delinquency.view";
     public const string OccurrencesManage = "occurrences.manage";
+
+    public static readonly IReadOnlySet<string> All = new HashSet<string>
+    {
+        NewsCreate,
+        NewsEdit,
+        ChargesCreate,
+        ChargesMarkAsPaid,
+        DelinquencyView,
+        OccurrencesManage
+    };
 }
