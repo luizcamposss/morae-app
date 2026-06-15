@@ -91,9 +91,6 @@ public class PermissionService : IPermissionService
         if (user is null)
             return false;
 
-        if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
-            return true;
-
         return await _context.UserCondominiums
             .AnyAsync(uc =>
                 uc.UserId == userId &&
@@ -137,9 +134,6 @@ public class PermissionService : IPermissionService
         if (!personExists)
             return false;
 
-        if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
-            return true;
-
         if (await _userManager.IsInRoleAsync(user, AppRoles.Admin) ||
             await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
         {
@@ -161,9 +155,6 @@ public class PermissionService : IPermissionService
 
         if (user is null)
             return false;
-
-        if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
-            return true;
 
         var userCondominium = await _context.UserCondominiums
             .AsNoTracking()

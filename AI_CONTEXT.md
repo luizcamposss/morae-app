@@ -6,7 +6,7 @@ MORAE is a condominium management platform developed using ASP.NET Core Web API.
 
 Current stack:
 
-* ASP.NET Core 9
+* ASP.NET Core 8
 * Entity Framework Core
 * MySQL
 * ASP.NET Identity
