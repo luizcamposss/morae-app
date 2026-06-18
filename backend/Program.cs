@@ -19,6 +19,7 @@ using backend.Middlewares;
 using backend.Services.Invitations;
 using backend.Services.Permissions;
 using backend.Services.UserCondominiumPermissions;
+using backend.Services.UserCondominiumAccess;
 
 DotEnv.Load();
 
@@ -34,12 +35,13 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>()
     .AddDefaultTokenProviders();
 
 builder.Services.AddAutoMapper(
-    typeof(CondominiumProfile), 
+    typeof(CondominiumProfile),
     typeof(BuildingProfile),
     typeof(UnitProfile),
     typeof(PersonProfile),
     typeof(PersonUnitProfile),
-    typeof(InvitationProfile));
+    typeof(InvitationProfile),
+    typeof(UserCondominiumAccessProfile));
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICondominiumService, CondominiumService>();
@@ -50,6 +52,7 @@ builder.Services.AddScoped<IPersonUnitService, PersonUnitService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IUserCondominiumPermissionService, UserCondominiumPermissionService>();
+builder.Services.AddScoped<IUserCondominiumAccessService, UserCondominiumAccessService>();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 

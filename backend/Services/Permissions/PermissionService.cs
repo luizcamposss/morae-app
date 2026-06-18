@@ -1,5 +1,6 @@
 using backend.Constants;
 using backend.Data;
+using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
 using Microsoft.AspNetCore.Identity;
@@ -65,7 +66,8 @@ public class PermissionService : IPermissionService
             .AnyAsync(uc =>
                 uc.UserId == userId &&
                 uc.CondominiumId == condominiumId &&
-                uc.Role == AppRoles.Admin);
+                uc.Role == AppRoles.Admin &&
+                uc.Status == UserCondominiumStatus.Active);
     }
 
     public async Task EnsureMasterAsync(int userId)
@@ -91,13 +93,11 @@ public class PermissionService : IPermissionService
         if (user is null)
             return false;
 
-        if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
-            return true;
-
         return await _context.UserCondominiums
             .AnyAsync(uc =>
                 uc.UserId == userId &&
-                uc.CondominiumId == condominiumId);
+                uc.CondominiumId == condominiumId &&
+                uc.Status == UserCondominiumStatus.Active);
     }
 
     public async Task<bool> HasBuildingAccessAsync(int userId, int buildingId)
@@ -137,9 +137,6 @@ public class PermissionService : IPermissionService
         if (!personExists)
             return false;
 
-        if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
-            return true;
-
         if (await _userManager.IsInRoleAsync(user, AppRoles.Admin) ||
             await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
         {
@@ -149,7 +146,8 @@ public class PermissionService : IPermissionService
                     pu.PersonId == personId &&
                     _context.UserCondominiums.Any(uc =>
                         uc.UserId == userId &&
-                        uc.CondominiumId == pu.Unit.Building.CondominiumId));
+                        uc.CondominiumId == pu.Unit.Building.CondominiumId &&
+                        uc.Status == UserCondominiumStatus.Active));
         }
 
         return user.PersonId == personId;
@@ -162,14 +160,12 @@ public class PermissionService : IPermissionService
         if (user is null)
             return false;
 
-        if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
-            return true;
-
         var userCondominium = await _context.UserCondominiums
             .AsNoTracking()
             .FirstOrDefaultAsync(uc =>
                 uc.UserId == userId &&
-                uc.CondominiumId == condominiumId);
+                uc.CondominiumId == condominiumId &&
+                uc.Status == UserCondominiumStatus.Active);
 
         if (userCondominium is null)
             return false;
