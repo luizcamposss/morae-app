@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using backend.Enums;
 using backend.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -94,6 +95,16 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .WithMany(c => c.UserCondominiums)
             .HasForeignKey(uc => uc.CondominiumId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<UserCondominium>()
+            .Property(uc => uc.Status)
+            .HasDefaultValue(UserCondominiumStatus.Active);
+
+        builder.Entity<UserCondominium>()
+            .HasOne(uc => uc.SuspendedByUser)
+            .WithMany()
+            .HasForeignKey(uc => uc.SuspendedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.Entity<UserCondominiumPermission>()
             .HasIndex(p => new { p.UserCondominiumId, p.PermissionKey })
