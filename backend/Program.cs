@@ -20,6 +20,7 @@ using backend.Services.Invitations;
 using backend.Services.Permissions;
 using backend.Services.UserCondominiumPermissions;
 using backend.Services.UserCondominiumAccess;
+using backend.Services.News;
 
 DotEnv.Load();
 
@@ -41,6 +42,7 @@ builder.Services.AddAutoMapper(
     typeof(PersonProfile),
     typeof(PersonUnitProfile),
     typeof(InvitationProfile),
+    typeof(NewsProfile),
     typeof(UserCondominiumAccessProfile));
 
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -50,6 +52,7 @@ builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<IPersonService, PersonService>();
 builder.Services.AddScoped<IPersonUnitService, PersonUnitService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
+builder.Services.AddScoped<INewsService, NewsService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IUserCondominiumPermissionService, UserCondominiumPermissionService>();
 builder.Services.AddScoped<IUserCondominiumAccessService, UserCondominiumAccessService>();
