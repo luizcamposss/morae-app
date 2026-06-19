@@ -432,7 +432,7 @@ namespace backend.Migrations
                     b.Property<int?>("BuildingId")
                         .HasColumnType("int");
 
-                    b.Property<int>("CondominiumId")
+                    b.Property<int?>("CondominiumId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
@@ -444,6 +444,9 @@ namespace backend.Migrations
                         .HasColumnType("varchar(1000)");
 
                     b.Property<int>("Priority")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Scope")
                         .HasColumnType("int");
 
                     b.Property<int>("TargetAudience")
@@ -624,7 +627,21 @@ namespace backend.Migrations
 
                     b.Property<string>("Role")
                         .IsRequired()
-                        .HasColumnType("varchar(255)");
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
+                    b.Property<DateTime?>("SuspendedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("SuspendedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SuspensionReason")
+                        .HasColumnType("longtext");
 
                     b.Property<int>("UserId")
                         .HasColumnType("int");
@@ -633,10 +650,39 @@ namespace backend.Migrations
 
                     b.HasIndex("CondominiumId");
 
-                    b.HasIndex("UserId", "CondominiumId", "Role")
+                    b.HasIndex("SuspendedByUserId");
+
+                    b.HasIndex("UserId", "CondominiumId")
                         .IsUnique();
 
                     b.ToTable("UserCondominiums");
+                });
+
+            modelBuilder.Entity("backend.Models.UserCondominiumPermission", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("PermissionKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int>("UserCondominiumId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserCondominiumId", "PermissionKey")
+                        .IsUnique();
+
+                    b.ToTable("UserCondominiumPermissions");
                 });
 
             modelBuilder.Entity("Invitation", b =>
@@ -769,9 +815,7 @@ namespace backend.Migrations
 
                     b.HasOne("backend.Models.Condominium", "Condominium")
                         .WithMany()
-                        .HasForeignKey("CondominiumId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("CondominiumId");
 
                     b.HasOne("backend.Models.ApplicationUser", "User")
                         .WithMany()
@@ -830,20 +874,43 @@ namespace backend.Migrations
             modelBuilder.Entity("backend.Models.UserCondominium", b =>
                 {
                     b.HasOne("backend.Models.Condominium", "Condominium")
-                        .WithMany()
+                        .WithMany("UserCondominiums")
                         .HasForeignKey("CondominiumId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("backend.Models.ApplicationUser", "User")
+                    b.HasOne("backend.Models.ApplicationUser", "SuspendedByUser")
                         .WithMany()
+                        .HasForeignKey("SuspendedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("backend.Models.ApplicationUser", "User")
+                        .WithMany("UserCondominiums")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Condominium");
 
+                    b.Navigation("SuspendedByUser");
+
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("backend.Models.UserCondominiumPermission", b =>
+                {
+                    b.HasOne("backend.Models.UserCondominium", "UserCondominium")
+                        .WithMany("Permissions")
+                        .HasForeignKey("UserCondominiumId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("UserCondominium");
+                });
+
+            modelBuilder.Entity("backend.Models.ApplicationUser", b =>
+                {
+                    b.Navigation("UserCondominiums");
                 });
 
             modelBuilder.Entity("backend.Models.Building", b =>
@@ -854,11 +921,18 @@ namespace backend.Migrations
             modelBuilder.Entity("backend.Models.Condominium", b =>
                 {
                     b.Navigation("Buildings");
+
+                    b.Navigation("UserCondominiums");
                 });
 
             modelBuilder.Entity("backend.Models.Person", b =>
                 {
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("backend.Models.UserCondominium", b =>
+                {
+                    b.Navigation("Permissions");
                 });
 #pragma warning restore 612, 618
         }

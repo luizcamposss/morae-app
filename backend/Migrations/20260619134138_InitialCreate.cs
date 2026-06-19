@@ -47,7 +47,7 @@ namespace backend.Migrations
                     PhoneNumber = table.Column<string>(type: "varchar(20)", maxLength: 20, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
-                    UpdateAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
+                    UpdatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -290,12 +290,13 @@ namespace backend.Migrations
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
                     CondominiumId = table.Column<int>(type: "int", nullable: false),
+                    PersonId = table.Column<int>(type: "int", nullable: false),
                     CreatedByUserId = table.Column<int>(type: "int", nullable: false),
-                    Name = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false)
-                        .Annotation("MySql:CharSet", "utf8mb4"),
                     Email = table.Column<string>(type: "varchar(150)", maxLength: 150, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
                     Role = table.Column<int>(type: "int", nullable: false),
+                    Token = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
                     InvitationStatus = table.Column<int>(type: "int", nullable: false),
                     ExpiresAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
                     AcceptedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
@@ -316,6 +317,53 @@ namespace backend.Migrations
                         principalTable: "Condominiums",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Invitations_Persons_PersonId",
+                        column: x => x.PersonId,
+                        principalTable: "Persons",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "UserCondominiums",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                    UserId = table.Column<int>(type: "int", nullable: false),
+                    CondominiumId = table.Column<int>(type: "int", nullable: false),
+                    Role = table.Column<string>(type: "longtext", nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false),
+                    Status = table.Column<int>(type: "int", nullable: false, defaultValue: 1),
+                    SuspendedAt = table.Column<DateTime>(type: "datetime(6)", nullable: true),
+                    SuspendedByUserId = table.Column<int>(type: "int", nullable: true),
+                    SuspensionReason = table.Column<string>(type: "longtext", nullable: true)
+                        .Annotation("MySql:CharSet", "utf8mb4")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserCondominiums", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_UserCondominiums_AspNetUsers_SuspendedByUserId",
+                        column: x => x.SuspendedByUserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_UserCondominiums_AspNetUsers_UserId",
+                        column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_UserCondominiums_Condominiums_CondominiumId",
+                        column: x => x.CondominiumId,
+                        principalTable: "Condominiums",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
@@ -326,7 +374,8 @@ namespace backend.Migrations
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
                     UserId = table.Column<int>(type: "int", nullable: false),
-                    CondominiumId = table.Column<int>(type: "int", nullable: false),
+                    CondominiumId = table.Column<int>(type: "int", nullable: true),
+                    Scope = table.Column<int>(type: "int", nullable: false),
                     BuildingId = table.Column<int>(type: "int", nullable: true),
                     Title = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false)
                         .Annotation("MySql:CharSet", "utf8mb4"),
@@ -354,8 +403,7 @@ namespace backend.Migrations
                         name: "FK_News_Condominiums_CondominiumId",
                         column: x => x.CondominiumId,
                         principalTable: "Condominiums",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        principalColumn: "Id");
                 })
                 .Annotation("MySql:CharSet", "utf8mb4");
 
@@ -384,6 +432,29 @@ namespace backend.Migrations
                         name: "FK_Units_Buildings_BuildingId",
                         column: x => x.BuildingId,
                         principalTable: "Buildings",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                })
+                .Annotation("MySql:CharSet", "utf8mb4");
+
+            migrationBuilder.CreateTable(
+                name: "UserCondominiumPermissions",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("MySql:ValueGenerationStrategy", MySqlValueGenerationStrategy.IdentityColumn),
+                    UserCondominiumId = table.Column<int>(type: "int", nullable: false),
+                    PermissionKey = table.Column<string>(type: "varchar(100)", maxLength: 100, nullable: false)
+                        .Annotation("MySql:CharSet", "utf8mb4"),
+                    CreatedAt = table.Column<DateTime>(type: "datetime(6)", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserCondominiumPermissions", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_UserCondominiumPermissions_UserCondominiums_UserCondominiumId",
+                        column: x => x.UserCondominiumId,
+                        principalTable: "UserCondominiums",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 })
@@ -543,6 +614,11 @@ namespace backend.Migrations
                 column: "CreatedByUserId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Invitations_PersonId",
+                table: "Invitations",
+                column: "PersonId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_News_BuildingId",
                 table: "News",
                 column: "BuildingId");
@@ -563,9 +639,16 @@ namespace backend.Migrations
                 column: "ChargeId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_PersonUnits_PersonId",
+                name: "IX_Persons_CPF",
+                table: "Persons",
+                column: "CPF",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PersonUnits_PersonId_UnitId_RelationshipType",
                 table: "PersonUnits",
-                column: "PersonId");
+                columns: new[] { "PersonId", "UnitId", "RelationshipType" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_PersonUnits_UnitId",
@@ -576,6 +659,28 @@ namespace backend.Migrations
                 name: "IX_Units_BuildingId_Number",
                 table: "Units",
                 columns: new[] { "BuildingId", "Number" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserCondominiumPermissions_UserCondominiumId_PermissionKey",
+                table: "UserCondominiumPermissions",
+                columns: new[] { "UserCondominiumId", "PermissionKey" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserCondominiums_CondominiumId",
+                table: "UserCondominiums",
+                column: "CondominiumId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserCondominiums_SuspendedByUserId",
+                table: "UserCondominiums",
+                column: "SuspendedByUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserCondominiums_UserId_CondominiumId",
+                table: "UserCondominiums",
+                columns: new[] { "UserId", "CondominiumId" },
                 unique: true);
         }
 
@@ -610,10 +715,16 @@ namespace backend.Migrations
                 name: "PersonUnits");
 
             migrationBuilder.DropTable(
+                name: "UserCondominiumPermissions");
+
+            migrationBuilder.DropTable(
                 name: "AspNetRoles");
 
             migrationBuilder.DropTable(
                 name: "Charges");
+
+            migrationBuilder.DropTable(
+                name: "UserCondominiums");
 
             migrationBuilder.DropTable(
                 name: "Units");

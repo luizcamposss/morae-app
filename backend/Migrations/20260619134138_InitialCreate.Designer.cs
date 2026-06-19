@@ -12,7 +12,7 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260531011127_InitialCreate")]
+    [Migration("20260619134138_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -24,6 +24,58 @@ namespace backend.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
+
+            modelBuilder.Entity("Invitation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("AcceptedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CondominiumId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("InvitationStatus")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PersonId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Role")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CondominiumId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("PersonId");
+
+                    b.ToTable("Invitations");
+                });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<int>", b =>
                 {
@@ -372,55 +424,6 @@ namespace backend.Migrations
                     b.ToTable("Condominiums");
                 });
 
-            modelBuilder.Entity("backend.Models.Invitation", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime?>("AcceptedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("CondominiumId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("CreatedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("varchar(150)");
-
-                    b.Property<DateTime?>("ExpiresAt")
-                        .IsRequired()
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("InvitationStatus")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)");
-
-                    b.Property<int>("Role")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CondominiumId");
-
-                    b.HasIndex("CreatedByUserId");
-
-                    b.ToTable("Invitations");
-                });
-
             modelBuilder.Entity("backend.Models.News", b =>
                 {
                     b.Property<int>("Id")
@@ -432,7 +435,7 @@ namespace backend.Migrations
                     b.Property<int?>("BuildingId")
                         .HasColumnType("int");
 
-                    b.Property<int>("CondominiumId")
+                    b.Property<int?>("CondominiumId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
@@ -444,6 +447,9 @@ namespace backend.Migrations
                         .HasColumnType("varchar(1000)");
 
                     b.Property<int>("Priority")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Scope")
                         .HasColumnType("int");
 
                     b.Property<int>("TargetAudience")
@@ -521,10 +527,13 @@ namespace backend.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
-                    b.Property<DateTime>("UpdateAt")
+                    b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CPF")
+                        .IsUnique();
 
                     b.ToTable("Persons");
                 });
@@ -551,9 +560,10 @@ namespace backend.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PersonId");
-
                     b.HasIndex("UnitId");
+
+                    b.HasIndex("PersonId", "UnitId", "RelationshipType")
+                        .IsUnique();
 
                     b.ToTable("PersonUnits");
                 });
@@ -602,6 +612,107 @@ namespace backend.Migrations
                         .IsUnique();
 
                     b.ToTable("Units");
+                });
+
+            modelBuilder.Entity("backend.Models.UserCondominium", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CondominiumId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
+                    b.Property<DateTime?>("SuspendedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("SuspendedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SuspensionReason")
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CondominiumId");
+
+                    b.HasIndex("SuspendedByUserId");
+
+                    b.HasIndex("UserId", "CondominiumId")
+                        .IsUnique();
+
+                    b.ToTable("UserCondominiums");
+                });
+
+            modelBuilder.Entity("backend.Models.UserCondominiumPermission", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("PermissionKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int>("UserCondominiumId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserCondominiumId", "PermissionKey")
+                        .IsUnique();
+
+                    b.ToTable("UserCondominiumPermissions");
+                });
+
+            modelBuilder.Entity("Invitation", b =>
+                {
+                    b.HasOne("backend.Models.Condominium", "Condominium")
+                        .WithMany()
+                        .HasForeignKey("CondominiumId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.ApplicationUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Person", "Person")
+                        .WithMany()
+                        .HasForeignKey("PersonId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Condominium");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("Person");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
@@ -699,25 +810,6 @@ namespace backend.Migrations
                     b.Navigation("CreatedByUser");
                 });
 
-            modelBuilder.Entity("backend.Models.Invitation", b =>
-                {
-                    b.HasOne("backend.Models.Condominium", "Condominium")
-                        .WithMany()
-                        .HasForeignKey("CondominiumId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("backend.Models.ApplicationUser", "CreatedByUser")
-                        .WithMany()
-                        .HasForeignKey("CreatedByUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Condominium");
-
-                    b.Navigation("CreatedByUser");
-                });
-
             modelBuilder.Entity("backend.Models.News", b =>
                 {
                     b.HasOne("backend.Models.Building", "Building")
@@ -726,9 +818,7 @@ namespace backend.Migrations
 
                     b.HasOne("backend.Models.Condominium", "Condominium")
                         .WithMany()
-                        .HasForeignKey("CondominiumId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("CondominiumId");
 
                     b.HasOne("backend.Models.ApplicationUser", "User")
                         .WithMany()
@@ -784,6 +874,48 @@ namespace backend.Migrations
                     b.Navigation("Building");
                 });
 
+            modelBuilder.Entity("backend.Models.UserCondominium", b =>
+                {
+                    b.HasOne("backend.Models.Condominium", "Condominium")
+                        .WithMany("UserCondominiums")
+                        .HasForeignKey("CondominiumId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.ApplicationUser", "SuspendedByUser")
+                        .WithMany()
+                        .HasForeignKey("SuspendedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("backend.Models.ApplicationUser", "User")
+                        .WithMany("UserCondominiums")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Condominium");
+
+                    b.Navigation("SuspendedByUser");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("backend.Models.UserCondominiumPermission", b =>
+                {
+                    b.HasOne("backend.Models.UserCondominium", "UserCondominium")
+                        .WithMany("Permissions")
+                        .HasForeignKey("UserCondominiumId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("UserCondominium");
+                });
+
+            modelBuilder.Entity("backend.Models.ApplicationUser", b =>
+                {
+                    b.Navigation("UserCondominiums");
+                });
+
             modelBuilder.Entity("backend.Models.Building", b =>
                 {
                     b.Navigation("Units");
@@ -792,11 +924,18 @@ namespace backend.Migrations
             modelBuilder.Entity("backend.Models.Condominium", b =>
                 {
                     b.Navigation("Buildings");
+
+                    b.Navigation("UserCondominiums");
                 });
 
             modelBuilder.Entity("backend.Models.Person", b =>
                 {
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("backend.Models.UserCondominium", b =>
+                {
+                    b.Navigation("Permissions");
                 });
 #pragma warning restore 612, 618
         }
