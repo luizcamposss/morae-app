@@ -5,6 +5,6 @@ public enum ChargeStatus
     Undefined = 0,
     Pending = 1,
     Paid = 2,
-    Expired = 3,
+    Overdue = 3,
     Canceled = 4
 }

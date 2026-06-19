@@ -21,6 +21,7 @@ using backend.Services.Permissions;
 using backend.Services.UserCondominiumPermissions;
 using backend.Services.UserCondominiumAccess;
 using backend.Services.News;
+using backend.Services.Charges;
 
 DotEnv.Load();
 
@@ -36,6 +37,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>()
     .AddDefaultTokenProviders();
 
 builder.Services.AddAutoMapper(
+    typeof(ChargeProfile),
     typeof(CondominiumProfile),
     typeof(BuildingProfile),
     typeof(UnitProfile),
@@ -46,6 +48,7 @@ builder.Services.AddAutoMapper(
     typeof(UserCondominiumAccessProfile));
 
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IChargeService, ChargeService>();
 builder.Services.AddScoped<ICondominiumService, CondominiumService>();
 builder.Services.AddScoped<IBuildingService, BuildingService>();
 builder.Services.AddScoped<IUnitService, UnitService>();

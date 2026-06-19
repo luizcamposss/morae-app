@@ -81,7 +81,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .IsUnique();
 
         builder.Entity<UserCondominium>()
-            .HasIndex(uc => new { uc.UserId, uc.CondominiumId})
+            .HasIndex(uc => new { uc.UserId, uc.CondominiumId })
             .IsUnique();
 
         builder.Entity<UserCondominium>()
@@ -115,5 +115,33 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .WithMany(uc => uc.Permissions)
             .HasForeignKey(p => p.UserCondominiumId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Charge>()
+            .HasOne(c => c.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(c => c.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Charge>()
+            .HasOne(c => c.TargetUser)
+            .WithMany()
+            .HasForeignKey(c => c.TargetUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Charge>()
+            .HasOne(c => c.Condominium)
+            .WithMany()
+            .HasForeignKey(c => c.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Charge>()
+            .HasOne(c => c.Unit)
+            .WithMany()
+            .HasForeignKey(c => c.UnitId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Charge>()
+            .Property(c => c.Value)
+            .HasPrecision(10, 2);
     }
 }
