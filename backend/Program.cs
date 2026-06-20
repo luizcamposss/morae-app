@@ -1,7 +1,6 @@
 using backend.Data;
 using backend.Models;
 using backend.Seeders;
-using backend.Services;
 using backend.Settings;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using dotenv.net;
 using backend.Profiles;
+using backend.Services.Auth;
 using backend.Services.Condominium;
 using backend.Services.Buildings;
 using backend.Services.Units;

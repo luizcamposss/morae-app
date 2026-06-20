@@ -80,6 +80,14 @@ public class ChargeService : IChargeService
     }
     public async Task<IEnumerable<ChargeResponseDto>> GetByCondominiumAsync(int userId, int condominiumId)
     {
+        var user = await GetUserOrThrowAsync(userId);
+
+        var isAdmin = await _userManager.IsInRoleAsync(user, AppRoles.Admin);
+        var isSyndic = await _userManager.IsInRoleAsync(user, AppRoles.Syndic);
+
+        if (!isAdmin && !isSyndic)
+            throw new ForbiddenException("User cannot access condominium charges.");
+
         await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
 
         var charges = await _context.Charges
@@ -205,6 +213,9 @@ public class ChargeService : IChargeService
 
     private async Task ValidateCondominiumChargeCreateAsync(int userId, CreateChargeDto dto)
     {
+        if (await _permissionService.IsMasterAsync(userId))
+            throw new ForbiddenException("Master cannot create condominium charges.");
+
         if (dto.TargetUserId is not null)
             throw new BadRequestException("Condominium charge cannot have a target user for now.");
 

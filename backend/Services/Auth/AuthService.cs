@@ -7,7 +7,7 @@ using backend.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 
-namespace backend.Services;
+namespace backend.Services.Auth;
 
 public class AuthService : IAuthService
 {
