@@ -22,6 +22,7 @@ using backend.Services.UserCondominiumPermissions;
 using backend.Services.UserCondominiumAccess;
 using backend.Services.News;
 using backend.Services.Charges;
+using backend.Services.Me;
 
 DotEnv.Load();
 
@@ -55,6 +56,7 @@ builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<IPersonService, PersonService>();
 builder.Services.AddScoped<IPersonUnitService, PersonUnitService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
+builder.Services.AddScoped<IMeService, MeService>();
 builder.Services.AddScoped<INewsService, NewsService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IUserCondominiumPermissionService, UserCondominiumPermissionService>();
