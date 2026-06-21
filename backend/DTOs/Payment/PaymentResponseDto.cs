@@ -12,6 +12,7 @@ public class PaymentResponseDto
     public int ChargeId { get; set; }
     public decimal AmountPaid { get; set; }
     public PaymentMethod PaymentMethod { get; set; }
+    public PaymentSource Source { get; set; }
     public int RegisteredByUserId { get; set; }
     public string? Notes { get; set; }
     public DateTime PaidAt { get; set; }
