@@ -27,6 +27,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<Payment> Payments { get; set; }
     public DbSet<UserCondominium> UserCondominiums { get; set; }
     public DbSet<UserCondominiumPermission> UserCondominiumPermissions { get; set; }
+    public DbSet<Occurrence> Occurrences { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -153,5 +154,23 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
         builder.Entity<Payment>()
             .Property(p => p.AmountPaid)
             .HasPrecision(10, 2);
+
+        builder.Entity<Occurrence>()
+            .HasOne(o => o.Condominium)
+            .WithMany()
+            .HasForeignKey(o => o.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Occurrence>()
+            .HasOne(o => o.Unit)
+            .WithMany()
+            .HasForeignKey(o => o.UnitId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Occurrence>()
+            .HasOne(o => o.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(o => o.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

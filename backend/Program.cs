@@ -25,6 +25,7 @@ using backend.Services.Charges;
 using backend.Services.Me;
 using backend.Services.Payments;
 using backend.Services.Delinquency;
+using backend.Services.Occurrences;
 
 DotEnv.Load();
 
@@ -48,6 +49,7 @@ builder.Services.AddAutoMapper(
     typeof(PersonUnitProfile),
     typeof(InvitationProfile),
     typeof(NewsProfile),
+    typeof(OccurrenceProfile),
     typeof(UserCondominiumAccessProfile));
 
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -62,6 +64,7 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPersonService, PersonService>();
 builder.Services.AddScoped<IPersonUnitService, PersonUnitService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<IOccurrenceService, OccurrenceService>();
 builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<IUserCondominiumPermissionService, UserCondominiumPermissionService>();
 builder.Services.AddScoped<IUserCondominiumAccessService, UserCondominiumAccessService>();
