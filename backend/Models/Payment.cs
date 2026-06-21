@@ -17,6 +17,9 @@ public class Payment
 
     [Required]
     public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.Undefined;
+    
+    [Required]
+    public PaymentSource Source { get; set; } = PaymentSource.Undefined;
 
     [Required]
     public int RegisteredByUserId { get; set; }

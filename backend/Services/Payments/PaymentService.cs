@@ -48,10 +48,14 @@ public class PaymentService : IPaymentService
         if (dto.PaymentMethod == PaymentMethod.Undefined)
             throw new BadRequestException("Payment method is required.");
 
+        if (dto.AmountPaid != charge.Value)
+            throw new BadRequestException("Manual payment amount must match charge value.");
+
         var payment = _mapper.Map<Payment>(dto);
 
         payment.ChargeId = charge.Id;
         payment.RegisteredByUserId = userId;
+        payment.Source = PaymentSource.Manual;
         payment.PaidAt = dto.PaidAt ?? DateTime.UtcNow;
         payment.CreatedAt = DateTime.UtcNow;
 
