@@ -143,5 +143,15 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
         builder.Entity<Charge>()
             .Property(c => c.Value)
             .HasPrecision(10, 2);
+
+        builder.Entity<Payment>()
+            .HasOne(p => p.RegisteredByUser)
+            .WithMany()
+            .HasForeignKey(p => p.RegisteredByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Payment>()
+            .Property(p => p.AmountPaid)
+            .HasPrecision(10, 2);
     }
 }
