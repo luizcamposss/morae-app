@@ -84,4 +84,29 @@ public class MeService : IMeService
             Permissions = permissions
         };
     }
+    public async Task<IEnumerable<MeUnitResponseDto>> GetMyUnitsAsync(int userId)
+    {
+        var user = await _context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user is null)
+            throw new NotFoundException("User not found.");
+
+        return await _context.PersonUnits
+            .AsNoTracking()
+            .Where(pu => pu.PersonId == user.PersonId)
+            .Select(pu => new MeUnitResponseDto
+            {
+                UnitId = pu.UnitId,
+                BuildingId = pu.Unit.BuildingId,
+                CondominiumId = pu.Unit.Building.CondominiumId,
+                UnitNumber = pu.Unit.Number,
+                BuildingName = pu.Unit.Building.Name,
+                CondominiumName = pu.Unit.Building.Condominium.Name,
+                UnitType = pu.Unit.UnitType,
+                RelationshipType = pu.RelationshipType
+            })
+            .ToListAsync();
+    }
 }
