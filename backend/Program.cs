@@ -24,6 +24,7 @@ using backend.Services.News;
 using backend.Services.Charges;
 using backend.Services.Me;
 using backend.Services.Payments;
+using backend.Services.Delinquency;
 
 DotEnv.Load();
 
@@ -50,17 +51,18 @@ builder.Services.AddAutoMapper(
     typeof(UserCondominiumAccessProfile));
 
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IBuildingService, BuildingService>();
 builder.Services.AddScoped<IChargeService, ChargeService>();
 builder.Services.AddScoped<ICondominiumService, CondominiumService>();
-builder.Services.AddScoped<IBuildingService, BuildingService>();
-builder.Services.AddScoped<IUnitService, UnitService>();
-builder.Services.AddScoped<IPersonService, PersonService>();
-builder.Services.AddScoped<IPersonUnitService, PersonUnitService>();
+builder.Services.AddScoped<IDelinquencyService, DelinquencyService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<IMeService, MeService>();
 builder.Services.AddScoped<INewsService, NewsService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IPersonService, PersonService>();
+builder.Services.AddScoped<IPersonUnitService, PersonUnitService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<IUserCondominiumPermissionService, UserCondominiumPermissionService>();
 builder.Services.AddScoped<IUserCondominiumAccessService, UserCondominiumAccessService>();
 
