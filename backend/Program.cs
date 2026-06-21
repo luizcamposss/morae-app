@@ -23,6 +23,7 @@ using backend.Services.UserCondominiumAccess;
 using backend.Services.News;
 using backend.Services.Charges;
 using backend.Services.Me;
+using backend.Services.Payments;
 
 DotEnv.Load();
 
@@ -58,6 +59,7 @@ builder.Services.AddScoped<IPersonUnitService, PersonUnitService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<IMeService, MeService>();
 builder.Services.AddScoped<INewsService, NewsService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IUserCondominiumPermissionService, UserCondominiumPermissionService>();
 builder.Services.AddScoped<IUserCondominiumAccessService, UserCondominiumAccessService>();
