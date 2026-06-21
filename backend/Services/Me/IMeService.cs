@@ -11,4 +11,5 @@ public interface IMeService
     Task<MeResponseDto> GetMeAsync(int userId);
     Task<IEnumerable<MeCondominiumResponseDto>> GetMyCondominiumsAsync(int userId);
     Task<MePermissionsResponseDto> GetMyPermissionsAsync(int userId, int condominiumId);
+    Task<IEnumerable<MeUnitResponseDto>> GetMyUnitsAsync(int userId);
 }

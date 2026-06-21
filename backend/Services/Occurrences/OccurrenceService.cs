@@ -141,10 +141,19 @@ public class OccurrenceService : IOccurrenceService
         if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
             throw new ForbiddenException("Master cannot create occurrences.");
 
-        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin) ||
-            await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
         {
-            await _permissionService.EnsureCondominiumAccessAsync(userId, dto.CondominiumId);
+            await _permissionService.EnsureCondominiumAdminAsync(userId, dto.CondominiumId);
+            return;
+        }
+
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
+        {
+            await _permissionService.EnsureCondominiumPermissionAsync(
+                userId,
+                dto.CondominiumId,
+                AppPermissions.OccurrencesManage);
+
             return;
         }
 

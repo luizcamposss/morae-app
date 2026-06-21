@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace backend.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Authorize]
 [Route("api/charges/{chargeId}/payments")]
 public class PaymentsController : ControllerBase
 {

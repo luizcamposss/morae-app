@@ -40,7 +40,7 @@ public class MeController : ControllerBase
 
         return Ok(condominiums);
     }
-    
+
     [HttpGet("permissions")]
     public async Task<IActionResult> GetMyPermissions([FromQuery] int condominiumId)
     {
@@ -49,5 +49,15 @@ public class MeController : ControllerBase
         var permissions = await _meService.GetMyPermissionsAsync(userId, condominiumId);
 
         return Ok(permissions);
+    }
+    
+    [HttpGet("units")]
+    public async Task<IActionResult> GetMyUnits()
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var units = await _meService.GetMyUnitsAsync(userId);
+
+        return Ok(units);
     }
 }
