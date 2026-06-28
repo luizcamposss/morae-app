@@ -1,51 +1,57 @@
-import { MetricCard } from "../../shared/components/MetricCard"
-import { StatusBadge } from "../../shared/components/StatusBadge"
+import { MetricCard } from '../../shared/components/MetricCard'
+import { StatusBadge } from '../../shared/components/StatusBadge'
 
 const metrics = [
     {
-        label: 'Total de condominios ativos',
-        value: '24',
-        helper: '+3 neste mes',
+        label: 'Total de predios',
+        value: '3',
+        helper: 'Blocos cadastrados',
     },
     {
-        label: 'Convites pendentes',
-        value: '8',
-        helper: 'Aguardando aceite',
+        label: 'Unidades',
+        value: '120',
+        helper: '105 ocupadas',
     },
     {
         label: 'Receita mensal',
-        value: 'R$ 12.400',
-        helper: '+18% vs mes anterior',
+        value: 'R$ 42.800',
+        helper: '+6% vs mes anterior',
     },
     {
         label: 'Pagamentos atrasados',
-        value: '3',
+        value: '9',
         helper: 'Precisam de atencao',
     },
 ]
 
+const occupancy = [
+    { building: 'Predio A', occupied: 38, total: 40 },
+    { building: 'Predio B', occupied: 35, total: 40 },
+    { building: 'Predio C', occupied: 32, total: 40 },
+]
+
 const activities = [
     {
-        title: 'Condominio Jardim Sul foi cadastrado.',
-        time: 'Ha 12 minutos',
-        badge: 'Novo',
+        title: 'Unidade 204 vinculada a novo morador.',
+        time: 'Ha 18 minutos',
+        badge: 'Pessoa',
         variant: 'success' as const,
     },
     {
-        title: 'Pagamento manual registrado para Solar Norte.',
-        time: 'Ha 35 minutos',
-        badge: 'Pago',
-        variant: 'success' as const,
+        title: 'Pagamento da unidade 301 esta atrasado.',
+        time: 'Ha 42 minutos',
+        badge: 'Atraso',
+        variant: 'danger' as const,
     },
     {
-        title: 'Convite de administrador aguardando aceite.',
-        time: 'Ha 1 hora',
-        badge: 'Pendente',
-        variant: 'warning' as const,
+        title: 'Comunicado enviado para todos os predios.',
+        time: 'Ha 2 horas',
+        badge: 'Comunicado',
+        variant: 'neutral' as const,
     },
 ]
 
-export function MasterDashboardPage() {
+export function AdminDashboardPage() {
     return (
         <div className="space-y-7">
             <div className="flex items-start justify-between gap-6">
@@ -64,13 +70,19 @@ export function MasterDashboardPage() {
             </div>
 
             <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-6 shadow-sm">
-                <div className="mb-5">
-                    <h2 className="text-xl font-extrabold text-[#111827]">
-                        Dashboard Master
-                    </h2>
-                    <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-                        Visao geral do sistema
-                    </p>
+                <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div>
+                        <h2 className="text-xl font-extrabold text-[#111827]">
+                            Dashboard admin
+                        </h2>
+                        <p className="mt-1 text-sm font-semibold text-[#6B7280]">
+                            Visao geral do condominio
+                        </p>
+                    </div>
+
+                    <button className="h-11 rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]">
+                        Todos os predios
+                    </button>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -87,17 +99,31 @@ export function MasterDashboardPage() {
                 <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
                     <div className="min-h-48 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-6">
                         <p className="text-sm font-extrabold text-[#111827]">
-                            Grafico de condominios
+                            Ocupacao por predio
                         </p>
                         <p className="mt-2 text-sm font-semibold text-[#6B7280]">
-                            Aqui entra um resumo visual de ativos, pendentes e inativos.
+                            Unidades ocupadas em relacao ao total disponivel.
                         </p>
 
-                        <div className="mt-8 flex items-end gap-3">
-                            <div className="h-16 flex-1 rounded-t-2xl bg-[#86EFAC]" />
-                            <div className="h-24 flex-1 rounded-t-2xl bg-[#16A34A]" />
-                            <div className="h-12 flex-1 rounded-t-2xl bg-[#DCFCE7]" />
-                            <div className="h-20 flex-1 rounded-t-2xl bg-[#22C55E]" />
+                        <div className="mt-6 space-y-4">
+                            {occupancy.map((item) => {
+                                const percentage = Math.round((item.occupied / item.total) * 100)
+
+                                return (
+                                    <div key={item.building}>
+                                        <div className="mb-2 flex items-center justify-between text-sm font-bold text-[#111827]">
+                                            <span>{item.building}</span>
+                                            <span>{item.occupied}/{item.total}</span>
+                                        </div>
+                                        <div className="h-3 overflow-hidden rounded-full bg-white">
+                                            <div
+                                                className="h-full rounded-full bg-[#16A34A]"
+                                                style={{ width: `${percentage}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                )
+                            })}
                         </div>
                     </div>
 
@@ -116,16 +142,12 @@ export function MasterDashboardPage() {
                 </div>
 
                 <section className="mt-5 rounded-[1.5rem] border border-[#E5E7EB] bg-white p-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h3 className="text-lg font-extrabold uppercase tracking-wide text-[#111827]">
-                                Atividades recentes
-                            </h3>
-                            <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-                                Ultimas acoes importantes da plataforma.
-                            </p>
-                        </div>
-                    </div>
+                    <h3 className="text-lg font-extrabold uppercase tracking-wide text-[#111827]">
+                        Atividades recentes
+                    </h3>
+                    <p className="mt-1 text-sm font-semibold text-[#6B7280]">
+                        Ultimas movimentacoes do condominio.
+                    </p>
 
                     <div className="mt-6 space-y-3">
                         {activities.map((activity) => (
