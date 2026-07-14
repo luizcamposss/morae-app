@@ -8,6 +8,7 @@ import { PublicRoute } from "../features/auth/PublicRoute";
 import { MasterDashboardPage } from "../features/masterDashboard/MasterDashboardPage";
 import { AdminDashboardPage } from "../features/adminDashboard/AdminDashboardPage";
 import { SyndicDashboardPage } from "../features/syndicDashboard/SyndicDashboardPage";
+import { RoleRoute } from "../features/auth/RoleRoute";
 
 export function AppRouter() {
     return (
@@ -18,22 +19,29 @@ export function AppRouter() {
                 </Route>
 
                 <Route element={<ProtectedRoute />}>
-
-                    <Route path="/master" element={<AppLayout />}>
-                        <Route path="dashboard" element={<MasterDashboardPage />} />
+                    <Route element={<RoleRoute allowedRoles={["Master"]} />}>
+                        <Route path="/master" element={<AppLayout />}>
+                            <Route path="dashboard" element={<MasterDashboardPage />} />
+                        </Route>
                     </Route>
 
-                    <Route path="/admin" element={<AppLayout />}>
-                        <Route path="dashboard" element={<AdminDashboardPage />} />
+                    <Route element={<RoleRoute allowedRoles={["Admin"]} />}>
+                        <Route path="/admin" element={<AppLayout />}>
+                            <Route path="dashboard" element={<AdminDashboardPage />} />
+                        </Route>
                     </Route>
 
-                    <Route path="/syndic" element={<AppLayout />}>
-                        <Route path="dashboard" element={<SyndicDashboardPage />} />
+                    <Route element={<RoleRoute allowedRoles={["Syndic"]} />}>
+                        <Route path="/syndic" element={<AppLayout />}>
+                            <Route path="dashboard" element={<SyndicDashboardPage />} />
+                        </Route>
                     </Route>
 
-                    <Route path="/resident" element={<AppLayout />}>
-                        <Route path="dashboard" element={<ResidentDashboardPage />} />
-                        <Route path="settings" element={<ResidentSettingsPage />} />
+                    <Route element={<RoleRoute allowedRoles={["Resident"]} />}>
+                        <Route path="/resident" element={<AppLayout />}>
+                            <Route path="dashboard" element={<ResidentDashboardPage />} />
+                            <Route path="settings" element={<ResidentSettingsPage />} />
+                        </Route>
                     </Route>
                 </Route>
 
