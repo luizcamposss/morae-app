@@ -1,4 +1,42 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { login } from "./authService";
+import { saveToken } from "./authStorage";
+
 export function LoginPage() {
+    const navigate = useNavigate();
+
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [errorMessage, setErrorMessage] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        setErrorMessage("");
+        setIsSubmitting(true);
+
+        try {
+            const result = await login({ email, password });
+
+            if (!result.success || !result.token) {
+                setErrorMessage(result.message || "Nao foi possivel entrar.");
+                return;
+            }
+
+            saveToken(result.token);
+            navigate("/resident/dashboard");
+        } catch (error) {
+            if (error instanceof Error) {
+                setErrorMessage(error.message);
+            } else {
+                setErrorMessage("Erro inesperado ao realizar login.");
+            }
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
     return (
         <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#DCFCE7] px-6 py-10 text-[#111827]">
             <div className="absolute left-[-12%] top-[-18%] h-[520px] w-[520px] rounded-full bg-[#86EFAC]/50 blur-3xl" />
@@ -47,13 +85,15 @@ export function LoginPage() {
                         </p>
                     </div>
 
-                    <form className="space-y-4">
+                    <form className="space-y-4" onSubmit={handleSubmit}>
                         <label className="block">
                             <span className="mb-1 block text-xs font-semibold text-[#6B7280]">
                                 Email
                             </span>
                             <input
                                 type="email"
+                                value={email}
+                                onChange={(event) => setEmail(event.target.value)}
                                 placeholder="voce@email.com"
                                 className="h-12 w-full rounded-full border border-transparent bg-white px-5 text-sm text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
                             />
@@ -65,6 +105,8 @@ export function LoginPage() {
                             </span>
                             <input
                                 type="password"
+                                value={password}
+                                onChange={(event) => setPassword(event.target.value)}
                                 placeholder="Sua senha"
                                 className="h-12 w-full rounded-full border border-transparent bg-white px-5 text-sm text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
                             />
@@ -78,12 +120,17 @@ export function LoginPage() {
                                 Esqueci minha senha
                             </button>
                         </div>
-
+                        {errorMessage && (
+                            <p className="text-sm font-semibold text-[#B42318]">
+                                {errorMessage}
+                            </p>
+                        )}
                         <button
                             type="submit"
+                            disabled={isSubmitting}
                             className="h-12 w-full rounded-full bg-[#16A34A] text-sm font-extrabold text-white shadow-lg shadow-[#16A34A]/25 transition hover:bg-[#0B3D2E] focus:outline-none focus:ring-4 focus:ring-[#86EFAC]/40"
                         >
-                            Entrar
+                            {isSubmitting ? "Entrando..." : "Entrar"}
                         </button>
                     </form>
 
