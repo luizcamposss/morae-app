@@ -1,5 +1,5 @@
-import { AppLayout } from "./shared/layout/AppLayout";
+import { AppRouter } from "./app/AppRouter";
 
 export default function App() {
-  return <AppLayout />
+  return <AppRouter />;
 }
