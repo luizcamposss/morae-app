@@ -1,4 +1,8 @@
+import { useAuth } from "../../app/providers/useAuth";
 export function Topbar() {
+    const { user } = useAuth();
+    const displayName = user?.personName || user?.userName || "Usuario";
+    const avatarLetter = displayName.charAt(0).toUpperCase();
     return (
         <div className="flex h-full items-center justify-between rounded-[1.75rem] border border-[#E5E7EB] bg-white/95 px-5 shadow-sm">
             <div className="flex items-center gap-3">
@@ -16,7 +20,7 @@ export function Topbar() {
                 </button>
 
                 <div className="flex size-10 items-center justify-center rounded-full bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30">
-                    L
+                    {avatarLetter}
                 </div>
             </div>
         </div>

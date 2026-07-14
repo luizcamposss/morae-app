@@ -2,10 +2,13 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { login } from "./authService";
 import { saveToken } from "./authStorage";
+import { useAuth } from "../../app/providers/useAuth";
+import { getDefaultRouteByRoles } from "./authRedirect";
 
 export function LoginPage() {
     const navigate = useNavigate();
-
+    const { refreshUser } = useAuth();
+    
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
@@ -25,7 +28,16 @@ export function LoginPage() {
             }
 
             saveToken(result.token);
-            navigate("/resident/dashboard");
+
+            const me = await refreshUser();
+
+            if (!me) {
+                setErrorMessage("Nao foi possivel carregar a sessao do usuario.");
+                return;
+            }
+
+            const defaultRoute = getDefaultRouteByRoles(me.roles);
+            navigate(defaultRoute);
         } catch (error) {
             if (error instanceof Error) {
                 setErrorMessage(error.message);
