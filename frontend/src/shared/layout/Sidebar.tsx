@@ -1,90 +1,131 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
+import { useAuth } from "../../app/providers/useAuth";
 
-const menuItems = [
-  { label: "Dashboard", icon: "D", to: "/resident/dashboard" },
-  { label: "Configuracoes", icon: "G", to: "/resident/settings" },
-];
+
+type MenuItem = {
+    label: string;
+    icon: string;
+    to: string;
+};
+
+function getPrimaryRole(roles: string[]) {
+    if (roles.includes("Master")) return "Master";
+    if (roles.includes("Admin")) return "Admin";
+    if (roles.includes("Syndic")) return "Syndic";
+    return "Resident";
+}
+
+function getMenuItemsByRole(role: string): MenuItem[] {
+    if (role === "Master") {
+        return [
+            { label: "Dashboard", icon: "D", to: "/master/dashboard" },
+            { label: "Condominios", icon: "C", to: "/master/dashboard" },
+            { label: "Usuarios", icon: "U", to: "/master/dashboard" },
+        ];
+    }
+
+    if (role === "Admin") {
+        return [
+            { label: "Dashboard", icon: "D", to: "/admin/dashboard" },
+            { label: "Predios", icon: "P", to: "/admin/dashboard" },
+            { label: "Pagamentos", icon: "G", to: "/admin/dashboard" },
+        ];
+    }
+
+    if (role === "Syndic") {
+        return [
+            { label: "Dashboard", icon: "D", to: "/syndic/dashboard" },
+            { label: "Moradores", icon: "M", to: "/syndic/dashboard" },
+            { label: "Manutencao", icon: "A", to: "/syndic/dashboard" },
+        ];
+    }
+
+    return [
+        { label: "Dashboard", icon: "D", to: "/resident/dashboard" },
+        { label: "Configuracoes", icon: "G", to: "/resident/settings" },
+    ];
+}
 
 export function Sidebar() {
-  return (
-    <div className="group fixed left-6 top-1/2 flex -translate-y-1/2 items-center">
-      <div className="flex h-[560px] w-14 flex-col items-center justify-between rounded-[1.75rem] border border-[#E5E7EB] bg-white py-5 shadow-sm">
-        <div className="flex flex-col items-center gap-4">
-          {menuItems.map((item) => (
-            <NavLink
-              key={item.label}
-              to={item.to}
-              title={item.label}
-              className={({ isActive }) =>
-                `flex size-9 items-center justify-center rounded-full text-xs font-extrabold transition ${
-                  isActive
-                    ? "bg-[#16A34A] text-white shadow-sm shadow-[#16A34A]/30"
-                    : "bg-[#F3F4F6] text-[#6B7280] hover:bg-[#DCFCE7] hover:text-[#16A34A]"
-                }`
-              }
-            >
-              {item.icon}
-            </NavLink>
-          ))}
+    const navigate = useNavigate();
+    const { user, logout } = useAuth();
+    const primaryRole = getPrimaryRole(user?.roles ?? []);
+    const menuItems = getMenuItemsByRole(primaryRole);
+
+    function handleLogout() {
+        logout();
+        navigate("/login");
+    }
+
+    return (
+        <div className="group fixed left-6 top-1/2 -translate-y-1/2">
+            <aside className="flex h-[560px] w-20 flex-col overflow-hidden rounded-[1.75rem] border border-[#E5E7EB] bg-white px-4 py-5 shadow-sm transition-all duration-300 group-hover:w-72 group-hover:shadow-2xl group-hover:shadow-[#0B3D2E]/10">
+                <div className="mb-8 flex items-center gap-3">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#0B3D2E] text-sm font-black text-white">
+                        M
+                    </div>
+
+                    <div className="min-w-0 -translate-x-2 overflow-hidden opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100">
+                        <p className="text-xl font-extrabold text-[#0B3D2E]">morae</p>
+                        <p className="mt-1 whitespace-nowrap text-sm font-semibold text-[#6B7280]">
+                            Painel {primaryRole}
+                        </p>
+                    </div>
+                </div>
+
+                <nav className="flex flex-1 flex-col gap-2">
+                    {menuItems.map((item) => (
+                        <NavLink
+                            key={item.label}
+                            to={item.to}
+                            title={item.label}
+                            className={({ isActive }) =>
+                                `flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-bold transition ${isActive
+                                    ? "bg-[#DCFCE7] text-[#0B3D2E]"
+                                    : "text-[#111827] hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+                                }`
+                            }
+                        >
+                            <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#F3F4F6] text-xs font-extrabold text-[#16A34A]">
+                                {item.icon}
+                            </span>
+
+                            <span className="whitespace-nowrap -translate-x-2 opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100">
+                                {item.label}
+                            </span>
+                        </NavLink>
+                    ))}
+                </nav>
+
+                <div className="space-y-3">
+                    <div className="flex items-center gap-3 rounded-2xl px-3 py-2">
+                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#DCFCE7] text-xs font-extrabold text-[#16A34A]">
+                            {primaryRole.charAt(0)}
+                        </div>
+
+                        <div className="min-w-0 -translate-x-2 whitespace-nowrap opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100">
+                            <p className="text-sm font-semibold text-[#6B7280]">
+                                {primaryRole.toLowerCase()}
+                            </p>
+                            <p className="text-sm font-extrabold text-[#111827]">sessao ativa</p>
+                        </div>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-bold text-[#111827] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
+                    >
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#F3F4F6] text-xs font-extrabold text-[#6B7280]">
+                            S
+                        </span>
+
+                        <span className="whitespace-nowrap -translate-x-2 opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100">
+                            Sair
+                        </span>
+                    </button>
+                </div>
+            </aside>
         </div>
-
-        <div className="flex flex-col items-center gap-4">
-          <button
-            className="flex size-9 items-center justify-center rounded-full bg-[#F3F4F6] text-xs font-extrabold text-[#6B7280] hover:bg-[#DCFCE7] hover:text-[#16A34A]"
-            title="Configuracoes"
-          >
-            C
-          </button>
-
-          <button
-            className="flex size-9 items-center justify-center rounded-full bg-[#F3F4F6] text-xs font-extrabold text-[#6B7280] hover:bg-[#FDECEC] hover:text-[#B42318]"
-            title="Sair"
-          >
-            S
-          </button>
-        </div>
-      </div>
-
-      <div className="pointer-events-none absolute left-20 top-1/2 flex h-[560px] w-64 -translate-y-1/2 translate-x-2 flex-col rounded-[1.75rem] border border-[#E5E7EB] bg-white p-5 opacity-0 shadow-2xl shadow-[#0B3D2E]/10 transition duration-200 group-hover:pointer-events-auto group-hover:translate-x-0 group-hover:opacity-100">
-        <div className="mb-8">
-          <p className="text-xl font-extrabold text-[#0B3D2E]">morae</p>
-          <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-            Painel Morador
-          </p>
-        </div>
-
-        <nav className="flex flex-1 flex-col gap-2">
-          {menuItems.map((item) => (
-            <NavLink
-              key={item.label}
-              to={item.to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-bold transition ${
-                  isActive
-                    ? "bg-[#DCFCE7] text-[#0B3D2E]"
-                    : "text-[#111827] hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
-                }`
-              }
-            >
-              <span className="flex size-7 items-center justify-center rounded-full bg-[#F3F4F6] text-xs text-[#16A34A]">
-                {item.icon}
-              </span>
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className="space-y-3">
-          <div className="flex items-center justify-between px-4 text-sm font-semibold text-[#6B7280]">
-            <span>morador</span>
-            <span className="size-4 rounded-full border border-[#16A34A] bg-[#DCFCE7]" />
-          </div>
-
-          <button className="w-full rounded-2xl border border-[#E5E7EB] px-4 py-3 text-sm font-bold text-[#111827] transition hover:bg-[#F3F4F6]">
-            Sair
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+    );
 }
