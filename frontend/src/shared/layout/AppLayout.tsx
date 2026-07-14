@@ -1,6 +1,6 @@
-import { ResidentSettingsPage } from "../../features/residentSettings/ResidentSettingsPage";
-import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
+import { Sidebar } from "./Sidebar";
+import { Outlet } from "react-router-dom";
 
 export function AppLayout() {
     return (
@@ -15,7 +15,7 @@ export function AppLayout() {
                 </header>
 
                 <section className="flex-1 pt-8">
-                    <ResidentSettingsPage />
+                    <Outlet />
                 </section>
             </main>
         </div>
