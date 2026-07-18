@@ -46,7 +46,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     useEffect(() => {
-        void refreshUser();
+        refreshUser();
     }, []);
 
     const value: AuthContextValue = {

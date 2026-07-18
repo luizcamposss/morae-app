@@ -27,7 +27,7 @@ function getMenuItemsByRole(role: string): MenuItem[] {
     if (role === "Admin") {
         return [
             { label: "Dashboard", icon: "D", to: "/admin/dashboard" },
-            { label: "Predios", icon: "P", to: "/admin/dashboard" },
+            { label: "Predios", icon: "P", to: "/admin/buildings" },
             { label: "Pagamentos", icon: "G", to: "/admin/dashboard" },
         ];
     }
