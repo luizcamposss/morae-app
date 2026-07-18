@@ -59,11 +59,27 @@ public class InvitationService : IInvitationService
             await _permissionService.EnsureCondominiumAdminAsync(userId, dto.CondominiumId);
         }
 
-        var personExists = await _context.Persons
-            .AnyAsync(p => p.Id == dto.PersonId);
+        var person = await _context.Persons
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == dto.PersonId);
 
-        if (!personExists)
+        if (person is null)
             throw new NotFoundException("Person not found.");
+
+        if (creatorIsMaster && person.CreatedByUserId != userId)
+            throw new ForbiddenException("Master can only invite people created by themselves.");
+
+        if (creatorIsAdmin)
+        {
+            var personBelongsToCondominium = await _context.PersonCondominiums
+                .AsNoTracking()
+                .AnyAsync(personCondominium =>
+                    personCondominium.PersonId == dto.PersonId &&
+                    personCondominium.CondominiumId == dto.CondominiumId);
+
+            if (!personBelongsToCondominium)
+                throw new ForbiddenException("This person does not belong to this condominium.");
+        }
 
         var personAlreadyHasUser = await _context.Users
             .AnyAsync(u => u.PersonId == dto.PersonId);
@@ -99,9 +115,60 @@ public class InvitationService : IInvitationService
         var result = await _context.Invitations
             .AsNoTracking()
             .Include(i => i.Person)
+            .Include(i => i.Condominium)
             .FirstAsync(i => i.Id == invitation.Id);
 
         return _mapper.Map<InvitationResponseDto>(result);
+    }
+
+    public async Task<IEnumerable<InvitationResponseDto>> GetByCondominiumAsync(int userId, int condominiumId)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+
+        if (user is null)
+            throw new NotFoundException("User not found.");
+
+        var isMaster = await _userManager.IsInRoleAsync(user, AppRoles.Master);
+        var isAdmin = await _userManager.IsInRoleAsync(user, AppRoles.Admin);
+
+        if (!isMaster && !isAdmin)
+            throw new ForbiddenException("User cannot access invitations.");
+
+        var condominiumExists = await _context.Condominiums
+            .AsNoTracking()
+            .AnyAsync(c => c.Id == condominiumId);
+
+        if (!condominiumExists)
+            throw new NotFoundException("Condominium not found.");
+
+        if (isAdmin)
+            await _permissionService.EnsureCondominiumAdminAsync(userId, condominiumId);
+
+        var query = _context.Invitations
+            .AsNoTracking()
+            .Include(invitation => invitation.Person)
+            .Include(invitation => invitation.Condominium)
+            .Where(invitation => invitation.CondominiumId == condominiumId);
+
+        if (isMaster)
+        {
+            query = query.Where(invitation =>
+                invitation.CreatedByUserId == userId &&
+                invitation.Role == UserRole.Admin);
+        }
+
+        if (isAdmin)
+        {
+            query = query.Where(invitation =>
+                invitation.Role == UserRole.Syndic ||
+                invitation.Role == UserRole.Resident);
+        }
+
+        var invitations = await query
+            .OrderByDescending(invitation => invitation.CreatedAt)
+            .ToListAsync();
+
+        return _mapper.Map<IEnumerable<InvitationResponseDto>>(invitations);
     }
 
     public async Task<InvitationResponseDto?> GetByTokenAsync(string token)
@@ -109,6 +176,7 @@ public class InvitationService : IInvitationService
         var invitation = await _context.Invitations
             .AsNoTracking()
             .Include(i => i.Person)
+            .Include(i => i.Condominium)
             .FirstOrDefaultAsync(i => i.Token == token);
 
         if (invitation is null)

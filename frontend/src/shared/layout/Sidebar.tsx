@@ -20,7 +20,7 @@ function getMenuItemsByRole(role: string): MenuItem[] {
         return [
             { label: "Dashboard", icon: "D", to: "/master/dashboard" },
             { label: "Condominios", icon: "C", to: "/master/dashboard" },
-            { label: "Usuarios", icon: "U", to: "/master/dashboard" },
+            { label: "Convites", icon: "V", to: "/master/invitations" },
         ];
     }
 
@@ -30,6 +30,7 @@ function getMenuItemsByRole(role: string): MenuItem[] {
             { label: "Predios", icon: "P", to: "/admin/buildings" },
             { label: "Unidades", icon: "U", to: "/admin/units" },
             { label: "Moradores", icon: "M", to: "/admin/people" },
+            { label: "Convites", icon: "C", to: "/admin/invitations" },
             { label: "Pagamentos", icon: "G", to: "/admin/dashboard" },
         ];
     }
