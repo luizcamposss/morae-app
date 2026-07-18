@@ -7,6 +7,14 @@ export async function getPersons(): Promise<PersonResponse[]> {
   });
 }
 
+export async function createPerson(data: CreatePersonRequest): Promise<PersonResponse> {
+  return apiRequest<PersonResponse>("/api/persons", {
+    method: "POST",
+    body: data,
+    auth: true,
+  });
+}
+
 export async function getPersonsByCondominium(
   condominiumId: number,
 ): Promise<PersonResponse[]> {

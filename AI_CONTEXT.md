@@ -990,12 +990,20 @@ Modules already implemented or substantially advanced:
    * Master remains blocked from condominium operational people/residents endpoints
    * Master global person update/delete now requires `Person.CreatedByUserId` to match the authenticated Master
 
-Modules still planned:
-
 9. Invitations and access management
-   * Invitation workflows
-   * Acceptance flows
-   * Condominium access/per-role operations
+   * Backend invitation responses enriched with condominium, role and status display fields
+   * `GET /api/condominiums/{condominiumId}/invitations` lists invitations scoped by role and condominium
+   * Admin can create and list invitations for `Syndic` and `Resident` in assigned condominiums
+   * Admin invitation creation requires the person to belong to the target condominium
+   * Master can create and list only `Admin` invitations
+   * Master invitation creation requires a global/contact person created by that same Master
+   * Public route `/accept-invitation/:token` loads the invitation and accepts it
+   * Accepting an invitation creates the `ApplicationUser`, assigns the Identity role and creates `UserCondominium`
+   * Admin route `/admin/invitations` lists and creates invitations for the active condominium
+   * Master route `/master/invitations` creates admin invitations without giving Master condominium operational access
+   * People page action `Preparar convite` now opens the invitation flow with a selected person
+
+Modules still planned:
 
 10. UX hardening
    * Better empty states
@@ -1028,8 +1036,8 @@ Current state:
 1. Units module is complete and tested.
 2. People/residents module is implemented and tested locally.
 3. Current branch for this work is `feat/people-module`.
-4. Next module is `Modulo 9: Invitations and access management`.
-5. Invitation actions should reuse people records as the base for creating user access.
+4. Invitations and access management module is implemented and tested locally.
+5. Next recommended module is `Modulo 10: UX hardening`, unless business priority shifts to payments/charges.
 
 Latest module 8 validation:
 
@@ -1042,6 +1050,20 @@ Latest module 8 validation:
 * Master can update a global person created by themselves.
 * Master receives `403` when trying to update a condominium person created/managed outside the Master scope.
 * Admin can still update people inside their assigned condominium.
+
+Latest module 9 validation:
+
+* Frontend build passed with `npm.cmd run build`.
+* Backend build passed with `dotnet build backend\backend.csproj /p:UseAppHost=false`.
+* Admin can create a `Resident` invitation.
+* Admin receives `403` when trying to invite an `Admin`.
+* Master can create an `Admin` invitation using a global person created by that Master.
+* Master receives `403` when trying to invite a `Resident`.
+* Master receives `403` when trying to invite a condominium person outside the Master-owned global contact scope.
+* Invitation list by condominium works for Admin and Master.
+* Public invitation lookup by token returns person, condominium and role data.
+* Invitation acceptance returns `200`, creates login access and creates `UserCondominium`.
+* New accepted resident can login and appears in `/api/me/condominiums`.
 
 ---
 

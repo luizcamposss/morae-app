@@ -16,6 +16,15 @@ public class InvitationProfile : Profile
         CreateMap<Invitation, InvitationResponseDto>()
             .ForMember(
                 dest => dest.PersonName,
-                opt => opt.MapFrom(src => src.Person.Name));
+                opt => opt.MapFrom(src => src.Person.Name))
+            .ForMember(
+                dest => dest.CondominiumName,
+                opt => opt.MapFrom(src => src.Condominium.Name))
+            .ForMember(
+                dest => dest.RoleName,
+                opt => opt.MapFrom(src => src.Role.ToString()))
+            .ForMember(
+                dest => dest.StatusName,
+                opt => opt.MapFrom(src => src.InvitationStatus.ToString()));
     }
 }

@@ -12,11 +12,16 @@ import { RoleRoute } from "../features/auth/RoleRoute";
 import { BuildingsPage } from "../features/buildings/BuildingsPage";
 import { UnitsPage } from "../features/units/UnitsPage";
 import { PeoplePage } from "../features/persons/PeoplePage";
+import { InvitationsPage } from "../features/invitations/InvitationsPage";
+import { AcceptInvitationPage } from "../features/invitations/AcceptInvitationPage";
+import { MasterInvitationsPage } from "../features/invitations/MasterInvitationsPage";
 
 export function AppRouter() {
     return (
         <BrowserRouter>
             <Routes>
+                <Route path="/accept-invitation/:token" element={<AcceptInvitationPage />} />
+
                 <Route element={<PublicRoute />}>
                     <Route path="/login" element={<LoginPage />} />
                 </Route>
@@ -25,6 +30,7 @@ export function AppRouter() {
                     <Route element={<RoleRoute allowedRoles={["Master"]} />}>
                         <Route path="/master" element={<AppLayout />}>
                             <Route path="dashboard" element={<MasterDashboardPage />} />
+                            <Route path="invitations" element={<MasterInvitationsPage />} />
                         </Route>
                     </Route>
 
@@ -34,6 +40,7 @@ export function AppRouter() {
                             <Route path="buildings" element={<BuildingsPage />} />
                             <Route path="units" element={<UnitsPage />} />
                             <Route path="people" element={<PeoplePage />} />
+                            <Route path="invitations" element={<InvitationsPage />} />
                         </Route>
                     </Route>
 

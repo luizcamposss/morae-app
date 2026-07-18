@@ -29,6 +29,17 @@ public class InvitationsController : ControllerBase
         return CreatedAtAction(nameof(GetByToken), new { token = invitation.Token }, invitation);
     }
 
+    [HttpGet("/api/condominiums/{condominiumId}/invitations")]
+    [Authorize(Roles = $"{AppRoles.Master},{AppRoles.Admin}")]
+    public async Task<IActionResult> GetByCondominium([FromRoute] int condominiumId)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var invitations = await _invitationService.GetByCondominiumAsync(userId, condominiumId);
+
+        return Ok(invitations);
+    }
+
     [HttpGet("{token}")]
     [AllowAnonymous]
     public async Task<IActionResult> GetByToken([FromRoute] string token)

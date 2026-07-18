@@ -1,24 +1,57 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
-import {
-  createPersonInCondominium,
-  getPersonsByCondominium,
-  updatePersonInCondominium,
-} from "./personService";
-import type { CreatePersonRequest, PersonResponse } from "./types";
+import { getPersonsByCondominium } from "../persons/personService";
+import type { PersonResponse } from "../persons/types";
+import { createInvitation, getInvitationsByCondominium } from "./invitationService";
+import type { CreateInvitationRequest, InvitationResponse, InvitationRole } from "./types";
 
-const emptyForm: CreatePersonRequest = {
-  name: "",
-  cpf: "",
-  phoneNumber: "",
-};
+const roleOptions: Array<{ value: InvitationRole; label: string }> = [
+  { value: 4, label: "Morador" },
+  { value: 3, label: "Sindico" },
+];
 
-export function PeoplePage() {
-  const navigate = useNavigate();
+function getStatusLabel(invitation: InvitationResponse) {
+  if (invitation.statusName) {
+    return invitation.statusName;
+  }
+
+  if (invitation.invitationStatus === 1) return "Pending";
+  if (invitation.invitationStatus === 2) return "Accepted";
+  if (invitation.invitationStatus === 4) return "Expired";
+  if (invitation.invitationStatus === 5) return "Canceled";
+  return "Refused";
+}
+
+function getStatusVariant(invitation: InvitationResponse) {
+  const status = getStatusLabel(invitation);
+
+  if (status === "Accepted") return "success" as const;
+  if (status === "Pending") return "warning" as const;
+  if (status === "Expired" || status === "Canceled" || status === "Refused") {
+    return "danger" as const;
+  }
+
+  return "neutral" as const;
+}
+
+function getRoleLabel(invitation: InvitationResponse) {
+  if (invitation.roleName) {
+    return invitation.roleName;
+  }
+
+  return roleOptions.find((option) => option.value === invitation.role)?.label ?? "Nao informado";
+}
+
+function buildInvitationLink(token: string) {
+  return `${window.location.origin}/accept-invitation/${token}`;
+}
+
+export function InvitationsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
     condominiums,
     activeCondominium,
@@ -28,83 +61,108 @@ export function PeoplePage() {
     setActiveCondominiumId,
   } = useCondominium();
 
+  const [invitations, setInvitations] = useState<InvitationResponse[]>([]);
   const [people, setPeople] = useState<PersonResponse[]>([]);
-  const [isLoadingPeople, setIsLoadingPeople] = useState(true);
+  const [isLoadingInvitations, setIsLoadingInvitations] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingPerson, setEditingPerson] = useState<PersonResponse | null>(null);
-  const [viewingPerson, setViewingPerson] = useState<PersonResponse | null>(null);
+  const [viewingInvitation, setViewingInvitation] = useState<InvitationResponse | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const requestedPersonId = Number(searchParams.get("personId"));
 
-  const filteredPeople = useMemo(() => {
+  const filteredInvitations = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
     if (!normalizedSearch) {
-      return people;
+      return invitations;
     }
 
-    return people.filter((person) =>
-      person.name.toLowerCase().includes(normalizedSearch) ||
-      person.cpf.includes(normalizedSearch) ||
-      person.phoneNumber.includes(normalizedSearch) ||
-      person.mainUnit.toLowerCase().includes(normalizedSearch),
+    return invitations.filter((invitation) =>
+      invitation.personName.toLowerCase().includes(normalizedSearch) ||
+      invitation.email.toLowerCase().includes(normalizedSearch) ||
+      getRoleLabel(invitation).toLowerCase().includes(normalizedSearch) ||
+      getStatusLabel(invitation).toLowerCase().includes(normalizedSearch),
     );
-  }, [people, searchTerm]);
+  }, [invitations, searchTerm]);
 
-  const totalPeople = people.length;
-  const linkedPeople = people.filter((person) => person.unitCount > 0).length;
-  const unlinkedPeople = totalPeople - linkedPeople;
-  const totalUnitLinks = people.reduce((sum, person) => sum + person.unitCount, 0);
+  const pendingInvitations = invitations.filter((invitation) => getStatusLabel(invitation) === "Pending").length;
+  const acceptedInvitations = invitations.filter((invitation) => getStatusLabel(invitation) === "Accepted").length;
+  const expiredInvitations = invitations.filter((invitation) => getStatusLabel(invitation) === "Expired").length;
 
   const metrics = [
-    { label: "Total", value: totalPeople.toString(), helper: "Pessoas cadastradas" },
-    { label: "Com unidade", value: linkedPeople.toString(), helper: "Ja vinculadas" },
-    { label: "Sem unidade", value: unlinkedPeople.toString(), helper: "Aguardando vinculo" },
-    { label: "Vinculos", value: totalUnitLinks.toString(), helper: "Pessoa-unidade" },
+    { label: "Total", value: invitations.length.toString(), helper: "Convites criados" },
+    { label: "Pendentes", value: pendingInvitations.toString(), helper: "Aguardando aceite" },
+    { label: "Aceitos", value: acceptedInvitations.toString(), helper: "Acesso criado" },
+    { label: "Expirados", value: expiredInvitations.toString(), helper: "Precisam de novo convite" },
   ];
 
-  async function loadPeople(condominiumId: number) {
+  async function loadInvitations(condominiumId: number) {
     try {
       setErrorMessage("");
       setSuccessMessage("");
-      setIsLoadingPeople(true);
+      setIsLoadingInvitations(true);
 
-      const result = await getPersonsByCondominium(condominiumId);
-      setPeople(result);
+      const [invitationsResult, peopleResult] = await Promise.all([
+        getInvitationsByCondominium(condominiumId),
+        getPersonsByCondominium(condominiumId),
+      ]);
+
+      setInvitations(invitationsResult);
+      setPeople(peopleResult);
+
+      if (requestedPersonId && peopleResult.some((person) => person.id === requestedPersonId)) {
+        setIsCreateOpen(true);
+      }
     } catch (error) {
+      setInvitations([]);
       setPeople([]);
 
       if (error instanceof Error) {
         setErrorMessage(error.message);
       } else {
-        setErrorMessage("Nao foi possivel carregar os moradores.");
+        setErrorMessage("Nao foi possivel carregar os convites.");
       }
     } finally {
-      setIsLoadingPeople(false);
+      setIsLoadingInvitations(false);
     }
   }
 
-  async function refreshPeople() {
+  async function refreshInvitations() {
     if (!activeCondominiumId) {
       return;
     }
 
-    await loadPeople(activeCondominiumId);
+    await loadInvitations(activeCondominiumId);
   }
 
   useEffect(() => {
     if (!activeCondominiumId) {
+      setInvitations([]);
       setPeople([]);
-      setIsLoadingPeople(false);
+      setIsLoadingInvitations(false);
       return;
     }
 
-    void loadPeople(activeCondominiumId);
+    void loadInvitations(activeCondominiumId);
   }, [activeCondominiumId]);
 
-  const isLoading = isLoadingCondominiums || isLoadingPeople;
+  async function copyInvitationLink(invitation: InvitationResponse) {
+    try {
+      await navigator.clipboard.writeText(buildInvitationLink(invitation.token));
+      setSuccessMessage("Link do convite copiado.");
+    } catch {
+      setSuccessMessage(buildInvitationLink(invitation.token));
+    }
+  }
+
+  const isLoading = isLoadingCondominiums || isLoadingInvitations;
   const pageErrorMessage = condominiumErrorMessage || errorMessage;
+
+  function closeCreateModal() {
+    setIsCreateOpen(false);
+    setSearchParams({}, { replace: true });
+  }
 
   return (
     <>
@@ -112,10 +170,10 @@ export function PeoplePage() {
         <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight text-[#111827]">
-              Moradores
+              Convites
             </h1>
             <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-              Cadastre pessoas, acompanhe vinculos e prepare convites de acesso.
+              Crie acessos para moradores e sindicos usando pessoas ja cadastradas.
             </p>
             {activeCondominium && (
               <p className="mt-2 text-sm font-semibold text-[#16A34A]">
@@ -144,11 +202,11 @@ export function PeoplePage() {
 
             <button
               type="button"
-              disabled={!activeCondominiumId}
+              disabled={!activeCondominiumId || people.length === 0}
               onClick={() => setIsCreateOpen(true)}
               className="h-11 rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
             >
-              + Novo Morador
+              + Novo Convite
             </button>
           </div>
         </div>
@@ -168,7 +226,7 @@ export function PeoplePage() {
           <div className="mb-4 flex flex-col gap-3 md:flex-row">
             <input
               type="search"
-              placeholder="Buscar morador, CPF, telefone ou unidade..."
+              placeholder="Buscar pessoa, e-mail, papel ou status..."
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
               className="h-11 flex-1 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
@@ -185,7 +243,7 @@ export function PeoplePage() {
 
           {isLoading && (
             <p className="mb-4 text-sm font-semibold text-[#6B7280]">
-              Carregando moradores...
+              Carregando convites...
             </p>
           )}
 
@@ -201,23 +259,23 @@ export function PeoplePage() {
             </p>
           )}
 
-          {!isLoading && filteredPeople.length === 0 ? (
+          {!isLoading && filteredInvitations.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-[#D0D5DD] bg-white px-6 py-12 text-center">
               <p className="text-lg font-extrabold text-[#111827]">
-                {searchTerm ? "Nenhum morador encontrado" : "Nenhum morador cadastrado"}
+                {searchTerm ? "Nenhum convite encontrado" : "Nenhum convite criado"}
               </p>
               <p className="mt-2 text-sm font-semibold text-[#6B7280]">
-                {searchTerm
-                  ? "Tente outro termo para localizar a pessoa."
-                  : "Cadastre a primeira pessoa antes de vincular unidades ou enviar convites."}
+                {people.length === 0
+                  ? "Cadastre uma pessoa antes de enviar um convite."
+                  : "Crie o primeiro convite para transformar uma pessoa em usuario do sistema."}
               </p>
-              {!searchTerm && activeCondominiumId && (
+              {!searchTerm && people.length > 0 && (
                 <button
                   type="button"
                   onClick={() => setIsCreateOpen(true)}
                   className="mt-6 h-11 rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E]"
                 >
-                  + Novo Morador
+                  + Novo Convite
                 </button>
               )}
             </div>
@@ -227,56 +285,49 @@ export function PeoplePage() {
                 <thead className="bg-[#DCFCE7] text-xs uppercase tracking-wide text-[#0B3D2E]">
                   <tr>
                     <th className="px-4 py-3 font-extrabold">Pessoa</th>
-                    <th className="px-4 py-3 font-extrabold">Contato</th>
-                    <th className="px-4 py-3 font-extrabold">Unidade principal</th>
+                    <th className="px-4 py-3 font-extrabold">E-mail</th>
+                    <th className="px-4 py-3 font-extrabold">Papel</th>
                     <th className="px-4 py-3 font-extrabold">Status</th>
                     <th className="px-4 py-3 font-extrabold">Acoes</th>
                   </tr>
                 </thead>
 
                 <tbody className="divide-y divide-[#E5E7EB]">
-                  {filteredPeople.map((person) => (
-                    <tr key={person.id} className="transition hover:bg-[#F3F4F6]">
+                  {filteredInvitations.map((invitation) => (
+                    <tr key={invitation.id} className="transition hover:bg-[#F3F4F6]">
                       <td className="px-4 py-4 font-extrabold text-[#111827]">
-                        <div>{person.name}</div>
+                        <div>{invitation.personName}</div>
                         <div className="mt-1 text-xs font-semibold text-[#6B7280]">
-                          CPF {person.cpf}
+                          {invitation.condominiumName}
                         </div>
                       </td>
                       <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                        {person.phoneNumber}
+                        {invitation.email}
                       </td>
                       <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                        {person.mainUnit || "Sem unidade vinculada"}
+                        {getRoleLabel(invitation)}
                       </td>
                       <td className="px-4 py-4">
                         <StatusBadge
-                          label={person.unitCount > 0 ? "Vinculado" : "Sem unidade"}
-                          variant={person.unitCount > 0 ? "success" : "warning"}
+                          label={getStatusLabel(invitation)}
+                          variant={getStatusVariant(invitation)}
                         />
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex flex-wrap gap-2">
                           <button
                             type="button"
-                            onClick={() => setViewingPerson(person)}
+                            onClick={() => setViewingInvitation(invitation)}
                             className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
                           >
                             Ver
                           </button>
                           <button
                             type="button"
-                            onClick={() => setEditingPerson(person)}
+                            onClick={() => void copyInvitationLink(invitation)}
                             className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
                           >
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/admin/invitations?personId=${person.id}`)}
-                            className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
-                          >
-                            Preparar convite
+                            Copiar link
                           </button>
                         </div>
                       </td>
@@ -288,81 +339,61 @@ export function PeoplePage() {
           )}
 
           <p className="mt-4 text-sm font-semibold text-[#6B7280]">
-            Este modulo cadastra pessoas no condominio ativo. O vinculo com unidade continua no modulo de unidades.
+            Admins podem convidar apenas sindicos e moradores do condominio ativo.
           </p>
         </div>
       </section>
 
       {isCreateOpen && activeCondominiumId && (
-        <PersonFormModal
-          title="Novo Morador"
-          submitLabel="Cadastrar morador"
-          initialForm={emptyForm}
-          onClose={() => setIsCreateOpen(false)}
-          onSubmit={async (form) => {
-            await createPersonInCondominium(activeCondominiumId, form);
-            await refreshPeople();
-            setSuccessMessage("Morador cadastrado com sucesso.");
+        <CreateInvitationModal
+          condominiumId={activeCondominiumId}
+          people={people}
+          initialPersonId={requestedPersonId || undefined}
+          onClose={closeCreateModal}
+          onCreated={async (invitation) => {
+            await refreshInvitations();
+            setSearchParams({}, { replace: true });
+            setSuccessMessage(`Convite criado. Link: ${buildInvitationLink(invitation.token)}`);
           }}
         />
       )}
 
-      {editingPerson && activeCondominiumId && (
-        <PersonFormModal
-          title="Editar Morador"
-          submitLabel="Salvar alteracoes"
-          initialForm={{
-            name: editingPerson.name,
-            cpf: editingPerson.cpf,
-            phoneNumber: editingPerson.phoneNumber,
-          }}
-          onClose={() => setEditingPerson(null)}
-          onSubmit={async (form) => {
-            await updatePersonInCondominium(activeCondominiumId, editingPerson.id, form);
-            await refreshPeople();
-            setSuccessMessage("Morador atualizado com sucesso.");
-          }}
-        />
-      )}
-
-      {viewingPerson && (
-        <PersonDetailsModal
-          person={viewingPerson}
-          onClose={() => setViewingPerson(null)}
+      {viewingInvitation && (
+        <InvitationDetailsModal
+          invitation={viewingInvitation}
+          onClose={() => setViewingInvitation(null)}
+          onCopy={() => void copyInvitationLink(viewingInvitation)}
         />
       )}
     </>
   );
 }
 
-type PersonFormModalProps = {
-  title: string;
-  submitLabel: string;
-  initialForm: CreatePersonRequest;
+type CreateInvitationModalProps = {
+  condominiumId: number;
+  people: PersonResponse[];
+  initialPersonId?: number;
   onClose: () => void;
-  onSubmit: (form: CreatePersonRequest) => Promise<void>;
+  onCreated: (invitation: InvitationResponse) => Promise<void>;
 };
 
-function PersonFormModal({
-  title,
-  submitLabel,
-  initialForm,
+function CreateInvitationModal({
+  condominiumId,
+  people,
+  initialPersonId,
   onClose,
-  onSubmit,
-}: PersonFormModalProps) {
-  const [form, setForm] = useState<CreatePersonRequest>(initialForm);
+  onCreated,
+}: CreateInvitationModalProps) {
+  const [form, setForm] = useState<CreateInvitationRequest>({
+    condominiumId,
+    personId: initialPersonId && people.some((person) => person.id === initialPersonId)
+      ? initialPersonId
+      : people[0]?.id ?? 0,
+    email: "",
+    role: 4,
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-
-  function updateField<K extends keyof CreatePersonRequest>(
-    field: K,
-    value: CreatePersonRequest[K],
-  ) {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
-  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -370,13 +401,14 @@ function PersonFormModal({
     setIsSubmitting(true);
 
     try {
-      await onSubmit(form);
+      const invitation = await createInvitation(form);
+      await onCreated(invitation);
       onClose();
     } catch (error) {
       if (error instanceof Error) {
         setErrorMessage(error.message);
       } else {
-        setErrorMessage("Nao foi possivel salvar o morador.");
+        setErrorMessage("Nao foi possivel criar o convite.");
       }
     } finally {
       setIsSubmitting(false);
@@ -384,26 +416,36 @@ function PersonFormModal({
   }
 
   return (
-    <ModalShell title={title} onClose={onClose}>
+    <ModalShell title="Novo Convite" onClose={onClose}>
       <form className="space-y-6" onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field
-            label="Nome"
-            value={form.name}
-            onChange={(value) => updateField("name", value)}
-            placeholder="Nome completo"
+          <SelectField
+            label="Pessoa"
+            value={form.personId}
+            onChange={(value) => setForm((current) => ({ ...current, personId: value }))}
+            options={people.map((person) => ({
+              value: person.id,
+              label: `${person.name} - CPF ${person.cpf}`,
+            }))}
           />
-          <Field
-            label="CPF"
-            value={form.cpf}
-            onChange={(value) => updateField("cpf", onlyDigits(value, 11))}
-            placeholder="Somente numeros"
+
+          <SelectField
+            label="Papel"
+            value={form.role}
+            onChange={(value) =>
+              setForm((current) => ({
+                ...current,
+                role: value as InvitationRole,
+              }))
+            }
+            options={roleOptions}
           />
+
           <Field
-            label="Telefone"
-            value={form.phoneNumber}
-            onChange={(value) => updateField("phoneNumber", onlyDigits(value, 20))}
-            placeholder="11999999999"
+            label="E-mail"
+            value={form.email}
+            onChange={(value) => setForm((current) => ({ ...current, email: value }))}
+            placeholder="morador@email.com"
           />
         </div>
 
@@ -415,51 +457,54 @@ function PersonFormModal({
 
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isSubmitting || !form.personId}
           className="h-12 w-full rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {isSubmitting ? "Salvando..." : submitLabel}
+          {isSubmitting ? "Criando..." : "Criar convite"}
         </button>
       </form>
     </ModalShell>
   );
 }
 
-function PersonDetailsModal({
-  person,
+function InvitationDetailsModal({
+  invitation,
   onClose,
+  onCopy,
 }: {
-  person: PersonResponse;
+  invitation: InvitationResponse;
   onClose: () => void;
+  onCopy: () => void;
 }) {
   return (
-    <ModalShell title="Detalhes do Morador" onClose={onClose}>
+    <ModalShell title="Detalhes do Convite" onClose={onClose}>
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <ReadOnlyField label="Nome" value={person.name} />
-          <ReadOnlyField label="CPF" value={person.cpf} />
-          <ReadOnlyField label="Telefone" value={person.phoneNumber} />
+          <ReadOnlyField label="Pessoa" value={invitation.personName} />
+          <ReadOnlyField label="E-mail" value={invitation.email} />
+          <ReadOnlyField label="Condominio" value={invitation.condominiumName} />
+          <ReadOnlyField label="Papel" value={getRoleLabel(invitation)} />
+          <ReadOnlyField label="Status" value={getStatusLabel(invitation)} />
           <ReadOnlyField
-            label="Condominio"
-            value={person.condominiumName || "Nao informado"}
-          />
-          <ReadOnlyField
-            label="Unidade principal"
-            value={person.mainUnit || "Sem unidade vinculada"}
-          />
-          <ReadOnlyField
-            label="Total de vinculos"
-            value={person.unitCount.toString()}
+            label="Expira em"
+            value={new Date(invitation.expiresAt).toLocaleString("pt-BR")}
           />
         </div>
 
         <section className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-5">
           <h3 className="text-sm font-extrabold uppercase tracking-wide text-[#0B3D2E]">
-            Proximo passo
+            Link de aceite
           </h3>
-          <p className="mt-2 text-sm font-semibold text-[#6B7280]">
-            Convites de acesso serao conectados no proximo modulo, usando esta pessoa como base.
+          <p className="mt-2 break-all text-sm font-semibold text-[#6B7280]">
+            {buildInvitationLink(invitation.token)}
           </p>
+          <button
+            type="button"
+            onClick={onCopy}
+            className="mt-4 h-10 rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white transition hover:bg-[#0B3D2E]"
+          >
+            Copiar link
+          </button>
         </section>
       </div>
     </ModalShell>
@@ -511,12 +556,40 @@ function Field({ label, value, onChange, placeholder }: FieldProps) {
         {label}
       </span>
       <input
-        type="text"
+        type="email"
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
       />
+    </label>
+  );
+}
+
+type SelectFieldProps = {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  options: Array<{ value: number; label: string }>;
+};
+
+function SelectField({ label, value, onChange, options }: SelectFieldProps) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-extrabold text-[#111827]">
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }
@@ -535,8 +608,4 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
       />
     </label>
   );
-}
-
-function onlyDigits(value: string, maxLength: number) {
-  return value.replace(/\D/g, "").slice(0, maxLength);
 }
