@@ -23,9 +23,12 @@ public class PersonUnitService : IPersonUnitService
 
     public async Task<PersonUnitResponseDto> CreateAsync(int userId, int unitId, CreatePersonUnitDto dto)
     {
-        var unitExists = await _context.Units.AnyAsync(u => u.Id == unitId);
+        var unit = await _context.Units
+            .AsNoTracking()
+            .Include(existingUnit => existingUnit.Building)
+            .FirstOrDefaultAsync(existingUnit => existingUnit.Id == unitId);
 
-        if (!unitExists)
+        if (unit is null)
             throw new NotFoundException("Unit not found.");
 
         await _permissionService.EnsureUnitAccessAsync(userId, unitId);
@@ -34,6 +37,15 @@ public class PersonUnitService : IPersonUnitService
 
         if (!personExists)
             throw new NotFoundException("Person not found.");
+
+        var personHasLinksInAnotherCondominium = await _context.PersonUnits
+            .AsNoTracking()
+            .AnyAsync(personUnit =>
+                personUnit.PersonId == dto.PersonId &&
+                personUnit.Unit.Building.CondominiumId != unit.Building.CondominiumId);
+
+        if (personHasLinksInAnotherCondominium)
+            throw new ConflictException("This person is already linked to a unit in another condominium.");
 
         var relationshipExists = await _context.PersonUnits.AnyAsync(pu =>
             pu.UnitId == unitId &&

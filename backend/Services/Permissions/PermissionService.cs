@@ -93,6 +93,9 @@ public class PermissionService : IPermissionService
         if (user is null)
             return false;
 
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
+            return true;
+
         return await _context.UserCondominiums
             .AnyAsync(uc =>
                 uc.UserId == userId &&
@@ -129,6 +132,9 @@ public class PermissionService : IPermissionService
 
         if (user is null)
             return false;
+
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
+            return true;
 
         var personExists = await _context.Persons
             .AsNoTracking()

@@ -13,5 +13,6 @@ public class CreatePersonUnitDto
     public int PersonId { get; set; }
 
     [Required]
+    [Range(1, 3)]
     public UnitRelationshipType RelationshipType { get; set; }
 }

@@ -10,10 +10,11 @@ namespace backend.DTOs.Unit;
 public class CreateUnitDto
 {
     [Required]
-    [StringLength(20)]
+    [StringLength(20, MinimumLength = 1)]
     public string Number { get; set; } = string.Empty;
 
     [Required]
+    [Range(1, 6)]
     public UnitType UnitType { get; set; }
 
     [Required]
@@ -27,5 +28,7 @@ public class CreateUnitDto
     [Required]
     [Range(0, 10000)]
     public double SquareMeters { get; set; }
+
+    [StringLength(500)]
     public string Observations { get; set; } = string.Empty;
 }

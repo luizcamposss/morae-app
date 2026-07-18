@@ -1,6 +1,7 @@
 using AutoMapper;
 using backend.Data;
 using backend.DTOs.Unit;
+using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
 using backend.Services.Permissions;
@@ -19,6 +20,40 @@ public class UnitService : IUnitService
         _mapper = mapper;
         _permissionService = permissionService;
     }
+
+    private IQueryable<UnitResponseDto> BuildUnitResponseQuery()
+    {
+        return _context.Units
+            .AsNoTracking()
+            .Select(unit => new UnitResponseDto
+            {
+                Id = unit.Id,
+                BuildingId = unit.BuildingId,
+                CondominiumId = unit.Building.CondominiumId,
+                BuildingName = unit.Building.Name,
+                Number = unit.Number,
+                UnitType = unit.UnitType,
+                Rooms = unit.Rooms,
+                Bathrooms = unit.Bathrooms,
+                SquareMeters = unit.SquareMeters,
+                Observations = unit.Observations,
+                ResidentCount = _context.PersonUnits.Count(personUnit => personUnit.UnitId == unit.Id),
+                ResponsiblePersonName = _context.PersonUnits
+                    .Where(personUnit => personUnit.UnitId == unit.Id)
+                    .OrderBy(personUnit =>
+                        personUnit.RelationshipType == UnitRelationshipType.Owner ? 0 :
+                        personUnit.RelationshipType == UnitRelationshipType.Resident ? 1 :
+                        personUnit.RelationshipType == UnitRelationshipType.Tenant ? 2 : 3)
+                    .Select(personUnit => personUnit.Person.Name)
+                    .FirstOrDefault() ?? string.Empty,
+                Status = _context.PersonUnits.Any(personUnit => personUnit.UnitId == unit.Id)
+                    ? "Ocupada"
+                    : "Vaga",
+                CreatedAt = unit.CreatedAt,
+                UpdatedAt = unit.UpdatedAt,
+            });
+    }
+
     public async Task<UnitResponseDto> CreateAsync(int userId,int buildingId,CreateUnitDto dto)
     {
         var building = await _context.Buildings
@@ -47,7 +82,8 @@ public class UnitService : IUnitService
         _context.Units.Add(unit);
         await _context.SaveChangesAsync();
 
-        return _mapper.Map<UnitResponseDto>(unit);
+        return await BuildUnitResponseQuery()
+            .FirstAsync(unitResponse => unitResponse.Id == unit.Id);
     }
 
     public async Task<IEnumerable<UnitResponseDto>> GetByBuildingAsync(int userId,int buildingId)
@@ -61,12 +97,9 @@ public class UnitService : IUnitService
 
         await _permissionService.EnsureBuildingAccessAsync(userId, buildingId);
 
-        var units = await _context.Units
-            .AsNoTracking()
-            .Where(u => u.BuildingId == buildingId)
+        return await BuildUnitResponseQuery()
+            .Where(unit => unit.BuildingId == buildingId)
             .ToListAsync();
-
-        return _mapper.Map<IEnumerable<UnitResponseDto>>(units);
     }
 
     public async Task<UnitResponseDto?> GetByIdAsync(int userId,int unitId)
@@ -80,7 +113,8 @@ public class UnitService : IUnitService
 
         await _permissionService.EnsureUnitAccessAsync(userId, unitId);
 
-        return _mapper.Map<UnitResponseDto>(unit);
+        return await BuildUnitResponseQuery()
+            .FirstOrDefaultAsync(unitResponse => unitResponse.Id == unitId);
     }
 
     public async Task<bool> UpdateAsync(int userId,int unitId,UpdateUnitDto dto)
@@ -120,6 +154,12 @@ public class UnitService : IUnitService
             return false;
 
         await _permissionService.EnsureUnitAccessAsync(userId, unitId);
+
+        var hasLinkedPeople = await _context.PersonUnits
+            .AnyAsync(personUnit => personUnit.UnitId == unitId);
+
+        if (hasLinkedPeople)
+            throw new ConflictException("Cannot delete a unit that still has linked people.");
 
         _context.Units.Remove(unit);
         await _context.SaveChangesAsync();
