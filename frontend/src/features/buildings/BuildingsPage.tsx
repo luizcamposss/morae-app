@@ -1,25 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
+import { useCondominium } from "../../app/providers/useCondominium";
 import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
 import type { BuildingResponse } from "./types";
 import { createBuilding, getBuildingsByCondominium, updateBuilding } from "./buildingService";
-import { getMyCondominiums } from "../me/meService";
-import type { MeCondominiumResponse } from "../me/types";
 
 export function BuildingsPage() {
     const navigate = useNavigate();
+    const {
+        condominiums,
+        activeCondominium,
+        activeCondominiumId,
+        isLoading: isLoadingCondominiums,
+        errorMessage: condominiumErrorMessage,
+        setActiveCondominiumId,
+    } = useCondominium();
     const [isCreateOpen, setIsCreateOpen] = useState(false)
     const [editingBuilding, setEditingBuilding] = useState<BuildingResponse | null>(null)
     const [viewingBuilding, setViewingBuilding] = useState<BuildingResponse | null>(null)
     const [buildings, setBuildings] = useState<BuildingResponse[]>([]);
-    const [condominiums, setCondominiums] = useState<MeCondominiumResponse[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingBuildings, setIsLoadingBuildings] = useState(true);
     const [errorMessage, setErrorMessage] = useState("");
     const [successMessage, setSuccessMessage] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
-    const [activeCondominiumId, setActiveCondominiumId] = useState<number | null>(null);
 
     const filteredBuildings = useMemo(() => {
         const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -75,6 +80,7 @@ export function BuildingsPage() {
     async function loadBuildings(condominiumId: number) {
         try {
             setErrorMessage("");
+            setSuccessMessage("");
             const result = await getBuildingsByCondominium(condominiumId);
             setBuildings(result);
         } catch (error) {
@@ -84,40 +90,23 @@ export function BuildingsPage() {
                 setErrorMessage("Nao foi possivel carregar os predios.");
             }
         } finally {
-            setIsLoading(false);
+            setIsLoadingBuildings(false);
         }
     }
 
     useEffect(() => {
-        async function initializeBuildingsPage() {
-            setIsLoading(true);
-
-            try {
-                const myCondominiums = await getMyCondominiums();
-                setCondominiums(myCondominiums);
-
-                const adminCondominium = myCondominiums.find((condominium) => condominium.role === "Admin");
-                const selectedCondominium = adminCondominium ?? myCondominiums[0];
-
-                if (!selectedCondominium) {
-                    setErrorMessage("Nenhum condominio disponivel para este usuario.");
-                    setBuildings([]);
-                    return;
-                }
-
-                setActiveCondominiumId(selectedCondominium.condominiumId);
-                await loadBuildings(selectedCondominium.condominiumId);
-            } catch (error) {
-                if (error instanceof Error) {
-                    setErrorMessage(error.message);
-                } else {
-                    setErrorMessage("Nao foi possivel carregar os condominios.");
-                }
-            }
+        if (!activeCondominiumId) {
+            setBuildings([]);
+            setIsLoadingBuildings(false);
+            return;
         }
 
-        void initializeBuildingsPage();
-    }, []);
+        setIsLoadingBuildings(true);
+        void loadBuildings(activeCondominiumId);
+    }, [activeCondominiumId]);
+
+    const isLoading = isLoadingCondominiums || isLoadingBuildings;
+    const pageErrorMessage = condominiumErrorMessage || errorMessage;
 
     function handleUnits(buildingId: number) {
         navigate(`/admin/units?buildingId=${buildingId}`);
@@ -137,20 +126,40 @@ export function BuildingsPage() {
                         <p className="mt-1 text-sm font-semibold text-[#6B7280]">
                             Controle os predios e blocos do condominio.
                         </p>
-                        {condominiums.length > 0 && activeCondominiumId && (
+                        {activeCondominium && (
                             <p className="mt-2 text-sm font-semibold text-[#16A34A]">
-                                Condominio ativo: {condominiums.find((condominium) => condominium.condominiumId === activeCondominiumId)?.condominiumName}
+                                Condominio ativo: {activeCondominium.condominiumName}
                             </p>
                         )}
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={() => setIsCreateOpen(true)}
-                        className="h-11 rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E]"
-                    >
-                        + Novo Predio
-                    </button>
+                    <div className="flex flex-col gap-3 md:items-end">
+                        {condominiums.length > 1 && (
+                            <select
+                                value={activeCondominiumId ?? ""}
+                                onChange={(event) => setActiveCondominiumId(Number(event.target.value))}
+                                className="h-11 min-w-72 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
+                            >
+                                {condominiums.map((condominium) => (
+                                    <option
+                                        key={condominium.condominiumId}
+                                        value={condominium.condominiumId}
+                                    >
+                                        {condominium.condominiumName}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+
+                        <button
+                            type="button"
+                            disabled={!activeCondominiumId}
+                            onClick={() => setIsCreateOpen(true)}
+                            className="h-11 rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
+                        >
+                            + Novo Predio
+                        </button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -189,9 +198,9 @@ export function BuildingsPage() {
                         </p>
                     )}
 
-                    {errorMessage && (
+                    {pageErrorMessage && (
                         <p className="mb-4 text-sm font-semibold text-[#B42318]">
-                            {errorMessage}
+                            {pageErrorMessage}
                         </p>
                     )}
 
@@ -300,20 +309,20 @@ export function BuildingsPage() {
                 </div>
             </section>
 
-            {isCreateOpen && (
+            {isCreateOpen && activeCondominiumId && (
                 <CreateBuildingModal
-                    condominiumId={activeCondominiumId ?? 0}
+                    condominiumId={activeCondominiumId}
                     onClose={() => setIsCreateOpen(false)}
-                    onCreated={() => loadBuildings(activeCondominiumId ?? 0)}
+                    onCreated={() => loadBuildings(activeCondominiumId)}
                     onSuccess={(message) => setSuccessMessage(message)}
                 />
             )}
 
-            {editingBuilding && (
+            {editingBuilding && activeCondominiumId && (
                 <EditBuildingModal
                     building={editingBuilding}
                     onClose={() => setEditingBuilding(null)}
-                    onUpdated={() => loadBuildings(activeCondominiumId ?? 0)}
+                    onUpdated={() => loadBuildings(activeCondominiumId)}
                     onSuccess={(message) => setSuccessMessage(message)}
                 />
             )}

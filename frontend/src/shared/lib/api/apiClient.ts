@@ -51,6 +51,10 @@ export async function apiRequest<T>(
         throw new Error("Erro ao comunicar com a API.");
     }
 
+    if (response.status === 204) {
+        return undefined as T;
+    }
+
     if (!isJsonResponse) {
         throw new Error("Resposta invalida da API.");
     }
