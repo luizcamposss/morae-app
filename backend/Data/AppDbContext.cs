@@ -17,6 +17,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
 
     }
     public DbSet<Person> Persons { get; set; }
+    public DbSet<PersonCondominium> PersonCondominiums { get; set; }
     public DbSet<Condominium> Condominiums { get; set; }
     public DbSet<Building> Buildings { get; set; }
     public DbSet<Unit> Units { get; set; }
@@ -71,6 +72,28 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
         builder.Entity<Person>()
             .HasIndex(p => p.CPF)
             .IsUnique();
+
+        builder.Entity<Person>()
+            .HasOne(p => p.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(p => p.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<PersonCondominium>()
+            .HasIndex(pc => new { pc.PersonId, pc.CondominiumId })
+            .IsUnique();
+
+        builder.Entity<PersonCondominium>()
+            .HasOne(pc => pc.Person)
+            .WithMany(p => p.PersonCondominiums)
+            .HasForeignKey(pc => pc.PersonId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<PersonCondominium>()
+            .HasOne(pc => pc.Condominium)
+            .WithMany(c => c.PersonCondominiums)
+            .HasForeignKey(pc => pc.CondominiumId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.Entity<PersonUnit>()
             .HasIndex(pu => new

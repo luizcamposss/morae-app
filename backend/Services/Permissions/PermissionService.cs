@@ -93,9 +93,6 @@ public class PermissionService : IPermissionService
         if (user is null)
             return false;
 
-        if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
-            return true;
-
         return await _context.UserCondominiums
             .AnyAsync(uc =>
                 uc.UserId == userId &&
@@ -133,9 +130,6 @@ public class PermissionService : IPermissionService
         if (user is null)
             return false;
 
-        if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
-            return true;
-
         var personExists = await _context.Persons
             .AsNoTracking()
             .AnyAsync(p => p.Id == personId);
@@ -146,14 +140,26 @@ public class PermissionService : IPermissionService
         if (await _userManager.IsInRoleAsync(user, AppRoles.Admin) ||
             await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
         {
-            return await _context.PersonUnits
+            var hasCondominiumPersonLink = await _context.PersonCondominiums
                 .AsNoTracking()
-                .AnyAsync(pu =>
-                    pu.PersonId == personId &&
+                .AnyAsync(personCondominium =>
+                    personCondominium.PersonId == personId &&
                     _context.UserCondominiums.Any(uc =>
                         uc.UserId == userId &&
-                        uc.CondominiumId == pu.Unit.Building.CondominiumId &&
+                        uc.CondominiumId == personCondominium.CondominiumId &&
                         uc.Status == UserCondominiumStatus.Active));
+
+            if (hasCondominiumPersonLink)
+                return true;
+
+            return await _context.PersonUnits
+                .AsNoTracking()
+                .AnyAsync(personUnit =>
+                    personUnit.PersonId == personId &&
+                    _context.UserCondominiums.Any(userCondominium =>
+                        userCondominium.UserId == userId &&
+                        userCondominium.CondominiumId == personUnit.Unit.Building.CondominiumId &&
+                        userCondominium.Status == UserCondominiumStatus.Active));
         }
 
         return user.PersonId == personId;

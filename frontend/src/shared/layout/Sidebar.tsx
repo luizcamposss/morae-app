@@ -28,6 +28,8 @@ function getMenuItemsByRole(role: string): MenuItem[] {
         return [
             { label: "Dashboard", icon: "D", to: "/admin/dashboard" },
             { label: "Predios", icon: "P", to: "/admin/buildings" },
+            { label: "Unidades", icon: "U", to: "/admin/units" },
+            { label: "Moradores", icon: "M", to: "/admin/people" },
             { label: "Pagamentos", icon: "G", to: "/admin/dashboard" },
         ];
     }
