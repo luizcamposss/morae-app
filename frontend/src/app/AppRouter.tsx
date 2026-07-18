@@ -11,6 +11,7 @@ import { SyndicDashboardPage } from "../features/syndicDashboard/SyndicDashboard
 import { RoleRoute } from "../features/auth/RoleRoute";
 import { BuildingsPage } from "../features/buildings/BuildingsPage";
 import { UnitsPage } from "../features/units/UnitsPage";
+import { PeoplePage } from "../features/persons/PeoplePage";
 
 export function AppRouter() {
     return (
@@ -32,6 +33,7 @@ export function AppRouter() {
                             <Route path="dashboard" element={<AdminDashboardPage />} />
                             <Route path="buildings" element={<BuildingsPage />} />
                             <Route path="units" element={<UnitsPage />} />
+                            <Route path="people" element={<PeoplePage />} />
                         </Route>
                     </Route>
 

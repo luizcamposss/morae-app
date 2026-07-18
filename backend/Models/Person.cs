@@ -24,7 +24,10 @@ public class Person
     [Required]
     [StringLength(20)]
     public string PhoneNumber { get; set; } = string.Empty;
+    public int? CreatedByUserId { get; set; }
+    public ApplicationUser? CreatedByUser { get; set; }
     public ApplicationUser? User { get; set; }
+    public ICollection<PersonCondominium> PersonCondominiums { get; set; } = [];
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

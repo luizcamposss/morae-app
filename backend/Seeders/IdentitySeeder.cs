@@ -87,6 +87,9 @@ public class IdentitySeeder
         if (!roleResult.Succeeded)
             throw new Exception(string.Join(" | ", roleResult.Errors.Select(e => e.Description)));
 
+        person.CreatedByUserId = user.Id;
+        await context.SaveChangesAsync();
+
         await transaction.CommitAsync();
     }
 
@@ -146,6 +149,7 @@ public class IdentitySeeder
             AppRoles.Resident);
 
         await EnsureUserCondominiumAsync(context, residentUser.Id, condominium.Id, AppRoles.Resident);
+        await EnsurePersonCondominiumAsync(context, residentUser.PersonId, condominium.Id);
         await EnsureResidentUnitAsync(context, residentUser.PersonId, unit.Id);
 
         await transaction.CommitAsync();
@@ -270,6 +274,7 @@ public class IdentitySeeder
                 Name = personName,
                 CPF = cpf,
                 PhoneNumber = phoneNumber,
+                CreatedByUserId = null,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -350,6 +355,26 @@ public class IdentitySeeder
             PersonId = personId,
             UnitId = unitId,
             RelationshipType = UnitRelationshipType.Resident,
+            CreatedAt = DateTime.UtcNow
+        });
+
+        await context.SaveChangesAsync();
+    }
+
+    private static async Task EnsurePersonCondominiumAsync(AppDbContext context, int personId, int condominiumId)
+    {
+        var existingLink = await context.PersonCondominiums
+            .FirstOrDefaultAsync(personCondominium =>
+                personCondominium.PersonId == personId &&
+                personCondominium.CondominiumId == condominiumId);
+
+        if (existingLink is not null)
+            return;
+
+        context.PersonCondominiums.Add(new PersonCondominium
+        {
+            PersonId = personId,
+            CondominiumId = condominiumId,
             CreatedAt = DateTime.UtcNow
         });
 

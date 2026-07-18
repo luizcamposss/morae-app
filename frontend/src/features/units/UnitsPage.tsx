@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useCondominium } from "../../app/providers/useCondominium";
-import { createPersonInCondominium, getPersons } from "../persons/personService";
+import { createPersonInCondominium, getPersonsByCondominium } from "../persons/personService";
 import type { CreatePersonRequest, PersonResponse } from "../persons/types";
 import {
   getPeopleByUnit,
@@ -804,7 +804,7 @@ function ManageUnitPeopleModal({
 
       const [peopleResult, personsResult] = await Promise.all([
         getPeopleByUnit(unit.id),
-        getPersons(),
+        getPersonsByCondominium(condominiumId),
       ]);
 
       setLinkedPeople(peopleResult);
@@ -826,7 +826,7 @@ function ManageUnitPeopleModal({
 
   useEffect(() => {
     void loadData();
-  }, [unit.id]);
+  }, [unit.id, condominiumId]);
 
   async function handleLink(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

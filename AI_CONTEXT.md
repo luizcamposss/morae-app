@@ -280,16 +280,23 @@ System/platform administrator.
 
 Capabilities:
 
-* Full platform-level access.
 * Create condominiums.
 * Onboard condominiums with an initial admin.
-* Manage global data.
+* Manage platform-level condominium records and commercial/contact data.
 * Invite condominium admins.
+* Contact condominium admins/representatives directly.
 
 Rules:
 
 * Master actions should call `EnsureMasterAsync`.
 * Master should not be treated as a condominium member unless explicitly linked.
+* Master must not automatically access condominium operations such as
+  buildings, units, residents, person-unit links, charges, occurrences or
+  condominium-scoped management screens.
+* Master may manage global platform/contact people created by that same Master,
+  but must not edit condominium residents created/managed by Admin users.
+* Operational condominium access belongs to Admin, Syndic and Resident according
+  to `UserCondominium` and permission checks.
 
 ## Admin
 
@@ -542,6 +549,10 @@ Important rules:
 
 * `CPF` must be unique.
 * A person may exist before the user account is created.
+* `CreatedByUserId` stores who created the person.
+* Master can update/delete only global people created by that same Master.
+* Condominium residents should be managed through condominium-scoped endpoints
+  and `PersonCondominium`.
 
 ## PersonUnit
 
@@ -947,35 +958,52 @@ Modules already implemented or substantially advanced:
    * Role-aware redirects
    * Role-aware sidebar/menu
 
-Modules still planned:
-
 5. API layer
    * Centralize `API_BASE_URL`
    * Create shared API client
    * Centralize auth headers
-   * Prepare global handling for `401`, `403`, and generic errors
+   * Handle JSON responses and `204 No Content`
 
 6. Application context beyond auth
-   * Active condominium
-   * Potential permission/context helpers needed by multi-condominium UX
+   * Active condominium provider
+   * Persisted active condominium selection
+   * Reusable condominium context for operational modules
 
-7. First real operational module
-   * Recommended first target: buildings
-   * Then units
-   * Then people
+7. Buildings and units operational modules
+   * Buildings page connected to real backend data
+   * Building metrics, search, create, edit and detail modal
+   * Units page connected to real backend data
+   * Unit metrics, search, create, edit, detail and delete flow
+   * Unit person-link flow using `PersonUnits`
+   * Unit backend response enriched with building, condominium, status and responsible person data
+   * Unit deletion blocked when people are linked
+   * Person/unit DTO validation strengthened for MVP safety
 
-8. Invitations and access management
+8. People / residents management
+   * Dedicated admin route `/admin/people`
+   * Sidebar entry `Moradores` for Admin users
+   * People page connected to `GET /api/condominiums/{condominiumId}/persons`
+   * Create and edit people inside the active condominium context
+   * People response enriched with condominium, unit count and main unit
+   * `PersonCondominium` relationship added so people can belong to a condominium before being linked to a unit
+   * Unit person-link modal now loads people from the active condominium instead of global `/api/persons`
+   * Master remains blocked from condominium operational people/residents endpoints
+   * Master global person update/delete now requires `Person.CreatedByUserId` to match the authenticated Master
+
+Modules still planned:
+
+9. Invitations and access management
    * Invitation workflows
    * Acceptance flows
    * Condominium access/per-role operations
 
-9. UX hardening
+10. UX hardening
    * Better empty states
    * Better error/success feedback
    * Better form validation
    * Better expired-session handling
 
-10. Additional business modules
+11. Additional business modules
    * Payments
    * Charges
    * News/communication
@@ -987,6 +1015,33 @@ Preferred near-term order:
 1. Finish `Módulo 4` testing/commit if not yet committed.
 2. Build `Módulo 5: camada de API`.
 3. Connect the first real CRUD/module using the shared API layer.
+
+---
+
+# Current Working Point
+
+The previous near-term order has been superseded by the completed frontend/API
+work.
+
+Current state:
+
+1. Units module is complete and tested.
+2. People/residents module is implemented and tested locally.
+3. Current branch for this work is `feat/people-module`.
+4. Next module is `Modulo 9: Invitations and access management`.
+5. Invitation actions should reuse people records as the base for creating user access.
+
+Latest module 8 validation:
+
+* Frontend build passed with `npm.cmd run build`.
+* Backend build passed with `dotnet build backend\backend.csproj /p:UseAppHost=false`.
+* Admin can list, create and update condominium people.
+* Invalid person payload returns `400`.
+* Master receives `403` when trying to access condominium-scoped people.
+* Migration creates the `PersonCondominiums` table with a unique `PersonId + CondominiumId` index.
+* Master can update a global person created by themselves.
+* Master receives `403` when trying to update a condominium person created/managed outside the Master scope.
+* Admin can still update people inside their assigned condominium.
 
 ---
 

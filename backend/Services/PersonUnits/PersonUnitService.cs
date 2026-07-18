@@ -38,6 +38,15 @@ public class PersonUnitService : IPersonUnitService
         if (!personExists)
             throw new NotFoundException("Person not found.");
 
+        var personBelongsToCondominium = await _context.PersonCondominiums
+            .AsNoTracking()
+            .AnyAsync(personCondominium =>
+                personCondominium.PersonId == dto.PersonId &&
+                personCondominium.CondominiumId == unit.Building.CondominiumId);
+
+        if (!personBelongsToCondominium)
+            throw new ForbiddenException("This person does not belong to this condominium.");
+
         var personHasLinksInAnotherCondominium = await _context.PersonUnits
             .AsNoTracking()
             .AnyAsync(personUnit =>

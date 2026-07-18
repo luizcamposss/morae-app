@@ -34,7 +34,7 @@ public class PersonsController : ControllerBase
     }
 
     [HttpPost("/api/condominiums/{condominiumId}/persons")]
-    [Authorize(Roles = $"{AppRoles.Master},{AppRoles.Admin}")]
+    [Authorize(Roles = AppRoles.Admin)]
     public async Task<IActionResult> CreateInCondominium([FromRoute] int condominiumId, [FromBody] CreatePersonDto dto)
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -45,6 +45,17 @@ public class PersonsController : ControllerBase
             nameof(GetById),
             new { id = person.Id },
             person);
+    }
+
+    [HttpGet("/api/condominiums/{condominiumId}/persons")]
+    [Authorize(Roles = $"{AppRoles.Admin},{AppRoles.Syndic}")]
+    public async Task<IActionResult> GetByCondominium([FromRoute] int condominiumId)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var persons = await _personService.GetByCondominiumAsync(userId, condominiumId);
+
+        return Ok(persons);
     }
 
     [HttpGet]
@@ -79,6 +90,23 @@ public class PersonsController : ControllerBase
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
         var updated = await _personService.UpdateAsync(userId, id, dto);
+
+        if (!updated)
+            return NotFound();
+
+        return NoContent();
+    }
+
+    [HttpPut("/api/condominiums/{condominiumId}/persons/{id}")]
+    [Authorize(Roles = AppRoles.Admin)]
+    public async Task<IActionResult> UpdateInCondominium(
+        [FromRoute] int condominiumId,
+        [FromRoute] int id,
+        [FromBody] UpdatePersonDto dto)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var updated = await _personService.UpdateInCondominiumAsync(userId, condominiumId, id, dto);
 
         if (!updated)
             return NotFound();
