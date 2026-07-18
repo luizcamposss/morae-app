@@ -9,6 +9,8 @@ import { MasterDashboardPage } from "../features/masterDashboard/MasterDashboard
 import { AdminDashboardPage } from "../features/adminDashboard/AdminDashboardPage";
 import { SyndicDashboardPage } from "../features/syndicDashboard/SyndicDashboardPage";
 import { RoleRoute } from "../features/auth/RoleRoute";
+import { BuildingsPage } from "../features/buildings/BuildingsPage";
+import { UnitsPage } from "../features/units/UnitsPage";
 
 export function AppRouter() {
     return (
@@ -28,6 +30,8 @@ export function AppRouter() {
                     <Route element={<RoleRoute allowedRoles={["Admin"]} />}>
                         <Route path="/admin" element={<AppLayout />}>
                             <Route path="dashboard" element={<AdminDashboardPage />} />
+                            <Route path="buildings" element={<BuildingsPage />} />
+                            <Route path="units" element={<UnitsPage />} />
                         </Route>
                     </Route>
 

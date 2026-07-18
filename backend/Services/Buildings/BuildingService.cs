@@ -22,6 +22,31 @@ public class BuildingService : IBuildingService
         _mapper = mapper;
         _permissionService = permissionService;
     }
+
+    private IQueryable<BuildingResponseDto> BuildBuildingResponseQuery()
+    {
+        return _context.Buildings
+            .AsNoTracking()
+            .Select(b => new BuildingResponseDto
+            {
+                Id = b.Id,
+                CondominiumId = b.CondominiumId,
+                Name = b.Name,
+                Code = b.Code,
+                UnitCount = b.Units.Count,
+                ResidentCount = _context.PersonUnits.Count(pu => pu.Unit.BuildingId == b.Id),
+                OccupiedUnitCount = _context.Units.Count(u =>
+                    u.BuildingId == b.Id &&
+                    _context.PersonUnits.Any(pu => pu.UnitId == u.Id)),
+                Status = _context.Units.Any(u =>
+                    u.BuildingId == b.Id &&
+                    _context.PersonUnits.Any(pu => pu.UnitId == u.Id))
+                    ? "Ativo"
+                    : "Atencao",
+                CreatedAt = b.CreatedAt
+            });
+    }
+
     public async Task<BuildingResponseDto> CreateAsync(int userId, int condominiumId, CreateBuildingDto dto)
     {
         var condominiumExists = await _context.Condominiums.AnyAsync(c => c.Id == condominiumId);
@@ -49,7 +74,8 @@ public class BuildingService : IBuildingService
         _context.Buildings.Add(building);
         await _context.SaveChangesAsync();
 
-        return _mapper.Map<BuildingResponseDto>(building);
+        return await BuildBuildingResponseQuery()
+            .FirstAsync(b => b.Id == building.Id);
     }
     public async Task<IEnumerable<BuildingResponseDto>> GetByCondominiumAsync(int userId, int condominiumId)
     {
@@ -62,12 +88,9 @@ public class BuildingService : IBuildingService
 
         await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
 
-        var buildings = await _context.Buildings
-            .AsNoTracking()
-            .Where(c => c.CondominiumId == condominiumId)
+        return await BuildBuildingResponseQuery()
+            .Where(b => b.CondominiumId == condominiumId)
             .ToListAsync();
-
-        return _mapper.Map<IEnumerable<BuildingResponseDto>>(buildings);
     }
 
     public async Task<BuildingResponseDto?> GetByIdAsync(int userId, int buildingId)
@@ -81,7 +104,8 @@ public class BuildingService : IBuildingService
 
         await _permissionService.EnsureBuildingAccessAsync(userId, buildingId);
 
-        return _mapper.Map<BuildingResponseDto>(building);
+        return await BuildBuildingResponseQuery()
+            .FirstOrDefaultAsync(b => b.Id == buildingId);
     }
 
     public async Task<bool> UpdateAsync(int userId, int buildingId, UpdateBuildingDto dto)

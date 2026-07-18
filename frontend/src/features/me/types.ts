@@ -6,3 +6,10 @@ export type MeResponse = {
   personName: string;
   roles: string[];
 };
+
+export type MeCondominiumResponse = {
+  condominiumId: number;
+  condominiumName: string;
+  role: string;
+  status: string;
+};

@@ -164,6 +164,7 @@ using (var scope = app.Services.CreateScope())
 
     await IdentitySeeder.SeedRolesAsync(roleManager);
     await IdentitySeeder.SeedMasterAsync(db, userManager, configuration);
+    await IdentitySeeder.SeedDemoUsersAsync(db, userManager, configuration);
 }
 
 app.Run();
