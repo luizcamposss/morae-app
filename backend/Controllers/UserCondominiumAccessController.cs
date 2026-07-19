@@ -17,6 +17,16 @@ public class UserCondominiumAccessController : ControllerBase
         _userCondominiumAccessService = userCondominiumAccessService;
     }
 
+    [HttpGet("api/master/users")]
+    public async Task<IActionResult> GetMasterUsers()
+    {
+        var requesterUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var users = await _userCondominiumAccessService.GetMasterUsersAsync(requesterUserId);
+
+        return Ok(users);
+    }
+
     [HttpPut("api/condominiums/{condominiumId}/users/{userId}/suspend")]
     public async Task<IActionResult> Suspend(
         [FromRoute] int condominiumId,

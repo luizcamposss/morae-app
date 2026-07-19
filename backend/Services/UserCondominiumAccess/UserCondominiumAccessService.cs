@@ -30,6 +30,34 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
         _mapper = mapper;
     }
 
+    public async Task<IEnumerable<MasterUserResponseDto>> GetMasterUsersAsync(int requesterUserId)
+    {
+        await _permissionService.EnsureMasterAsync(requesterUserId);
+
+        return await _context.UserCondominiums
+            .AsNoTracking()
+            .Where(userCondominium =>
+                userCondominium.Role == AppRoles.Admin &&
+                userCondominium.Condominium.CreatedByUserId == requesterUserId)
+            .OrderBy(userCondominium => userCondominium.User.Person.Name)
+            .Select(userCondominium => new MasterUserResponseDto
+            {
+                UserId = userCondominium.UserId,
+                PersonId = userCondominium.User.PersonId,
+                PersonName = userCondominium.User.Person.Name,
+                Email = userCondominium.User.Email ?? string.Empty,
+                CondominiumId = userCondominium.CondominiumId,
+                CondominiumName = userCondominium.Condominium.Name,
+                Role = userCondominium.Role,
+                Status = userCondominium.Status,
+                AccessCreatedAt = userCondominium.CreatedAt,
+                UserCreatedAt = userCondominium.User.CreatedAt,
+                SuspendedAt = userCondominium.SuspendedAt,
+                SuspensionReason = userCondominium.SuspensionReason
+            })
+            .ToListAsync();
+    }
+
     public async Task<UserCondominiumAccessResponseDto> SuspendAsync(
         int requesterUserId,
         int condominiumId,
@@ -113,6 +141,14 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
         {
             if (targetRole != AppRoles.Admin)
                 throw new ForbiddenException("Master can only manage condominium admins through this flow.");
+
+            var ownsCondominium = await _context.Condominiums
+                .AnyAsync(condominium =>
+                    condominium.Id == condominiumId &&
+                    condominium.CreatedByUserId == requesterUserId);
+
+            if (!ownsCondominium)
+                throw new ForbiddenException("Master can only manage admins from condominiums created by themselves.");
 
             return;
         }

@@ -13,3 +13,14 @@ export type MeCondominiumResponse = {
   role: string;
   status: string;
 };
+
+export type MeUnitResponse = {
+  unitId: number;
+  buildingId: number;
+  condominiumId: number;
+  unitNumber: string;
+  buildingName: string;
+  condominiumName: string;
+  unitType: number;
+  relationshipType: number;
+};

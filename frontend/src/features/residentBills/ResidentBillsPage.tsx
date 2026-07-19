@@ -1,222 +1,182 @@
-import { useState } from 'react'
-import type { ReactNode } from 'react'
-import { MetricCard } from '../../shared/components/MetricCard'
-import { StatusBadge } from '../../shared/components/StatusBadge'
-
-const metrics = [
-    {
-        label: 'Em aberto',
-        value: '1',
-        helper: 'Aguardando pagamento',
-    },
-    {
-        label: 'Pagos',
-        value: '8',
-        helper: 'Historico recente',
-    },
-    {
-        label: 'Atrasados',
-        value: '1',
-        helper: 'Regularize o quanto antes',
-    },
-]
-
-const bills = [
-    {
-        reference: 'Junho/2026',
-        value: 'R$ 350,00',
-        dueDate: '10/05',
-        status: 'Pago',
-        variant: 'success' as const,
-    },
-    {
-        reference: 'Maio/2026',
-        value: 'R$ 350,00',
-        dueDate: '10/05',
-        status: 'Pendente',
-        variant: 'warning' as const,
-    },
-    {
-        reference: 'Abril/2026',
-        value: 'R$ 350,00',
-        dueDate: '10/05',
-        status: 'Atrasado',
-        variant: 'danger' as const,
-    },
-]
+import { useEffect, useMemo, useState } from "react";
+import { MetricCard } from "../../shared/components/MetricCard";
+import { StatusBadge } from "../../shared/components/StatusBadge";
+import { getMyCharges } from "../charges/chargeService";
+import type { ChargeResponse } from "../charges/types";
 
 export function ResidentBillsPage() {
-    const [isReceiptOpen, setIsReceiptOpen] = useState(false)
+  const [charges, setCharges] = useState<ChargeResponse[]>([]);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
-    return (
-        <>
-            <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-6 shadow-sm">
-                <div>
-                    <h1 className="text-3xl font-extrabold tracking-tight text-[#111827]">
-                        Meus boletos
-                    </h1>
-                    <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-                        Apto 101 - Predio A
-                    </p>
-                </div>
+  useEffect(() => {
+    async function loadCharges() {
+      try {
+        setIsLoading(true);
+        setErrorMessage("");
+        setCharges(await getMyCharges());
+      } catch (error) {
+        setCharges([]);
+        setErrorMessage(
+          error instanceof Error ? error.message : "Não foi possível carregar seus boletos.",
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    }
 
-                <div className="mx-auto mt-6 grid max-w-3xl grid-cols-1 gap-4 md:grid-cols-3">
-                    {metrics.map((metric) => (
-                        <MetricCard
-                            key={metric.label}
-                            label={metric.label}
-                            value={metric.value}
-                            helper={metric.helper}
-                        />
-                    ))}
-                </div>
+    void loadCharges();
+  }, []);
 
-                <div className="mt-6 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-4">
-                    <div className="mb-4 flex flex-col gap-3 md:flex-row md:justify-end">
-                        <button
-                            type="button"
-                            className="h-11 rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
-                        >
-                            Maio/2026
-                        </button>
+  const filteredCharges = useMemo(
+    () =>
+      charges.filter(
+        (charge) => statusFilter === "all" || charge.status.toString() === statusFilter,
+      ),
+    [charges, statusFilter],
+  );
 
-                        <button
-                            type="button"
-                            className="h-11 rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
-                        >
-                            Todos
-                        </button>
-                    </div>
+  const pendingCharges = charges.filter((charge) => charge.status === 1);
+  const paidCharges = charges.filter((charge) => charge.status === 2);
+  const overdueCharges = charges.filter((charge) => charge.status === 3);
 
-                    <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white">
-                        <table className="w-full border-collapse text-left text-sm">
-                            <thead className="bg-[#DCFCE7] text-xs uppercase tracking-wide text-[#0B3D2E]">
-                                <tr>
-                                    <th className="px-4 py-3 font-extrabold">Referencia</th>
-                                    <th className="px-4 py-3 font-extrabold">Valor</th>
-                                    <th className="px-4 py-3 font-extrabold">Vencimento</th>
-                                    <th className="px-4 py-3 font-extrabold">Status</th>
-                                    <th className="px-4 py-3 font-extrabold">Acoes</th>
-                                </tr>
-                            </thead>
+  return (
+    <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-6 shadow-sm">
+      <div>
+        <h1 className="text-3xl font-extrabold tracking-tight text-[#111827]">
+          Meus boletos
+        </h1>
+        <p className="mt-1 text-sm font-semibold text-[#6B7280]">
+          Cobranças reais vinculadas às suas unidades.
+        </p>
+      </div>
 
-                            <tbody className="divide-y divide-[#E5E7EB]">
-                                {bills.map((bill) => (
-                                    <tr key={bill.reference} className="transition hover:bg-[#F3F4F6]">
-                                        <td className="px-4 py-4 font-extrabold text-[#111827]">
-                                            {bill.reference}
-                                        </td>
-                                        <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                                            {bill.value}
-                                        </td>
-                                        <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                                            {bill.dueDate}
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <StatusBadge label={bill.status} variant={bill.variant} />
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <div className="flex flex-wrap gap-2">
-                                                <button className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]">
-                                                    Ver
-                                                </button>
-                                                <button
-                                                    onClick={() => setIsReceiptOpen(true)}
-                                                    className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
-                                                >
-                                                    Enviar comprovante
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <p className="mt-4 text-sm font-semibold text-[#6B7280]">
-                        Acoes planejadas: ver boleto e enviar comprovante de pagamento.
-                    </p>
-                </div>
-            </section>
-
-            {isReceiptOpen && <ReceiptModal onClose={() => setIsReceiptOpen(false)} />}
-        </>
-    )
-}
-
-type ModalProps = {
-    onClose: () => void
-}
-
-function ModalShell({ title, children, onClose }: ModalProps & { title: string; children: ReactNode }) {
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B3D2E]/30 px-6 py-8 backdrop-blur-sm">
-            <div className="w-full max-w-3xl overflow-hidden rounded-[2rem] border border-[#E5E7EB] bg-white shadow-2xl shadow-[#0B3D2E]/20">
-                <div className="flex items-center justify-between border-b border-[#E5E7EB] px-6 py-5">
-                    <h2 className="text-2xl font-extrabold text-[#111827]">
-                        {title}
-                    </h2>
-
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="flex size-10 items-center justify-center rounded-full bg-[#F3F4F6] text-xl font-light text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
-                    >
-                        x
-                    </button>
-                </div>
-
-                <div className="px-8 py-7">
-                    {children}
-                </div>
-            </div>
+      {errorMessage && (
+        <div className="mt-5 rounded-2xl border border-[#FECACA] bg-[#FDECEC] px-4 py-3 text-sm font-bold text-[#B42318]">
+          {errorMessage}
         </div>
-    )
+      )}
+
+      <div className="mx-auto mt-6 grid max-w-4xl grid-cols-1 gap-4 md:grid-cols-4">
+        <MetricCard
+          label="Total"
+          value={charges.length.toString()}
+          helper="Cobranças encontradas"
+        />
+        <MetricCard
+          label="Em aberto"
+          value={pendingCharges.length.toString()}
+          helper={formatCurrency(sumCharges(pendingCharges))}
+        />
+        <MetricCard
+          label="Pagos"
+          value={paidCharges.length.toString()}
+          helper={formatCurrency(sumCharges(paidCharges))}
+        />
+        <MetricCard
+          label="Atrasados"
+          value={overdueCharges.length.toString()}
+          helper={formatCurrency(sumCharges(overdueCharges))}
+        />
+      </div>
+
+      <div className="mt-6 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-4">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row md:justify-end">
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            className="h-11 rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-bold text-[#6B7280] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
+          >
+            <option value="all">Todos</option>
+            <option value="1">Pendentes</option>
+            <option value="2">Pagos</option>
+            <option value="3">Atrasados</option>
+            <option value="4">Cancelados</option>
+          </select>
+        </div>
+
+        <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-left text-sm">
+              <thead className="bg-[#DCFCE7] text-xs uppercase tracking-wide text-[#0B3D2E]">
+                <tr>
+                  <th className="px-4 py-3 font-extrabold">Descrição</th>
+                  <th className="px-4 py-3 font-extrabold">Valor</th>
+                  <th className="px-4 py-3 font-extrabold">Vencimento</th>
+                  <th className="px-4 py-3 font-extrabold">Status</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-[#E5E7EB]">
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-10 text-center font-bold text-[#6B7280]">
+                      Carregando boletos...
+                    </td>
+                  </tr>
+                ) : filteredCharges.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-10 text-center font-bold text-[#6B7280]">
+                      Nenhuma cobrança encontrada.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredCharges.map((charge) => (
+                    <tr key={charge.id} className="transition hover:bg-[#F3F4F6]">
+                      <td className="px-4 py-4 font-extrabold text-[#111827]">
+                        {charge.description}
+                      </td>
+                      <td className="px-4 py-4 font-semibold text-[#6B7280]">
+                        {formatCurrency(charge.value)}
+                      </td>
+                      <td className="px-4 py-4 font-semibold text-[#6B7280]">
+                        {formatDate(charge.dueDate)}
+                      </td>
+                      <td className="px-4 py-4">
+                        <StatusBadge
+                          label={getChargeStatusLabel(charge.status)}
+                          variant={getChargeStatusVariant(charge.status)}
+                        />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 }
 
-function ReceiptModal({ onClose }: ModalProps) {
-    return (
-        <ModalShell title="Enviar comprovante" onClose={onClose}>
-            <div className="space-y-6">
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                    <Field label="Referencia" value="Maio/2026" />
-                    <Field label="Valor" value="R$ 350,00" />
-                </div>
-
-                <div className="rounded-2xl border border-dashed border-[#86EFAC] bg-[#DCFCE7] px-5 py-8 text-center">
-                    <p className="text-sm font-extrabold text-[#0B3D2E]">
-                        Comprovante de pagamento
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-[#16A34A]">
-                        Area reservada para upload quando conectarmos o fluxo real.
-                    </p>
-                </div>
-
-                <button className="h-12 w-full rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E]">
-                    Enviar comprovante
-                </button>
-            </div>
-        </ModalShell>
-    )
+function sumCharges(charges: ChargeResponse[]) {
+  return charges.reduce((total, charge) => total + charge.value, 0);
 }
 
-type FieldProps = {
-    label: string
-    value: string
+function getChargeStatusLabel(status: ChargeResponse["status"]) {
+  if (status === 1) return "Pendente";
+  if (status === 2) return "Pago";
+  if (status === 3) return "Atrasado";
+  if (status === 4) return "Cancelado";
+  return "Indefinido";
 }
 
-function Field({ label, value }: FieldProps) {
-    return (
-        <label className="block">
-            <span className="mb-2 block text-sm font-extrabold text-[#111827]">
-                {label}
-            </span>
-            <input
-                value={value}
-                readOnly
-                className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none"
-            />
-        </label>
-    )
+function getChargeStatusVariant(status: ChargeResponse["status"]) {
+  if (status === 2) return "success";
+  if (status === 1) return "warning";
+  if (status === 3) return "danger";
+  return "neutral";
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("pt-BR").format(new Date(value));
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
 }

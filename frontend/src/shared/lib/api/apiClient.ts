@@ -40,15 +40,29 @@ export async function apiRequest<T>(
     if (!response.ok) {
         if (isJsonResponse) {
             const errorBody = await response.json();
+            const validationMessage = getValidationMessage(errorBody);
             const message =
-                typeof errorBody?.message === "string"
+                validationMessage ||
+                (typeof errorBody?.message === "string"
                     ? errorBody.message
-                    : "Erro ao comunicar com a API.";
+                    : "Erro ao comunicar com a API.");
 
             throw new Error(message);
         }
 
-        throw new Error("Erro ao comunicar com a API.");
+        if (response.status === 404) {
+            throw new Error("Endpoint não encontrado na API. Reinicie o backend e tente novamente.");
+        }
+
+        if (response.status === 401) {
+            throw new Error("Sessão expirada. Faça login novamente.");
+        }
+
+        if (response.status === 403) {
+            throw new Error("Você não tem permissão para acessar este recurso.");
+        }
+
+        throw new Error(`Erro ao comunicar com a API. Status ${response.status}.`);
     }
 
     if (response.status === 204) {
@@ -60,4 +74,20 @@ export async function apiRequest<T>(
     }
 
     return response.json() as Promise<T>;
+}
+
+function getValidationMessage(errorBody: unknown) {
+    if (!errorBody || typeof errorBody !== "object") {
+        return "";
+    }
+
+    const errors = (errorBody as { errors?: Record<string, string[]> }).errors;
+
+    if (!errors) {
+        return "";
+    }
+
+    const firstError = Object.values(errors).flat()[0];
+
+    return typeof firstError === "string" ? firstError : "";
 }

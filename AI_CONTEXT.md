@@ -1003,15 +1003,53 @@ Modules already implemented or substantially advanced:
    * Master route `/master/invitations` creates admin invitations without giving Master condominium operational access
    * People page action `Preparar convite` now opens the invitation flow with a selected person
 
+10. Master condominium onboarding
+   * Master condominium page uses real backend data only
+   * New condominium creation now uses `POST /api/condominium/onboarding`
+   * Onboarding creates the condominium and the first Admin user in one flow
+   * Frontend validates condominium fields, Admin CPF, Admin phone, Admin e-mail and initial password before submit
+   * Initial onboarding password policy is simplified for MVP: minimum 6 characters
+   * API client now surfaces ASP.NET validation errors from `errors` responses
+   * Editing existing condominiums remains limited to institutional condominium data and status
+
+11. Master admin invitations UX
+   * Master route `/master/invitations` is connected to real backend data
+   * Master selects a real condominium and lists only Admin invitations for it
+   * Creating an Admin invitation creates a Master-owned global person, then creates the invitation
+   * The created invitation token is transformed into `/accept-invitation/{token}` on the frontend
+   * The generated invitation link is shown after creation and can be copied
+   * Invitation metrics, search and status filters use backend invitation data only
+
+12. Master users management
+   * Master route `/master/users` is connected to real backend data
+   * Backend endpoint `GET /api/master/users` lists only Admin users from condominiums created by the authenticated Master
+   * Master users page does not show syndic, resident or operational condominium users
+   * Master can suspend/reactivate only Admin access for condominiums created by that same Master
+   * Existing suspend/reactivate backend flow now validates Master ownership of the condominium before changing access
+   * Frontend user metrics, filters and detail modal use backend user access data only
+
+13. Multi-profile frontend functional pass
+   * Shared frontend services added for charges, news and occurrences
+   * `GET /api/me/units` is now exposed through the frontend `meService`
+   * Admin dashboard now aggregates real buildings, units, people, invitations, charges, news and occurrences for the active condominium
+   * Syndic dashboard now uses real condominium data available to the logged-in syndic
+   * Resident dashboard now uses real user units, charges, occurrences and condominium news
+   * Master payments page now lists real platform charges only, preserving the rule that Master cannot see internal condominium operations
+   * Admin payments page now lists real condominium charges and can create a condominium charge for a real unit
+   * Syndic residents page now lists real people from the active condominium
+   * Resident unit, bills and notices pages now use backend data instead of static examples
+   * Sidebar navigation was updated with real routes for Admin payments, Syndic residents and Resident unit/bills/notices
+   * Sidebar labels were corrected to proper PT-BR accents and `MORAÊ`
+
 Modules still planned:
 
-10. UX hardening
+14. UX hardening
    * Better empty states
    * Better error/success feedback
    * Better form validation
    * Better expired-session handling
 
-11. Additional business modules
+15. Additional business modules
    * Payments
    * Charges
    * News/communication
@@ -1043,6 +1081,7 @@ Latest module 8 validation:
 
 * Frontend build passed with `npm.cmd run build`.
 * Backend build passed with `dotnet build backend\backend.csproj /p:UseAppHost=false`.
+* Latest backend build can show a warning when `dotnet watch run` is active because `backend.exe` is locked, but compilation still succeeds.
 * Admin can list, create and update condominium people.
 * Invalid person payload returns `400`.
 * Master receives `403` when trying to access condominium-scoped people.
