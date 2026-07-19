@@ -19,8 +19,11 @@ function getMenuItemsByRole(role: string): MenuItem[] {
     if (role === "Master") {
         return [
             { label: "Dashboard", icon: "D", to: "/master/dashboard" },
-            { label: "Condomínios", icon: "C", to: "/master/dashboard" },
+            { label: "Condomínios", icon: "C", to: "/master/condominiums" },
             { label: "Convites", icon: "V", to: "/master/invitations" },
+            { label: "Pagamentos", icon: "P", to: "/master/payments" },
+            { label: "Usuários", icon: "U", to: "/master/users" },
+            { label: "Configurações", icon: "G", to: "/master/settings" },
         ];
     }
 

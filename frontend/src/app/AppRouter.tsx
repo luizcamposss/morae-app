@@ -15,6 +15,9 @@ import { PeoplePage } from "../features/persons/PeoplePage";
 import { InvitationsPage } from "../features/invitations/InvitationsPage";
 import { AcceptInvitationPage } from "../features/invitations/AcceptInvitationPage";
 import { MasterInvitationsPage } from "../features/invitations/MasterInvitationsPage";
+import { CondominiumsPage } from "../features/masterCondominiums/CondominiumsPage";
+import { PlatformPaymentsPage } from "../features/masterPayments/PlatformPaymentsPage";
+import { UsersPage } from "../features/masterUsers/UsersPage";
 
 export function AppRouter() {
     return (
@@ -30,7 +33,11 @@ export function AppRouter() {
                     <Route element={<RoleRoute allowedRoles={["Master"]} />}>
                         <Route path="/master" element={<AppLayout />}>
                             <Route path="dashboard" element={<MasterDashboardPage />} />
+                            <Route path="condominiums" element={<CondominiumsPage />} />
                             <Route path="invitations" element={<MasterInvitationsPage />} />
+                            <Route path="payments" element={<PlatformPaymentsPage />} />
+                            <Route path="users" element={<UsersPage />} />
+                            <Route path="settings" element={<MasterDashboardPage />} />
                         </Route>
                     </Route>
 
