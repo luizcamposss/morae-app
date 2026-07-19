@@ -19,7 +19,7 @@ function getMenuItemsByRole(role: string): MenuItem[] {
     if (role === "Master") {
         return [
             { label: "Dashboard", icon: "D", to: "/master/dashboard" },
-            { label: "Condominios", icon: "C", to: "/master/dashboard" },
+            { label: "Condomínios", icon: "C", to: "/master/dashboard" },
             { label: "Convites", icon: "V", to: "/master/invitations" },
         ];
     }
@@ -27,7 +27,7 @@ function getMenuItemsByRole(role: string): MenuItem[] {
     if (role === "Admin") {
         return [
             { label: "Dashboard", icon: "D", to: "/admin/dashboard" },
-            { label: "Predios", icon: "P", to: "/admin/buildings" },
+            { label: "Prédios", icon: "P", to: "/admin/buildings" },
             { label: "Unidades", icon: "U", to: "/admin/units" },
             { label: "Moradores", icon: "M", to: "/admin/people" },
             { label: "Convites", icon: "C", to: "/admin/invitations" },
@@ -39,13 +39,13 @@ function getMenuItemsByRole(role: string): MenuItem[] {
         return [
             { label: "Dashboard", icon: "D", to: "/syndic/dashboard" },
             { label: "Moradores", icon: "M", to: "/syndic/dashboard" },
-            { label: "Manutencao", icon: "A", to: "/syndic/dashboard" },
+            { label: "Manutenção", icon: "A", to: "/syndic/dashboard" },
         ];
     }
 
     return [
         { label: "Dashboard", icon: "D", to: "/resident/dashboard" },
-        { label: "Configuracoes", icon: "G", to: "/resident/settings" },
+        { label: "Configurações", icon: "G", to: "/resident/settings" },
     ];
 }
 
@@ -69,7 +69,7 @@ export function Sidebar() {
                     </div>
 
                     <div className="min-w-0 -translate-x-2 overflow-hidden opacity-0 transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100">
-                        <p className="text-xl font-extrabold text-[#0B3D2E]">morae</p>
+                        <p className="text-xl font-extrabold text-[#0B3D2E]">MORAÊ</p>
                         <p className="mt-1 whitespace-nowrap text-sm font-semibold text-[#6B7280]">
                             Painel {primaryRole}
                         </p>
@@ -110,7 +110,7 @@ export function Sidebar() {
                             <p className="text-sm font-semibold text-[#6B7280]">
                                 {primaryRole.toLowerCase()}
                             </p>
-                            <p className="text-sm font-extrabold text-[#111827]">sessao ativa</p>
+                            <p className="text-sm font-extrabold text-[#111827]">sessão ativa</p>
                         </div>
                     </div>
 
