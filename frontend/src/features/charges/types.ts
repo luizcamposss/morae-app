@@ -8,7 +8,10 @@ export type ChargeResponse = {
   createdByUserId: number;
   targetUserId?: number | null;
   condominiumId: number;
+  condominiumName: string;
   unitId?: number | null;
+  unitNumber?: string | null;
+  buildingName?: string | null;
   value: number;
   dueDate: string;
   description: string;

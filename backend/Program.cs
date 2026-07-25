@@ -26,6 +26,7 @@ using backend.Services.Me;
 using backend.Services.Payments;
 using backend.Services.Delinquency;
 using backend.Services.Occurrences;
+using backend.Services.FinancialAccounts;
 
 DotEnv.Load();
 
@@ -80,6 +81,7 @@ builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<IMeService, MeService>();
 builder.Services.AddScoped<INewsService, NewsService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IFinancialAccountService, FinancialAccountService>();
 builder.Services.AddScoped<IPersonService, PersonService>();
 builder.Services.AddScoped<IPersonUnitService, PersonUnitService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
@@ -93,6 +95,11 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 if (string.IsNullOrWhiteSpace(connectionString))
 {
     throw new InvalidOperationException("Connection string 'DefaultConnection' not configured");
+}
+
+if (!connectionString.Contains("SslMode", StringComparison.OrdinalIgnoreCase))
+{
+    connectionString = $"{connectionString.TrimEnd(';')};SslMode=None;";
 }
 
 builder.Services.AddDbContext<AppDbContext>(opts =>

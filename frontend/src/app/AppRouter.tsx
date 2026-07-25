@@ -20,6 +20,7 @@ import { PlatformPaymentsPage } from "../features/masterPayments/PlatformPayment
 import { UsersPage } from "../features/masterUsers/UsersPage";
 import { MasterSettingsPage } from "../features/masterSettings/MasterSettingsPage";
 import { AdminPaymentsPage } from "../features/adminPayments/AdminPaymentsPage";
+import { AdminSettingsPage } from "../features/adminSettings/AdminSettingsPage";
 import { SyndicResidentsPage } from "../features/syndicResidents/SyndicResidentsPage";
 import { ResidentUnitPage } from "../features/residentUnit/ResidentUnitPage";
 import { ResidentBillsPage } from "../features/residentBills/ResidentBillsPage";
@@ -55,6 +56,7 @@ export function AppRouter() {
                             <Route path="people" element={<PeoplePage />} />
                             <Route path="invitations" element={<InvitationsPage />} />
                             <Route path="payments" element={<AdminPaymentsPage />} />
+                            <Route path="settings" element={<AdminSettingsPage />} />
                         </Route>
                     </Route>
 

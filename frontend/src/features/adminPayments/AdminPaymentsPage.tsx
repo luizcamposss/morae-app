@@ -3,10 +3,12 @@ import { useCondominium } from "../../app/providers/useCondominium";
 import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
 import { getBuildingsByCondominium } from "../buildings/buildingService";
-import { createCharge, getChargesByCondominium } from "../charges/chargeService";
+import { createCharge, getChargesByCondominium, getPlatformCharges } from "../charges/chargeService";
 import type { ChargeResponse } from "../charges/types";
 import { getUnitsByBuilding } from "../units/unitService";
 import type { UnitResponse } from "../units/types";
+
+type PaymentsTab = "platform" | "condominium";
 
 type FormState = {
   unitId: string;
@@ -24,8 +26,10 @@ const initialFormState: FormState = {
 
 export function AdminPaymentsPage() {
   const { activeCondominium, activeCondominiumId } = useCondominium();
-  const [charges, setCharges] = useState<ChargeResponse[]>([]);
+  const [platformCharges, setPlatformCharges] = useState<ChargeResponse[]>([]);
+  const [condominiumCharges, setCondominiumCharges] = useState<ChargeResponse[]>([]);
   const [units, setUnits] = useState<UnitResponse[]>([]);
+  const [activeTab, setActiveTab] = useState<PaymentsTab>("platform");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -37,7 +41,8 @@ export function AdminPaymentsPage() {
 
   async function loadPage() {
     if (!activeCondominiumId) {
-      setCharges([]);
+      setPlatformCharges([]);
+      setCondominiumCharges([]);
       setUnits([]);
       setIsLoading(false);
       return;
@@ -47,9 +52,10 @@ export function AdminPaymentsPage() {
       setIsLoading(true);
       setErrorMessage("");
 
-      const [buildings, condominiumCharges] = await Promise.all([
+      const [buildings, condominiumResult, platformResult] = await Promise.all([
         getBuildingsByCondominium(activeCondominiumId),
         getChargesByCondominium(activeCondominiumId),
+        getPlatformCharges(),
       ]);
 
       const unitsByBuilding = await Promise.all(
@@ -57,12 +63,16 @@ export function AdminPaymentsPage() {
       );
 
       setUnits(unitsByBuilding.flat());
-      setCharges(condominiumCharges);
+      setCondominiumCharges(condominiumResult);
+      setPlatformCharges(
+        platformResult.filter((charge) => charge.condominiumId === activeCondominiumId),
+      );
     } catch (error) {
-      setCharges([]);
+      setPlatformCharges([]);
+      setCondominiumCharges([]);
       setUnits([]);
       setErrorMessage(
-        error instanceof Error ? error.message : "Não foi possível carregar cobranças.",
+        error instanceof Error ? error.message : "Não foi possível carregar pagamentos.",
       );
     } finally {
       setIsLoading(false);
@@ -103,7 +113,7 @@ export function AdminPaymentsPage() {
 
       setForm(initialFormState);
       setIsCreateOpen(false);
-      setSuccessMessage("Cobrança cadastrada com sucesso.");
+      setSuccessMessage("Cobrança do condomínio cadastrada com sucesso.");
       await loadPage();
     } catch (error) {
       setErrorMessage(
@@ -114,13 +124,16 @@ export function AdminPaymentsPage() {
     }
   }
 
+  const activeCharges = activeTab === "platform" ? platformCharges : condominiumCharges;
+
   const filteredCharges = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
-    return charges.filter((charge) => {
+    return activeCharges.filter((charge) => {
       const unit = units.find((item) => item.id === charge.unitId);
       const searchableText = [
         charge.description,
+        charge.condominiumName,
         charge.id.toString(),
         unit?.number,
         unit?.buildingName,
@@ -137,11 +150,11 @@ export function AdminPaymentsPage() {
 
       return matchesSearch && matchesStatus;
     });
-  }, [charges, searchTerm, statusFilter, units]);
+  }, [activeCharges, searchTerm, statusFilter, units]);
 
-  const pendingCharges = charges.filter((charge) => charge.status === 1);
-  const paidCharges = charges.filter((charge) => charge.status === 2);
-  const overdueCharges = charges.filter((charge) => charge.status === 3);
+  const pendingCharges = activeCharges.filter((charge) => charge.status === 1);
+  const paidCharges = activeCharges.filter((charge) => charge.status === 2);
+  const overdueCharges = activeCharges.filter((charge) => charge.status === 3);
 
   return (
     <>
@@ -152,7 +165,7 @@ export function AdminPaymentsPage() {
               Pagamentos
             </h1>
             <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-              Cobranças do condomínio ativo.
+              Acompanhe cobranças MORAÊ e cobranças internas do condomínio.
             </p>
             <p className="mt-2 text-sm font-bold text-[#16A34A]">
               {activeCondominium?.condominiumName ?? "Nenhum condomínio selecionado"}
@@ -162,30 +175,34 @@ export function AdminPaymentsPage() {
           <button
             type="button"
             onClick={() => setIsCreateOpen(true)}
-            disabled={!activeCondominiumId || units.length === 0}
+            disabled={activeTab !== "condominium" || !activeCondominiumId || units.length === 0}
             className="h-11 cursor-pointer rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:bg-[#9CA3AF]"
           >
-            + Nova cobrança
+            + Nova cobrança interna
           </button>
         </div>
 
-        {errorMessage && (
-          <div className="mt-5 rounded-2xl border border-[#FECACA] bg-[#FDECEC] px-4 py-3 text-sm font-bold text-[#B42318]">
-            {errorMessage}
-          </div>
-        )}
+        {errorMessage && <FeedbackMessage variant="error" message={errorMessage} />}
+        {successMessage && <FeedbackMessage variant="success" message={successMessage} />}
 
-        {successMessage && (
-          <div className="mt-5 rounded-2xl border border-[#BBF7D0] bg-[#DCFCE7] px-4 py-3 text-sm font-bold text-[#0B3D2E]">
-            {successMessage}
-          </div>
-        )}
+        <div className="mt-6 flex flex-col gap-2 rounded-2xl bg-[#F3F4F6] p-2 sm:flex-row">
+          <TabButton
+            label="Cobranças MORAÊ"
+            isActive={activeTab === "platform"}
+            onClick={() => setActiveTab("platform")}
+          />
+          <TabButton
+            label="Cobranças do condomínio"
+            isActive={activeTab === "condominium"}
+            onClick={() => setActiveTab("condominium")}
+          />
+        </div>
 
         <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             label="Total lançado"
-            value={formatCurrency(sumCharges(charges))}
-            helper={`${charges.length} cobranças`}
+            value={formatCurrency(sumCharges(activeCharges))}
+            helper={`${activeCharges.length} cobranças`}
           />
           <MetricCard
             label="Recebido"
@@ -210,7 +227,11 @@ export function AdminPaymentsPage() {
               type="search"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Buscar por unidade, morador ou descrição..."
+              placeholder={
+                activeTab === "platform"
+                  ? "Buscar por cobrança, condomínio ou ID..."
+                  : "Buscar por unidade, morador ou descrição..."
+              }
               className="h-11 flex-1 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
             />
 
@@ -233,8 +254,12 @@ export function AdminPaymentsPage() {
                 <thead className="bg-[#DCFCE7] text-xs uppercase tracking-wide text-[#0B3D2E]">
                   <tr>
                     <th className="px-4 py-3 font-extrabold">Descrição</th>
-                    <th className="px-4 py-3 font-extrabold">Unidade</th>
-                    <th className="px-4 py-3 font-extrabold">Responsável</th>
+                    <th className="px-4 py-3 font-extrabold">
+                      {activeTab === "platform" ? "Condomínio" : "Unidade"}
+                    </th>
+                    <th className="px-4 py-3 font-extrabold">
+                      {activeTab === "platform" ? "Origem" : "Responsável"}
+                    </th>
                     <th className="px-4 py-3 font-extrabold">Valor</th>
                     <th className="px-4 py-3 font-extrabold">Vencimento</th>
                     <th className="px-4 py-3 font-extrabold">Status</th>
@@ -245,7 +270,7 @@ export function AdminPaymentsPage() {
                   {isLoading ? (
                     <tr>
                       <td colSpan={6} className="px-4 py-10 text-center font-bold text-[#6B7280]">
-                        Carregando cobranças...
+                        Carregando pagamentos...
                       </td>
                     </tr>
                   ) : filteredCharges.length === 0 ? (
@@ -264,10 +289,16 @@ export function AdminPaymentsPage() {
                             {charge.description}
                           </td>
                           <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                            {unit ? `${unit.buildingName} - ${unit.number}` : "-"}
+                            {activeTab === "platform"
+                              ? charge.condominiumName
+                              : unit
+                                ? `${unit.buildingName} - ${unit.number}`
+                                : "-"}
                           </td>
                           <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                            {unit?.responsiblePersonName || "Sem responsável"}
+                            {activeTab === "platform"
+                              ? "MORAÊ"
+                              : unit?.responsiblePersonName || "Sem responsável"}
                           </td>
                           <td className="px-4 py-4 font-semibold text-[#6B7280]">
                             {formatCurrency(charge.value)}
@@ -300,9 +331,9 @@ export function AdminPaymentsPage() {
           >
             <div className="flex items-center justify-between border-b border-[#E5E7EB] px-6 py-5">
               <div>
-                <h2 className="text-2xl font-extrabold text-[#111827]">Nova cobrança</h2>
+                <h2 className="text-2xl font-extrabold text-[#111827]">Nova cobrança interna</h2>
                 <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-                  Cadastre uma cobrança para uma unidade real.
+                  Cadastre uma cobrança para uma unidade real do condomínio.
                 </p>
               </div>
 
@@ -322,7 +353,9 @@ export function AdminPaymentsPage() {
                 </span>
                 <select
                   value={form.unitId}
-                  onChange={(event) => setForm((current) => ({ ...current, unitId: event.target.value }))}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, unitId: event.target.value }))
+                  }
                   className="h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
                 >
                   <option value="">Selecione</option>
@@ -368,6 +401,46 @@ export function AdminPaymentsPage() {
         </div>
       )}
     </>
+  );
+}
+
+type TabButtonProps = {
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+};
+
+function TabButton({ label, isActive, onClick }: TabButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`h-11 flex-1 cursor-pointer rounded-xl px-4 text-sm font-extrabold transition ${
+        isActive
+          ? "bg-white text-[#0B3D2E] shadow-sm"
+          : "text-[#6B7280] hover:bg-white/70 hover:text-[#0B3D2E]"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+type FeedbackMessageProps = {
+  message: string;
+  variant: "success" | "error";
+};
+
+function FeedbackMessage({ message, variant }: FeedbackMessageProps) {
+  const classes =
+    variant === "success"
+      ? "border-[#BBF7D0] bg-[#DCFCE7] text-[#0B3D2E]"
+      : "border-[#FECACA] bg-[#FDECEC] text-[#B42318]";
+
+  return (
+    <div className={`mt-5 rounded-2xl border px-4 py-3 text-sm font-bold ${classes}`}>
+      {message}
+    </div>
   );
 }
 

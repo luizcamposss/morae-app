@@ -1,7 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { useAuth } from "../../app/providers/useAuth";
 import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
+import { getPlatformCharges } from "../charges/chargeService";
+import type { ChargeResponse } from "../charges/types";
 import { getCondominiums } from "../condominiums/condominiumService";
 import type { CondominiumResponse } from "../condominiums/types";
 import { getInvitationsByCondominium } from "../invitations/invitationService";
@@ -11,6 +24,10 @@ const ACTIVE_STATUS = 1;
 const PENDING_INVITATION_STATUS = 1;
 const ACCEPTED_INVITATION_STATUS = 2;
 const ADMIN_ROLE = 2;
+const CHARGE_STATUS_PENDING = 1;
+const CHARGE_STATUS_PAID = 2;
+const CHARGE_STATUS_OVERDUE = 3;
+const CHARGE_STATUS_CANCELED = 4;
 
 type ActivityItem = {
   id: string;
@@ -21,16 +38,23 @@ type ActivityItem = {
   variant: "success" | "warning" | "danger" | "neutral";
 };
 
-type BarItem = {
-  label: string;
-  value: number;
-  color: string;
+type CondominiumChartItem = {
+  month: string;
+  novos: number;
+  acumulado: number;
+};
+
+type RevenueChartItem = {
+  month: string;
+  recebida: number;
+  pendente: number;
 };
 
 export function MasterDashboardPage() {
   const { user } = useAuth();
 
   const [condominiums, setCondominiums] = useState<CondominiumResponse[]>([]);
+  const [platformCharges, setPlatformCharges] = useState<ChargeResponse[]>([]);
   const [invitations, setInvitations] = useState<InvitationResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -44,8 +68,13 @@ export function MasterDashboardPage() {
         setWarningMessage("");
         setIsLoading(true);
 
-        const condominiumResult = await getCondominiums();
+        const [condominiumResult, chargeResult] = await Promise.all([
+          getCondominiums(),
+          getPlatformCharges(),
+        ]);
+
         setCondominiums(condominiumResult);
+        setPlatformCharges(chargeResult);
 
         const invitationResults = await Promise.allSettled(
           condominiumResult.map((condominium) =>
@@ -70,6 +99,7 @@ export function MasterDashboardPage() {
         }
       } catch (error) {
         setCondominiums([]);
+        setPlatformCharges([]);
         setInvitations([]);
 
         if (error instanceof Error) {
@@ -128,14 +158,6 @@ export function MasterDashboardPage() {
     };
   }, []);
 
-  const activeCondominiums = condominiums.filter(
-    (condominium) => condominium.status === ACTIVE_STATUS,
-  );
-
-  const inactiveCondominiums = condominiums.filter(
-    (condominium) => condominium.status !== ACTIVE_STATUS,
-  );
-
   const adminInvitations = invitations.filter(
     (invitation) => invitation.role === ADMIN_ROLE,
   );
@@ -144,53 +166,36 @@ export function MasterDashboardPage() {
     (invitation) => invitation.invitationStatus === PENDING_INVITATION_STATUS,
   );
 
-  const acceptedAdminInvitations = adminInvitations.filter(
-    (invitation) => invitation.invitationStatus === ACCEPTED_INVITATION_STATUS,
+  const validPlatformCharges = platformCharges.filter(
+    (charge) => charge.status !== CHARGE_STATUS_CANCELED,
   );
 
-  const closedAdminInvitations = adminInvitations.filter(
-    (invitation) =>
-      invitation.invitationStatus !== PENDING_INVITATION_STATUS &&
-      invitation.invitationStatus !== ACCEPTED_INVITATION_STATUS,
+  const pendingRevenue = platformCharges
+    .filter(
+      (charge) =>
+        charge.status === CHARGE_STATUS_PENDING ||
+        charge.status === CHARGE_STATUS_OVERDUE,
+    )
+    .reduce((total, charge) => total + charge.value, 0);
+
+  const totalRevenue = validPlatformCharges.reduce(
+    (total, charge) => total + charge.value,
+    0,
   );
 
   const displayName = user?.personName || user?.userName || "Master";
-
-  const condominiumBars: BarItem[] = [
-    {
-      label: "Ativos",
-      value: activeCondominiums.length,
-      color: "#16A34A",
-    },
-    {
-      label: "Inativos",
-      value: inactiveCondominiums.length,
-      color: "#6B7280",
-    },
-    {
-      label: "Total",
-      value: condominiums.length,
-      color: "#0B3D2E",
-    },
-  ];
-
-  const invitationBars: BarItem[] = [
-    {
-      label: "Pendentes",
-      value: pendingAdminInvitations.length,
-      color: "#F59E0B",
-    },
-    {
-      label: "Aceitos",
-      value: acceptedAdminInvitations.length,
-      color: "#16A34A",
-    },
-    {
-      label: "Encerrados",
-      value: closedAdminInvitations.length,
-      color: "#EF4444",
-    },
-  ];
+  const chartPaidRevenue = platformCharges
+    .filter((charge) => charge.status === CHARGE_STATUS_PAID)
+    .reduce((total, charge) => total + charge.value, 0);
+  const chartPendingRevenue = platformCharges
+    .filter(
+      (charge) =>
+        charge.status === CHARGE_STATUS_PENDING ||
+        charge.status === CHARGE_STATUS_OVERDUE,
+    )
+    .reduce((total, charge) => total + charge.value, 0);
+  const condominiumChartData = buildCondominiumChart(condominiums);
+  const revenueChartData = buildRevenueChart(platformCharges);
 
   const activities = useMemo<ActivityItem[]>(
     () =>
@@ -203,9 +208,17 @@ export function MasterDashboardPage() {
           badge: getCondominiumStatusLabel(condominium.status),
           variant: getCondominiumStatusVariant(condominium.status),
         })),
-        ...adminInvitations.map((invitation) => ({
+        ...platformCharges.map((charge) => ({
+          id: `charge-${charge.id}`,
+          title: `Cobrança MORAÊ para ${charge.condominiumName}`,
+          description: `${formatCurrency(charge.value)} · vencimento ${formatDate(charge.dueDate)}`,
+          date: charge.dueDate,
+          badge: getChargeStatusLabel(charge.status),
+          variant: getChargeStatusVariant(charge.status),
+        })),
+        ...pendingAdminInvitations.map((invitation) => ({
           id: `invitation-${invitation.id}`,
-          title: `Convite para ${invitation.personName}`,
+          title: `Convite pendente para ${invitation.personName}`,
           description: `${invitation.condominiumName} · ${invitation.email}`,
           date: invitation.createdAt,
           badge: invitation.statusName,
@@ -217,7 +230,7 @@ export function MasterDashboardPage() {
             new Date(second.date).getTime() - new Date(first.date).getTime(),
         )
         .slice(0, 6),
-    [adminInvitations, condominiums],
+    [condominiums, pendingAdminInvitations, platformCharges],
   );
 
   const metrics = [
@@ -227,19 +240,19 @@ export function MasterDashboardPage() {
       helper: "Base cadastrada na plataforma",
     },
     {
-      label: "Condomínios ativos",
-      value: activeCondominiums.length.toString(),
-      helper: "Liberados para relacionamento",
-    },
-    {
       label: "Convites pendentes",
       value: pendingAdminInvitations.length.toString(),
       helper: "Administradores aguardando aceite",
     },
     {
-      label: "Convites aceitos",
-      value: acceptedAdminInvitations.length.toString(),
-      helper: "Administradores já integrados",
+      label: "Receita total",
+      value: formatCurrency(totalRevenue),
+      helper: "Cobranças MORAÊ não canceladas",
+    },
+    {
+      label: "Receita pendente",
+      value: formatCurrency(pendingRevenue),
+      helper: "Valores aguardando pagamento",
     },
   ];
 
@@ -260,14 +273,12 @@ export function MasterDashboardPage() {
 
       <section className="rounded-[2.25rem] border border-[#D9DEE5] bg-white p-5 shadow-sm md:p-7">
         <div>
-          <div>
-            <p className="text-sm font-black uppercase tracking-[0.2em] text-[#16A34A]">
-              Dashboard Master
-            </p>
-            <h2 className="mt-2 text-2xl font-black text-[#111827]">
-              Visão Geral do Sistema
-            </h2>
-          </div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-[#16A34A]">
+            Dashboard Master
+          </p>
+          <h2 className="mt-2 text-2xl font-black text-[#111827]">
+            Plataforma MORAÊ
+          </h2>
         </div>
 
         {isLoading && (
@@ -296,19 +307,19 @@ export function MasterDashboardPage() {
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
-          <SummaryPanel
-            title="Panorama de condomínios"
-            description="Distribuição da base cadastrada no sistema."
-            bars={condominiumBars}
-            emptyMessage="Nenhum condomínio cadastrado ainda."
-          />
+          <ChartPanel
+            title="Crescimento de condomínios"
+            description="Novos cadastros e base acumulada nos últimos meses."
+          >
+            <CondominiumLineChart data={condominiumChartData} />
+          </ChartPanel>
 
-          <SummaryPanel
-            title="Convites administrativos"
-            description="Situação dos acessos enviados pelo Master."
-            bars={invitationBars}
-            emptyMessage="Nenhum convite de administrador encontrado."
-          />
+          <ChartPanel
+            title="Receita MORAÊ"
+            description={`${formatCurrency(chartPaidRevenue)} recebidos · ${formatCurrency(chartPendingRevenue)} pendentes`}
+          >
+            <RevenueAreaChart data={revenueChartData} />
+          </ChartPanel>
         </div>
 
         <section className="mt-6 rounded-[1.75rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5">
@@ -318,7 +329,7 @@ export function MasterDashboardPage() {
                 Atividades recentes
               </h3>
               <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-                Últimos movimentos reais entre condomínios e convites.
+                Últimos movimentos reais entre condomínios, cobranças e convites.
               </p>
             </div>
           </div>
@@ -358,22 +369,17 @@ export function MasterDashboardPage() {
   );
 }
 
-function SummaryPanel({
+function ChartPanel({
   title,
   description,
-  bars,
-  emptyMessage,
+  children,
 }: {
   title: string;
   description: string;
-  bars: BarItem[];
-  emptyMessage: string;
+  children: ReactNode;
 }) {
-  const maxValue = Math.max(...bars.map((bar) => bar.value), 0);
-  const hasValues = bars.some((bar) => bar.value > 0);
-
   return (
-    <section className="rounded-[1.75rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5">
+    <section className="flex h-full flex-col rounded-[1.75rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5">
       <div>
         <h3 className="text-xl font-black text-[#111827]">{title}</h3>
         <p className="mt-1 text-sm font-semibold text-[#6B7280]">
@@ -381,33 +387,62 @@ function SummaryPanel({
         </p>
       </div>
 
-      {!hasValues ? (
-        <EmptyState message={emptyMessage} />
-      ) : (
-        <div className="mt-6 flex h-56 items-end gap-4 rounded-[1.5rem] bg-white p-5">
-          {bars.map((bar) => (
-            <div key={bar.label} className="flex min-w-0 flex-1 flex-col items-center">
-              <div className="flex h-32 w-full items-end rounded-full bg-[#F3F4F6] p-1.5">
-                <div
-                  className="w-full rounded-full transition-all"
-                  style={{
-                    height: getBarHeight(bar.value, maxValue),
-                    backgroundColor: bar.color,
-                  }}
-                />
-              </div>
-
-              <strong className="mt-3 text-lg font-black text-[#111827]">
-                {bar.value}
-              </strong>
-              <span className="mt-1 truncate text-xs font-extrabold text-[#6B7280]">
-                {bar.label}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="mt-6 h-72 rounded-[1.5rem] bg-white px-3 py-5">
+        {children}
+      </div>
     </section>
+  );
+}
+
+function CondominiumLineChart({ data }: { data: CondominiumChartItem[] }) {
+  const hasValues = data.some((item) => item.novos > 0 || item.acumulado > 0);
+
+  if (!hasValues) {
+    return <EmptyState message="Nenhum condomínio cadastrado ainda." />;
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={data} margin={{ top: 10, right: 24, left: 8, bottom: 0 }}>
+        <CartesianGrid stroke="#E5E7EB" strokeDasharray="4 8" vertical={false} />
+        <XAxis dataKey="month" axisLine={false} tickLine={false} tickMargin={12} tick={{ fill: "#6B7280", fontSize: 12, fontWeight: 800 }} />
+        <YAxis width={46} allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "#9CA3AF", fontSize: 12, fontWeight: 800 }} />
+        <Tooltip contentStyle={tooltipStyle} />
+        <Line type="linear" dataKey="acumulado" name="Base acumulada" stroke="#0B3D2E" strokeWidth={4} dot={{ r: 5, fill: "#0B3D2E" }} activeDot={{ r: 7 }} />
+        <Line type="linear" dataKey="novos" name="Novos" stroke="#22C55E" strokeWidth={3} dot={{ r: 4, fill: "#22C55E" }} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+function RevenueAreaChart({ data }: { data: RevenueChartItem[] }) {
+  const hasValues = data.some((item) => item.recebida > 0 || item.pendente > 0);
+
+  if (!hasValues) {
+    return <EmptyState message="Nenhuma cobrança MORAÊ encontrada ainda." />;
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={data} margin={{ top: 10, right: 24, left: 8, bottom: 0 }}>
+        <defs>
+          <linearGradient id="paidRevenue" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#16A34A" stopOpacity={0.35} />
+            <stop offset="95%" stopColor="#16A34A" stopOpacity={0.02} />
+          </linearGradient>
+          <linearGradient id="pendingRevenue" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.28} />
+            <stop offset="95%" stopColor="#F59E0B" stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid stroke="#E5E7EB" strokeDasharray="4 8" vertical={false} />
+        <XAxis dataKey="month" axisLine={false} tickLine={false} tickMargin={12} tick={{ fill: "#6B7280", fontSize: 12, fontWeight: 800 }} />
+        <YAxis width={46} axisLine={false} tickLine={false} tickFormatter={(value) => formatCompactCurrency(Number(value))} tick={{ fill: "#9CA3AF", fontSize: 12, fontWeight: 800 }} />
+        <Tooltip contentStyle={tooltipStyle} formatter={(value) => formatCurrency(Number(value))} />
+        <Area type="linear" dataKey="recebida" name="Recebida" stroke="#16A34A" strokeWidth={4} fill="url(#paidRevenue)" />
+        <Area type="linear" dataKey="pendente" name="Pendente" stroke="#F59E0B" strokeWidth={3} fill="url(#pendingRevenue)" />
+      </AreaChart>
+    </ResponsiveContainer>
   );
 }
 
@@ -433,10 +468,80 @@ function FeedbackMessage({
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="mt-4 rounded-2xl border border-dashed border-[#D0D5DD] bg-white px-5 py-8 text-center">
+    <div className="flex h-full min-h-40 items-center justify-center rounded-2xl border border-dashed border-[#D0D5DD] bg-white px-5 py-8 text-center">
       <p className="text-sm font-extrabold text-[#6B7280]">{message}</p>
     </div>
   );
+}
+
+function buildCondominiumChart(condominiums: CondominiumResponse[]) {
+  const months = getLastMonths(6);
+  const sortedCondominiums = [...condominiums].sort(
+    (first, second) =>
+      new Date(first.createdAt).getTime() - new Date(second.createdAt).getTime(),
+  );
+
+  return months.map((month) => {
+    const monthEnd = new Date(month.year, month.month + 1, 0, 23, 59, 59);
+    const novos = sortedCondominiums.filter(
+      (condominium) => getMonthKey(new Date(condominium.createdAt)) === month.key,
+    ).length;
+    const acumulado = sortedCondominiums.filter(
+      (condominium) => new Date(condominium.createdAt) <= monthEnd,
+    ).length;
+
+    return {
+      month: month.label,
+      novos,
+      acumulado,
+    };
+  });
+}
+
+function buildRevenueChart(charges: ChargeResponse[]) {
+  const months = getLastMonths(6);
+
+  return months.map((month) => {
+    const monthCharges = charges.filter(
+      (charge) => getMonthKey(new Date(charge.dueDate)) === month.key,
+    );
+
+    return {
+      month: month.label,
+      recebida: sumChargesByStatus(monthCharges, [CHARGE_STATUS_PAID]),
+      pendente: sumChargesByStatus(monthCharges, [
+        CHARGE_STATUS_PENDING,
+        CHARGE_STATUS_OVERDUE,
+      ]),
+    };
+  });
+}
+
+function sumChargesByStatus(charges: ChargeResponse[], statuses: number[]) {
+  return charges
+    .filter((charge) => statuses.includes(charge.status))
+    .reduce((total, charge) => total + charge.value, 0);
+}
+
+function getLastMonths(amount: number) {
+  const today = new Date();
+
+  return Array.from({ length: amount }, (_, index) => {
+    const date = new Date(today.getFullYear(), today.getMonth() - (amount - 1 - index), 1);
+
+    return {
+      key: getMonthKey(date),
+      label: new Intl.DateTimeFormat("pt-BR", { month: "short" })
+        .format(date)
+        .replace(".", ""),
+      year: date.getFullYear(),
+      month: date.getMonth(),
+    };
+  });
+}
+
+function getMonthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function getGreeting() {
@@ -445,12 +550,6 @@ function getGreeting() {
   if (hour < 12) return "Bom dia";
   if (hour < 18) return "Boa tarde";
   return "Boa noite";
-}
-
-function getBarHeight(value: number, maxValue: number) {
-  if (maxValue === 0 || value === 0) return "10%";
-
-  return `${Math.max(18, Math.round((value / maxValue) * 100))}%`;
 }
 
 function formatToday() {
@@ -467,6 +566,21 @@ function formatDate(value: string) {
     month: "2-digit",
     year: "numeric",
   }).format(new Date(value));
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
+}
+
+function formatCompactCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    notation: "compact",
+    compactDisplay: "short",
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 function formatLocation(condominium: CondominiumResponse) {
@@ -491,3 +605,27 @@ function getInvitationStatusVariant(status: number) {
   if (status === 3 || status === 4 || status === 5) return "danger" as const;
   return "neutral" as const;
 }
+
+function getChargeStatusLabel(status: ChargeResponse["status"]) {
+  if (status === CHARGE_STATUS_PENDING) return "Pendente";
+  if (status === CHARGE_STATUS_PAID) return "Pago";
+  if (status === CHARGE_STATUS_OVERDUE) return "Atrasado";
+  if (status === CHARGE_STATUS_CANCELED) return "Cancelado";
+  return "Indefinido";
+}
+
+function getChargeStatusVariant(status: ChargeResponse["status"]) {
+  if (status === CHARGE_STATUS_PAID) return "success" as const;
+  if (status === CHARGE_STATUS_PENDING) return "warning" as const;
+  if (status === CHARGE_STATUS_OVERDUE || status === CHARGE_STATUS_CANCELED) {
+    return "danger" as const;
+  }
+  return "neutral" as const;
+}
+
+const tooltipStyle = {
+  border: "1px solid #E5E7EB",
+  borderRadius: "16px",
+  boxShadow: "0 18px 40px rgba(17, 24, 39, 0.08)",
+  fontWeight: 800,
+};

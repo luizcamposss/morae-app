@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { svgIcone } from "@edusites/icons/core";
 import { useAuth } from "../../app/providers/useAuth";
 
@@ -35,6 +36,7 @@ function getMenuItemsByRole(role: string): MenuItem[] {
       { label: "Moradores", icon: "usuarios", to: "/admin/people" },
       { label: "Convites", icon: "envelope-2", to: "/admin/invitations" },
       { label: "Pagamentos", icon: "boleto", to: "/admin/payments" },
+      { label: "Configurações", icon: "engrenagem", to: "/admin/settings" },
     ];
   }
 
@@ -177,14 +179,47 @@ export function Sidebar() {
 }
 
 function EduIcon({ nome }: { nome: string }) {
-  const svg = svgIcone({
-    nome,
-    cor: "currentColor",
-    tamanho: "1em",
-  });
+  const [svg, setSvg] = useState<string | null>(() =>
+    svgIcone({
+      nome,
+      cor: "currentColor",
+      tamanho: "1em",
+    }) ?? null,
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadIcon() {
+      const icons = await import("@edusites/icons/core");
+      const loadedSvg = await (icons as typeof icons & {
+        svgIconeAsync?: (options: {
+          nome: string;
+          cor: string;
+          tamanho: string;
+        }) => Promise<string | null | undefined>;
+      }).svgIconeAsync?.({
+        nome,
+        cor: "currentColor",
+        tamanho: "1em",
+      });
+
+      if (isMounted) {
+        setSvg(loadedSvg ?? null);
+      }
+    }
+
+    if (!svg) {
+      void loadIcon();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [nome, svg]);
 
   if (!svg) {
-    return <span className="size-2 rounded-full bg-current" />;
+    return <span aria-hidden="true" className="inline-flex size-[1em]" />;
   }
 
   return (
