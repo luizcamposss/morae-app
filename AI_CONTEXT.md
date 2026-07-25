@@ -1041,17 +1041,33 @@ Modules already implemented or substantially advanced:
    * Sidebar navigation was updated with real routes for Admin payments, Syndic residents and Resident unit/bills/notices
    * Sidebar labels were corrected to proper PT-BR accents and `MORAÊ`
 
+14. Platform billing flow
+   * Current branch for this module: `feat/platform-billing-flow`
+   * Platform charges are condominium debts, not debts tied to one specific Admin user
+   * Master can create, list, cancel and manually mark as paid only platform charges from condominiums created by that Master
+   * Admin can list platform charges only for condominiums where the user has an active `UserCondominium` row with role `Admin`
+   * Admin cannot create platform charges and cannot manually mark platform charges as paid
+   * Condominium charges remain operational/internal and are still scoped to Admin/Syndic/Resident access rules
+   * `ChargeResponseDto` now returns condominium and unit display data so the frontend does not render raw IDs
+   * Pending charges with due dates in the past are returned as `Overdue` in the response mapping
+   * Frontend added a payments API service for manual payments
+   * Master payments page now creates real platform charges, cancels eligible charges and registers manual payment
+   * Admin payments page now separates `Cobranças MORAÊ` from `Cobranças do condomínio`
+   * Financial account registration was added for bank account and Pix data
+   * Master settings can register the platform receiving bank account and Pix key
+   * Admin settings can register the active condominium receiving bank account and Pix key
+   * Financial account access follows backend isolation: Master controls platform data; Admin controls only assigned condominium data
+   * Migration `AddFinancialAccounts` creates the `FinancialAccounts` table
+
 Modules still planned:
 
-14. UX hardening
+15. UX hardening
    * Better empty states
    * Better error/success feedback
    * Better form validation
    * Better expired-session handling
 
-15. Additional business modules
-   * Payments
-   * Charges
+16. Additional business modules
    * News/communication
    * Delinquency
    * Occurrences
@@ -1073,9 +1089,9 @@ Current state:
 
 1. Units module is complete and tested.
 2. People/residents module is implemented and tested locally.
-3. Current branch for this work is `feat/people-module`.
+3. Current branch for this work is `feat/platform-billing-flow`.
 4. Invitations and access management module is implemented and tested locally.
-5. Next recommended module is `Modulo 10: UX hardening`, unless business priority shifts to payments/charges.
+5. Platform billing is being implemented after the multi-profile functional pass.
 
 Latest module 8 validation:
 
@@ -1103,6 +1119,14 @@ Latest module 9 validation:
 * Public invitation lookup by token returns person, condominium and role data.
 * Invitation acceptance returns `200`, creates login access and creates `UserCondominium`.
 * New accepted resident can login and appears in `/api/me/condominiums`.
+
+Latest platform billing validation:
+
+* Frontend build passed with `npm.cmd run build`.
+* Backend build passed with `dotnet build backend\backend.csproj /p:UseAppHost=false -o .tmp\backend-build`.
+* Normal backend build can fail while `dotnet watch run` is active because `backend.dll` is locked by the running API process.
+* Migration `AddFinancialAccounts` was applied to the local database.
+* Financial account endpoints require restarting the backend after code changes before testing through `http://localhost:5242`.
 
 ---
 

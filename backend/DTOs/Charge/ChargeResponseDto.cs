@@ -13,7 +13,10 @@ public class ChargeResponseDto
     public int CreatedByUserId { get; set; }
     public int? TargetUserId { get; set; }
     public int CondominiumId { get; set; }
+    public string CondominiumName { get; set; } = string.Empty;
     public int? UnitId { get; set; }
+    public string? UnitNumber { get; set; }
+    public string? BuildingName { get; set; }
     public decimal Value { get; set; }
     public DateTime DueDate { get; set; }
     public string Description { get; set; } = string.Empty;

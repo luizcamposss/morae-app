@@ -26,6 +26,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<Invitation> Invitations { get; set; }
     public DbSet<Charge> Charges { get; set; }
     public DbSet<Payment> Payments { get; set; }
+    public DbSet<FinancialAccount> FinancialAccounts { get; set; }
     public DbSet<UserCondominium> UserCondominiums { get; set; }
     public DbSet<UserCondominiumPermission> UserCondominiumPermissions { get; set; }
     public DbSet<Occurrence> Occurrences { get; set; }
@@ -177,6 +178,22 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
         builder.Entity<Payment>()
             .Property(p => p.AmountPaid)
             .HasPrecision(10, 2);
+
+        builder.Entity<FinancialAccount>()
+            .HasIndex(account => new { account.Scope, account.CondominiumId })
+            .IsUnique();
+
+        builder.Entity<FinancialAccount>()
+            .HasOne(account => account.Condominium)
+            .WithMany()
+            .HasForeignKey(account => account.CondominiumId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<FinancialAccount>()
+            .HasOne(account => account.UpdatedByUser)
+            .WithMany()
+            .HasForeignKey(account => account.UpdatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.Entity<Occurrence>()
             .HasOne(o => o.Condominium)

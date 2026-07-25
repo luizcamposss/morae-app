@@ -98,6 +98,10 @@ public class PaymentService : IPaymentService
         if (charge.Scope == ChargeScope.Platform)
         {
             await _permissionService.EnsureMasterAsync(userId);
+
+            if (!await IsMasterCondominiumOwnerAsync(userId, charge.CondominiumId))
+                throw new ForbiddenException("Master can only register platform payments for condominiums created by them.");
+
             return;
         }
 
@@ -134,10 +138,13 @@ public class PaymentService : IPaymentService
 
         if (charge.Scope == ChargeScope.Platform)
         {
-            if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
+            if (await _userManager.IsInRoleAsync(user, AppRoles.Master) &&
+                await IsMasterCondominiumOwnerAsync(userId, charge.CondominiumId))
+            {
                 return;
+            }
 
-            if (charge.TargetUserId == userId)
+            if (await _permissionService.IsCondominiumAdminAsync(userId, charge.CondominiumId))
                 return;
 
             throw new ForbiddenException("User cannot access this payment.");
@@ -166,5 +173,14 @@ public class PaymentService : IPaymentService
         }
 
         throw new BadRequestException("Invalid charge scope.");
+    }
+
+    private async Task<bool> IsMasterCondominiumOwnerAsync(int userId, int condominiumId)
+    {
+        return await _context.Condominiums
+            .AsNoTracking()
+            .AnyAsync(c =>
+                c.Id == condominiumId &&
+                c.CreatedByUserId == userId);
     }
 }
