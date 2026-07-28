@@ -3,6 +3,7 @@ import type {
   CondominiumResponse,
   CreateCondominiumOnboardingRequest,
   CreateCondominiumRequest,
+  UpdateCondominiumAdminRequest,
   UpdateCondominiumRequest,
 } from "./types";
 
@@ -39,6 +40,24 @@ export async function updateCondominium(
   return apiRequest<void>(`/api/condominium/${id}`, {
     method: "PUT",
     body: data,
+    auth: true,
+  });
+}
+
+export async function updateCondominiumAdmin(
+  id: number,
+  data: UpdateCondominiumAdminRequest,
+): Promise<void> {
+  return apiRequest<void>(`/api/condominium/${id}/admin`, {
+    method: "PUT",
+    body: data,
+    auth: true,
+  });
+}
+
+export async function removeCondominiumAdmin(id: number): Promise<void> {
+  return apiRequest<void>(`/api/condominium/${id}/admin`, {
+    method: "DELETE",
     auth: true,
   });
 }

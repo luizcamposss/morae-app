@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { svgIcone } from "@edusites/icons/core";
 import { useAuth } from "../../app/providers/useAuth";
@@ -44,6 +44,10 @@ function getMenuItemsByRole(role: string): MenuItem[] {
     return [
       { label: "Dashboard", icon: "dashboard", to: "/syndic/dashboard" },
       { label: "Moradores", icon: "usuarios", to: "/syndic/residents" },
+      { label: "Financeiro", icon: "boleto", to: "/syndic/finance" },
+      { label: "Comunicados", icon: "envelope-2", to: "/syndic/communication" },
+      { label: "Ocorrências", icon: "alerta", to: "/syndic/maintenance" },
+      { label: "Configurações", icon: "engrenagem", to: "/syndic/settings" },
     ];
   }
 
@@ -57,10 +61,14 @@ function getMenuItemsByRole(role: string): MenuItem[] {
 }
 
 export function Sidebar() {
+  const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const primaryRole = getPrimaryRole(user?.roles ?? []);
   const menuItems = getMenuItemsByRole(primaryRole);
+  const sidebarTopClass = location.pathname.endsWith("/dashboard")
+    ? "top-[8.25rem]"
+    : "top-[8rem]";
 
   function handleLogout() {
     logout();
@@ -69,7 +77,7 @@ export function Sidebar() {
 
   return (
     <>
-      <div className="group fixed left-5 top-1/2 z-40 hidden -translate-y-1/2 lg:block">
+      <div className={`group fixed left-5 ${sidebarTopClass} z-40 hidden lg:block`}>
         <aside className="flex h-[min(640px,calc(100vh-48px))] w-[4.875rem] flex-col overflow-hidden rounded-[1.9rem] border border-[#E5E7EB] bg-white px-3 py-5 shadow-sm transition-all duration-300 group-hover:w-72 group-hover:shadow-2xl group-hover:shadow-[#0B3D2E]/10">
           <div className="mb-7 flex h-12 w-full items-center justify-center gap-3 group-hover:justify-start group-hover:px-1">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#0B3D2E] text-sm font-black text-white shadow-sm shadow-[#0B3D2E]/20">

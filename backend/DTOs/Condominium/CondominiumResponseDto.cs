@@ -26,5 +26,11 @@ public class CondominiumResponseDto
 
     public Status Status { get; set; }
 
+    public int? AdminUserId { get; set; }
+
+    public string? AdminName { get; set; }
+
+    public string? AdminEmail { get; set; }
+
     public DateTime CreatedAt { get; set; }
 }

@@ -8,6 +8,9 @@ export type CondominiumResponse = {
   state: string;
   emailContact: string;
   status: number;
+  adminUserId?: number | null;
+  adminName?: string | null;
+  adminEmail?: string | null;
   createdAt: string;
 };
 
@@ -42,4 +45,8 @@ export type UpdateCondominiumRequest = {
   state: string;
   emailContact: string;
   status: number;
+};
+
+export type UpdateCondominiumAdminRequest = {
+  adminUserId: number;
 };

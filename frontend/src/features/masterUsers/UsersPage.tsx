@@ -2,15 +2,32 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
+import { getCondominiums } from "../condominiums/condominiumService";
+import type { CondominiumResponse } from "../condominiums/types";
+import { createInvitation } from "../invitations/invitationService";
+import { createPerson } from "../persons/personService";
 import {
+    deleteCondominiumUser,
     getMasterUsers,
     reactivateCondominiumUser,
     suspendCondominiumUser,
 } from "./masterUserService";
-import type { MasterUserResponse, UserCondominiumStatus } from "./types";
+import type {
+    MasterUserResponse,
+    UserCondominiumStatus,
+} from "./types";
 
 const ACTIVE_STATUS = 1;
 const SUSPENDED_STATUS = 2;
+const ADMIN_ROLE = 2;
+
+type CreateAdminInvitationRequest = {
+    condominiumId: number;
+    name: string;
+    cpf: string;
+    phoneNumber: string;
+    email: string;
+};
 
 type StatusFilter = "all" | UserCondominiumStatus;
 
@@ -24,8 +41,11 @@ export function UsersPage() {
     const navigate = useNavigate();
 
     const [users, setUsers] = useState<MasterUserResponse[]>([]);
+    const [condominiums, setCondominiums] = useState<CondominiumResponse[]>([]);
     const [selectedUser, setSelectedUser] = useState<MasterUserResponse | null>(null);
     const [userToSuspend, setUserToSuspend] = useState<MasterUserResponse | null>(null);
+    const [userToDelete, setUserToDelete] = useState<MasterUserResponse | null>(null);
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
     const [isLoading, setIsLoading] = useState(true);
@@ -92,10 +112,16 @@ export function UsersPage() {
             setIsLoading(true);
             setErrorMessage("");
 
-            const result = await getMasterUsers();
-            setUsers(result);
+            const [userResult, condominiumResult] = await Promise.all([
+                getMasterUsers(),
+                getCondominiums(),
+            ]);
+
+            setUsers(userResult);
+            setCondominiums(condominiumResult);
         } catch (error) {
             setUsers([]);
+            setCondominiums([]);
             setErrorMessage(getFriendlyErrorMessage(error, "Não foi possível carregar os usuários."));
         } finally {
             setIsLoading(false);
@@ -141,10 +167,57 @@ export function UsersPage() {
         }
     }
 
+    async function handleDelete(user: MasterUserResponse) {
+        try {
+            setIsSaving(true);
+            setErrorMessage("");
+            setSuccessMessage("");
+
+            await deleteCondominiumUser(user.condominiumId, user.userId);
+            setUserToDelete(null);
+            setSuccessMessage("Admin removido do condomínio com sucesso.");
+            await loadUsers();
+        } catch (error) {
+            setErrorMessage(getFriendlyErrorMessage(error, "Não foi possível excluir o Admin."));
+        } finally {
+            setIsSaving(false);
+        }
+    }
+
+    async function handleCreateUser(data: CreateAdminInvitationRequest) {
+        try {
+            setIsSaving(true);
+            setErrorMessage("");
+            setSuccessMessage("");
+
+            const person = await createPerson({
+                name: data.name,
+                cpf: data.cpf,
+                phoneNumber: data.phoneNumber,
+            });
+
+            await createInvitation({
+                condominiumId: data.condominiumId,
+                personId: person.id,
+                email: data.email,
+                role: ADMIN_ROLE,
+            });
+            setIsCreateOpen(false);
+            setSuccessMessage("Convite de Admin gerado com sucesso.");
+            await loadUsers();
+            navigate("/master/invitations");
+        } catch (error) {
+            setErrorMessage(getFriendlyErrorMessage(error, "Não foi possível criar o usuário."));
+        } finally {
+            setIsSaving(false);
+        }
+    }
+
     return (
         <>
             <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm sm:p-6">
-                <div>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
                     <h1 className="text-3xl font-black tracking-tight text-[#111827]">
                         Usuários
                     </h1>
@@ -153,6 +226,15 @@ export function UsersPage() {
                         criados por ele. Usuários internos do condomínio ficam restritos ao
                         Admin.
                     </p>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={() => setIsCreateOpen(true)}
+                        className="h-12 w-full cursor-pointer rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-lg shadow-[#16A34A]/20 transition hover:bg-[#0D7A3A] sm:w-auto"
+                    >
+                        + Novo Admin
+                    </button>
                 </div>
 
                 <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -296,6 +378,14 @@ export function UsersPage() {
                                                             Reativar
                                                         </button>
                                                     )}
+                                                    <button
+                                                        type="button"
+                                                        disabled={isSaving}
+                                                        onClick={() => setUserToDelete(user)}
+                                                        className="cursor-pointer rounded-xl border border-[#FECACA] bg-white px-3 py-1.5 text-xs font-bold text-[#B42318] transition hover:bg-[#FDECEC] disabled:cursor-not-allowed disabled:opacity-70"
+                                                    >
+                                                        Excluir
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -320,6 +410,24 @@ export function UsersPage() {
                     isSaving={isSaving}
                     onClose={() => setUserToSuspend(null)}
                     onConfirm={handleSuspend}
+                />
+            )}
+
+            {userToDelete && (
+                <DeleteUserModal
+                    user={userToDelete}
+                    isSaving={isSaving}
+                    onClose={() => setUserToDelete(null)}
+                    onConfirm={handleDelete}
+                />
+            )}
+
+            {isCreateOpen && (
+                <CreateUserModal
+                    condominiums={condominiums}
+                    isSaving={isSaving}
+                    onClose={() => setIsCreateOpen(false)}
+                    onConfirm={handleCreateUser}
                 />
             )}
         </>
@@ -419,6 +527,255 @@ function SuspendUserModal({
     );
 }
 
+function DeleteUserModal({
+    user,
+    isSaving,
+    onClose,
+    onConfirm,
+}: {
+    user: MasterUserResponse;
+    isSaving: boolean;
+    onClose: () => void;
+    onConfirm: (user: MasterUserResponse) => Promise<void>;
+}) {
+    async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+        await onConfirm(user);
+    }
+
+    return (
+        <ModalShell title="Excluir Admin" onClose={onClose}>
+            <form className="space-y-5" onSubmit={handleSubmit}>
+                <div className="rounded-2xl border border-[#FECACA] bg-[#FDECEC] p-4">
+                    <p className="text-sm font-extrabold text-[#7A271A]">
+                        Você está removendo {user.personName} do condomínio {user.condominiumName}.
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-[#B42318]">
+                        Se este for o último vínculo do Admin, a conta também será excluída quando não houver histórico bloqueando a remoção.
+                    </p>
+                </div>
+
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={isSaving}
+                        className="h-12 cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-extrabold text-[#6B7280] transition hover:bg-[#F3F4F6] disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        type="submit"
+                        disabled={isSaving}
+                        className="h-12 cursor-pointer rounded-2xl bg-[#B42318] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#B42318]/20 transition hover:bg-[#7A271A] disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                        {isSaving ? "Excluindo..." : "Excluir Admin"}
+                    </button>
+                </div>
+            </form>
+        </ModalShell>
+    );
+}
+
+function CreateUserModal({
+    condominiums,
+    isSaving,
+    onClose,
+    onConfirm,
+}: {
+    condominiums: CondominiumResponse[];
+    isSaving: boolean;
+    onClose: () => void;
+    onConfirm: (data: CreateAdminInvitationRequest) => Promise<void>;
+}) {
+    const [form, setForm] = useState({
+        condominiumId: condominiums[0]?.id?.toString() ?? "",
+        name: "",
+        cpf: "",
+        phoneNumber: "",
+        email: "",
+    });
+    const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof typeof form, string>>>({});
+
+    function updateField(field: keyof typeof form, value: string) {
+        setForm((current) => ({
+            ...current,
+            [field]: value,
+        }));
+        setFieldErrors((current) => ({
+            ...current,
+            [field]: "",
+        }));
+    }
+
+    async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+
+        const phoneDigits = onlyDigits(form.phoneNumber);
+        const errors: Partial<Record<keyof typeof form, string>> = {};
+
+        if (!form.condominiumId) {
+            errors.condominiumId = "Selecione um condomínio.";
+        }
+
+        if (form.name.trim().length < 2) {
+            errors.name = "Informe o nome completo do Admin.";
+        }
+
+        if (!isValidCpf(form.cpf)) {
+            errors.cpf = "Informe um CPF válido com 11 dígitos.";
+        }
+
+        if (phoneDigits.length < 10 || phoneDigits.length > 11) {
+            errors.phoneNumber = "Informe um telefone com DDD.";
+        }
+
+        if (!isValidEmail(form.email)) {
+            errors.email = "Informe um e-mail válido para o convite.";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors);
+            return;
+        }
+
+        await onConfirm({
+            condominiumId: Number(form.condominiumId),
+            name: form.name.trim(),
+            cpf: onlyDigits(form.cpf),
+            phoneNumber: phoneDigits,
+            email: form.email.trim(),
+        });
+    }
+
+    return (
+        <ModalShell title="Novo Admin" onClose={onClose}>
+            <form className="space-y-5" onSubmit={handleSubmit}>
+                <div className="rounded-2xl border border-[#BBF7D0] bg-[#DCFCE7] p-4">
+                    <p className="text-sm font-extrabold text-[#0B3D2E]">
+                        Este usuário será criado como Admin e vinculado ao condomínio selecionado.
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-[#0D7A3A]">
+                        Ele poderá acessar a operação interna do condomínio após o login.
+                    </p>
+                </div>
+
+                <label className="block">
+                    <span className="mb-2 block text-sm font-extrabold text-[#111827]">
+                        Condomínio
+                    </span>
+                    <select
+                        required
+                        value={form.condominiumId}
+                        onChange={(event) => updateField("condominiumId", event.target.value)}
+                        className={`h-12 w-full cursor-pointer rounded-2xl border bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30 ${
+                            fieldErrors.condominiumId ? "border-[#EF4444]" : "border-[#E5E7EB]"
+                        }`}
+                    >
+                        <option value="" disabled>
+                            Selecione um condomínio
+                        </option>
+                        {condominiums.map((condominium) => (
+                            <option key={condominium.id} value={condominium.id}>
+                                {condominium.name}
+                            </option>
+                        ))}
+                    </select>
+                    {fieldErrors.condominiumId && (
+                        <span className="mt-2 block text-xs font-extrabold text-[#B42318]">
+                            {fieldErrors.condominiumId}
+                        </span>
+                    )}
+                </label>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <TextField
+                        label="Nome"
+                        value={form.name}
+                        onChange={(value) => updateField("name", value)}
+                        placeholder="Nome do Admin"
+                        error={fieldErrors.name}
+                    />
+                    <TextField
+                        label="CPF"
+                        value={form.cpf}
+                        onChange={(value) => updateField("cpf", formatCpfInput(value))}
+                        placeholder="Somente números"
+                        maxLength={14}
+                        error={fieldErrors.cpf}
+                    />
+                    <TextField
+                        label="Telefone"
+                        value={form.phoneNumber}
+                        onChange={(value) => updateField("phoneNumber", formatPhoneInput(value))}
+                        placeholder="DDD + número"
+                        maxLength={15}
+                        error={fieldErrors.phoneNumber}
+                    />
+                    <TextField
+                        label="E-mail"
+                        value={form.email}
+                        onChange={(value) => updateField("email", value)}
+                        placeholder="admin@email.com"
+                        type="email"
+                        error={fieldErrors.email}
+                    />
+                </div>
+
+                <button
+                    type="submit"
+                    disabled={isSaving || condominiums.length === 0}
+                    className="h-12 w-full cursor-pointer rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-lg shadow-[#16A34A]/20 transition hover:bg-[#0D7A3A] disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                    {isSaving ? "Gerando convite..." : "Gerar convite"}
+                </button>
+            </form>
+        </ModalShell>
+    );
+}
+
+function TextField({
+    label,
+    value,
+    onChange,
+    placeholder,
+    type = "text",
+    maxLength,
+    error,
+}: {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+    placeholder: string;
+    type?: string;
+    maxLength?: number;
+    error?: string;
+}) {
+    return (
+        <label className="block">
+            <span className="mb-2 block text-sm font-extrabold text-[#111827]">
+                {label}
+            </span>
+            <input
+                required
+                type={type}
+                value={value}
+                maxLength={maxLength}
+                onChange={(event) => onChange(event.target.value)}
+                placeholder={placeholder}
+                className={`h-12 w-full rounded-2xl border bg-white px-4 text-sm font-bold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30 ${
+                    error ? "border-[#EF4444]" : "border-[#E5E7EB]"
+                }`}
+            />
+            {error && (
+                <span className="mt-2 block text-xs font-extrabold text-[#B42318]">
+                    {error}
+                </span>
+            )}
+        </label>
+    );
+}
+
 function ModalShell({
     title,
     children,
@@ -511,12 +868,93 @@ function formatDate(value: string) {
     }).format(new Date(value));
 }
 
+function onlyDigits(value: string) {
+    return value.replace(/\D/g, "");
+}
+
+function formatCpfInput(value: string) {
+    const digits = onlyDigits(value).slice(0, 11);
+
+    return digits
+        .replace(/^(\d{3})(\d)/, "$1.$2")
+        .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+        .replace(/\.(\d{3})(\d)/, ".$1-$2");
+}
+
+function formatPhoneInput(value: string) {
+    const digits = onlyDigits(value).slice(0, 11);
+
+    if (digits.length <= 10) {
+        return digits
+            .replace(/^(\d{2})(\d)/, "($1) $2")
+            .replace(/(\d{4})(\d)/, "$1-$2");
+    }
+
+    return digits
+        .replace(/^(\d{2})(\d)/, "($1) $2")
+        .replace(/(\d{5})(\d)/, "$1-$2");
+}
+
+function isValidEmail(value: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function isValidCpf(value: string) {
+    const cpf = onlyDigits(value);
+
+    if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) {
+        return false;
+    }
+
+    const calculateDigit = (base: string, factor: number) => {
+        const sum = base
+            .split("")
+            .reduce((total, digit) => total + Number(digit) * factor--, 0);
+        const remainder = (sum * 10) % 11;
+
+        return remainder === 10 ? 0 : remainder;
+    };
+
+    const firstDigit = calculateDigit(cpf.slice(0, 9), 10);
+    const secondDigit = calculateDigit(cpf.slice(0, 10), 11);
+
+    return cpf.endsWith(`${firstDigit}${secondDigit}`);
+}
+
 function getFriendlyErrorMessage(error: unknown, fallback: string) {
     if (!(error instanceof Error)) {
         return fallback;
     }
 
     const normalizedMessage = error.message.toLowerCase();
+
+    if (normalizedMessage.includes("email is already in use")) {
+        return "Este e-mail já está em uso por outro usuário.";
+    }
+
+    if (normalizedMessage.includes("email already registered")) {
+        return "Este e-mail já está cadastrado.";
+    }
+
+    if (normalizedMessage.includes("cpf already registered")) {
+        return "Este CPF já está cadastrado.";
+    }
+
+    if (normalizedMessage.includes("cpf must contain exactly 11 digits")) {
+        return "O CPF precisa ter 11 dígitos.";
+    }
+
+    if (normalizedMessage.includes("phone number must contain")) {
+        return "O telefone precisa ter DDD e conter apenas números.";
+    }
+
+    if (normalizedMessage.includes("already a pending invitation")) {
+        return "Já existe um convite pendente para essa pessoa.";
+    }
+
+    if (normalizedMessage.includes("password")) {
+        return "A senha precisa ter pelo menos 6 caracteres.";
+    }
 
     if (normalizedMessage.includes("already suspended")) {
         return "Este acesso já está suspenso.";

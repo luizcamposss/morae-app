@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
+import { svgIcone } from "@edusites/icons/core";
 import { getMyUnits } from "../me/meService";
 import type { MeUnitResponse } from "../me/types";
 
@@ -16,7 +17,9 @@ export function ResidentUnitPage() {
       } catch (error) {
         setUnits([]);
         setErrorMessage(
-          error instanceof Error ? error.message : "Não foi possível carregar suas unidades.",
+          error instanceof Error
+            ? error.message
+            : "Não foi possível carregar suas unidades.",
         );
       } finally {
         setIsLoading(false);
@@ -27,72 +30,187 @@ export function ResidentUnitPage() {
   }, []);
 
   return (
-    <section className="min-h-[620px] rounded-[2rem] border border-[#E5E7EB] bg-white p-6 shadow-sm">
-      <div>
-        <h1 className="text-3xl font-extrabold tracking-tight text-[#111827]">
-          Minha unidade
-        </h1>
-        <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-          Unidades vinculadas ao seu cadastro.
-        </p>
+    <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm sm:p-6 lg:p-7">
+      <div className="border-b border-[#E5E7EB] pb-6">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.38em] text-[#16A34A]">
+            Área do morador
+          </p>
+          <h1 className="mt-3 text-3xl font-black tracking-tight text-[#111827] sm:text-4xl">
+            {units.length > 1 ? "Minhas unidades" : "Minha unidade"}
+          </h1>
+        </div>
       </div>
 
       {errorMessage && (
-        <div className="mt-5 rounded-2xl border border-[#FECACA] bg-[#FDECEC] px-4 py-3 text-sm font-bold text-[#B42318]">
-          {errorMessage}
+        <div className="mt-5 flex items-start gap-3 rounded-3xl border border-[#FECACA] bg-[#FDECEC] px-4 py-3 text-sm font-bold text-[#B42318]">
+          <span className="mt-0.5 text-lg">
+            <EduIcon nome="alerta" />
+          </span>
+          <span>{errorMessage}</span>
         </div>
       )}
 
-      <div className="mt-10 grid grid-cols-1 gap-6 xl:grid-cols-2">
+      <div className="mt-6">
         {isLoading ? (
-          <InfoPanel title="Carregando">
-            <InfoLine label="Status" value="Buscando unidades no backend" />
-          </InfoPanel>
+          <LoadingState />
         ) : units.length === 0 ? (
-          <InfoPanel title="Nenhuma unidade">
-            <InfoLine label="Status" value="Nenhuma unidade vinculada ao seu usuário" />
-          </InfoPanel>
+          <EmptyState />
         ) : (
-          units.map((unit) => (
-            <InfoPanel key={unit.unitId} title={`${unit.buildingName} - Unidade ${unit.unitNumber}`}>
-              <InfoLine label="Condomínio" value={unit.condominiumName} />
-              <InfoLine label="Prédio" value={unit.buildingName} />
-              <InfoLine label="Unidade" value={unit.unitNumber} />
-              <InfoLine label="Tipo" value={getUnitTypeLabel(unit.unitType)} />
-              <InfoLine label="Vínculo" value={getRelationshipLabel(unit.relationshipType)} />
-            </InfoPanel>
-          ))
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+            {units.map((unit) => (
+              <UnitCard key={unit.unitId} unit={unit} />
+            ))}
+          </div>
         )}
       </div>
     </section>
   );
 }
 
-type InfoPanelProps = {
-  title: string;
-  children: ReactNode;
+type UnitCardProps = {
+  unit: MeUnitResponse;
 };
 
-function InfoPanel({ title, children }: InfoPanelProps) {
+function UnitCard({ unit }: UnitCardProps) {
   return (
-    <section className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-6">
-      <h2 className="mb-4 text-lg font-extrabold text-[#111827]">{title}</h2>
-      <div className="space-y-2">{children}</div>
-    </section>
+    <article className="overflow-hidden rounded-[1.8rem] border border-[#E5E7EB] bg-[#F9FAFB] shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#0B3D2E]/8">
+      <div className="relative bg-gradient-to-br from-[#0B3D2E] via-[#0D7A3A] to-[#22C55E] p-5 text-white">
+        <div className="absolute right-5 top-5 rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur">
+          {getRelationshipLabel(unit.relationshipType)}
+        </div>
+
+        <div className="flex size-12 items-center justify-center rounded-2xl bg-white/15 text-2xl backdrop-blur">
+          <EduIcon nome="apartamento" />
+        </div>
+
+        <p className="mt-6 text-sm font-bold text-white/75">{unit.buildingName}</p>
+        <h2 className="mt-1 text-3xl font-black tracking-tight">
+          Unidade {unit.unitNumber}
+        </h2>
+        <p className="mt-2 max-w-md text-sm font-semibold leading-6 text-white/80">
+          {unit.condominiumName}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2">
+        <DetailItem icon="predio" label="Prédio" value={unit.buildingName} />
+        <DetailItem icon="apartamento" label="Unidade" value={unit.unitNumber} />
+        <DetailItem
+          icon="dashboard"
+          label="Tipo"
+          value={getUnitTypeLabel(unit.unitType)}
+        />
+        <DetailItem
+          icon="usuario"
+          label="Vínculo"
+          value={getRelationshipLabel(unit.relationshipType)}
+        />
+      </div>
+    </article>
   );
 }
 
-type InfoLineProps = {
+type DetailItemProps = {
+  icon: string;
   label: string;
   value: string;
 };
 
-function InfoLine({ label, value }: InfoLineProps) {
+function DetailItem({ icon, label, value }: DetailItemProps) {
   return (
-    <p className="text-sm font-bold text-[#111827]">
-      <span className="text-[#6B7280]">{label}: </span>
-      {value}
-    </p>
+    <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4">
+      <div className="mb-3 flex size-9 items-center justify-center rounded-xl bg-[#DCFCE7] text-lg text-[#16A34A]">
+        <EduIcon nome={icon} />
+      </div>
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#6B7280]">
+        {label}
+      </p>
+      <p className="mt-1 text-base font-black text-[#111827]">{value}</p>
+    </div>
+  );
+}
+
+function LoadingState() {
+  return (
+    <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      {[1, 2].map((item) => (
+        <div
+          key={item}
+          className="h-80 animate-pulse rounded-[1.8rem] border border-[#E5E7EB] bg-[#F3F4F6]"
+        />
+      ))}
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="flex min-h-[22rem] flex-col items-center justify-center rounded-[1.8rem] border border-dashed border-[#CBD5E1] bg-[#F9FAFB] px-6 text-center">
+      <div className="flex size-14 items-center justify-center rounded-2xl bg-[#DCFCE7] text-2xl text-[#16A34A]">
+        <EduIcon nome="apartamento" />
+      </div>
+      <h2 className="mt-5 text-xl font-black text-[#111827]">
+        Nenhuma unidade vinculada
+      </h2>
+      <p className="mt-2 max-w-md text-sm font-semibold leading-6 text-[#6B7280]">
+        Quando uma unidade for associada ao seu cadastro, ela aparecerá aqui
+        automaticamente.
+      </p>
+    </div>
+  );
+}
+
+function EduIcon({ nome }: { nome: string }) {
+  const [svg, setSvg] = useState<string | null>(() =>
+    svgIcone({
+      nome,
+      cor: "currentColor",
+      tamanho: "1em",
+    }) ?? null,
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadIcon() {
+      const icons = await import("@edusites/icons/core");
+      const loadedSvg = await (icons as typeof icons & {
+        svgIconeAsync?: (options: {
+          nome: string;
+          cor: string;
+          tamanho: string;
+        }) => Promise<string | null | undefined>;
+      }).svgIconeAsync?.({
+        nome,
+        cor: "currentColor",
+        tamanho: "1em",
+      });
+
+      if (isMounted) {
+        setSvg(loadedSvg ?? null);
+      }
+    }
+
+    if (!svg) {
+      void loadIcon();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [nome, svg]);
+
+  if (!svg) {
+    return <span aria-hidden="true" className="inline-flex size-[1em]" />;
+  }
+
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-flex leading-none"
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
   );
 }
 

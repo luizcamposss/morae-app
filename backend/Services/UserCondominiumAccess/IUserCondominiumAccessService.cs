@@ -10,6 +10,10 @@ public interface IUserCondominiumAccessService
 {
     Task<IEnumerable<MasterUserResponseDto>> GetMasterUsersAsync(int requesterUserId);
 
+    Task<MasterUserResponseDto> CreateMasterUserAsync(
+        int requesterUserId,
+        CreateMasterUserDto dto);
+
     Task<UserCondominiumAccessResponseDto> SuspendAsync(
     int requesterUserId,
     int condominiumId,
@@ -17,6 +21,11 @@ public interface IUserCondominiumAccessService
     SuspendUserCondominiumDto dto);
 
     Task<UserCondominiumAccessResponseDto> ReactivateAsync(
+        int requesterUserId,
+        int condominiumId,
+        int targetUserId);
+
+    Task DeleteAsync(
         int requesterUserId,
         int condominiumId,
         int targetUserId);

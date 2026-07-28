@@ -121,6 +121,94 @@ public class InvitationService : IInvitationService
         return _mapper.Map<InvitationResponseDto>(result);
     }
 
+    public async Task<InvitationResponseDto> RenewAsync(int userId, int invitationId)
+    {
+        var invitation = await _context.Invitations
+            .Include(i => i.Condominium)
+            .Include(i => i.Person)
+            .FirstOrDefaultAsync(i => i.Id == invitationId);
+
+        if (invitation is null)
+            throw new NotFoundException("Invitation not found.");
+
+        var requester = await _userManager.FindByIdAsync(userId.ToString());
+
+        if (requester is null)
+            throw new NotFoundException("User not found.");
+
+        var requesterIsMaster = await _userManager.IsInRoleAsync(requester, AppRoles.Master);
+        var requesterIsAdmin = await _userManager.IsInRoleAsync(requester, AppRoles.Admin);
+
+        if (!requesterIsMaster && !requesterIsAdmin)
+            throw new ForbiddenException("User cannot renew invitations.");
+
+        if (requesterIsMaster)
+        {
+            if (invitation.Role is not UserRole.Admin)
+                throw new ForbiddenException("Master users can only renew admin invitations.");
+
+            if (invitation.CreatedByUserId != userId)
+                throw new ForbiddenException("Master can only renew invitations created by themselves.");
+        }
+
+        if (requesterIsAdmin)
+        {
+            if (invitation.Role is not UserRole.Syndic and not UserRole.Resident)
+                throw new ForbiddenException("Admin users can only renew syndic or resident invitations.");
+
+            await _permissionService.EnsureCondominiumAdminAsync(userId, invitation.CondominiumId);
+        }
+
+        if (invitation.InvitationStatus == InvitationStatus.Accepted)
+            throw new BadRequestException("Accepted invitations cannot be renewed.");
+
+        var isExpired = invitation.InvitationStatus == InvitationStatus.Expired ||
+                        invitation.ExpiresAt < DateTime.UtcNow;
+
+        if (!isExpired)
+            throw new BadRequestException("Only expired invitations can be renewed.");
+
+        var personAlreadyHasUser = await _context.Users
+            .AnyAsync(u => u.PersonId == invitation.PersonId);
+
+        if (personAlreadyHasUser)
+            throw new ConflictException("Person already has a registered user.");
+
+        var emailAlreadyUsed = await _userManager.FindByEmailAsync(invitation.Email);
+
+        if (emailAlreadyUsed is not null)
+            throw new ConflictException("Email already registered.");
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        invitation.InvitationStatus = InvitationStatus.Expired;
+
+        var renewedInvitation = new Invitation
+        {
+            CondominiumId = invitation.CondominiumId,
+            PersonId = invitation.PersonId,
+            CreatedByUserId = userId,
+            Email = invitation.Email,
+            Role = invitation.Role,
+            Token = Guid.NewGuid().ToString("N"),
+            InvitationStatus = InvitationStatus.Pending,
+            ExpiresAt = DateTime.UtcNow.AddDays(7),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Invitations.Add(renewedInvitation);
+        await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
+
+        var result = await _context.Invitations
+            .AsNoTracking()
+            .Include(i => i.Person)
+            .Include(i => i.Condominium)
+            .FirstAsync(i => i.Id == renewedInvitation.Id);
+
+        return _mapper.Map<InvitationResponseDto>(result);
+    }
+
     public async Task<IEnumerable<InvitationResponseDto>> GetByCondominiumAsync(int userId, int condominiumId)
     {
         var user = await _userManager.FindByIdAsync(userId.ToString());

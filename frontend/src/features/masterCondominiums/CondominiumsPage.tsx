@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
 import {
     deleteCondominium,
     getCondominiums,
     onboardCondominium,
+    removeCondominiumAdmin,
     updateCondominium,
+    updateCondominiumAdmin,
 } from "../condominiums/condominiumService";
 import type {
     CreateCondominiumOnboardingRequest,
@@ -14,7 +17,11 @@ import type {
     UpdateCondominiumRequest,
 } from "../condominiums/types";
 import { getInvitationsByCondominium } from "../invitations/invitationService";
+import { createInvitation } from "../invitations/invitationService";
 import type { InvitationResponse } from "../invitations/types";
+import { getMasterUsers } from "../masterUsers/masterUserService";
+import type { MasterUserResponse } from "../masterUsers/types";
+import { createPerson } from "../persons/personService";
 
 const ACTIVE_STATUS = 1;
 const INACTIVE_STATUS = 2;
@@ -37,9 +44,18 @@ type FormState = {
     adminPhoneNumber: string;
     adminEmail: string;
     adminPassword: string;
+    linkedAdminUserId: string;
 };
 
 type FieldErrors = Partial<Record<keyof FormState, string>>;
+
+type CreateAdminInvitationRequest = {
+    condominiumId: number;
+    name: string;
+    cpf: string;
+    phoneNumber: string;
+    email: string;
+};
 
 const emptyForm: FormState = {
     name: "",
@@ -55,11 +71,15 @@ const emptyForm: FormState = {
     adminPhoneNumber: "",
     adminEmail: "",
     adminPassword: "",
+    linkedAdminUserId: "",
 };
 
 export function CondominiumsPage() {
+    const navigate = useNavigate();
+
     const [condominiums, setCondominiums] = useState<CondominiumResponse[]>([]);
     const [invitations, setInvitations] = useState<InvitationResponse[]>([]);
+    const [adminUsers, setAdminUsers] = useState<MasterUserResponse[]>([]);
     const [search, setSearch] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
     const [modalErrorMessage, setModalErrorMessage] = useState("");
@@ -71,6 +91,10 @@ export function CondominiumsPage() {
     const [modalMode, setModalMode] = useState<ModalMode>(null);
     const [selectedCondominium, setSelectedCondominium] =
         useState<CondominiumResponse | null>(null);
+    const [detailsCondominium, setDetailsCondominium] =
+        useState<CondominiumResponse | null>(null);
+    const [adminInviteCondominium, setAdminInviteCondominium] =
+        useState<CondominiumResponse | null>(null);
     const [form, setForm] = useState<FormState>(emptyForm);
 
     async function loadCondominiums() {
@@ -79,8 +103,12 @@ export function CondominiumsPage() {
             setErrorMessage("");
             setWarningMessage("");
 
-            const condominiumResult = await getCondominiums();
+            const [condominiumResult, masterUsersResult] = await Promise.all([
+                getCondominiums(),
+                getMasterUsers(),
+            ]);
             setCondominiums(condominiumResult);
+            setAdminUsers(masterUsersResult);
 
             const invitationResults = await Promise.allSettled(
                 condominiumResult.map((condominium) =>
@@ -105,6 +133,7 @@ export function CondominiumsPage() {
         } catch (error) {
             setCondominiums([]);
             setInvitations([]);
+            setAdminUsers([]);
 
             if (error instanceof Error) {
                 setErrorMessage(error.message);
@@ -133,6 +162,8 @@ export function CondominiumsPage() {
             invitation.role === ADMIN_ROLE &&
             invitation.invitationStatus === PENDING_INVITATION_STATUS,
     );
+
+    const uniqueAdminUsers = useMemo(() => getUniqueAdmins(adminUsers), [adminUsers]);
 
     const filteredCondominiums = useMemo(() => {
         const normalizedSearch = search.trim().toLowerCase();
@@ -205,6 +236,7 @@ export function CondominiumsPage() {
             adminPhoneNumber: "",
             adminEmail: "",
             adminPassword: "",
+            linkedAdminUserId: condominium.adminUserId?.toString() ?? "",
         });
         setErrorMessage("");
         setModalErrorMessage("");
@@ -262,6 +294,16 @@ export function CondominiumsPage() {
                     selectedCondominium.id,
                     toUpdateRequest(form),
                 );
+
+                const nextAdminUserId = Number(form.linkedAdminUserId);
+                const currentAdminUserId = selectedCondominium.adminUserId ?? null;
+
+                if (nextAdminUserId && nextAdminUserId !== currentAdminUserId) {
+                    await updateCondominiumAdmin(selectedCondominium.id, {
+                        adminUserId: nextAdminUserId,
+                    });
+                }
+
                 setSuccessMessage("Condomínio atualizado com sucesso.");
             }
 
@@ -308,6 +350,73 @@ export function CondominiumsPage() {
             } else {
                 setErrorMessage("Não foi possível alterar o status.");
             }
+        }
+    }
+
+    async function handleRemoveAdmin(condominium: CondominiumResponse) {
+        const confirmed = window.confirm(
+            `Deseja remover o Admin ativo de ${condominium.name}? O acesso administrativo será suspenso.`,
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        try {
+            setIsSaving(true);
+            setModalErrorMessage("");
+            setSuccessMessage("");
+
+            await removeCondominiumAdmin(condominium.id);
+            setForm((current) => ({
+                ...current,
+                linkedAdminUserId: "",
+            }));
+            setSuccessMessage("Admin removido do condomínio com sucesso.");
+            await loadCondominiums();
+        } catch (error) {
+            if (error instanceof Error) {
+                setModalErrorMessage(getFriendlyErrorMessage(error.message));
+            } else {
+                setModalErrorMessage("Não foi possível remover o Admin vinculado.");
+            }
+        } finally {
+            setIsSaving(false);
+        }
+    }
+
+    async function handleCreateAdminInvitation(data: CreateAdminInvitationRequest) {
+        try {
+            setIsSaving(true);
+            setModalErrorMessage("");
+            setSuccessMessage("");
+
+            const person = await createPerson({
+                name: data.name,
+                cpf: onlyDigits(data.cpf),
+                phoneNumber: onlyDigits(data.phoneNumber),
+            });
+
+            await createInvitation({
+                condominiumId: data.condominiumId,
+                personId: person.id,
+                email: data.email.trim(),
+                role: ADMIN_ROLE,
+            });
+
+            setAdminInviteCondominium(null);
+            closeModal();
+            setSuccessMessage("Convite de Admin gerado com sucesso.");
+            await loadCondominiums();
+            navigate("/master/invitations");
+        } catch (error) {
+            if (error instanceof Error) {
+                setModalErrorMessage(getFriendlyErrorMessage(error.message));
+            } else {
+                setModalErrorMessage("Não foi possível gerar o convite de Admin.");
+            }
+        } finally {
+            setIsSaving(false);
         }
     }
 
@@ -403,11 +512,12 @@ export function CondominiumsPage() {
                             <EmptyState message="Nenhum condomínio encontrado." />
                         ) : (
                             <div className="overflow-x-auto rounded-2xl border border-[#E5E7EB] bg-white">
-                                <table className="w-full min-w-[940px] border-collapse text-left text-sm">
+                                <table className="w-full min-w-[1080px] border-collapse text-left text-sm">
                                     <thead className="bg-[#DCFCE7] text-xs uppercase tracking-wide text-[#0B3D2E]">
                                         <tr>
                                             <th className="px-4 py-3 font-extrabold">Condomínio</th>
                                             <th className="px-4 py-3 font-extrabold">Contato</th>
+                                            <th className="px-4 py-3 font-extrabold">Admins vinculados</th>
                                             <th className="px-4 py-3 font-extrabold">Localização</th>
                                             <th className="px-4 py-3 font-extrabold">Status</th>
                                             <th className="px-4 py-3 font-extrabold">Cadastro</th>
@@ -432,6 +542,14 @@ export function CondominiumsPage() {
                                                 <td className="px-4 py-4 font-semibold text-[#6B7280]">
                                                     {condominium.emailContact}
                                                 </td>
+                                                <td className="px-4 py-4">
+                                                    <AdminSummary
+                                                        admins={getCondominiumAdmins(
+                                                            condominium.id,
+                                                            adminUsers,
+                                                        )}
+                                                    />
+                                                </td>
                                                 <td className="px-4 py-4 font-semibold text-[#6B7280]">
                                                     {formatLocation(condominium)}
                                                 </td>
@@ -446,6 +564,13 @@ export function CondominiumsPage() {
                                                 </td>
                                                 <td className="px-4 py-4">
                                                     <div className="flex flex-wrap gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setDetailsCondominium(condominium)}
+                                                            className="rounded-xl border border-[#BBF7D0] bg-[#DCFCE7] px-3 py-1.5 text-xs font-bold text-[#0B3D2E] transition hover:bg-[#BBF7D0]"
+                                                        >
+                                                            Ver
+                                                        </button>
                                                         <button
                                                             type="button"
                                                             onClick={() => openEditModal(condominium)}
@@ -485,38 +610,216 @@ export function CondominiumsPage() {
                 <CondominiumModal
                     form={form}
                     mode={modalMode}
+                    adminUsers={uniqueAdminUsers}
                     fieldErrors={fieldErrors}
                     errorMessage={modalErrorMessage}
                     isSaving={isSaving}
                     onChange={setForm}
                     onClearFieldError={clearFieldError}
                     onClose={closeModal}
+                    onAddAdmin={() => {
+                        if (selectedCondominium) {
+                            setAdminInviteCondominium(selectedCondominium);
+                        }
+                    }}
+                    onRemoveAdmin={() => {
+                        if (selectedCondominium) {
+                            void handleRemoveAdmin(selectedCondominium);
+                        }
+                    }}
                     onSubmit={handleSubmit}
+                />
+            )}
+
+            {adminInviteCondominium && (
+                <CreateAdminInvitationModal
+                    condominium={adminInviteCondominium}
+                    isSaving={isSaving}
+                    errorMessage={modalErrorMessage}
+                    onClose={() => setAdminInviteCondominium(null)}
+                    onConfirm={handleCreateAdminInvitation}
+                />
+            )}
+
+            {detailsCondominium && (
+                <CondominiumDetailsModal
+                    condominium={detailsCondominium}
+                    admins={getCondominiumAdmins(detailsCondominium.id, adminUsers)}
+                    onClose={() => setDetailsCondominium(null)}
+                    onEdit={() => {
+                        const condominium = detailsCondominium;
+                        setDetailsCondominium(null);
+                        openEditModal(condominium);
+                    }}
                 />
             )}
         </>
     );
 }
 
+function CreateAdminInvitationModal({
+    condominium,
+    isSaving,
+    errorMessage,
+    onClose,
+    onConfirm,
+}: {
+    condominium: CondominiumResponse;
+    isSaving: boolean;
+    errorMessage: string;
+    onClose: () => void;
+    onConfirm: (data: CreateAdminInvitationRequest) => Promise<void>;
+}) {
+    const [form, setForm] = useState({
+        name: "",
+        cpf: "",
+        phoneNumber: "",
+        email: "",
+    });
+    const [localError, setLocalError] = useState("");
+
+    function updateField(field: keyof typeof form, value: string) {
+        setForm((current) => ({
+            ...current,
+            [field]: value,
+        }));
+        setLocalError("");
+    }
+
+    async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+
+        if (form.name.trim().length < 3) {
+            setLocalError("Informe o nome completo do Admin.");
+            return;
+        }
+
+        if (!isValidCpf(form.cpf)) {
+            setLocalError("Informe um CPF válido.");
+            return;
+        }
+
+        const phoneDigits = onlyDigits(form.phoneNumber);
+
+        if (phoneDigits.length < 10 || phoneDigits.length > 11) {
+            setLocalError("Informe um telefone válido com DDD.");
+            return;
+        }
+
+        if (!isValidEmail(form.email)) {
+            setLocalError("Informe um e-mail válido.");
+            return;
+        }
+
+        await onConfirm({
+            condominiumId: condominium.id,
+            name: form.name.trim(),
+            cpf: form.cpf,
+            phoneNumber: form.phoneNumber,
+            email: form.email.trim(),
+        });
+    }
+
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#0B3D2E]/40 px-4 py-8 backdrop-blur-sm">
+            <form
+                onSubmit={handleSubmit}
+                className="w-full max-w-2xl overflow-hidden rounded-[2rem] border border-[#E5E7EB] bg-white shadow-2xl shadow-[#0B3D2E]/20"
+            >
+                <div className="flex items-center justify-between border-b border-[#E5E7EB] px-6 py-5">
+                    <div>
+                        <h2 className="text-2xl font-black text-[#111827]">
+                            Novo Admin
+                        </h2>
+                        <p className="mt-1 text-sm font-semibold text-[#6B7280]">
+                            Gere um convite administrativo para {condominium.name}.
+                        </p>
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="flex size-10 cursor-pointer items-center justify-center rounded-full bg-[#F3F4F6] text-xl font-light text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
+                    >
+                        x
+                    </button>
+                </div>
+
+                {(localError || errorMessage) && (
+                    <div className="mx-6 mt-5 rounded-2xl border border-[#FECACA] bg-[#FDECEC] px-4 py-3 text-sm font-bold text-[#B42318]">
+                        {localError || errorMessage}
+                    </div>
+                )}
+
+                <div className="grid grid-cols-1 gap-4 px-6 py-6 md:grid-cols-2">
+                    <SimpleField
+                        label="Nome"
+                        value={form.name}
+                        placeholder="Nome do Admin"
+                        onChange={(value) => updateField("name", value)}
+                    />
+                    <SimpleField
+                        label="CPF"
+                        value={form.cpf}
+                        placeholder="Somente números"
+                        maxLength={14}
+                        onChange={(value) => updateField("cpf", value)}
+                    />
+                    <SimpleField
+                        label="Telefone"
+                        value={form.phoneNumber}
+                        placeholder="DDD + número"
+                        maxLength={15}
+                        onChange={(value) => updateField("phoneNumber", value)}
+                    />
+                    <SimpleField
+                        label="E-mail"
+                        value={form.email}
+                        placeholder="admin@email.com"
+                        type="email"
+                        onChange={(value) => updateField("email", value)}
+                    />
+                </div>
+
+                <div className="border-t border-[#E5E7EB] px-6 py-5">
+                    <button
+                        type="submit"
+                        disabled={isSaving}
+                        className="h-12 w-full cursor-pointer rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-lg shadow-[#16A34A]/20 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                        {isSaving ? "Gerando convite..." : "Gerar convite de Admin"}
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+}
+
 function CondominiumModal({
     form,
     mode,
+    adminUsers,
     fieldErrors,
     errorMessage,
     isSaving,
     onChange,
     onClearFieldError,
     onClose,
+    onAddAdmin,
+    onRemoveAdmin,
     onSubmit,
 }: {
     form: FormState;
     mode: Exclude<ModalMode, null>;
+    adminUsers: MasterUserResponse[];
     fieldErrors: FieldErrors;
     errorMessage: string;
     isSaving: boolean;
     onChange: (form: FormState) => void;
     onClearFieldError: (field: keyof FormState) => void;
     onClose: () => void;
+    onAddAdmin: () => void;
+    onRemoveAdmin: () => void;
     onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
     const isEdit = mode === "edit";
@@ -562,7 +865,7 @@ function CondominiumModal({
                     </div>
                 )}
 
-                <div className="grid max-h-[65vh] grid-cols-1 gap-5 overflow-y-auto px-6 py-6 md:grid-cols-2">
+                <div className="grid max-h-[65vh] grid-cols-1 gap-5 overflow-y-auto px-6 pb-28 pt-6 md:grid-cols-2">
                     <SectionTitle title="Dados do condomínio" />
 
                     <Field
@@ -576,7 +879,9 @@ function CondominiumModal({
                         value={form.cnpj}
                         error={fieldErrors.cnpj}
                         disabled={isEdit}
-                        onChange={(value) => updateField("cnpj", value)}
+                        placeholder="00.000.000/0000-00"
+                        maxLength={18}
+                        onChange={(value) => updateField("cnpj", formatCnpjInput(value))}
                     />
                     <Field
                         label="E-mail de contato"
@@ -611,21 +916,65 @@ function CondominiumModal({
                     />
 
                     {isEdit && (
-                        <label className="block">
-                            <span className="mb-2 block text-sm font-extrabold text-[#111827]">
-                                Status
-                            </span>
-                            <select
-                                value={form.status}
-                                onChange={(event) =>
-                                    updateField("status", Number(event.target.value))
-                                }
-                                className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-                            >
-                                <option value={ACTIVE_STATUS}>Ativo</option>
-                                <option value={INACTIVE_STATUS}>Inativo</option>
-                            </select>
-                        </label>
+                        <>
+                            <label className="block">
+                                <span className="mb-2 block text-sm font-extrabold text-[#111827]">
+                                    Status
+                                </span>
+                                <select
+                                    value={form.status}
+                                    onChange={(event) =>
+                                        updateField("status", Number(event.target.value))
+                                    }
+                                    className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
+                                >
+                                    <option value={ACTIVE_STATUS}>Ativo</option>
+                                    <option value={INACTIVE_STATUS}>Inativo</option>
+                                </select>
+                            </label>
+
+                            <div className="md:col-span-2">
+                                <span className="mb-2 block text-sm font-extrabold text-[#111827]">
+                                    Admin vinculado
+                                </span>
+                                <div className="flex flex-col gap-3 sm:flex-row">
+                                    <select
+                                    value={form.linkedAdminUserId}
+                                    onChange={(event) =>
+                                        updateField("linkedAdminUserId", event.target.value)
+                                    }
+                                        className="h-11 flex-1 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
+                                >
+                                    <option value="">Sem Admin ativo</option>
+                                    {adminUsers.map((admin) => (
+                                        <option key={admin.userId} value={admin.userId}>
+                                            {admin.personName} - {admin.email}
+                                        </option>
+                                    ))}
+                                    </select>
+
+                                    <button
+                                        type="button"
+                                        onClick={onAddAdmin}
+                                        className="h-11 cursor-pointer rounded-2xl bg-[#16A34A] px-4 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/20 transition hover:bg-[#0B3D2E]"
+                                    >
+                                        + Admin
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={onRemoveAdmin}
+                                        disabled={!form.linkedAdminUserId || isSaving}
+                                        className="h-11 cursor-pointer rounded-2xl border border-[#FECACA] bg-white px-4 text-sm font-extrabold text-[#B42318] transition hover:bg-[#FDECEC] disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        Remover
+                                    </button>
+                                </div>
+                                <span className="mt-2 block text-xs font-semibold text-[#6B7280]">
+                                    Ao trocar ou remover, o Admin anterior perde o vínculo ativo deste condomínio.
+                                </span>
+                            </div>
+                        </>
                     )}
 
                     {!isEdit && (
@@ -643,32 +992,36 @@ function CondominiumModal({
                             />
                             <Field
                                 label="CPF"
-                                value={form.adminCpf}
-                                error={fieldErrors.adminCpf}
-                                maxLength={14}
-                                onChange={(value) => updateField("adminCpf", value)}
+                        value={form.adminCpf}
+                        error={fieldErrors.adminCpf}
+                        maxLength={14}
+                        placeholder="000.000.000-00"
+                        onChange={(value) => updateField("adminCpf", formatCpfInput(value))}
                             />
                             <Field
                                 label="Telefone"
                                 value={form.adminPhoneNumber}
-                                error={fieldErrors.adminPhoneNumber}
-                                maxLength={15}
-                                onChange={(value) =>
-                                    updateField("adminPhoneNumber", value)
-                                }
+                        error={fieldErrors.adminPhoneNumber}
+                        maxLength={15}
+                        placeholder="(11) 99999-9999"
+                        onChange={(value) =>
+                            updateField("adminPhoneNumber", formatPhoneInput(value))
+                        }
                             />
                             <Field
                                 label="E-mail do administrador"
-                                value={form.adminEmail}
-                                error={fieldErrors.adminEmail}
-                                onChange={(value) => updateField("adminEmail", value)}
+                        value={form.adminEmail}
+                        error={fieldErrors.adminEmail}
+                        placeholder="admin@email.com"
+                        onChange={(value) => updateField("adminEmail", value)}
                             />
                             <Field
                                 label="Senha inicial"
                                 value={form.adminPassword}
-                                error={fieldErrors.adminPassword}
-                                type="password"
-                                onChange={(value) => updateField("adminPassword", value)}
+                        error={fieldErrors.adminPassword}
+                        type="password"
+                        placeholder="Mínimo 6 caracteres"
+                        onChange={(value) => updateField("adminPassword", value)}
                             />
                         </>
                     )}
@@ -692,12 +1045,223 @@ function CondominiumModal({
     );
 }
 
+function AdminSummary({ admins }: { admins: MasterUserResponse[] }) {
+    const activeAdmins = admins.filter((admin) => admin.status === ACTIVE_STATUS);
+    const visibleAdmins = admins.slice(0, 2);
+
+    if (admins.length === 0) {
+        return (
+            <div>
+                <p className="font-extrabold text-[#111827]">Sem Admin vinculado</p>
+                <p className="mt-1 text-xs font-semibold text-[#B42318]">
+                    Cadastre ou vincule um Admin
+                </p>
+            </div>
+        );
+    }
+
+    return (
+        <div>
+            <div className="flex flex-wrap gap-1.5">
+                {visibleAdmins.map((admin) => (
+                    <span
+                        key={`${admin.condominiumId}-${admin.userId}`}
+                        className="rounded-full bg-[#DCFCE7] px-2.5 py-1 text-xs font-extrabold text-[#0B3D2E]"
+                    >
+                        {admin.personName}
+                    </span>
+                ))}
+                {admins.length > visibleAdmins.length && (
+                    <span className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-xs font-extrabold text-[#6B7280]">
+                        +{admins.length - visibleAdmins.length}
+                    </span>
+                )}
+            </div>
+            <p className="mt-2 text-xs font-semibold text-[#6B7280]">
+                {activeAdmins.length} ativo(s) de {admins.length} vinculado(s)
+            </p>
+        </div>
+    );
+}
+
+function CondominiumDetailsModal({
+    condominium,
+    admins,
+    onClose,
+    onEdit,
+}: {
+    condominium: CondominiumResponse;
+    admins: MasterUserResponse[];
+    onClose: () => void;
+    onEdit: () => void;
+}) {
+    const activeAdmins = admins.filter((admin) => admin.status === ACTIVE_STATUS);
+    const suspendedAdmins = admins.filter((admin) => admin.status !== ACTIVE_STATUS);
+    const latestAdminAccess = admins
+        .map((admin) => admin.accessCreatedAt)
+        .sort((first, second) => new Date(second).getTime() - new Date(first).getTime())[0];
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B3D2E]/30 px-4 py-8 backdrop-blur-sm">
+            <div className="w-full max-w-5xl overflow-hidden rounded-[2rem] border border-[#E5E7EB] bg-white shadow-2xl shadow-[#0B3D2E]/20">
+                <div className="flex flex-col gap-4 border-b border-[#E5E7EB] px-6 py-5 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                        <p className="text-xs font-black uppercase tracking-[0.22em] text-[#16A34A]">
+                            Condomínio
+                        </p>
+                        <h2 className="mt-2 text-2xl font-black text-[#111827]">
+                            {condominium.name}
+                        </h2>
+                        <p className="mt-1 text-sm font-semibold text-[#6B7280]">
+                            CNPJ {formatCnpj(condominium.cnpj)}
+                        </p>
+                    </div>
+
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={onEdit}
+                            className="h-10 cursor-pointer rounded-2xl bg-[#16A34A] px-4 text-sm font-extrabold text-white transition hover:bg-[#0B3D2E]"
+                        >
+                            Editar
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex size-10 cursor-pointer items-center justify-center rounded-full bg-[#F3F4F6] text-xl font-light text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
+                        >
+                            x
+                        </button>
+                    </div>
+                </div>
+
+                <div className="max-h-[75vh] overflow-y-auto px-6 py-6">
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+                        <InfoCard title="Dados institucionais">
+                            <DetailRow label="Nome" value={condominium.name} />
+                            <DetailRow label="CNPJ" value={formatCnpj(condominium.cnpj)} />
+                            <DetailRow label="Status" value={getStatusLabel(condominium.status)} />
+                            <DetailRow label="Cadastro" value={formatDate(condominium.createdAt)} />
+                        </InfoCard>
+
+                        <InfoCard title="Gestão">
+                            <DetailRow label="E-mail" value={condominium.emailContact} />
+                            <DetailRow label="Admins ativos" value={activeAdmins.length.toString()} />
+                            <DetailRow label="Admins suspensos" value={suspendedAdmins.length.toString()} />
+                            <DetailRow
+                                label="Último vínculo"
+                                value={latestAdminAccess ? formatDate(latestAdminAccess) : "Sem vínculo"}
+                            />
+                        </InfoCard>
+
+                        <InfoCard title="Localização">
+                            <DetailRow label="Endereço" value={condominium.address} />
+                            <DetailRow label="Número" value={condominium.number} />
+                            <DetailRow label="Cidade" value={condominium.city} />
+                            <DetailRow label="Estado" value={condominium.state} />
+                        </InfoCard>
+                    </div>
+
+                    <div className="mt-5 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-4">
+                        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                            <div>
+                                <h3 className="text-xl font-black text-[#111827]">
+                                    Admins vinculados
+                                </h3>
+                                <p className="mt-1 text-sm font-semibold text-[#6B7280]">
+                                    Acessos administrativos cadastrados para este condomínio.
+                                </p>
+                            </div>
+                            <span className="rounded-full bg-white px-3 py-1 text-xs font-extrabold text-[#0B3D2E]">
+                                {admins.length} vínculo(s)
+                            </span>
+                        </div>
+
+                        {admins.length === 0 ? (
+                            <div className="mt-4 rounded-2xl border border-dashed border-[#D0D5DD] bg-white px-5 py-8 text-center">
+                                <p className="text-sm font-extrabold text-[#6B7280]">
+                                    Nenhum Admin vinculado ainda.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="mt-4 overflow-x-auto rounded-2xl border border-[#E5E7EB] bg-white">
+                                <table className="w-full min-w-[760px] border-collapse text-left text-sm">
+                                    <thead className="bg-[#DCFCE7] text-xs uppercase tracking-wide text-[#0B3D2E]">
+                                        <tr>
+                                            <th className="px-4 py-3 font-extrabold">Admin</th>
+                                            <th className="px-4 py-3 font-extrabold">E-mail</th>
+                                            <th className="px-4 py-3 font-extrabold">Status</th>
+                                            <th className="px-4 py-3 font-extrabold">Vínculo criado em</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-[#E5E7EB]">
+                                        {admins.map((admin) => (
+                                            <tr key={`${admin.condominiumId}-${admin.userId}`}>
+                                                <td className="px-4 py-4 font-extrabold text-[#111827]">
+                                                    {admin.personName}
+                                                </td>
+                                                <td className="px-4 py-4 font-semibold text-[#6B7280]">
+                                                    {admin.email}
+                                                </td>
+                                                <td className="px-4 py-4">
+                                                    <StatusBadge
+                                                        label={getAccessStatusLabel(admin.status)}
+                                                        variant={getAccessStatusVariant(admin.status)}
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-4 font-semibold text-[#6B7280]">
+                                                    {formatDate(admin.accessCreatedAt)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function InfoCard({
+    title,
+    children,
+}: {
+    title: string;
+    children: React.ReactNode;
+}) {
+    return (
+        <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-4">
+            <h3 className="text-sm font-black uppercase tracking-[0.18em] text-[#16A34A]">
+                {title}
+            </h3>
+            <div className="mt-4 space-y-3">{children}</div>
+        </div>
+    );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+    return (
+        <div>
+            <p className="text-xs font-extrabold uppercase tracking-wide text-[#9CA3AF]">
+                {label}
+            </p>
+            <p className="mt-1 text-sm font-extrabold text-[#111827]">
+                {value || "Não informado"}
+            </p>
+        </div>
+    );
+}
+
 function Field({
     label,
     value,
     error,
     disabled = false,
     maxLength,
+    placeholder,
     type = "text",
     onChange,
 }: {
@@ -706,6 +1270,7 @@ function Field({
     error?: string;
     disabled?: boolean;
     maxLength?: number;
+    placeholder?: string;
     type?: "email" | "password" | "text";
     onChange: (value: string) => void;
 }) {
@@ -719,6 +1284,7 @@ function Field({
                 value={value}
                 disabled={disabled}
                 maxLength={maxLength}
+                placeholder={placeholder}
                 onChange={(event) => onChange(event.target.value)}
                 aria-invalid={!!error}
                 className={`h-11 w-full rounded-2xl border bg-white px-4 text-sm font-bold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] disabled:bg-[#F3F4F6] disabled:text-[#6B7280] ${
@@ -732,6 +1298,39 @@ function Field({
                     {error}
                 </span>
             )}
+        </label>
+    );
+}
+
+function SimpleField({
+    label,
+    value,
+    placeholder,
+    type = "text",
+    maxLength,
+    onChange,
+}: {
+    label: string;
+    value: string;
+    placeholder: string;
+    type?: "email" | "text";
+    maxLength?: number;
+    onChange: (value: string) => void;
+}) {
+    return (
+        <label className="block">
+            <span className="mb-2 block text-sm font-extrabold text-[#111827]">
+                {label}
+            </span>
+            <input
+                required
+                type={type}
+                value={value}
+                maxLength={maxLength}
+                onChange={(event) => onChange(event.target.value)}
+                placeholder={placeholder}
+                className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
+            />
         </label>
     );
 }
@@ -792,7 +1391,7 @@ function validateForm(form: FormState, mode: ModalMode): FieldErrors {
         if (!form.cnpj.trim()) {
             errors.cnpj = "Informe o CNPJ.";
         } else if (!isValidCnpj(form.cnpj)) {
-            errors.cnpj = "Informe um CNPJ válido com 14 dígitos.";
+            errors.cnpj = "CNPJ inválido. Use um CNPJ real, com dígitos verificadores válidos.";
         }
     }
 
@@ -834,7 +1433,7 @@ function validateForm(form: FormState, mode: ModalMode): FieldErrors {
         if (!form.adminCpf.trim()) {
             errors.adminCpf = "Informe o CPF do administrador.";
         } else if (!isValidCpf(form.adminCpf)) {
-            errors.adminCpf = "Informe um CPF válido com 11 dígitos.";
+            errors.adminCpf = "CPF inválido. Use um CPF real, com dígitos verificadores válidos.";
         }
 
         const phoneDigits = onlyDigits(form.adminPhoneNumber);
@@ -906,6 +1505,26 @@ function getStatusVariant(status: number) {
     return status === ACTIVE_STATUS ? ("success" as const) : ("neutral" as const);
 }
 
+function getAccessStatusLabel(status: number) {
+    return status === ACTIVE_STATUS ? "Ativo" : "Suspenso";
+}
+
+function getAccessStatusVariant(status: number) {
+    return status === ACTIVE_STATUS ? ("success" as const) : ("danger" as const);
+}
+
+function getCondominiumAdmins(condominiumId: number, admins: MasterUserResponse[]) {
+    return admins
+        .filter((admin) => admin.condominiumId === condominiumId)
+        .sort((first, second) => {
+            if (first.status !== second.status) {
+                return first.status === ACTIVE_STATUS ? -1 : 1;
+            }
+
+            return first.personName.localeCompare(second.personName, "pt-BR");
+        });
+}
+
 function formatLocation(condominium: CondominiumResponse) {
     const cityState = [condominium.city, condominium.state]
         .filter(Boolean)
@@ -937,6 +1556,39 @@ function formatCnpj(value: string) {
         /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,
         "$1.$2.$3/$4-$5",
     );
+}
+
+function formatCnpjInput(value: string) {
+    const digits = onlyDigits(value).slice(0, 14);
+
+    return digits
+        .replace(/^(\d{2})(\d)/, "$1.$2")
+        .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+        .replace(/\.(\d{3})(\d)/, ".$1/$2")
+        .replace(/(\d{4})(\d)/, "$1-$2");
+}
+
+function formatCpfInput(value: string) {
+    const digits = onlyDigits(value).slice(0, 11);
+
+    return digits
+        .replace(/^(\d{3})(\d)/, "$1.$2")
+        .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+        .replace(/\.(\d{3})(\d)/, ".$1-$2");
+}
+
+function formatPhoneInput(value: string) {
+    const digits = onlyDigits(value).slice(0, 11);
+
+    if (digits.length <= 10) {
+        return digits
+            .replace(/^(\d{2})(\d)/, "($1) $2")
+            .replace(/(\d{4})(\d)/, "$1-$2");
+    }
+
+    return digits
+        .replace(/^(\d{2})(\d)/, "($1) $2")
+        .replace(/(\d{5})(\d)/, "$1-$2");
 }
 
 function onlyDigits(value: string) {
@@ -1016,5 +1668,27 @@ function getFriendlyErrorMessage(message: string) {
         return "A senha inicial não atende aos requisitos de segurança.";
     }
 
+    if (normalizedMessage.includes("selected admin") || normalizedMessage.includes("admin user")) {
+        return "Selecione um Admin válido vinculado aos condomínios criados por você.";
+    }
+
+    if (normalizedMessage.includes("created by themselves")) {
+        return "Você só pode alterar admins de condomínios criados por você.";
+    }
+
     return message || "Não foi possível salvar o condomínio.";
+}
+
+function getUniqueAdmins(users: MasterUserResponse[]) {
+    const adminsByUserId = new Map<number, MasterUserResponse>();
+
+    for (const user of users) {
+        if (!adminsByUserId.has(user.userId)) {
+            adminsByUserId.set(user.userId, user);
+        }
+    }
+
+    return Array.from(adminsByUserId.values()).sort((first, second) =>
+        first.personName.localeCompare(second.personName, "pt-BR"),
+    );
 }

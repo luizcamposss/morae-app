@@ -1,248 +1,232 @@
-import { useState } from 'react'
-import type { ReactNode } from 'react'
-import { MetricCard } from '../../shared/components/MetricCard'
-import { StatusBadge } from '../../shared/components/StatusBadge'
+import { useEffect, useMemo, useState } from "react";
+import { useCondominium } from "../../app/providers/useCondominium";
+import { MetricCard } from "../../shared/components/MetricCard";
+import { StatusBadge } from "../../shared/components/StatusBadge";
+import { getChargesByCondominium } from "../charges/chargeService";
+import type { ChargeResponse, ChargeStatus } from "../charges/types";
 
-const metrics = [
-    {
-        label: 'Pagos',
-        value: '31',
-        helper: 'Unidades em dia',
-    },
-    {
-        label: 'Pendentes',
-        value: '6',
-        helper: 'Aguardando pagamento',
-    },
-    {
-        label: 'Atrasados',
-        value: '3',
-        helper: 'Exigem acompanhamento',
-    },
-    {
-        label: 'Em aberto',
-        value: '9',
-        helper: 'Total nao baixado',
-    },
-]
-
-const payments = [
-    {
-        unit: 'Apto 101',
-        resident: 'Maria Souza',
-        value: 'R$ 350,00',
-        dueDate: '10/05',
-        status: 'Pago',
-        variant: 'success' as const,
-    },
-    {
-        unit: 'Apto 102',
-        resident: 'Joao Lima',
-        value: 'R$ 350,00',
-        dueDate: '10/05',
-        status: 'Pendente',
-        variant: 'warning' as const,
-    },
-    {
-        unit: 'Apto 204',
-        resident: 'Carlos Dias',
-        value: 'R$ 350,00',
-        dueDate: '10/05',
-        status: 'Atrasado',
-        variant: 'danger' as const,
-    },
-]
+type StatusFilter = "all" | ChargeStatus;
 
 export function SyndicFinancePage() {
-    const [isReminderOpen, setIsReminderOpen] = useState(false)
+  const { activeCondominium, activeCondominiumId } = useCondominium();
+  const [charges, setCharges] = useState<ChargeResponse[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
-    return (
-        <>
-            <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-6 shadow-sm">
-                <div>
-                    <h1 className="text-3xl font-extrabold tracking-tight text-[#111827]">
-                        Pagamentos - predio A
-                    </h1>
-                    <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-                        Consulta financeira do predio.
-                    </p>
-                </div>
+  useEffect(() => {
+    async function loadCharges() {
+      if (!activeCondominiumId) {
+        setCharges([]);
+        setIsLoading(false);
+        return;
+      }
 
-                <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    {metrics.map((metric) => (
-                        <MetricCard
-                            key={metric.label}
-                            label={metric.label}
-                            value={metric.value}
-                            helper={metric.helper}
-                        />
-                    ))}
-                </div>
+      try {
+        setIsLoading(true);
+        setErrorMessage("");
+        setCharges(await getChargesByCondominium(activeCondominiumId));
+      } catch (error) {
+        setCharges([]);
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Não foi possível carregar as cobranças.",
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    }
 
-                <div className="mt-6 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-4">
-                    <div className="mb-4 flex flex-col gap-3 xl:flex-row">
-                        <input
-                            type="search"
-                            placeholder="Buscar unidade..."
-                            className="h-11 flex-1 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-                        />
+    void loadCharges();
+  }, [activeCondominiumId]);
 
-                        <button
-                            type="button"
-                            className="h-11 rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
-                        >
-                            Maio/2026
-                        </button>
+  const filteredCharges = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
 
-                        <button
-                            type="button"
-                            className="h-11 rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
-                        >
-                            Todos
-                        </button>
-                    </div>
+    return charges.filter((charge) => {
+      const matchesStatus = statusFilter === "all" || charge.status === statusFilter;
+      const matchesSearch =
+        !normalizedSearch ||
+        [
+          charge.description,
+          charge.condominiumName,
+          charge.buildingName ?? "",
+          charge.unitNumber ?? "",
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedSearch);
 
-                    <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white">
-                        <table className="w-full border-collapse text-left text-sm">
-                            <thead className="bg-[#DCFCE7] text-xs uppercase tracking-wide text-[#0B3D2E]">
-                                <tr>
-                                    <th className="px-4 py-3 font-extrabold">Unidade</th>
-                                    <th className="px-4 py-3 font-extrabold">Morador</th>
-                                    <th className="px-4 py-3 font-extrabold">Valor</th>
-                                    <th className="px-4 py-3 font-extrabold">Vencimento</th>
-                                    <th className="px-4 py-3 font-extrabold">Status</th>
-                                    <th className="px-4 py-3 font-extrabold">Acoes</th>
-                                </tr>
-                            </thead>
+      return matchesStatus && matchesSearch;
+    });
+  }, [charges, searchTerm, statusFilter]);
 
-                            <tbody className="divide-y divide-[#E5E7EB]">
-                                {payments.map((payment) => (
-                                    <tr key={`${payment.unit}-${payment.resident}`} className="transition hover:bg-[#F3F4F6]">
-                                        <td className="px-4 py-4 font-extrabold text-[#111827]">
-                                            {payment.unit}
-                                        </td>
-                                        <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                                            {payment.resident}
-                                        </td>
-                                        <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                                            {payment.value}
-                                        </td>
-                                        <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                                            {payment.dueDate}
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <StatusBadge label={payment.status} variant={payment.variant} />
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <div className="flex flex-wrap gap-2">
-                                                <button className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]">
-                                                    Ver
-                                                </button>
-                                                <button
-                                                    onClick={() => setIsReminderOpen(true)}
-                                                    className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
-                                                >
-                                                    Enviar lembrete
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+  const pendingCharges = charges.filter((charge) => charge.status === 1);
+  const paidCharges = charges.filter((charge) => charge.status === 2);
+  const overdueCharges = charges.filter((charge) => charge.status === 3);
+  const openAmount = charges
+    .filter((charge) => charge.status === 1 || charge.status === 3)
+    .reduce((total, charge) => total + charge.value, 0);
 
-                    <p className="mt-4 text-sm font-semibold text-[#6B7280]">
-                        Acoes planejadas: ver detalhes e enviar lembrete quando permitido.
-                    </p>
-                </div>
-            </section>
+  return (
+    <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm sm:p-6 lg:p-7">
+      <div>
+        <p className="text-xs font-black uppercase tracking-[0.38em] text-[#16A34A]">
+          Financeiro
+        </p>
+        <h1 className="mt-3 text-3xl font-black tracking-tight text-[#111827] sm:text-4xl">
+          Cobranças do condomínio
+        </h1>
+        <p className="mt-2 text-sm font-semibold text-[#6B7280]">
+          Consulta financeira de {activeCondominium?.condominiumName ?? "seu condomínio"}.
+        </p>
+      </div>
 
-            {isReminderOpen && <ReminderModal onClose={() => setIsReminderOpen(false)} />}
-        </>
-    )
-}
-
-type ModalProps = {
-    onClose: () => void
-}
-
-function ModalShell({ title, children, onClose }: ModalProps & { title: string; children: ReactNode }) {
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B3D2E]/30 px-6 py-8 backdrop-blur-sm">
-            <div className="w-full max-w-3xl overflow-hidden rounded-[2rem] border border-[#E5E7EB] bg-white shadow-2xl shadow-[#0B3D2E]/20">
-                <div className="flex items-center justify-between border-b border-[#E5E7EB] px-6 py-5">
-                    <h2 className="text-2xl font-extrabold text-[#111827]">
-                        {title}
-                    </h2>
-
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="flex size-10 items-center justify-center rounded-full bg-[#F3F4F6] text-xl font-light text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
-                    >
-                        x
-                    </button>
-                </div>
-
-                <div className="px-8 py-7">
-                    {children}
-                </div>
-            </div>
+      {errorMessage && (
+        <div className="mt-5 rounded-2xl border border-[#FECACA] bg-[#FDECEC] px-4 py-3 text-sm font-bold text-[#B42318]">
+          {errorMessage}
         </div>
-    )
+      )}
+
+      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          label="Total"
+          value={charges.length.toString()}
+          helper="Cobranças encontradas"
+        />
+        <MetricCard
+          label="Pendentes"
+          value={pendingCharges.length.toString()}
+          helper={formatCurrency(pendingCharges.reduce((total, charge) => total + charge.value, 0))}
+        />
+        <MetricCard
+          label="Pagas"
+          value={paidCharges.length.toString()}
+          helper={formatCurrency(paidCharges.reduce((total, charge) => total + charge.value, 0))}
+        />
+        <MetricCard
+          label="Em aberto"
+          value={formatCurrency(openAmount)}
+          helper={`${overdueCharges.length} atrasadas`}
+        />
+      </div>
+
+      <div className="mt-6 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-4">
+        <div className="mb-4 flex flex-col gap-3 md:flex-row">
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Buscar descrição, prédio ou unidade..."
+            className="h-11 flex-1 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
+          />
+
+          <select
+            value={statusFilter}
+            onChange={(event) =>
+              setStatusFilter(
+                event.target.value === "all" ? "all" : Number(event.target.value) as ChargeStatus,
+              )
+            }
+            className="h-11 cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#6B7280] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
+          >
+            <option value="all">Todos</option>
+            <option value={1}>Pendentes</option>
+            <option value={2}>Pagas</option>
+            <option value={3}>Atrasadas</option>
+            <option value={4}>Canceladas</option>
+          </select>
+        </div>
+
+        <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-left text-sm">
+              <thead className="bg-[#DCFCE7] text-xs uppercase tracking-wide text-[#0B3D2E]">
+                <tr>
+                  <th className="px-4 py-3 font-extrabold">Descrição</th>
+                  <th className="px-4 py-3 font-extrabold">Unidade</th>
+                  <th className="px-4 py-3 font-extrabold">Valor</th>
+                  <th className="px-4 py-3 font-extrabold">Vencimento</th>
+                  <th className="px-4 py-3 font-extrabold">Status</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-[#E5E7EB]">
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-10 text-center font-bold text-[#6B7280]">
+                      Carregando cobranças...
+                    </td>
+                  </tr>
+                ) : filteredCharges.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-10 text-center font-bold text-[#6B7280]">
+                      Nenhuma cobrança encontrada.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredCharges.map((charge) => (
+                    <tr key={charge.id} className="transition hover:bg-[#F3F4F6]">
+                      <td className="px-4 py-4 font-extrabold text-[#111827]">
+                        {charge.description}
+                      </td>
+                      <td className="px-4 py-4 font-semibold text-[#6B7280]">
+                        {formatUnit(charge)}
+                      </td>
+                      <td className="px-4 py-4 font-semibold text-[#6B7280]">
+                        {formatCurrency(charge.value)}
+                      </td>
+                      <td className="px-4 py-4 font-semibold text-[#6B7280]">
+                        {formatDate(charge.dueDate)}
+                      </td>
+                      <td className="px-4 py-4">
+                        <StatusBadge
+                          label={getChargeStatusLabel(charge.status)}
+                          variant={getChargeStatusVariant(charge.status)}
+                        />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 }
 
-function ReminderModal({ onClose }: ModalProps) {
-    return (
-        <ModalShell title="Enviar lembrete" onClose={onClose}>
-            <div className="space-y-6">
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                    <Field label="Morador" value="Carlos Dias" />
-                    <Field label="Cobranca" value="Maio/2026 - R$ 350,00" />
-                </div>
+function formatUnit(charge: ChargeResponse) {
+  if (!charge.unitNumber) return "Condomínio";
 
-                <TextArea label="Mensagem" value="Lembrete de pagamento pendente da mensalidade do condominio." />
-
-                <button className="h-12 w-full rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E]">
-                    Enviar lembrete
-                </button>
-            </div>
-        </ModalShell>
-    )
+  return `${charge.buildingName ?? "Prédio"} - Unidade ${charge.unitNumber}`;
 }
 
-type FieldProps = {
-    label: string
-    value: string
+function getChargeStatusLabel(status: ChargeStatus) {
+  if (status === 1) return "Pendente";
+  if (status === 2) return "Paga";
+  if (status === 3) return "Atrasada";
+  if (status === 4) return "Cancelada";
+  return "Indefinida";
 }
 
-function Field({ label, value }: FieldProps) {
-    return (
-        <label className="block">
-            <span className="mb-2 block text-sm font-extrabold text-[#111827]">
-                {label}
-            </span>
-            <input
-                value={value}
-                readOnly
-                className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none"
-            />
-        </label>
-    )
+function getChargeStatusVariant(status: ChargeStatus) {
+  if (status === 1) return "warning";
+  if (status === 2) return "success";
+  if (status === 3) return "danger";
+  return "neutral";
 }
 
-function TextArea({ label, value }: FieldProps) {
-    return (
-        <label className="block">
-            <span className="mb-2 block text-sm font-extrabold text-[#111827]">
-                {label}
-            </span>
-            <textarea
-                value={value}
-                readOnly
-                className="min-h-28 w-full resize-none rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm font-bold text-[#111827] outline-none"
-            />
-        </label>
-    )
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("pt-BR").format(new Date(value));
 }

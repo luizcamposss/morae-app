@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { FinancialAccountForm } from "../financialAccounts/FinancialAccountForm";
+import { ProfilePhotoBlock } from "../profile/ProfilePhotoBlock";
 import {
   getCondominiumFinancialAccount,
   upsertCondominiumFinancialAccount,
@@ -89,6 +90,8 @@ export function AdminSettingsPage() {
         </p>
         <p className="mt-2 text-sm font-bold text-[#16A34A]">{condominiumName}</p>
       </header>
+
+      <ProfilePhotoBlock />
 
       {errorMessage && <FeedbackMessage variant="error" message={errorMessage} />}
       {successMessage && <FeedbackMessage variant="success" message={successMessage} />}

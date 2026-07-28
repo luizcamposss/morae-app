@@ -58,6 +58,72 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
             .ToListAsync();
     }
 
+    public async Task<MasterUserResponseDto> CreateMasterUserAsync(
+        int requesterUserId,
+        CreateMasterUserDto dto)
+    {
+        await _permissionService.EnsureMasterAsync(requesterUserId);
+
+        var condominium = await _context.Condominiums
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c =>
+                c.Id == dto.CondominiumId &&
+                c.CreatedByUserId == requesterUserId);
+
+        if (condominium is null)
+            throw new ForbiddenException("Master can only create admins for condominiums created by themselves.");
+
+        var existingUser = await _userManager.FindByEmailAsync(dto.Email);
+
+        if (existingUser is not null)
+            throw new BadRequestException("Email is already in use.");
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        var person = new Person
+        {
+            Name = dto.Name.Trim(),
+            CPF = dto.CPF.Trim(),
+            PhoneNumber = dto.PhoneNumber.Trim(),
+            CreatedByUserId = requesterUserId
+        };
+
+        _context.Persons.Add(person);
+        await _context.SaveChangesAsync();
+
+        var user = new ApplicationUser
+        {
+            UserName = dto.Email.Trim(),
+            Email = dto.Email.Trim(),
+            PhoneNumber = dto.PhoneNumber.Trim(),
+            PersonId = person.Id
+        };
+
+        var createUserResult = await _userManager.CreateAsync(user, dto.Password);
+
+        if (!createUserResult.Succeeded)
+            throw new BadRequestException(string.Join(" ", createUserResult.Errors.Select(e => e.Description)));
+
+        var addRoleResult = await _userManager.AddToRoleAsync(user, AppRoles.Admin);
+
+        if (!addRoleResult.Succeeded)
+            throw new BadRequestException(string.Join(" ", addRoleResult.Errors.Select(e => e.Description)));
+
+        var userCondominium = new UserCondominium
+        {
+            UserId = user.Id,
+            CondominiumId = dto.CondominiumId,
+            Role = AppRoles.Admin,
+            Status = UserCondominiumStatus.Active
+        };
+
+        _context.UserCondominiums.Add(userCondominium);
+        await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
+
+        return await GetMasterUserResponseOrThrowAsync(userCondominium.Id);
+    }
+
     public async Task<UserCondominiumAccessResponseDto> SuspendAsync(
         int requesterUserId,
         int condominiumId,
@@ -109,6 +175,42 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
         return _mapper.Map<UserCondominiumAccessResponseDto>(userCondominium);
     }
 
+    public async Task DeleteAsync(
+        int requesterUserId,
+        int condominiumId,
+        int targetUserId)
+    {
+        if (requesterUserId == targetUserId)
+            throw new BadRequestException("You cannot delete yourself.");
+
+        var userCondominium = await GetUserCondominiumAsync(condominiumId, targetUserId);
+
+        await EnsureCanManageAccessAsync(requesterUserId, condominiumId, userCondominium.Role);
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        _context.UserCondominiums.Remove(userCondominium);
+        await _context.SaveChangesAsync();
+
+        var hasRemainingAccess = await _context.UserCondominiums
+            .AnyAsync(uc => uc.UserId == targetUserId);
+
+        if (!hasRemainingAccess)
+        {
+            var targetUser = await _userManager.FindByIdAsync(targetUserId.ToString());
+
+            if (targetUser is not null)
+            {
+                var deleteResult = await _userManager.DeleteAsync(targetUser);
+
+                if (!deleteResult.Succeeded)
+                    throw new BadRequestException(string.Join(" ", deleteResult.Errors.Select(e => e.Description)));
+            }
+        }
+
+        await transaction.CommitAsync();
+    }
+
     private async Task<UserCondominium> GetUserCondominiumAsync(
         int condominiumId,
         int targetUserId)
@@ -122,6 +224,34 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
             throw new NotFoundException("User does not belong to this condominium.");
 
         return userCondominium;
+    }
+
+    private async Task<MasterUserResponseDto> GetMasterUserResponseOrThrowAsync(int userCondominiumId)
+    {
+        var user = await _context.UserCondominiums
+            .AsNoTracking()
+            .Where(userCondominium => userCondominium.Id == userCondominiumId)
+            .Select(userCondominium => new MasterUserResponseDto
+            {
+                UserId = userCondominium.UserId,
+                PersonId = userCondominium.User.PersonId,
+                PersonName = userCondominium.User.Person.Name,
+                Email = userCondominium.User.Email ?? string.Empty,
+                CondominiumId = userCondominium.CondominiumId,
+                CondominiumName = userCondominium.Condominium.Name,
+                Role = userCondominium.Role,
+                Status = userCondominium.Status,
+                AccessCreatedAt = userCondominium.CreatedAt,
+                UserCreatedAt = userCondominium.User.CreatedAt,
+                SuspendedAt = userCondominium.SuspendedAt,
+                SuspensionReason = userCondominium.SuspensionReason
+            })
+            .FirstOrDefaultAsync();
+
+        if (user is null)
+            throw new NotFoundException("User access not found.");
+
+        return user;
     }
 
     private async Task EnsureCanManageAccessAsync(

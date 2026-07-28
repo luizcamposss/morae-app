@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { FinancialAccountForm } from "../financialAccounts/FinancialAccountForm";
+import { ProfilePhotoBlock } from "../profile/ProfilePhotoBlock";
 import {
   getPlatformFinancialAccount,
   upsertPlatformFinancialAccount,
@@ -74,6 +75,8 @@ export function MasterSettingsPage() {
           para receber cobranças institucionais dos condomínios.
         </p>
       </header>
+
+      <ProfilePhotoBlock />
 
       {errorMessage && <FeedbackMessage variant="error" message={errorMessage} />}
       {successMessage && <FeedbackMessage variant="success" message={successMessage} />}

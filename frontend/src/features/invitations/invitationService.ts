@@ -24,6 +24,13 @@ export async function createInvitation(
   });
 }
 
+export async function renewInvitation(id: number): Promise<InvitationResponse> {
+  return apiRequest<InvitationResponse>(`/api/invitations/${id}/renew`, {
+    method: "POST",
+    auth: true,
+  });
+}
+
 export async function getInvitationByToken(
   token: string,
 ): Promise<InvitationResponse> {

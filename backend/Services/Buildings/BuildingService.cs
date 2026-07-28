@@ -33,6 +33,10 @@ public class BuildingService : IBuildingService
                 CondominiumId = b.CondominiumId,
                 Name = b.Name,
                 Code = b.Code,
+                BuildingType = b.BuildingType,
+                FloorCount = b.FloorCount,
+                HasElevator = b.HasElevator,
+                Notes = b.Notes,
                 UnitCount = b.Units.Count,
                 ResidentCount = _context.PersonUnits.Count(pu => pu.Unit.BuildingId == b.Id),
                 OccupiedUnitCount = _context.Units.Count(u =>
@@ -43,7 +47,8 @@ public class BuildingService : IBuildingService
                     _context.PersonUnits.Any(pu => pu.UnitId == u.Id))
                     ? "Ativo"
                     : "Atencao",
-                CreatedAt = b.CreatedAt
+                CreatedAt = b.CreatedAt,
+                UpdatedAt = b.UpdatedAt
             });
     }
 

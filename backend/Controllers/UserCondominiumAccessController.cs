@@ -27,6 +27,18 @@ public class UserCondominiumAccessController : ControllerBase
         return Ok(users);
     }
 
+    [HttpPost("api/master/users")]
+    public async Task<IActionResult> CreateMasterUser([FromBody] CreateMasterUserDto dto)
+    {
+        var requesterUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var user = await _userCondominiumAccessService.CreateMasterUserAsync(
+            requesterUserId,
+            dto);
+
+        return CreatedAtAction(nameof(GetMasterUsers), new { id = user.UserId }, user);
+    }
+
     [HttpPut("api/condominiums/{condominiumId}/users/{userId}/suspend")]
     public async Task<IActionResult> Suspend(
         [FromRoute] int condominiumId,
@@ -59,6 +71,19 @@ public class UserCondominiumAccessController : ControllerBase
         return Ok(result);
     }
 
+    [HttpDelete("api/condominiums/{condominiumId}/users/{userId}")]
+    public async Task<IActionResult> Delete(
+        [FromRoute] int condominiumId,
+        [FromRoute] int userId)
+    {
+        var requesterUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
+        await _userCondominiumAccessService.DeleteAsync(
+            requesterUserId,
+            condominiumId,
+            userId);
+
+        return NoContent();
+    }
 
 }

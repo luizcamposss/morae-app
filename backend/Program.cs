@@ -97,11 +97,6 @@ if (string.IsNullOrWhiteSpace(connectionString))
     throw new InvalidOperationException("Connection string 'DefaultConnection' not configured");
 }
 
-if (!connectionString.Contains("SslMode", StringComparison.OrdinalIgnoreCase))
-{
-    connectionString = $"{connectionString.TrimEnd(';')};SslMode=None;";
-}
-
 builder.Services.AddDbContext<AppDbContext>(opts =>
 {
     opts.UseMySql(

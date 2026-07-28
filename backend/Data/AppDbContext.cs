@@ -27,6 +27,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<Charge> Charges { get; set; }
     public DbSet<Payment> Payments { get; set; }
     public DbSet<FinancialAccount> FinancialAccounts { get; set; }
+    public DbSet<UserNotificationPreference> UserNotificationPreferences { get; set; }
     public DbSet<UserCondominium> UserCondominiums { get; set; }
     public DbSet<UserCondominiumPermission> UserCondominiumPermissions { get; set; }
     public DbSet<Occurrence> Occurrences { get; set; }
@@ -73,6 +74,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
         builder.Entity<Person>()
             .HasIndex(p => p.CPF)
             .IsUnique();
+
+        builder.Entity<Person>()
+            .Property(p => p.ProfilePhotoUrl)
+            .HasColumnType("longtext");
 
         builder.Entity<Person>()
             .HasOne(p => p.CreatedByUser)
@@ -194,6 +199,16 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .WithMany()
             .HasForeignKey(account => account.UpdatedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<UserNotificationPreference>()
+            .HasIndex(preference => preference.UserId)
+            .IsUnique();
+
+        builder.Entity<UserNotificationPreference>()
+            .HasOne(preference => preference.User)
+            .WithMany()
+            .HasForeignKey(preference => preference.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.Entity<Occurrence>()
             .HasOne(o => o.Condominium)

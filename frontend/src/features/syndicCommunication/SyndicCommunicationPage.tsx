@@ -1,247 +1,409 @@
-import { useState } from 'react'
-import type { ReactNode } from 'react'
-import { StatusBadge } from '../../shared/components/StatusBadge'
-
-const categories = [
-    {
-        label: 'Avisos',
-        value: '8',
-        helper: 'Publicados no predio',
-    },
-    {
-        label: 'Assembleias',
-        value: '2',
-        helper: 'Comunicados aos moradores',
-    },
-    {
-        label: 'Mensagens',
-        value: '19',
-        helper: 'Envios recentes',
-    },
-]
-
-const notices = [
-    {
-        title: 'Limpeza da garagem',
-        audience: 'Predio A',
-        date: 'Hoje',
-        status: 'Publicado',
-        variant: 'success' as const,
-    },
-    {
-        title: 'Elevador em revisao',
-        audience: 'Predio A',
-        date: '20/05',
-        status: 'Urgente',
-        variant: 'danger' as const,
-    },
-    {
-        title: 'Assembleia geral',
-        audience: 'Todos',
-        date: '18/05',
-        status: 'Publicado',
-        variant: 'success' as const,
-    },
-]
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCondominium } from "../../app/providers/useCondominium";
+import { MetricCard } from "../../shared/components/MetricCard";
+import { StatusBadge } from "../../shared/components/StatusBadge";
+import { createNews, deleteNews, getNewsByCondominium } from "../news/newsService";
+import type { NewsPriority, NewsResponse } from "../news/types";
 
 export function SyndicCommunicationPage() {
-    const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const { activeCondominium, activeCondominiumId } = useCondominium();
+  const [news, setNews] = useState<NewsResponse[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-    return (
-        <>
-            <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-6 shadow-sm">
-                <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div>
-                        <h1 className="text-3xl font-extrabold tracking-tight text-[#111827]">
-                            Comunicacao - predio A
-                        </h1>
-                        <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-                            Envie avisos para moradores do predio.
-                        </p>
-                    </div>
+  async function loadNews(condominiumId: number) {
+    try {
+      setIsLoading(true);
+      setErrorMessage("");
+      setNews(await getNewsByCondominium(condominiumId));
+    } catch (error) {
+      setNews([]);
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar os comunicados.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
-                    <button
-                        type="button"
-                        onClick={() => setIsCreateOpen(true)}
-                        className="h-11 rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E]"
-                    >
-                        + Novo alerta
-                    </button>
-                </div>
+  useEffect(() => {
+    if (!activeCondominiumId) {
+      setNews([]);
+      setIsLoading(false);
+      return;
+    }
 
-                <div className="mx-auto grid max-w-3xl grid-cols-1 gap-4 md:grid-cols-3">
-                    {categories.map((category) => (
-                        <div
-                            key={category.label}
-                            className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-5 shadow-sm transition hover:-translate-y-0.5 hover:bg-[#DCFCE7]"
-                        >
-                            <p className="text-sm font-bold text-[#6B7280]">
-                                {category.label}
-                            </p>
-                            <strong className="mt-3 block text-3xl font-extrabold text-[#111827]">
-                                {category.value}
-                            </strong>
-                            <p className="mt-2 text-sm font-semibold text-[#16A34A]">
-                                {category.helper}
-                            </p>
-                        </div>
-                    ))}
-                </div>
+    void loadNews(activeCondominiumId);
+  }, [activeCondominiumId]);
 
-                <div className="mt-6 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-4">
-                    <div className="mb-4 flex flex-col gap-3 md:flex-row">
-                        <input
-                            type="search"
-                            placeholder="Buscar aviso..."
-                            className="h-11 flex-1 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-                        />
+  const filteredNews = useMemo(() => {
+    const normalizedSearch = searchTerm.trim().toLowerCase();
 
-                        <button
-                            type="button"
-                            className="h-11 rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
-                        >
-                            Todos
-                        </button>
-                    </div>
+    if (!normalizedSearch) return news;
 
-                    <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white">
-                        <table className="w-full border-collapse text-left text-sm">
-                            <thead className="bg-[#DCFCE7] text-xs uppercase tracking-wide text-[#0B3D2E]">
-                                <tr>
-                                    <th className="px-4 py-3 font-extrabold">Titulo</th>
-                                    <th className="px-4 py-3 font-extrabold">Publico</th>
-                                    <th className="px-4 py-3 font-extrabold">Data</th>
-                                    <th className="px-4 py-3 font-extrabold">Status</th>
-                                    <th className="px-4 py-3 font-extrabold">Acoes</th>
-                                </tr>
-                            </thead>
+    return news.filter((item) =>
+      [item.title, item.description]
+        .join(" ")
+        .toLowerCase()
+        .includes(normalizedSearch),
+    );
+  }, [news, searchTerm]);
 
-                            <tbody className="divide-y divide-[#E5E7EB]">
-                                {notices.map((notice) => (
-                                    <tr key={`${notice.title}-${notice.date}`} className="transition hover:bg-[#F3F4F6]">
-                                        <td className="px-4 py-4 font-extrabold text-[#111827]">
-                                            {notice.title}
-                                        </td>
-                                        <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                                            {notice.audience}
-                                        </td>
-                                        <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                                            {notice.date}
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <StatusBadge label={notice.status} variant={notice.variant} />
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <div className="flex flex-wrap gap-2">
-                                                <button className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]">
-                                                    Ver
-                                                </button>
-                                                <button className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]">
-                                                    Editar
-                                                </button>
-                                                <button className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#F3F4F6]">
-                                                    Arquivar
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+  const highPriorityNews = news.filter((item) => item.priority === 1);
+  const residentNews = news.filter((item) => item.targetAudience === 1 || item.targetAudience === 4);
 
-                    <p className="mt-4 text-sm font-semibold text-[#6B7280]">
-                        Acoes planejadas: ver, editar e arquivar comunicados do predio.
-                    </p>
-                </div>
-            </section>
+  async function handleDelete(id: number) {
+    const shouldDelete = window.confirm("Deseja excluir este comunicado?");
 
-            {isCreateOpen && <CreateNoticeModal onClose={() => setIsCreateOpen(false)} />}
-        </>
-    )
-}
+    if (!shouldDelete) return;
 
-type ModalProps = {
-    onClose: () => void
-}
+    try {
+      setErrorMessage("");
+      setSuccessMessage("");
+      await deleteNews(id);
+      setNews((current) => current.filter((item) => item.id !== id));
+      setSuccessMessage("Comunicado excluído.");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível excluir o comunicado.",
+      );
+    }
+  }
 
-function ModalShell({ title, children, onClose }: ModalProps & { title: string; children: ReactNode }) {
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B3D2E]/30 px-6 py-8 backdrop-blur-sm">
-            <div className="w-full max-w-3xl overflow-hidden rounded-[2rem] border border-[#E5E7EB] bg-white shadow-2xl shadow-[#0B3D2E]/20">
-                <div className="flex items-center justify-between border-b border-[#E5E7EB] px-6 py-5">
-                    <h2 className="text-2xl font-extrabold text-[#111827]">
-                        {title}
-                    </h2>
+  return (
+    <>
+      <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm sm:p-6 lg:p-7">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.38em] text-[#16A34A]">
+              Comunicados
+            </p>
+            <h1 className="mt-3 text-3xl font-black tracking-tight text-[#111827] sm:text-4xl">
+              Avisos do condomínio
+            </h1>
+            <p className="mt-2 text-sm font-semibold text-[#6B7280]">
+              Publique e acompanhe comunicados de {activeCondominium?.condominiumName ?? "seu condomínio"}.
+            </p>
+          </div>
 
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="flex size-10 items-center justify-center rounded-full bg-[#F3F4F6] text-xl font-light text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
-                    >
-                        x
-                    </button>
-                </div>
-
-                <div className="px-8 py-7">
-                    {children}
-                </div>
-            </div>
+          <button
+            type="button"
+            onClick={() => setIsCreateOpen(true)}
+            disabled={!activeCondominiumId}
+            className="h-11 cursor-pointer rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            + Novo comunicado
+          </button>
         </div>
-    )
+
+        {(errorMessage || successMessage) && (
+          <div
+            className={`mt-5 rounded-2xl border px-4 py-3 text-sm font-bold ${
+              errorMessage
+                ? "border-[#FECACA] bg-[#FDECEC] text-[#B42318]"
+                : "border-[#BBF7D0] bg-[#DCFCE7] text-[#0B3D2E]"
+            }`}
+          >
+            {errorMessage || successMessage}
+          </div>
+        )}
+
+        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+          <MetricCard
+            label="Comunicados"
+            value={news.length.toString()}
+            helper="Publicados no backend"
+          />
+          <MetricCard
+            label="Prioridade alta"
+            value={highPriorityNews.length.toString()}
+            helper="Precisam de atenção"
+          />
+          <MetricCard
+            label="Para moradores"
+            value={residentNews.length.toString()}
+            helper="Visíveis ao público interno"
+          />
+        </div>
+
+        <div className="mt-6 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-4">
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Buscar comunicado..."
+            className="mb-4 h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
+          />
+
+          <div className="space-y-3">
+            {isLoading ? (
+              <EmptyPanel message="Carregando comunicados..." />
+            ) : filteredNews.length === 0 ? (
+              <EmptyPanel message="Nenhum comunicado encontrado." />
+            ) : (
+              filteredNews.map((item) => (
+                <article
+                  key={item.id}
+                  className="rounded-2xl border border-[#E5E7EB] bg-white p-4 transition hover:border-[#86EFAC]"
+                >
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div>
+                      <h2 className="text-lg font-black text-[#111827]">{item.title}</h2>
+                      <p className="mt-2 text-sm font-semibold leading-6 text-[#6B7280]">
+                        {item.description}
+                      </p>
+                      <p className="mt-3 text-xs font-bold text-[#9CA3AF]">
+                        Publicado em {formatDateTime(item.createdAt)}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <StatusBadge
+                        label={getPriorityLabel(item.priority)}
+                        variant={getPriorityVariant(item.priority)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void handleDelete(item.id)}
+                        className="h-9 cursor-pointer rounded-xl border border-[#FECACA] bg-white px-3 text-xs font-black text-[#B42318] transition hover:bg-[#FDECEC]"
+                      >
+                        Excluir
+                      </button>
+                    </div>
+                  </div>
+                </article>
+              ))
+            )}
+          </div>
+        </div>
+      </section>
+
+      {isCreateOpen && activeCondominiumId && (
+        <CreateNoticeModal
+          condominiumId={activeCondominiumId}
+          onClose={() => setIsCreateOpen(false)}
+          onCreated={async () => {
+            await loadNews(activeCondominiumId);
+            setSuccessMessage("Comunicado publicado.");
+          }}
+        />
+      )}
+    </>
+  );
 }
 
-function CreateNoticeModal({ onClose }: ModalProps) {
-    return (
-        <ModalShell title="Novo Aviso" onClose={onClose}>
-            <div className="space-y-6">
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-[1fr_180px_140px]">
-                    <Field label="Titulo" value="Manutencao da caixa dagua" />
-                    <Field label="Enviar para" value="Predio A" />
-                    <Field label="Prioridade" value="Normal" />
-                </div>
+type CreateNoticeModalProps = {
+  condominiumId: number;
+  onClose: () => void;
+  onCreated: () => Promise<void>;
+};
 
-                <TextArea label="Mensagem" value="Texto do comunicado..." />
+function CreateNoticeModal({ condominiumId, onClose, onCreated }: CreateNoticeModalProps) {
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    targetAudience: "1",
+    priority: "2",
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-                <button className="h-12 w-full rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E]">
-                    Enviar
-                </button>
-            </div>
-        </ModalShell>
-    )
-}
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
-type FieldProps = {
-    label: string
-    value: string
-}
+    if (form.title.trim().length < 3) {
+      setErrorMessage("Informe um título com pelo menos 3 caracteres.");
+      return;
+    }
 
-function Field({ label, value }: FieldProps) {
-    return (
-        <label className="block">
-            <span className="mb-2 block text-sm font-extrabold text-[#111827]">
-                {label}
-            </span>
-            <input
-                value={value}
-                readOnly
-                className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none"
-            />
-        </label>
-    )
-}
+    if (form.description.trim().length < 5) {
+      setErrorMessage("Informe uma mensagem com pelo menos 5 caracteres.");
+      return;
+    }
 
-function TextArea({ label, value }: FieldProps) {
-    return (
-        <label className="block">
-            <span className="mb-2 block text-sm font-extrabold text-[#111827]">
-                {label}
-            </span>
+    try {
+      setIsSubmitting(true);
+      setErrorMessage("");
+
+      await createNews({
+        scope: 1,
+        condominiumId,
+        buildingId: null,
+        title: form.title.trim(),
+        description: form.description.trim(),
+        targetAudience: Number(form.targetAudience) as 1 | 4,
+        priority: Number(form.priority) as NewsPriority,
+      });
+
+      await onCreated();
+      onClose();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível publicar o comunicado.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B3D2E]/30 px-4 py-8 backdrop-blur-sm">
+      <form
+        onSubmit={(event) => void handleSubmit(event)}
+        className="max-h-[calc(100vh-4rem)] w-full max-w-3xl overflow-y-auto rounded-[2rem] border border-[#E5E7EB] bg-white shadow-2xl shadow-[#0B3D2E]/20"
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#E5E7EB] bg-white px-6 py-5">
+          <h2 className="text-2xl font-black text-[#111827]">Novo comunicado</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex size-10 cursor-pointer items-center justify-center rounded-full bg-[#F3F4F6] text-xl font-light text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="space-y-5 px-5 py-6 sm:px-8">
+          <TextField
+            label="Título"
+            value={form.title}
+            onChange={(value) => setForm((current) => ({ ...current, title: value }))}
+          />
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-black text-[#111827]">Mensagem</span>
             <textarea
-                value={value}
-                readOnly
-                className="min-h-36 w-full resize-none rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm font-bold text-[#111827] outline-none"
+              value={form.description}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, description: event.target.value }))
+              }
+              className="min-h-36 w-full resize-none rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
             />
-        </label>
-    )
+          </label>
+
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <SelectField
+              label="Público"
+              value={form.targetAudience}
+              onChange={(value) =>
+                setForm((current) => ({ ...current, targetAudience: value }))
+              }
+              options={[
+                { label: "Todos", value: "1" },
+                { label: "Moradores", value: "4" },
+              ]}
+            />
+            <SelectField
+              label="Prioridade"
+              value={form.priority}
+              onChange={(value) => setForm((current) => ({ ...current, priority: value }))}
+              options={[
+                { label: "Alta", value: "1" },
+                { label: "Normal", value: "2" },
+                { label: "Baixa", value: "3" },
+              ]}
+            />
+          </div>
+
+          {errorMessage && (
+            <p className="rounded-2xl border border-[#FECACA] bg-[#FDECEC] px-4 py-3 text-sm font-bold text-[#B42318]">
+              {errorMessage}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="h-12 w-full cursor-pointer rounded-2xl bg-[#16A34A] text-sm font-black text-white shadow-sm shadow-[#16A34A]/25 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isSubmitting ? "Publicando..." : "Publicar comunicado"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+type TextFieldProps = {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+};
+
+function TextField({ label, value, onChange }: TextFieldProps) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-black text-[#111827]">{label}</span>
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
+      />
+    </label>
+  );
+}
+
+type SelectFieldProps = {
+  label: string;
+  value: string;
+  options: Array<{ label: string; value: string }>;
+  onChange: (value: string) => void;
+};
+
+function SelectField({ label, value, options, onChange }: SelectFieldProps) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-black text-[#111827]">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-12 w-full cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function EmptyPanel({ message }: { message: string }) {
+  return (
+    <div className="rounded-2xl bg-white px-4 py-10 text-center text-sm font-bold text-[#6B7280]">
+      {message}
+    </div>
+  );
+}
+
+function getPriorityLabel(priority: NewsPriority) {
+  if (priority === 1) return "Alta";
+  if (priority === 3) return "Baixa";
+  return "Normal";
+}
+
+function getPriorityVariant(priority: NewsPriority) {
+  if (priority === 1) return "danger";
+  if (priority === 3) return "neutral";
+  return "success";
+}
+
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }

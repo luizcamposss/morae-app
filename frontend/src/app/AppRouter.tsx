@@ -2,12 +2,17 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { LoginPage } from "../features/auth/LoginPage";
 import { AppLayout } from "../shared/layout/AppLayout";
 import { ProtectedRoute } from "../features/auth/ProtectedRoute";
+import { SuspendedAccessPage } from "../features/auth/SuspendedAccessPage";
 import { ResidentSettingsPage } from "../features/residentSettings/ResidentSettingsPage";
 import { ResidentDashboardPage } from "../features/residentDashboard/ResidentDashboardPage";
 import { PublicRoute } from "../features/auth/PublicRoute";
 import { MasterDashboardPage } from "../features/masterDashboard/MasterDashboardPage";
 import { AdminDashboardPage } from "../features/adminDashboard/AdminDashboardPage";
 import { SyndicDashboardPage } from "../features/syndicDashboard/SyndicDashboardPage";
+import { SyndicSettingsPage } from "../features/syndicSettings/SyndicSettingsPage";
+import { SyndicCommunicationPage } from "../features/syndicCommunication/SyndicCommunicationPage";
+import { SyndicFinancePage } from "../features/syndicFinance/SyndicFinancePage";
+import { SyndicMaintenancePage } from "../features/syndicMaintenance/SyndicMaintenancePage";
 import { RoleRoute } from "../features/auth/RoleRoute";
 import { BuildingsPage } from "../features/buildings/BuildingsPage";
 import { UnitsPage } from "../features/units/UnitsPage";
@@ -37,6 +42,8 @@ export function AppRouter() {
                 </Route>
 
                 <Route element={<ProtectedRoute />}>
+                    <Route path="/suspended" element={<SuspendedAccessPage />} />
+
                     <Route element={<RoleRoute allowedRoles={["Master"]} />}>
                         <Route path="/master" element={<AppLayout />}>
                             <Route path="dashboard" element={<MasterDashboardPage />} />
@@ -64,6 +71,10 @@ export function AppRouter() {
                         <Route path="/syndic" element={<AppLayout />}>
                             <Route path="dashboard" element={<SyndicDashboardPage />} />
                             <Route path="residents" element={<SyndicResidentsPage />} />
+                            <Route path="finance" element={<SyndicFinancePage />} />
+                            <Route path="communication" element={<SyndicCommunicationPage />} />
+                            <Route path="maintenance" element={<SyndicMaintenancePage />} />
+                            <Route path="settings" element={<SyndicSettingsPage />} />
                         </Route>
                     </Route>
 
