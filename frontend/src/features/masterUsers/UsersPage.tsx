@@ -34,7 +34,7 @@ type StatusFilter = "all" | UserCondominiumStatus;
 const statusFilterOptions: Array<{ value: StatusFilter; label: string }> = [
     { value: "all", label: "Todos" },
     { value: ACTIVE_STATUS, label: "Ativos" },
-    { value: SUSPENDED_STATUS, label: "Suspensos" },
+    { value: SUSPENDED_STATUS, label: "Acessos suspensos" },
 ];
 
 export function UsersPage() {
@@ -86,24 +86,24 @@ export function UsersPage() {
 
     const metrics = [
         {
-            label: "Admins ativos",
+            label: "Administradores ativos",
             value: activeUsers.length.toString(),
-            helper: "Acessos liberados",
+            helper: "Com acesso liberado",
         },
         {
-            label: "Suspensos",
+            label: "Acessos suspensos",
             value: suspendedUsers.length.toString(),
-            helper: "Sem acesso atual",
+            helper: "Bloqueados temporariamente",
         },
         {
-            label: "Condomínios",
+            label: "Condomínios atendidos",
             value: condominiumCount.toString(),
-            helper: "Com Admin cadastrado",
+            helper: "Com Admin vinculado",
         },
         {
-            label: "Total",
+            label: "Total de Admins",
             value: users.length.toString(),
-            helper: "Admins institucionais",
+            helper: "Perfis criados pelo Master",
         },
     ];
 
@@ -222,9 +222,7 @@ export function UsersPage() {
                         Usuários
                     </h1>
                     <p className="mt-1 max-w-3xl text-sm font-semibold text-[#6B7280]">
-                        O Master gerencia apenas os Admins institucionais dos condomínios
-                        criados por ele. Usuários internos do condomínio ficam restritos ao
-                        Admin.
+                        Gerencie os administradores dos condomínios que você criou.
                     </p>
                     </div>
 
@@ -253,32 +251,31 @@ export function UsersPage() {
 
                 <div className="mt-6 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-4">
                     <div className="mb-4 flex flex-col gap-3 lg:flex-row">
-                        <input
-                            type="search"
-                            value={searchTerm}
-                            onChange={(event) => setSearchTerm(event.target.value)}
-                            placeholder="Buscar por nome, e-mail, condomínio ou status..."
-                            className="h-11 flex-1 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-                        />
+                        <div className="relative flex-1">
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={(event) => setSearchTerm(event.target.value)}
+                                placeholder="Buscar por nome, e-mail, condomínio ou status..."
+                                className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 pr-11 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
+                            />
 
-                        <select
+                            {searchTerm && (
+                                <button
+                                    type="button"
+                                    aria-label="Limpar busca"
+                                    onClick={() => setSearchTerm("")}
+                                    className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-base font-black text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E] focus:outline-none focus:ring-4 focus:ring-[#86EFAC]/30"
+                                >
+                                    ×
+                                </button>
+                            )}
+                        </div>
+
+                        <StatusFilterSelect
                             value={statusFilter}
-                            onChange={(event) => {
-                                const value = event.target.value;
-                                setStatusFilter(
-                                    value === "all"
-                                        ? "all"
-                                        : (Number(value) as UserCondominiumStatus),
-                                );
-                            }}
-                            className="h-11 cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#6B7280] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-                        >
-                            {statusFilterOptions.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </select>
+                            onChange={setStatusFilter}
+                        />
 
                         <button
                             type="button"
@@ -431,6 +428,68 @@ export function UsersPage() {
                 />
             )}
         </>
+    );
+}
+
+function StatusFilterSelect({
+    value,
+    onChange,
+}: {
+    value: StatusFilter;
+    onChange: (value: StatusFilter) => void;
+}) {
+    const [isOpen, setIsOpen] = useState(false);
+    const selectedLabel = statusFilterOptions.find((option) => option.value === value)?.label ?? "Todos";
+
+    function selectStatus(nextValue: StatusFilter) {
+        onChange(nextValue);
+        setIsOpen(false);
+    }
+
+    return (
+        <div className="relative w-full lg:w-48">
+            <button
+                type="button"
+                aria-expanded={isOpen}
+                onClick={() => setIsOpen((current) => !current)}
+                className={`flex h-11 w-full cursor-pointer items-center justify-between rounded-2xl border bg-white px-4 text-left text-sm font-bold outline-none transition ${
+                    isOpen
+                        ? "border-[#22C55E] text-[#111827] ring-4 ring-[#86EFAC]/30"
+                        : "border-[#E5E7EB] text-[#6B7280] hover:border-[#BBF7D0] hover:text-[#0B3D2E]"
+                }`}
+            >
+                <span>{selectedLabel}</span>
+                <span
+                    aria-hidden="true"
+                    className={`block size-2 shrink-0 border-r-2 border-b-2 border-current text-[#6B7280] transition-transform ${
+                        isOpen ? "rotate-[225deg] translate-y-0.5" : "rotate-45 -translate-y-0.5"
+                    }`}
+                />
+            </button>
+
+            {isOpen && (
+                <div className="absolute left-0 top-12 z-[70] w-full overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white p-1 shadow-xl shadow-[#111827]/10">
+                    {statusFilterOptions.map((option) => {
+                        const isSelected = option.value === value;
+
+                        return (
+                            <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => selectStatus(option.value)}
+                                className={`flex h-10 w-full cursor-pointer items-center rounded-xl px-3 text-left text-sm font-extrabold transition ${
+                                    isSelected
+                                        ? "bg-[#DCFCE7] text-[#0B3D2E]"
+                                        : "text-[#6B7280] hover:bg-[#F0FDF4] hover:text-[#0B3D2E]"
+                                }`}
+                            >
+                                {option.label}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
     );
 }
 
@@ -653,54 +712,33 @@ function CreateUserModal({
             <form className="space-y-5" onSubmit={handleSubmit}>
                 <div className="rounded-2xl border border-[#BBF7D0] bg-[#DCFCE7] p-4">
                     <p className="text-sm font-extrabold text-[#0B3D2E]">
-                        Este usuário será criado como Admin e vinculado ao condomínio selecionado.
+                        Este cadastro vai gerar um convite para o Admin selecionado.
                     </p>
                     <p className="mt-2 text-sm font-semibold text-[#0D7A3A]">
-                        Ele poderá acessar a operação interna do condomínio após o login.
+                        O acesso ao condomínio será liberado após ele aceitar o convite e criar a senha.
                     </p>
                 </div>
 
-                <label className="block">
-                    <span className="mb-2 block text-sm font-extrabold text-[#111827]">
-                        Condomínio
-                    </span>
-                    <select
-                        required
-                        value={form.condominiumId}
-                        onChange={(event) => updateField("condominiumId", event.target.value)}
-                        className={`h-12 w-full cursor-pointer rounded-2xl border bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30 ${
-                            fieldErrors.condominiumId ? "border-[#EF4444]" : "border-[#E5E7EB]"
-                        }`}
-                    >
-                        <option value="" disabled>
-                            Selecione um condomínio
-                        </option>
-                        {condominiums.map((condominium) => (
-                            <option key={condominium.id} value={condominium.id}>
-                                {condominium.name}
-                            </option>
-                        ))}
-                    </select>
-                    {fieldErrors.condominiumId && (
-                        <span className="mt-2 block text-xs font-extrabold text-[#B42318]">
-                            {fieldErrors.condominiumId}
-                        </span>
-                    )}
-                </label>
+                <CondominiumSelectField
+                    condominiums={condominiums}
+                    value={form.condominiumId}
+                    error={fieldErrors.condominiumId}
+                    onChange={(value) => updateField("condominiumId", value)}
+                />
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <TextField
                         label="Nome"
                         value={form.name}
                         onChange={(value) => updateField("name", value)}
-                        placeholder="Nome do Admin"
+                        placeholder="Carlos Martins"
                         error={fieldErrors.name}
                     />
                     <TextField
                         label="CPF"
                         value={form.cpf}
                         onChange={(value) => updateField("cpf", formatCpfInput(value))}
-                        placeholder="Somente números"
+                        placeholder="000.000.000-00"
                         maxLength={14}
                         error={fieldErrors.cpf}
                     />
@@ -708,7 +746,7 @@ function CreateUserModal({
                         label="Telefone"
                         value={form.phoneNumber}
                         onChange={(value) => updateField("phoneNumber", formatPhoneInput(value))}
-                        placeholder="DDD + número"
+                        placeholder="(11) 99999-9999"
                         maxLength={15}
                         error={fieldErrors.phoneNumber}
                     />
@@ -716,7 +754,7 @@ function CreateUserModal({
                         label="E-mail"
                         value={form.email}
                         onChange={(value) => updateField("email", value)}
-                        placeholder="admin@email.com"
+                        placeholder="admin@condominio.com.br"
                         type="email"
                         error={fieldErrors.email}
                     />
@@ -731,6 +769,102 @@ function CreateUserModal({
                 </button>
             </form>
         </ModalShell>
+    );
+}
+
+function CondominiumSelectField({
+    condominiums,
+    value,
+    error,
+    onChange,
+}: {
+    condominiums: CondominiumResponse[];
+    value: string;
+    error?: string;
+    onChange: (value: string) => void;
+}) {
+    const [isOpen, setIsOpen] = useState(false);
+    const selectedCondominium = condominiums.find(
+        (condominium) => condominium.id.toString() === value,
+    );
+    const selectedLabel = selectedCondominium?.name ?? "Selecione um condomínio";
+
+    function selectCondominium(nextValue: string) {
+        onChange(nextValue);
+        setIsOpen(false);
+    }
+
+    return (
+        <div className="relative block">
+            <span className="mb-2 block text-sm font-extrabold text-[#111827]">
+                Condomínio
+            </span>
+            <button
+                type="button"
+                disabled={condominiums.length === 0}
+                aria-expanded={isOpen}
+                aria-invalid={!!error}
+                onClick={() => setIsOpen((current) => !current)}
+                className={`flex h-12 w-full cursor-pointer items-center justify-between rounded-2xl border bg-white px-4 text-left text-sm font-bold outline-none transition disabled:cursor-not-allowed disabled:bg-[#F3F4F6] disabled:text-[#6B7280] ${
+                    error
+                        ? "border-[#EF4444] text-[#111827] focus:ring-4 focus:ring-[#FECACA]/50"
+                        : isOpen
+                            ? "border-[#22C55E] text-[#111827] ring-4 ring-[#86EFAC]/30"
+                            : "border-[#E5E7EB] text-[#111827] hover:border-[#BBF7D0]"
+                }`}
+            >
+                <span className={selectedCondominium ? "text-[#111827]" : "text-[#9CA3AF]"}>
+                    {selectedLabel}
+                </span>
+                <span
+                    aria-hidden="true"
+                    className={`block size-2 shrink-0 border-r-2 border-b-2 border-current text-[#6B7280] transition-transform ${
+                        isOpen ? "rotate-[225deg] translate-y-0.5" : "rotate-45 -translate-y-0.5"
+                    }`}
+                />
+            </button>
+
+            {isOpen && (
+                <div className="absolute left-0 top-[4.75rem] z-[80] max-h-56 w-full overflow-y-auto rounded-2xl border border-[#E5E7EB] bg-white p-1 shadow-xl shadow-[#111827]/10">
+                    <button
+                        type="button"
+                        onClick={() => selectCondominium("")}
+                        className={`flex h-10 w-full cursor-pointer items-center rounded-xl px-3 text-left text-sm font-extrabold transition ${
+                            !value
+                                ? "bg-[#DCFCE7] text-[#0B3D2E]"
+                                : "text-[#6B7280] hover:bg-[#F0FDF4] hover:text-[#0B3D2E]"
+                        }`}
+                    >
+                        Selecione um condomínio
+                    </button>
+                    {condominiums.map((condominium) => {
+                        const nextValue = condominium.id.toString();
+                        const isSelected = value === nextValue;
+
+                        return (
+                            <button
+                                key={condominium.id}
+                                type="button"
+                                onClick={() => selectCondominium(nextValue)}
+                                className={`flex h-10 w-full cursor-pointer items-center rounded-xl px-3 text-left text-sm font-extrabold transition ${
+                                    isSelected
+                                        ? "bg-[#DCFCE7] text-[#0B3D2E]"
+                                        : "text-[#6B7280] hover:bg-[#F0FDF4] hover:text-[#0B3D2E]"
+                                }`}
+                            >
+                                {condominium.name}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+
+            {error && (
+                <span className="mt-2 block text-xs font-extrabold text-[#B42318]">
+                    {error}
+                </span>
+            )}
+        </div>
     );
 }
 

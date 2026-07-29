@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { acceptInvitation, getInvitationByToken } from "./invitationService";
 import type { InvitationResponse } from "./types";
+import logoMorae from "../../assets/logo-morae.svg";
 
 function getRoleLabel(invitation: InvitationResponse) {
   if (invitation.roleName) {
@@ -88,8 +89,12 @@ export function AcceptInvitationPage() {
       <section className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-5xl items-center">
         <div className="grid w-full overflow-hidden rounded-[2rem] border border-[#E5E7EB] bg-white shadow-sm lg:grid-cols-[1fr_1.15fr]">
           <aside className="bg-[#0B3D2E] p-8 text-white">
-            <div className="flex size-12 items-center justify-center rounded-2xl bg-white text-lg font-black text-[#0B3D2E]">
-              M
+            <div className="flex size-16 items-center justify-center">
+              <img
+                src={logoMorae}
+                alt="Logo MORAÊ"
+                className="h-14 w-14 object-contain"
+              />
             </div>
             <h1 className="mt-8 text-4xl font-extrabold tracking-tight">
               Bem-vindo ao morae

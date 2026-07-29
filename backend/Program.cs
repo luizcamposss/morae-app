@@ -27,6 +27,7 @@ using backend.Services.Payments;
 using backend.Services.Delinquency;
 using backend.Services.Occurrences;
 using backend.Services.FinancialAccounts;
+using backend.Services.Notifications;
 
 DotEnv.Load();
 
@@ -69,6 +70,7 @@ builder.Services.AddAutoMapper(
     typeof(PersonUnitProfile),
     typeof(InvitationProfile),
     typeof(NewsProfile),
+    typeof(NotificationProfile),
     typeof(OccurrenceProfile),
     typeof(UserCondominiumAccessProfile));
 
@@ -80,6 +82,7 @@ builder.Services.AddScoped<IDelinquencyService, DelinquencyService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<IMeService, MeService>();
 builder.Services.AddScoped<INewsService, NewsService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IFinancialAccountService, FinancialAccountService>();
 builder.Services.AddScoped<IPersonService, PersonService>();

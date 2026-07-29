@@ -28,6 +28,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<Payment> Payments { get; set; }
     public DbSet<FinancialAccount> FinancialAccounts { get; set; }
     public DbSet<UserNotificationPreference> UserNotificationPreferences { get; set; }
+    public DbSet<Notification> Notifications { get; set; }
     public DbSet<UserCondominium> UserCondominiums { get; set; }
     public DbSet<UserCondominiumPermission> UserCondominiumPermissions { get; set; }
     public DbSet<Occurrence> Occurrences { get; set; }
@@ -209,6 +210,26 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .WithMany()
             .HasForeignKey(preference => preference.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Notification>()
+            .HasOne(notification => notification.User)
+            .WithMany()
+            .HasForeignKey(notification => notification.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Notification>()
+            .HasOne(notification => notification.Condominium)
+            .WithMany()
+            .HasForeignKey(notification => notification.CondominiumId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Notification>()
+            .HasIndex(notification => new
+            {
+                notification.UserId,
+                notification.ReadAt,
+                notification.CreatedAt
+            });
 
         builder.Entity<Occurrence>()
             .HasOne(o => o.Condominium)

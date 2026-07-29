@@ -1,7 +1,8 @@
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+﻿import { NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { svgIcone } from "@edusites/icons/core";
 import { useAuth } from "../../app/providers/useAuth";
+import logoMorae from "../../assets/logo-morae.svg";
 
 type MenuItem = {
   label: string;
@@ -14,6 +15,19 @@ function getPrimaryRole(roles: string[]) {
   if (roles.includes("Admin")) return "Admin";
   if (roles.includes("Syndic")) return "Syndic";
   return "Resident";
+}
+
+function getUserDisplayName(user: ReturnType<typeof useAuth>["user"]) {
+  return user?.personName || user?.userName || "Usuário";
+}
+
+function getUserInitials(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+
+  if (words.length === 0) return "U";
+  if (words.length === 1) return words[0].slice(0, 1).toUpperCase();
+
+  return `${words[0].slice(0, 1)}${words[words.length - 1].slice(0, 1)}`.toUpperCase();
 }
 
 function getMenuItemsByRole(role: string): MenuItem[] {
@@ -61,14 +75,13 @@ function getMenuItemsByRole(role: string): MenuItem[] {
 }
 
 export function Sidebar() {
-  const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const primaryRole = getPrimaryRole(user?.roles ?? []);
+  const userDisplayName = getUserDisplayName(user);
+  const userInitials = getUserInitials(userDisplayName);
   const menuItems = getMenuItemsByRole(primaryRole);
-  const sidebarTopClass = location.pathname.endsWith("/dashboard")
-    ? "top-[8.25rem]"
-    : "top-[8rem]";
+  const sidebarTopClass = "top-[12rem]";
 
   function handleLogout() {
     logout();
@@ -80,15 +93,16 @@ export function Sidebar() {
       <div className={`group fixed left-5 ${sidebarTopClass} z-40 hidden lg:block`}>
         <aside className="flex h-[min(640px,calc(100vh-48px))] w-[4.875rem] flex-col overflow-hidden rounded-[1.9rem] border border-[#E5E7EB] bg-white px-3 py-5 shadow-sm transition-all duration-300 group-hover:w-72 group-hover:shadow-2xl group-hover:shadow-[#0B3D2E]/10">
           <div className="mb-7 flex h-12 w-full items-center justify-center gap-3 group-hover:justify-start group-hover:px-1">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#0B3D2E] text-sm font-black text-white shadow-sm shadow-[#0B3D2E]/20">
-              M
+            <div className="flex size-10 shrink-0 items-center justify-center">
+              <img
+                src={logoMorae}
+                alt="Logo MORAÊ"
+                className="h-10 w-10 translate-x-[3px] object-contain"
+              />
             </div>
 
             <div className="w-0 min-w-0 -translate-x-2 overflow-hidden opacity-0 transition-all duration-200 group-hover:w-auto group-hover:translate-x-0 group-hover:opacity-100">
               <p className="text-xl font-extrabold text-[#0B3D2E]">MORAÊ</p>
-              <p className="mt-1 whitespace-nowrap text-sm font-semibold text-[#6B7280]">
-                Painel {primaryRole}
-              </p>
             </div>
           </div>
 
@@ -119,15 +133,17 @@ export function Sidebar() {
 
           <div className="mt-4 space-y-3">
             <div className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl group-hover:justify-start group-hover:px-2">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#DCFCE7] text-lg text-[#16A34A]">
-                <EduIcon nome="usuario" />
-              </div>
+              <UserAvatar
+                name={userDisplayName}
+                initials={userInitials}
+                photoUrl={user?.profilePhotoUrl}
+              />
 
               <div className="w-0 min-w-0 -translate-x-2 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:w-auto group-hover:translate-x-0 group-hover:opacity-100">
-                <p className="text-sm font-semibold text-[#6B7280]">
-                  {primaryRole.toLowerCase()}
+                <p className="max-w-44 truncate text-sm font-extrabold text-[#111827]">
+                  {userDisplayName}
                 </p>
-                <p className="text-sm font-extrabold text-[#111827]">sessão ativa</p>
+                <p className="text-sm font-semibold text-[#6B7280]">{primaryRole}</p>
               </div>
             </div>
 
@@ -183,6 +199,32 @@ export function Sidebar() {
         </div>
       </nav>
     </>
+  );
+}
+
+function UserAvatar({
+  name,
+  initials,
+  photoUrl,
+}: {
+  name: string;
+  initials: string;
+  photoUrl?: string | null;
+}) {
+  if (photoUrl) {
+    return (
+      <img
+        src={photoUrl}
+        alt={`Foto de ${name}`}
+        className="size-10 shrink-0 translate-x-[3px] rounded-full object-cover ring-1 ring-[#E5E7EB]"
+      />
+    );
+  }
+
+  return (
+    <div className="flex size-10 shrink-0 translate-x-[3px] items-center justify-center rounded-full bg-[#16A34A] text-sm font-black text-white ring-1 ring-[#E5E7EB]">
+      {initials}
+    </div>
   );
 }
 

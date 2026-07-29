@@ -44,43 +44,35 @@ public class CondominiumService : ICondominiumService
         if (cpfExists)
             throw new ConflictException("CPF already registered.");
 
-        var emailExists = await _userManager.FindByEmailAsync(dto.Admin.Email);
+        var adminEmail = dto.Admin.Email.Trim();
+
+        var emailExists = await _userManager.FindByEmailAsync(adminEmail);
 
         if (emailExists is not null)
             throw new ConflictException("Email already registered.");
+
+        var pendingEmailInvitationExists = await _context.Invitations
+            .AnyAsync(i =>
+                i.Email == adminEmail &&
+                i.InvitationStatus == InvitationStatus.Pending);
+
+        if (pendingEmailInvitationExists)
+            throw new ConflictException("Email already has a pending invitation.");
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
         var person = new Person
         {
-            Name = dto.Admin.Name,
-            CPF = dto.Admin.CPF,
-            PhoneNumber = dto.Admin.PhoneNumber,
+            Name = dto.Admin.Name.Trim(),
+            CPF = dto.Admin.CPF.Trim(),
+            PhoneNumber = dto.Admin.PhoneNumber.Trim(),
+            CreatedByUserId = masterUserId,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
 
         _context.Persons.Add(person);
         await _context.SaveChangesAsync();
-
-        var adminUser = new ApplicationUser
-        {
-            UserName = dto.Admin.Email,
-            Email = dto.Admin.Email,
-            PersonId = person.Id,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-
-        var createUserResult = await _userManager.CreateAsync(adminUser, dto.Admin.Password);
-
-        if (!createUserResult.Succeeded)
-            throw new BadRequestException(string.Join(" | ", createUserResult.Errors.Select(e => e.Description)));
-
-        var addRoleResult = await _userManager.AddToRoleAsync(adminUser, AppRoles.Admin);
-
-        if (!addRoleResult.Succeeded)
-            throw new BadRequestException(string.Join(" | ", addRoleResult.Errors.Select(e => e.Description)));
 
         var condominium = _mapper.Map<Condominium>(dto.Condominium);
 
@@ -91,15 +83,20 @@ public class CondominiumService : ICondominiumService
         _context.Condominiums.Add(condominium);
         await _context.SaveChangesAsync();
 
-        var userCondominium = new UserCondominium
+        var invitation = new Invitation
         {
-            UserId = adminUser.Id,
             CondominiumId = condominium.Id,
-            Role = AppRoles.Admin,
+            PersonId = person.Id,
+            CreatedByUserId = masterUserId,
+            Email = adminEmail,
+            Role = UserRole.Admin,
+            Token = Guid.NewGuid().ToString("N"),
+            InvitationStatus = InvitationStatus.Pending,
+            ExpiresAt = DateTime.UtcNow.AddDays(7),
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.UserCondominiums.Add(userCondominium);
+        _context.Invitations.Add(invitation);
         await _context.SaveChangesAsync();
 
         await transaction.CommitAsync();

@@ -262,13 +262,16 @@ export function LoginPage() {
 
 function LoginPlant() {
     return (
-        <div className="absolute right-[-0.65rem] top-10 h-40 w-28 scale-90 max-[380px]:right-[-1.4rem] max-[380px]:scale-75 sm:right-1 sm:top-11 sm:h-48 sm:w-32 sm:scale-100">
-            <div className="absolute bottom-0 left-9 h-16 w-20 rounded-b-[2rem] rounded-t-sm bg-white shadow-lg shadow-[#052E20]/10" />
-            <div className="absolute bottom-8 left-[4.35rem] h-28 w-5 -rotate-12 rounded-full bg-[#0A2F23]" />
-            <div className="absolute bottom-8 left-[5.05rem] h-28 w-5 -rotate-12 rounded-full bg-[#86EFAC]" />
-            <div className="absolute bottom-[4.55rem] left-7 h-20 w-6 -rotate-12 rounded-full bg-[#22C55E]" />
-            <div className="absolute bottom-[5.4rem] right-4 h-28 w-7 rotate-12 rounded-full bg-[#86EFAC]" />
-            <div className="absolute bottom-[3.6rem] left-[4.1rem] h-12 w-7 rotate-[-28deg] rounded-full bg-[#86EFAC]" />
+        <div className="absolute right-1 top-11 h-40 w-24 scale-90 max-[380px]:right-[-0.9rem] max-[380px]:scale-80 sm:right-4 sm:top-12 sm:h-44 sm:w-28 sm:scale-100">
+            <div className="absolute bottom-0 left-1/2 h-3 w-16 -translate-x-1/2 rounded-full bg-[#052E20]/18 blur-[1px]" />
+            <div className="absolute bottom-2 left-1/2 h-10 w-12 -translate-x-1/2 rounded-b-[1.8rem] rounded-t-[0.55rem] bg-white shadow-lg shadow-[#052E20]/15 ring-1 ring-white/80" />
+            <div className="absolute bottom-[2.55rem] left-1/2 h-2 w-9 -translate-x-1/2 rounded-full bg-[#E5E7EB]" />
+
+            <div className="absolute bottom-11 left-[3.05rem] h-24 w-3.5 origin-bottom -rotate-[8deg] rounded-[999px_999px_999px_0] bg-[#0A2F23] shadow-sm shadow-[#052E20]/20" />
+            <div className="absolute bottom-11 left-[3.55rem] h-[7.5rem] w-4 origin-bottom rotate-[9deg] rounded-[999px_999px_0_999px] bg-[#86EFAC] shadow-sm shadow-[#052E20]/10" />
+            <div className="absolute bottom-[4.8rem] left-[2.2rem] h-[5.75rem] w-4 origin-bottom -rotate-[18deg] rounded-[999px_999px_999px_0] bg-[#22C55E] shadow-sm shadow-[#052E20]/10" />
+            <div className="absolute bottom-[5.65rem] left-[4.7rem] h-[5.7rem] w-3.5 origin-bottom rotate-[20deg] rounded-[999px_999px_0_999px] bg-[#86EFAC] shadow-sm shadow-[#052E20]/10" />
+            <div className="absolute bottom-[4.05rem] left-[3.8rem] h-12 w-4 origin-bottom rotate-[25deg] rounded-[999px_999px_0_999px] bg-[#BBF7D0] shadow-sm shadow-[#052E20]/10" />
         </div>
     );
 }

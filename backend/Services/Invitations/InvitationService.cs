@@ -5,6 +5,7 @@ using backend.DTOs.Invitation;
 using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
+using backend.Services.Notifications;
 using backend.Services.Permissions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -17,13 +18,20 @@ public class InvitationService : IInvitationService
     private readonly IMapper _mapper;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IPermissionService _permissionService;
+    private readonly INotificationService _notificationService;
 
-    public InvitationService(AppDbContext context, IMapper mapper, UserManager<ApplicationUser> userManager, IPermissionService permissionService)
+    public InvitationService(
+        AppDbContext context,
+        IMapper mapper,
+        UserManager<ApplicationUser> userManager,
+        IPermissionService permissionService,
+        INotificationService notificationService)
     {
         _context = context;
         _mapper = mapper;
         _userManager = userManager;
         _permissionService = permissionService;
+        _notificationService = notificationService;
     }
 
     public async Task<InvitationResponseDto> CreateAsync(int userId, CreateInvitationDto dto)
@@ -351,5 +359,49 @@ public class InvitationService : IInvitationService
 
         await _context.SaveChangesAsync();
         await transaction.CommitAsync();
+
+        var acceptedInvitation = await _context.Invitations
+            .AsNoTracking()
+            .Include(i => i.Person)
+            .Include(i => i.Condominium)
+            .FirstAsync(i => i.Id == invitation.Id);
+
+        await _notificationService.CreateAsync(
+            user.Id,
+            NotificationType.Access,
+            "Acesso liberado",
+            $"Seu acesso ao condomínio {acceptedInvitation.Condominium.Name} foi ativado.",
+            GetDashboardLink(acceptedInvitation.Role),
+            acceptedInvitation.CondominiumId);
+
+        await _notificationService.CreateAsync(
+            acceptedInvitation.CreatedByUserId,
+            NotificationType.Invitation,
+            "Convite aceito",
+            $"{acceptedInvitation.Person.Name} aceitou o convite de {GetRoleLabel(acceptedInvitation.Role)}.",
+            acceptedInvitation.Role == UserRole.Admin ? "/master/invitations" : "/admin/invitations",
+            acceptedInvitation.CondominiumId);
+    }
+
+    private static string GetDashboardLink(UserRole role)
+    {
+        return role switch
+        {
+            UserRole.Admin => "/admin/dashboard",
+            UserRole.Syndic => "/syndic/dashboard",
+            UserRole.Resident => "/resident/dashboard",
+            _ => "/login"
+        };
+    }
+
+    private static string GetRoleLabel(UserRole role)
+    {
+        return role switch
+        {
+            UserRole.Admin => "Admin",
+            UserRole.Syndic => "Síndico",
+            UserRole.Resident => "Morador",
+            _ => "usuário"
+        };
     }
 }

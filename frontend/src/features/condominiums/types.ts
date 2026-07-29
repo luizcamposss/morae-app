@@ -2,6 +2,7 @@ export type CondominiumResponse = {
   id: number;
   name: string;
   cnpj: string;
+  cep: string;
   number: string;
   address: string;
   city: string;
@@ -17,6 +18,7 @@ export type CondominiumResponse = {
 export type CreateCondominiumRequest = {
   name: string;
   cnpj: string;
+  cep: string;
   number: string;
   address: string;
   city: string;
@@ -29,7 +31,6 @@ export type AdminOnboardingRequest = {
   cpf: string;
   phoneNumber: string;
   email: string;
-  password: string;
 };
 
 export type CreateCondominiumOnboardingRequest = {
@@ -39,6 +40,7 @@ export type CreateCondominiumOnboardingRequest = {
 
 export type UpdateCondominiumRequest = {
   name: string;
+  cep: string;
   number: string;
   address: string;
   city: string;

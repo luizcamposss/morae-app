@@ -21,6 +21,10 @@ public class Condominium
     public string CNPJ { get; set; } = string.Empty;
 
     [Required]
+    [StringLength(8)]
+    public string CEP { get; set; } = string.Empty;
+
+    [Required]
     [StringLength(20)]
     public string Number { get; set; } = string.Empty;
 

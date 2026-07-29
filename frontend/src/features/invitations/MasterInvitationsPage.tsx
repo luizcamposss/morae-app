@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCondominiums } from "../condominiums/condominiumService";
-import type { CondominiumResponse } from "../condominiums/types";
 import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
 import { getInvitationsByCondominium, renewInvitation } from "./invitationService";
@@ -12,7 +11,6 @@ const ACCEPTED_STATUS = 2;
 const EXPIRED_STATUS = 4;
 const CANCELED_STATUS = 5;
 
-type CondominiumFilter = "all" | number;
 type StatusFilter = "all" | InvitationStatus;
 
 const statusFilterOptions: Array<{ value: StatusFilter; label: string }> = [
@@ -28,38 +26,20 @@ function buildInvitationLink(token: string) {
 }
 
 export function MasterInvitationsPage() {
-  const [condominiums, setCondominiums] = useState<CondominiumResponse[]>([]);
-  const [selectedCondominiumId, setSelectedCondominiumId] =
-    useState<CondominiumFilter>("all");
   const [invitations, setInvitations] = useState<InvitationResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRenewingId, setIsRenewingId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [isStatusFilterOpen, setIsStatusFilterOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [generatedLink, setGeneratedLink] = useState("");
 
-  const selectedCondominium =
-    selectedCondominiumId === "all"
-      ? null
-      : condominiums.find((condominium) => condominium.id === selectedCondominiumId) ??
-        null;
-
-  const scopedInvitations = useMemo(() => {
-    if (selectedCondominiumId === "all") {
-      return invitations;
-    }
-
-    return invitations.filter(
-      (invitation) => invitation.condominiumId === selectedCondominiumId,
-    );
-  }, [invitations, selectedCondominiumId]);
-
   const filteredInvitations = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
-    return scopedInvitations.filter((invitation) => {
+    return invitations.filter((invitation) => {
       const status = getEffectiveStatus(invitation);
       const matchesStatus = statusFilter === "all" || status === statusFilter;
 
@@ -81,40 +61,40 @@ export function MasterInvitationsPage() {
         .toLowerCase()
         .includes(normalizedSearch);
     });
-  }, [scopedInvitations, searchTerm, statusFilter]);
+  }, [invitations, searchTerm, statusFilter]);
 
-  const pendingInvitations = scopedInvitations.filter(
+  const pendingInvitations = invitations.filter(
     (invitation) => getEffectiveStatus(invitation) === PENDING_STATUS,
   );
 
-  const acceptedInvitations = scopedInvitations.filter(
+  const acceptedInvitations = invitations.filter(
     (invitation) => getEffectiveStatus(invitation) === ACCEPTED_STATUS,
   );
 
-  const expiredInvitations = scopedInvitations.filter(
+  const expiredInvitations = invitations.filter(
     (invitation) => getEffectiveStatus(invitation) === EXPIRED_STATUS,
   );
 
   const metrics = [
     {
       label: "Total",
-      value: scopedInvitations.length.toString(),
-      helper: "Convites reais de Admin",
+      value: invitations.length.toString(),
+      helper: "Convites registrados",
     },
     {
       label: "Pendentes",
       value: pendingInvitations.length.toString(),
-      helper: "Aguardando aceite",
+      helper: "Aguardando resposta",
     },
     {
       label: "Aceitos",
       value: acceptedInvitations.length.toString(),
-      helper: "Admins criados",
+      helper: "Acessos liberados",
     },
     {
       label: "Expirados",
       value: expiredInvitations.length.toString(),
-      helper: "Precisam de renovação",
+      helper: "Renovação necessária",
     },
   ];
 
@@ -124,8 +104,6 @@ export function MasterInvitationsPage() {
       setErrorMessage("");
 
       const condominiumResult = await getCondominiums();
-      setCondominiums(condominiumResult);
-
       const invitationResults = await Promise.allSettled(
         condominiumResult.map((condominium) =>
           getInvitationsByCondominium(condominium.id),
@@ -150,7 +128,6 @@ export function MasterInvitationsPage() {
         setErrorMessage("Alguns convites não puderam ser carregados agora.");
       }
     } catch (error) {
-      setCondominiums([]);
       setInvitations([]);
       setErrorMessage(getFriendlyErrorMessage(error, "Não foi possível carregar os convites."));
     } finally {
@@ -203,49 +180,12 @@ export function MasterInvitationsPage() {
       <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-3xl font-black tracking-tight text-[#111827]">
-            Convites de Admin
+            Convites administrativos
           </h1>
           <p className="mt-1 max-w-3xl text-sm font-semibold text-[#6B7280]">
-            Acompanhe convites reais gerados para administradores dos condomínios
-            criados pelo Master.
+            Acompanhe os convites enviados para administradores dos condomínios
+            cadastrados na plataforma.
           </p>
-          <p className="mt-2 text-sm font-bold text-[#16A34A]">
-            {selectedCondominium
-              ? `Condomínio selecionado: ${selectedCondominium.name}`
-              : "Visualizando todos os condomínios"}
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-3 lg:items-end">
-          <select
-            value={selectedCondominiumId}
-            onChange={(event) => {
-              const value = event.target.value;
-              setGeneratedLink("");
-              setSuccessMessage("");
-              setSelectedCondominiumId(
-                value === "all" ? "all" : Number(value),
-              );
-            }}
-            disabled={condominiums.length === 0}
-            className="h-11 min-w-full cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30 disabled:cursor-not-allowed disabled:opacity-70 sm:min-w-72"
-          >
-            <option value="all">Todos os condomínios</option>
-            {condominiums.map((condominium) => (
-              <option key={condominium.id} value={condominium.id}>
-                {condominium.name}
-              </option>
-            ))}
-          </select>
-
-          <button
-            type="button"
-            onClick={() => void loadPageData()}
-            disabled={isLoading}
-            className="h-11 w-full cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-extrabold text-[#0B3D2E] transition hover:bg-[#DCFCE7] disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
-          >
-            {isLoading ? "Atualizando..." : "Atualizar"}
-          </button>
         </div>
       </div>
 
@@ -286,42 +226,91 @@ export function MasterInvitationsPage() {
       )}
 
       <div className="mt-6 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-4">
-        <div className="mb-4 flex flex-col gap-3 lg:flex-row">
-          <input
-            type="search"
-            placeholder="Buscar admin, e-mail, condomínio ou status..."
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            className="h-11 flex-1 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-          />
+        <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="relative min-w-0 flex-1">
+            <input
+              type="text"
+              placeholder="Buscar por admin, e-mail, condomínio ou status..."
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 pr-12 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
+            />
 
-          <select
-            value={statusFilter}
-            onChange={(event) => {
-              const value = event.target.value;
-              setStatusFilter(
-                value === "all" ? "all" : (Number(value) as InvitationStatus),
-              );
-            }}
-            className="h-11 cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#6B7280] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-          >
-            {statusFilterOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            {searchTerm && (
+              <button
+                type="button"
+                aria-label="Limpar busca"
+                onClick={() => setSearchTerm("")}
+                className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-lg font-black leading-none text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E] focus:outline-none focus:ring-4 focus:ring-[#86EFAC]/30"
+              >
+                ×
+              </button>
+            )}
+          </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              setSearchTerm("");
-              setStatusFilter("all");
-            }}
-            className="h-11 cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
-          >
-            Limpar
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative w-full sm:w-44">
+              <button
+                type="button"
+                onClick={() => setIsStatusFilterOpen((isOpen) => !isOpen)}
+                className={`flex h-11 w-full cursor-pointer items-center justify-between rounded-2xl border bg-white px-4 text-sm font-extrabold outline-none transition ${
+                  isStatusFilterOpen
+                    ? "border-[#22C55E] text-[#0B3D2E] ring-4 ring-[#86EFAC]/30"
+                    : "border-[#E5E7EB] text-[#6B7280] hover:border-[#BBF7D0] hover:text-[#0B3D2E]"
+                }`}
+              >
+                <span>
+                  {statusFilterOptions.find((option) => option.value === statusFilter)?.label ?? "Todos"}
+                </span>
+                <span
+                  className={`block size-2 shrink-0 border-r-2 border-b-2 border-current transition-transform ${
+                    isStatusFilterOpen ? "rotate-[225deg] translate-y-0.5" : "rotate-45 -translate-y-0.5"
+                  }`}
+                  aria-hidden="true"
+                />
+              </button>
+
+              {isStatusFilterOpen && (
+                <div className="absolute right-0 top-13 z-30 w-full overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white p-1 shadow-xl shadow-[#111827]/10">
+                  {statusFilterOptions.map((option) => {
+                    const isActive = statusFilter === option.value;
+
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          setStatusFilter(option.value);
+                          setIsStatusFilterOpen(false);
+                        }}
+                        className={`flex h-10 w-full cursor-pointer items-center rounded-xl px-3 text-left text-sm font-extrabold transition ${
+                          isActive
+                            ? "bg-[#DCFCE7] text-[#0B3D2E]"
+                            : "text-[#6B7280] hover:bg-[#F0FDF4] hover:text-[#0B3D2E]"
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {(searchTerm || statusFilter !== "all") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchTerm("");
+                  setStatusFilter("all");
+                  setIsStatusFilterOpen(false);
+                }}
+                className="h-11 cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-extrabold text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
+              >
+                Limpar filtros
+              </button>
+            )}
+          </div>
         </div>
 
         {isLoading ? (
@@ -329,7 +318,7 @@ export function MasterInvitationsPage() {
         ) : filteredInvitations.length === 0 ? (
           <EmptyState
             message={
-              searchTerm || statusFilter !== "all" || selectedCondominiumId !== "all"
+              searchTerm || statusFilter !== "all"
                 ? "Nenhum convite encontrado."
                 : "Nenhum convite criado."
             }

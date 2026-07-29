@@ -9,6 +9,7 @@ using backend.DTOs.Charge;
 using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
+using backend.Services.Notifications;
 using backend.Services.Permissions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -21,17 +22,20 @@ public class ChargeService : IChargeService
     private readonly IMapper _mapper;
     private readonly IPermissionService _permissionService;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly INotificationService _notificationService;
 
     public ChargeService(
         AppDbContext context,
         IMapper mapper,
         IPermissionService permissionService,
-        UserManager<ApplicationUser> userManager)
+        UserManager<ApplicationUser> userManager,
+        INotificationService notificationService)
     {
         _context = context;
         _mapper = mapper;
         _permissionService = permissionService;
         _userManager = userManager;
+        _notificationService = notificationService;
     }
 
     public async Task<ChargeResponseDto> CreateAsync(int userId, CreateChargeDto dto)
@@ -52,6 +56,7 @@ public class ChargeService : IChargeService
 
         _context.Charges.Add(charge);
         await _context.SaveChangesAsync();
+        await CreateChargeNotificationsAsync(charge);
 
         return await GetChargeResponseOrThrowAsync(charge.Id);
     }
@@ -332,5 +337,59 @@ public class ChargeService : IChargeService
             .AnyAsync(c =>
                 c.Id == condominiumId &&
                 c.CreatedByUserId == userId);
+    }
+
+    private async Task CreateChargeNotificationsAsync(Charge charge)
+    {
+        var condominiumName = await _context.Condominiums
+            .AsNoTracking()
+            .Where(condominium => condominium.Id == charge.CondominiumId)
+            .Select(condominium => condominium.Name)
+            .FirstAsync();
+
+        if (charge.Scope == ChargeScope.Platform)
+        {
+            var adminUserIds = await _context.UserCondominiums
+                .AsNoTracking()
+                .Where(userCondominium =>
+                    userCondominium.CondominiumId == charge.CondominiumId &&
+                    userCondominium.Role == AppRoles.Admin &&
+                    userCondominium.Status == UserCondominiumStatus.Active)
+                .Select(userCondominium => userCondominium.UserId)
+                .Distinct()
+                .ToListAsync();
+
+            await _notificationService.CreateManyAsync(
+                adminUserIds,
+                NotificationType.Charge,
+                "Nova cobrança MORAÊ",
+                $"Há uma nova cobrança institucional para {condominiumName}.",
+                "/admin/payments",
+                charge.CondominiumId);
+
+            return;
+        }
+
+        if (charge.Scope == ChargeScope.Condominium && charge.UnitId.HasValue)
+        {
+            var residentUserIds = await _context.PersonUnits
+                .AsNoTracking()
+                .Where(personUnit => personUnit.UnitId == charge.UnitId.Value)
+                .Join(
+                    _context.Users.AsNoTracking(),
+                    personUnit => personUnit.PersonId,
+                    user => user.PersonId,
+                    (_, user) => user.Id)
+                .Distinct()
+                .ToListAsync();
+
+            await _notificationService.CreateManyAsync(
+                residentUserIds,
+                NotificationType.Charge,
+                "Novo boleto disponível",
+                $"Uma cobrança de {charge.Value:C} foi gerada para sua unidade.",
+                "/resident/bills",
+                charge.CondominiumId);
+        }
     }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+﻿import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Area,
   AreaChart,
@@ -60,6 +60,7 @@ export function MasterDashboardPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [warningMessage, setWarningMessage] = useState("");
   const [temperature, setTemperature] = useState<number | null>(null);
+  const [chartPeriod, setChartPeriod] = useState<6 | 12>(6);
 
   useEffect(() => {
     async function loadDashboard() {
@@ -194,8 +195,8 @@ export function MasterDashboardPage() {
         charge.status === CHARGE_STATUS_OVERDUE,
     )
     .reduce((total, charge) => total + charge.value, 0);
-  const condominiumChartData = buildCondominiumChart(condominiums);
-  const revenueChartData = buildRevenueChart(platformCharges);
+  const condominiumChartData = buildCondominiumChart(condominiums, chartPeriod);
+  const revenueChartData = buildRevenueChart(platformCharges, chartPeriod);
 
   const activities = useMemo<ActivityItem[]>(
     () =>
@@ -233,26 +234,30 @@ export function MasterDashboardPage() {
     [condominiums, pendingAdminInvitations, platformCharges],
   );
 
+  const chartPeriodFilter = (
+    <ChartPeriodFilter value={chartPeriod} onChange={setChartPeriod} />
+  );
+
   const metrics = [
     {
       label: "Total de condomínios",
       value: condominiums.length.toString(),
-      helper: "Base cadastrada na plataforma",
+      helper: "Condomínios cadastrados",
     },
     {
       label: "Convites pendentes",
       value: pendingAdminInvitations.length.toString(),
-      helper: "Administradores aguardando aceite",
+      helper: "Aguardando aceite dos admins",
     },
     {
       label: "Receita total",
       value: formatCurrency(totalRevenue),
-      helper: "Cobranças MORAÊ não canceladas",
+      helper: "Cobranças ativas da plataforma",
     },
     {
       label: "Receita pendente",
       value: formatCurrency(pendingRevenue),
-      helper: "Valores aguardando pagamento",
+      helper: "A receber dos condomínios",
     },
   ];
 
@@ -276,9 +281,6 @@ export function MasterDashboardPage() {
           <p className="text-sm font-black uppercase tracking-[0.2em] text-[#16A34A]">
             Dashboard Master
           </p>
-          <h2 className="mt-2 text-2xl font-black text-[#111827]">
-            Plataforma MORAÊ
-          </h2>
         </div>
 
         {isLoading && (
@@ -309,14 +311,16 @@ export function MasterDashboardPage() {
         <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
           <ChartPanel
             title="Crescimento de condomínios"
-            description="Novos cadastros e base acumulada nos últimos meses."
+            description={`Novos cadastros e base acumulada em ${chartPeriod} meses.`}
+            action={chartPeriodFilter}
           >
             <CondominiumLineChart data={condominiumChartData} />
           </ChartPanel>
 
           <ChartPanel
-            title="Receita MORAÊ"
+            title="Receita Moraê"
             description={`${formatCurrency(chartPaidRevenue)} recebidos · ${formatCurrency(chartPendingRevenue)} pendentes`}
+            action={chartPeriodFilter}
           >
             <RevenueAreaChart data={revenueChartData} />
           </ChartPanel>
@@ -369,22 +373,57 @@ export function MasterDashboardPage() {
   );
 }
 
+function ChartPeriodFilter({
+  value,
+  onChange,
+}: {
+  value: 6 | 12;
+  onChange: (value: 6 | 12) => void;
+}) {
+  const periods = [6, 12] as const;
+
+  return (
+    <div className="flex rounded-full border border-[#E5E7EB] bg-white p-1 shadow-sm">
+      {periods.map((period) => (
+        <button
+          key={period}
+          type="button"
+          onClick={() => onChange(period)}
+          className={`cursor-pointer rounded-full px-3 py-1.5 text-xs font-black transition ${
+            value === period
+              ? "bg-[#16A34A] text-white shadow-sm"
+              : "text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#0B3D2E]"
+          }`}
+        >
+          {period} meses
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ChartPanel({
   title,
   description,
+  action,
   children,
 }: {
   title: string;
   description: string;
+  action?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <section className="flex h-full flex-col rounded-[1.75rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5">
-      <div>
-        <h3 className="text-xl font-black text-[#111827]">{title}</h3>
-        <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-          {description}
-        </p>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-xl font-black text-[#111827]">{title}</h3>
+          <p className="mt-1 text-sm font-semibold text-[#6B7280]">
+            {description}
+          </p>
+        </div>
+
+        {action && <div className="shrink-0">{action}</div>}
       </div>
 
       <div className="mt-6 h-72 rounded-[1.5rem] bg-white px-3 py-5">
@@ -393,7 +432,6 @@ function ChartPanel({
     </section>
   );
 }
-
 function CondominiumLineChart({ data }: { data: CondominiumChartItem[] }) {
   const hasValues = data.some((item) => item.novos > 0 || item.acumulado > 0);
 
@@ -474,8 +512,11 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
-function buildCondominiumChart(condominiums: CondominiumResponse[]) {
-  const months = getLastMonths(6);
+function buildCondominiumChart(
+  condominiums: CondominiumResponse[],
+  amount: number,
+) {
+  const months = getLastMonths(amount);
   const sortedCondominiums = [...condominiums].sort(
     (first, second) =>
       new Date(first.createdAt).getTime() - new Date(second.createdAt).getTime(),
@@ -498,8 +539,8 @@ function buildCondominiumChart(condominiums: CondominiumResponse[]) {
   });
 }
 
-function buildRevenueChart(charges: ChargeResponse[]) {
-  const months = getLastMonths(6);
+function buildRevenueChart(charges: ChargeResponse[], amount: number) {
+  const months = getLastMonths(amount);
 
   return months.map((month) => {
     const monthCharges = charges.filter(

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type FormEvent, type SetStateAction } from "react";
 import { useNavigate } from "react-router-dom";
 import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
@@ -28,11 +28,26 @@ const INACTIVE_STATUS = 2;
 const PENDING_INVITATION_STATUS = 1;
 const ADMIN_ROLE = 2;
 
+const BRAZILIAN_STATES = [
+    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
+    "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+];
+
+type ViaCepResponse = {
+    cep: string;
+    logradouro: string;
+    bairro: string;
+    localidade: string;
+    uf: string;
+    erro?: boolean;
+};
+
 type ModalMode = "create" | "edit" | null;
 
 type FormState = {
     name: string;
     cnpj: string;
+    cep: string;
     number: string;
     address: string;
     city: string;
@@ -43,7 +58,6 @@ type FormState = {
     adminCpf: string;
     adminPhoneNumber: string;
     adminEmail: string;
-    adminPassword: string;
     linkedAdminUserId: string;
 };
 
@@ -60,6 +74,7 @@ type CreateAdminInvitationRequest = {
 const emptyForm: FormState = {
     name: "",
     cnpj: "",
+    cep: "",
     number: "",
     address: "",
     city: "",
@@ -70,7 +85,6 @@ const emptyForm: FormState = {
     adminCpf: "",
     adminPhoneNumber: "",
     adminEmail: "",
-    adminPassword: "",
     linkedAdminUserId: "",
 };
 
@@ -191,22 +205,22 @@ export function CondominiumsPage() {
         {
             label: "Total de condomínios",
             value: condominiums.length.toString(),
-            helper: "Base cadastrada",
+            helper: "Cadastros na plataforma",
         },
         {
-            label: "Aguardando resposta ADM",
+            label: "Aguardando aceite",
             value: pendingAdminInvitations.length.toString(),
-            helper: "Convites pendentes",
+            helper: "Admins aguardando vínculo",
         },
         {
             label: "Ativos",
             value: activeCondominiums.length.toString(),
-            helper: "Em operação",
+            helper: "Condomínios em operação",
         },
         {
             label: "Inativos",
             value: inactiveCondominiums.length.toString(),
-            helper: "Pausados ou desativados",
+            helper: "Acessos pausados",
         },
     ];
 
@@ -225,6 +239,7 @@ export function CondominiumsPage() {
         setForm({
             name: condominium.name,
             cnpj: condominium.cnpj,
+            cep: condominium.cep || "",
             number: condominium.number,
             address: condominium.address,
             city: condominium.city,
@@ -235,7 +250,6 @@ export function CondominiumsPage() {
             adminCpf: "",
             adminPhoneNumber: "",
             adminEmail: "",
-            adminPassword: "",
             linkedAdminUserId: condominium.adminUserId?.toString() ?? "",
         });
         setErrorMessage("");
@@ -286,7 +300,7 @@ export function CondominiumsPage() {
 
             if (modalMode === "create") {
                 await onboardCondominium(toOnboardingRequest(form));
-                setSuccessMessage("Condomínio e administrador cadastrados com sucesso.");
+                setSuccessMessage("Condomínio cadastrado e convite do Admin gerado com sucesso.");
             }
 
             if (modalMode === "edit" && selectedCondominium) {
@@ -330,6 +344,7 @@ export function CondominiumsPage() {
 
             await updateCondominium(condominium.id, {
                 name: condominium.name,
+                cep: condominium.cep || "",
                 number: condominium.number,
                 address: condominium.address,
                 city: condominium.city,
@@ -488,22 +503,27 @@ export function CondominiumsPage() {
                     )}
 
                     <div className="mt-6 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-4">
-                        <div className="mb-4 flex flex-col gap-3 md:flex-row">
-                            <input
-                                type="search"
-                                value={search}
-                                onChange={(event) => setSearch(event.target.value)}
-                                placeholder="Buscar condomínio..."
-                                className="h-11 flex-1 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-                            />
+                        <div className="mb-4">
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={search}
+                                    onChange={(event) => setSearch(event.target.value)}
+                                    placeholder="Buscar condomínio..."
+                                    className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 pr-12 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
+                                />
 
-                            <button
-                                type="button"
-                                onClick={() => setSearch("")}
-                                className="h-11 cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
-                            >
-                                Limpar
-                            </button>
+                                {search && (
+                                    <button
+                                        type="button"
+                                        aria-label="Limpar busca"
+                                        onClick={() => setSearch("")}
+                                        className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-lg font-black leading-none text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E] focus:outline-none focus:ring-4 focus:ring-[#86EFAC]/30"
+                                    >
+                                        ×
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         {isLoading ? (
@@ -539,8 +559,10 @@ export function CondominiumsPage() {
                                                         CNPJ {formatCnpj(condominium.cnpj)}
                                                     </p>
                                                 </td>
-                                                <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                                                    {condominium.emailContact}
+                                                <td className="px-4 py-4">
+                                                    <p className="font-semibold text-[#6B7280]">
+                                                        {condominium.emailContact}
+                                                    </p>
                                                 </td>
                                                 <td className="px-4 py-4">
                                                     <AdminSummary
@@ -550,8 +572,10 @@ export function CondominiumsPage() {
                                                         )}
                                                     />
                                                 </td>
-                                                <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                                                    {formatLocation(condominium)}
+                                                <td className="px-4 py-4">
+                                                    <p className="font-semibold text-[#6B7280]">
+                                                        {formatLocation(condominium)}
+                                                    </p>
                                                 </td>
                                                 <td className="px-4 py-4">
                                                     <StatusBadge
@@ -563,25 +587,25 @@ export function CondominiumsPage() {
                                                     {formatDate(condominium.createdAt)}
                                                 </td>
                                                 <td className="px-4 py-4">
-                                                    <div className="flex flex-wrap gap-2">
+                                                    <div className="flex flex-wrap items-center gap-2">
                                                         <button
                                                             type="button"
                                                             onClick={() => setDetailsCondominium(condominium)}
-                                                            className="rounded-xl border border-[#BBF7D0] bg-[#DCFCE7] px-3 py-1.5 text-xs font-bold text-[#0B3D2E] transition hover:bg-[#BBF7D0]"
+                                                            className="cursor-pointer rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
                                                         >
                                                             Ver
                                                         </button>
                                                         <button
                                                             type="button"
                                                             onClick={() => openEditModal(condominium)}
-                                                            className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+                                                            className="cursor-pointer rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
                                                         >
                                                             Editar
                                                         </button>
                                                         <button
                                                             type="button"
                                                             onClick={() => void handleToggleStatus(condominium)}
-                                                            className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+                                                            className="cursor-pointer rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
                                                         >
                                                             {condominium.status === ACTIVE_STATUS
                                                                 ? "Desativar"
@@ -590,7 +614,7 @@ export function CondominiumsPage() {
                                                         <button
                                                             type="button"
                                                             onClick={() => void handleDelete(condominium)}
-                                                            className="rounded-xl border border-[#FECACA] bg-white px-3 py-1.5 text-xs font-bold text-[#B42318] transition hover:bg-[#FDECEC]"
+                                                            className="cursor-pointer rounded-xl border border-[#FECACA] bg-white px-3 py-1.5 text-xs font-bold text-[#B42318] transition hover:bg-[#FDECEC]"
                                                         >
                                                             Excluir
                                                         </button>
@@ -815,7 +839,7 @@ function CondominiumModal({
     fieldErrors: FieldErrors;
     errorMessage: string;
     isSaving: boolean;
-    onChange: (form: FormState) => void;
+    onChange: Dispatch<SetStateAction<FormState>>;
     onClearFieldError: (field: keyof FormState) => void;
     onClose: () => void;
     onAddAdmin: () => void;
@@ -823,13 +847,57 @@ function CondominiumModal({
     onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
     const isEdit = mode === "edit";
+    const [isLoadingCep, setIsLoadingCep] = useState(false);
+    const [cepMessage, setCepMessage] = useState("");
 
     function updateField(field: keyof FormState, value: string | number) {
-        onChange({
-            ...form,
+        onChange((currentForm) => ({
+            ...currentForm,
             [field]: value,
-        });
+        }));
         onClearFieldError(field);
+    }
+
+    async function handleCepChange(value: string) {
+        const nextCep = formatCepInput(value);
+        setCepMessage("");
+        onClearFieldError("cep");
+
+        onChange((currentForm) => ({
+            ...currentForm,
+            cep: nextCep,
+        }));
+
+        const cepDigits = onlyDigits(nextCep);
+
+        if (cepDigits.length !== 8) {
+            return;
+        }
+
+        try {
+            setIsLoadingCep(true);
+            const address = await getAddressByCep(cepDigits);
+
+            if (!address) {
+                setCepMessage("CEP não encontrado. Preencha o endereço manualmente.");
+                return;
+            }
+
+            onChange((currentForm) => ({
+                ...currentForm,
+                cep: nextCep,
+                address: address.logradouro || currentForm.address,
+                city: address.localidade || currentForm.city,
+                state: address.uf || currentForm.state,
+            }));
+            onClearFieldError("address");
+            onClearFieldError("city");
+            onClearFieldError("state");
+        } catch {
+            setCepMessage("Não foi possível consultar o CEP agora. Preencha manualmente.");
+        } finally {
+            setIsLoadingCep(false);
+        }
     }
 
     return (
@@ -865,12 +933,13 @@ function CondominiumModal({
                     </div>
                 )}
 
-                <div className="grid max-h-[65vh] grid-cols-1 gap-5 overflow-y-auto px-6 pb-28 pt-6 md:grid-cols-2">
+                <div className="grid max-h-[65vh] grid-cols-1 gap-5 overflow-y-auto px-6 pb-6 pt-6 md:grid-cols-2">
                     <SectionTitle title="Dados do condomínio" />
 
                     <Field
                         label="Nome do condomínio"
                         value={form.name}
+                        placeholder="Residencial Jardim"
                         error={fieldErrors.name}
                         onChange={(value) => updateField("name", value)}
                     />
@@ -883,36 +952,50 @@ function CondominiumModal({
                         maxLength={18}
                         onChange={(value) => updateField("cnpj", formatCnpjInput(value))}
                     />
+                        <Field
+                            label="E-mail de contato"
+                            value={form.emailContact}
+                            placeholder="contato@condominio.com.br"
+                            error={fieldErrors.emailContact}
+                            onChange={(value) => updateField("emailContact", value)}
+                        />
                     <Field
-                        label="E-mail de contato"
-                        value={form.emailContact}
-                        error={fieldErrors.emailContact}
-                        onChange={(value) => updateField("emailContact", value)}
+                        label="CEP"
+                        value={form.cep}
+                        error={fieldErrors.cep}
+                        helper={isLoadingCep ? "Buscando endereço..." : cepMessage}
+                        placeholder="00000-000"
+                        maxLength={9}
+                        onChange={handleCepChange}
                     />
+                        <Field
+                            label="Endereço"
+                            value={form.address}
+                            placeholder="Rua das Palmeiras"
+                            error={fieldErrors.address}
+                            onChange={(value) => updateField("address", value)}
+                        />
                     <Field
                         label="Número"
                         value={form.number}
+                        placeholder="100"
                         error={fieldErrors.number}
                         onChange={(value) => updateField("number", value)}
                     />
                     <Field
-                        label="Endereço"
-                        value={form.address}
-                        error={fieldErrors.address}
-                        onChange={(value) => updateField("address", value)}
-                    />
-                    <Field
                         label="Cidade"
                         value={form.city}
+                        placeholder="São Paulo"
                         error={fieldErrors.city}
                         onChange={(value) => updateField("city", value)}
                     />
-                    <Field
+                    <SelectField
                         label="Estado"
                         value={form.state}
+                        placeholder="Selecione a UF"
                         error={fieldErrors.state}
-                        maxLength={2}
-                        onChange={(value) => updateField("state", value.toUpperCase())}
+                        options={BRAZILIAN_STATES}
+                        onChange={(value) => updateField("state", value)}
                     />
 
                     {isEdit && (
@@ -981,12 +1064,12 @@ function CondominiumModal({
                         <>
                             <SectionTitle
                                 title="Administrador do condomínio"
-                                helper="Este usuário terá acesso ADM ao condomínio cadastrado."
                             />
 
                             <Field
                                 label="Nome do administrador"
                                 value={form.adminName}
+                                placeholder="Carlos Martins"
                                 error={fieldErrors.adminName}
                                 onChange={(value) => updateField("adminName", value)}
                             />
@@ -1015,14 +1098,6 @@ function CondominiumModal({
                         placeholder="admin@email.com"
                         onChange={(value) => updateField("adminEmail", value)}
                             />
-                            <Field
-                                label="Senha inicial"
-                                value={form.adminPassword}
-                        error={fieldErrors.adminPassword}
-                        type="password"
-                        placeholder="Mínimo 6 caracteres"
-                        onChange={(value) => updateField("adminPassword", value)}
-                            />
                         </>
                     )}
                 </div>
@@ -1037,7 +1112,7 @@ function CondominiumModal({
                             ? "Salvando..."
                             : isEdit
                                 ? "Salvar alterações"
-                                : "Cadastrar condomínio e administrador"}
+                                : "Cadastrar condomínio e gerar convite"}
                     </button>
                 </div>
             </form>
@@ -1046,40 +1121,24 @@ function CondominiumModal({
 }
 
 function AdminSummary({ admins }: { admins: MasterUserResponse[] }) {
-    const activeAdmins = admins.filter((admin) => admin.status === ACTIVE_STATUS);
-    const visibleAdmins = admins.slice(0, 2);
-
     if (admins.length === 0) {
         return (
-            <div>
-                <p className="font-extrabold text-[#111827]">Sem Admin vinculado</p>
-                <p className="mt-1 text-xs font-semibold text-[#B42318]">
-                    Cadastre ou vincule um Admin
-                </p>
-            </div>
+            <span className="font-semibold text-[#6B7280]">
+                Sem Admin vinculado
+            </span>
         );
     }
 
     return (
-        <div>
-            <div className="flex flex-wrap gap-1.5">
-                {visibleAdmins.map((admin) => (
-                    <span
-                        key={`${admin.condominiumId}-${admin.userId}`}
-                        className="rounded-full bg-[#DCFCE7] px-2.5 py-1 text-xs font-extrabold text-[#0B3D2E]"
-                    >
-                        {admin.personName}
-                    </span>
-                ))}
-                {admins.length > visibleAdmins.length && (
-                    <span className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-xs font-extrabold text-[#6B7280]">
-                        +{admins.length - visibleAdmins.length}
-                    </span>
-                )}
-            </div>
-            <p className="mt-2 text-xs font-semibold text-[#6B7280]">
-                {activeAdmins.length} ativo(s) de {admins.length} vinculado(s)
-            </p>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {admins.map((admin, index) => (
+                <span
+                    key={`${admin.condominiumId}-${admin.userId}`}
+                    className="font-semibold text-[#111827]"
+                >
+                    {admin.personName}{index < admins.length - 1 ? "," : ""}
+                </span>
+            ))}
         </div>
     );
 }
@@ -1259,6 +1318,7 @@ function Field({
     label,
     value,
     error,
+    helper,
     disabled = false,
     maxLength,
     placeholder,
@@ -1268,11 +1328,12 @@ function Field({
     label: string;
     value: string;
     error?: string;
+    helper?: string;
     disabled?: boolean;
     maxLength?: number;
     placeholder?: string;
     type?: "email" | "password" | "text";
-    onChange: (value: string) => void;
+    onChange: (value: string) => void | Promise<void>;
 }) {
     return (
         <label className="block">
@@ -1298,7 +1359,107 @@ function Field({
                     {error}
                 </span>
             )}
+            {!error && helper && (
+                <span className="mt-2 block text-xs font-bold text-[#6B7280]">
+                    {helper}
+                </span>
+            )}
         </label>
+    );
+}
+
+function SelectField({
+    label,
+    value,
+    error,
+    placeholder,
+    options,
+    onChange,
+}: {
+    label: string;
+    value: string;
+    error?: string;
+    placeholder: string;
+    options: string[];
+    onChange: (value: string) => void;
+}) {
+    const [isOpen, setIsOpen] = useState(false);
+    const selectedLabel = value || placeholder;
+
+    function selectOption(option: string) {
+        onChange(option);
+        setIsOpen(false);
+    }
+
+    return (
+        <div className="relative block">
+            <span className="mb-2 block text-sm font-extrabold text-[#111827]">
+                {label}
+            </span>
+            <button
+                type="button"
+                aria-invalid={!!error}
+                aria-expanded={isOpen}
+                onClick={() => setIsOpen((current) => !current)}
+                className={`flex h-11 w-full cursor-pointer items-center justify-between rounded-2xl border bg-white px-4 text-left text-sm font-bold outline-none transition ${
+                    error
+                        ? "border-[#EF4444] text-[#111827] focus:ring-4 focus:ring-[#FECACA]/50"
+                        : isOpen
+                            ? "border-[#22C55E] text-[#111827] ring-4 ring-[#86EFAC]/30"
+                            : "border-[#E5E7EB] text-[#111827] hover:border-[#BBF7D0]"
+                }`}
+            >
+                <span className={value ? "text-[#111827]" : "text-[#9CA3AF]"}>
+                    {selectedLabel}
+                </span>
+                <span
+                    className={`block size-2 shrink-0 border-r-2 border-b-2 border-current text-[#6B7280] transition-transform ${
+                        isOpen ? "rotate-[225deg] translate-y-0.5" : "rotate-45 -translate-y-0.5"
+                    }`}
+                    aria-hidden="true"
+                />
+            </button>
+
+            {isOpen && (
+                <div className="absolute left-0 top-[4.75rem] z-[80] max-h-64 w-full overflow-y-auto rounded-2xl border border-[#E5E7EB] bg-white p-1 shadow-xl shadow-[#111827]/10">
+                    <button
+                        type="button"
+                        onClick={() => selectOption("")}
+                        className={`flex h-10 w-full cursor-pointer items-center rounded-xl px-3 text-left text-sm font-extrabold transition ${
+                            !value
+                                ? "bg-[#DCFCE7] text-[#0B3D2E]"
+                                : "text-[#6B7280] hover:bg-[#F0FDF4] hover:text-[#0B3D2E]"
+                        }`}
+                    >
+                        {placeholder}
+                    </button>
+                    {options.map((option) => {
+                        const isSelected = value === option;
+
+                        return (
+                            <button
+                                key={option}
+                                type="button"
+                                onClick={() => selectOption(option)}
+                                className={`flex h-10 w-full cursor-pointer items-center rounded-xl px-3 text-left text-sm font-extrabold transition ${
+                                    isSelected
+                                        ? "bg-[#DCFCE7] text-[#0B3D2E]"
+                                        : "text-[#6B7280] hover:bg-[#F0FDF4] hover:text-[#0B3D2E]"
+                                }`}
+                            >
+                                {option}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+
+            {error && (
+                <span className="mt-2 block text-xs font-extrabold text-[#B42318]">
+                    {error}
+                </span>
+            )}
+        </div>
     );
 }
 
@@ -1393,6 +1554,14 @@ function validateForm(form: FormState, mode: ModalMode): FieldErrors {
         } else if (!isValidCnpj(form.cnpj)) {
             errors.cnpj = "CNPJ inválido. Use um CNPJ real, com dígitos verificadores válidos.";
         }
+
+        if (!form.cep.trim()) {
+            errors.cep = "Informe o CEP.";
+        } else if (!isValidCep(form.cep)) {
+            errors.cep = "Informe um CEP válido com 8 dígitos.";
+        }
+    } else if (form.cep.trim() && !isValidCep(form.cep)) {
+        errors.cep = "Informe um CEP válido com 8 dígitos.";
     }
 
     if (!form.emailContact.trim()) {
@@ -1418,9 +1587,9 @@ function validateForm(form: FormState, mode: ModalMode): FieldErrors {
     }
 
     if (!form.state.trim()) {
-        errors.state = "Informe a UF.";
-    } else if (!/^[A-Za-z]{2}$/.test(form.state.trim())) {
-        errors.state = "Use a UF com 2 letras. Ex: SP, RS, RJ.";
+        errors.state = "Selecione a UF.";
+    } else if (!BRAZILIAN_STATES.includes(form.state.trim().toUpperCase())) {
+        errors.state = "Selecione uma UF válida.";
     }
 
     if (mode === "create") {
@@ -1450,11 +1619,6 @@ function validateForm(form: FormState, mode: ModalMode): FieldErrors {
             errors.adminEmail = "Informe um e-mail válido.";
         }
 
-        if (!form.adminPassword) {
-            errors.adminPassword = "Informe uma senha inicial.";
-        } else if (!isValidInitialPassword(form.adminPassword)) {
-            errors.adminPassword = "Use pelo menos 6 caracteres.";
-        }
     }
 
     return errors;
@@ -1464,6 +1628,7 @@ function toCreateRequest(form: FormState): CreateCondominiumRequest {
     return {
         name: form.name.trim(),
         cnpj: onlyDigits(form.cnpj),
+        cep: onlyDigits(form.cep),
         number: form.number.trim(),
         address: form.address.trim(),
         city: form.city.trim(),
@@ -1480,7 +1645,6 @@ function toOnboardingRequest(form: FormState): CreateCondominiumOnboardingReques
             cpf: onlyDigits(form.adminCpf),
             phoneNumber: onlyDigits(form.adminPhoneNumber),
             email: form.adminEmail.trim(),
-            password: form.adminPassword,
         },
     };
 }
@@ -1488,6 +1652,7 @@ function toOnboardingRequest(form: FormState): CreateCondominiumOnboardingReques
 function toUpdateRequest(form: FormState): UpdateCondominiumRequest {
     return {
         name: form.name.trim(),
+        cep: onlyDigits(form.cep),
         number: form.number.trim(),
         address: form.address.trim(),
         city: form.city.trim(),
@@ -1568,6 +1733,12 @@ function formatCnpjInput(value: string) {
         .replace(/(\d{4})(\d)/, "$1-$2");
 }
 
+function formatCepInput(value: string) {
+    const digits = onlyDigits(value).slice(0, 8);
+
+    return digits.replace(/^(\d{5})(\d)/, "$1-$2");
+}
+
 function formatCpfInput(value: string) {
     const digits = onlyDigits(value).slice(0, 11);
 
@@ -1595,12 +1766,28 @@ function onlyDigits(value: string) {
     return value.replace(/\D/g, "");
 }
 
-function isValidEmail(value: string) {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+function isValidCep(value: string) {
+    return onlyDigits(value).length === 8;
 }
 
-function isValidInitialPassword(value: string) {
-    return value.trim().length >= 6;
+async function getAddressByCep(cep: string) {
+    const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+
+    if (!response.ok) {
+        return null;
+    }
+
+    const data = (await response.json()) as ViaCepResponse;
+
+    if (data.erro) {
+        return null;
+    }
+
+    return data;
+}
+
+function isValidEmail(value: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
 
 function isValidCpf(value: string) {
@@ -1662,10 +1849,6 @@ function getFriendlyErrorMessage(message: string) {
 
     if (normalizedMessage.includes("email")) {
         return "Este e-mail já está cadastrado ou não pôde ser aceito pela API.";
-    }
-
-    if (normalizedMessage.includes("password") || normalizedMessage.includes("senha")) {
-        return "A senha inicial não atende aos requisitos de segurança.";
     }
 
     if (normalizedMessage.includes("selected admin") || normalizedMessage.includes("admin user")) {
