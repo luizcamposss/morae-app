@@ -71,6 +71,23 @@ public class UserCondominiumAccessController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPut("api/condominiums/{condominiumId}/users/{userId}/role")]
+    public async Task<IActionResult> UpdateRole(
+        [FromRoute] int condominiumId,
+        [FromRoute] int userId,
+        [FromBody] UpdateUserCondominiumRoleDto dto)
+    {
+        var requesterUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var result = await _userCondominiumAccessService.UpdateRoleAsync(
+            requesterUserId,
+            condominiumId,
+            userId,
+            dto);
+
+        return Ok(result);
+    }
+
     [HttpDelete("api/condominiums/{condominiumId}/users/{userId}")]
     public async Task<IActionResult> Delete(
         [FromRoute] int condominiumId,

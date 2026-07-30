@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using backend.Models;
 using AutoMapper;
+using backend.Services.Notifications;
 
 namespace backend.Services.UserCondominiumAccess;
 
@@ -17,17 +18,20 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IPermissionService _permissionService;
     private readonly IMapper _mapper;
+    private readonly INotificationService _notificationService;
 
     public UserCondominiumAccessService(
         AppDbContext context,
         UserManager<ApplicationUser> userManager,
         IPermissionService permissionService,
-        IMapper mapper)
+        IMapper mapper,
+        INotificationService notificationService)
     {
         _context = context;
         _userManager = userManager;
         _permissionService = permissionService;
         _mapper = mapper;
+        _notificationService = notificationService;
     }
 
     public async Task<IEnumerable<MasterUserResponseDto>> GetMasterUsersAsync(int requesterUserId)
@@ -175,6 +179,99 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
         return _mapper.Map<UserCondominiumAccessResponseDto>(userCondominium);
     }
 
+    public async Task<UserCondominiumAccessResponseDto> UpdateRoleAsync(
+        int requesterUserId,
+        int condominiumId,
+        int targetUserId,
+        UpdateUserCondominiumRoleDto dto)
+    {
+        var normalizedRole = dto.Role.Trim();
+
+        if (normalizedRole != AppRoles.Resident && normalizedRole != AppRoles.Syndic)
+            throw new BadRequestException("Role must be Resident or Syndic.");
+
+        var userCondominium = await GetUserCondominiumAsync(condominiumId, targetUserId);
+
+        await EnsureCanManageAccessAsync(requesterUserId, condominiumId, userCondominium.Role);
+
+        if (userCondominium.Role == normalizedRole)
+            return _mapper.Map<UserCondominiumAccessResponseDto>(userCondominium);
+
+        var targetUser = await _userManager.FindByIdAsync(targetUserId.ToString());
+
+        if (targetUser is null)
+            throw new NotFoundException("Target user not found.");
+
+        var previousRole = userCondominium.Role;
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        var now = DateTime.UtcNow;
+        var targetPerson = await _context.Persons
+            .FirstOrDefaultAsync(person => person.Id == targetUser.PersonId);
+
+        userCondominium.Role = normalizedRole;
+        targetUser.UpdatedAt = now;
+
+        if (normalizedRole == AppRoles.Syndic && userCondominium.Permissions.Count == 0)
+        {
+            userCondominium.Permissions = AppPermissions.All
+                .Select(permission => new UserCondominiumPermission
+                {
+                    UserCondominiumId = userCondominium.Id,
+                    PermissionKey = permission,
+                    CreatedAt = now
+                })
+                .ToList();
+        }
+
+        if (normalizedRole == AppRoles.Resident && userCondominium.Permissions.Count > 0)
+        {
+            _context.UserCondominiumPermissions.RemoveRange(userCondominium.Permissions);
+        }
+
+        if (targetPerson is not null)
+            targetPerson.UpdatedAt = now;
+
+        _context.Users.Update(targetUser);
+        await _context.SaveChangesAsync();
+
+        var hasPreviousRoleInAnotherCondominium = await _context.UserCondominiums
+            .AnyAsync(access =>
+                access.UserId == targetUserId &&
+                access.CondominiumId != condominiumId &&
+                access.Role == previousRole);
+
+        if (!hasPreviousRoleInAnotherCondominium &&
+            await _userManager.IsInRoleAsync(targetUser, previousRole))
+        {
+            var removeRoleResult = await _userManager.RemoveFromRoleAsync(targetUser, previousRole);
+
+            if (!removeRoleResult.Succeeded)
+                throw new BadRequestException(string.Join(" ", removeRoleResult.Errors.Select(error => error.Description)));
+        }
+
+        if (!await _userManager.IsInRoleAsync(targetUser, normalizedRole))
+        {
+            var addRoleResult = await _userManager.AddToRoleAsync(targetUser, normalizedRole);
+
+            if (!addRoleResult.Succeeded)
+                throw new BadRequestException(string.Join(" ", addRoleResult.Errors.Select(error => error.Description)));
+        }
+
+        await transaction.CommitAsync();
+
+        await _notificationService.CreateAsync(
+            targetUserId,
+            NotificationType.Access,
+            "Perfil atualizado",
+            $"Seu acesso foi alterado para {GetRoleLabel(normalizedRole)}.",
+            GetDashboardLink(normalizedRole),
+            condominiumId);
+
+        return _mapper.Map<UserCondominiumAccessResponseDto>(userCondominium);
+    }
+
     public async Task DeleteAsync(
         int requesterUserId,
         int condominiumId,
@@ -216,6 +313,7 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
         int targetUserId)
     {
         var userCondominium = await _context.UserCondominiums
+            .Include(uc => uc.Permissions)
             .FirstOrDefaultAsync(uc =>
                 uc.UserId == targetUserId &&
                 uc.CondominiumId == condominiumId);
@@ -297,5 +395,25 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
         }
 
         throw new ForbiddenException("User cannot manage condominium access.");
+    }
+
+    private static string GetRoleLabel(string role)
+    {
+        return role switch
+        {
+            AppRoles.Syndic => "Síndico",
+            AppRoles.Resident => "Morador",
+            _ => role
+        };
+    }
+
+    private static string GetDashboardLink(string role)
+    {
+        return role switch
+        {
+            AppRoles.Syndic => "/syndic/dashboard",
+            AppRoles.Resident => "/resident/dashboard",
+            _ => "/login"
+        };
     }
 }

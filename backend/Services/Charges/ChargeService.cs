@@ -105,10 +105,28 @@ public class ChargeService : IChargeService
 
         await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
 
-        var charges = await BuildChargeResponseQuery()
+        var query = BuildChargeResponseQuery()
             .Where(c =>
                 c.Scope == ChargeScope.Condominium &&
-                c.CondominiumId == condominiumId)
+                c.CondominiumId == condominiumId);
+
+        if (isSyndic)
+        {
+            var linkedBuildingIds = await _context.PersonUnits
+                .AsNoTracking()
+                .Where(personUnit =>
+                    personUnit.PersonId == user.PersonId &&
+                    personUnit.Unit.Building.CondominiumId == condominiumId)
+                .Select(personUnit => personUnit.Unit.BuildingId)
+                .Distinct()
+                .ToListAsync();
+
+            query = query.Where(charge =>
+                charge.UnitId.HasValue &&
+                linkedBuildingIds.Contains(charge.Unit!.BuildingId));
+        }
+
+        var charges = await query
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
 
@@ -230,6 +248,9 @@ public class ChargeService : IChargeService
             dto.CondominiumId,
             AppPermissions.ChargesCreate);
 
+        if (await _permissionService.IsSyndicAsync(userId))
+            await _permissionService.EnsureUnitAccessAsync(userId, dto.UnitId.Value);
+
         var unitBelongsToCondominium = await _context.Units
             .AsNoTracking()
             .AnyAsync(u =>
@@ -258,10 +279,23 @@ public class ChargeService : IChargeService
             throw new ForbiddenException("User cannot access this platform charge.");
         }
 
-        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin) ||
-            await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
         {
             await _permissionService.EnsureCondominiumAccessAsync(userId, charge.CondominiumId);
+            return;
+        }
+
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
+        {
+            await _permissionService.EnsureCondominiumPermissionAsync(
+                userId,
+                charge.CondominiumId,
+                AppPermissions.DelinquencyView);
+
+            if (!charge.UnitId.HasValue)
+                throw new ForbiddenException("User cannot access this charge.");
+
+            await _permissionService.EnsureUnitAccessAsync(userId, charge.UnitId.Value);
             return;
         }
 

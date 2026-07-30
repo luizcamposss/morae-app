@@ -79,11 +79,16 @@ const emptyState: DashboardState = {
 
 export function AdminDashboardPage() {
   const { user } = useAuth();
-  const { activeCondominium, activeCondominiumId, isLoading: isLoadingCondominium } =
-    useCondominium();
+  const {
+    activeCondominium,
+    activeCondominiumId,
+    isLoading: isLoadingCondominium,
+  } = useCondominium();
+
   const [dashboard, setDashboard] = useState<DashboardState>(emptyState);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [temperature, setTemperature] = useState<number | null>(null);
 
   useEffect(() => {
     async function loadDashboard() {
@@ -93,18 +98,19 @@ export function AdminDashboardPage() {
         return;
       }
 
-      setIsLoading(true);
-      setErrorMessage("");
-
       try {
-        const [buildings, people, invitations, charges, news, occurrences] = await Promise.all([
-          getBuildingsByCondominium(activeCondominiumId),
-          getPersonsByCondominium(activeCondominiumId),
-          getInvitationsByCondominium(activeCondominiumId),
-          getChargesByCondominium(activeCondominiumId),
-          getNewsByCondominium(activeCondominiumId),
-          getOccurrencesByCondominium(activeCondominiumId),
-        ]);
+        setIsLoading(true);
+        setErrorMessage("");
+
+        const [buildings, people, invitations, charges, news, occurrences] =
+          await Promise.all([
+            getBuildingsByCondominium(activeCondominiumId),
+            getPersonsByCondominium(activeCondominiumId),
+            getInvitationsByCondominium(activeCondominiumId),
+            getChargesByCondominium(activeCondominiumId),
+            getNewsByCondominium(activeCondominiumId),
+            getOccurrencesByCondominium(activeCondominiumId),
+          ]);
 
         const unitsByBuilding = await Promise.all(
           buildings.map((building) => getUnitsByBuilding(building.id)),
@@ -124,7 +130,7 @@ export function AdminDashboardPage() {
         setErrorMessage(
           error instanceof Error
             ? error.message
-            : "Não foi possível carregar o dashboard.",
+            : "Não foi possível carregar o dashboard Admin.",
         );
       } finally {
         setIsLoading(false);
@@ -134,16 +140,69 @@ export function AdminDashboardPage() {
     void loadDashboard();
   }, [activeCondominiumId]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!("geolocation" in navigator)) {
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const response = await fetch(
+            `https://api.open-meteo.com/v1/forecast?latitude=${coords.latitude}&longitude=${coords.longitude}&current=temperature_2m`,
+          );
+
+          if (!response.ok) {
+            return;
+          }
+
+          const data = (await response.json()) as {
+            current?: {
+              temperature_2m?: number;
+            };
+          };
+
+          if (isMounted && typeof data.current?.temperature_2m === "number") {
+            setTemperature(Math.round(data.current.temperature_2m));
+          }
+        } catch {
+          setTemperature(null);
+        }
+      },
+      () => undefined,
+      {
+        maximumAge: 15 * 60 * 1000,
+        timeout: 5000,
+      },
+    );
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const validCharges = dashboard.charges.filter(
     (charge) => charge.status !== CHARGE_STATUS_CANCELED,
   );
-  const paidCharges = validCharges.filter((charge) => charge.status === CHARGE_STATUS_PAID);
-  const pendingCharges = validCharges.filter((charge) => charge.status === CHARGE_STATUS_PENDING);
-  const overdueCharges = validCharges.filter((charge) => charge.status === CHARGE_STATUS_OVERDUE);
-  const occupiedUnits = dashboard.units.filter((unit) => unit.residentCount > 0).length;
-  const paidRevenue = sumCharges(paidCharges);
-  const pendingRevenue = sumCharges(pendingCharges) + sumCharges(overdueCharges);
+  const paidCharges = validCharges.filter(
+    (charge) => charge.status === CHARGE_STATUS_PAID,
+  );
+  const pendingCharges = validCharges.filter(
+    (charge) =>
+      charge.status === CHARGE_STATUS_PENDING ||
+      charge.status === CHARGE_STATUS_OVERDUE,
+  );
+  const occupiedUnits = dashboard.units.filter(
+    (unit) => unit.residentCount > 0,
+  ).length;
   const totalRevenue = sumCharges(validCharges);
+  const paidRevenue = sumCharges(paidCharges);
+  const pendingRevenue = sumCharges(pendingCharges);
+  const displayName = user?.personName || user?.userName || "Admin";
+  const showLoading = isLoading || isLoadingCondominium;
+
   const buildingChartData = useMemo(
     () => buildBuildingChart(dashboard.buildings),
     [dashboard.buildings],
@@ -153,202 +212,171 @@ export function AdminDashboardPage() {
     [dashboard.charges],
   );
   const activities = useMemo(() => buildActivities(dashboard), [dashboard]);
-  const showLoading = isLoading || isLoadingCondominium;
-  const displayName = user?.personName || user?.userName || "Admin";
+  const [clearedActivityIds, setClearedActivityIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const visibleActivities = useMemo(
+    () => activities.filter((activity) => !clearedActivityIds.has(activity.id)),
+    [activities, clearedActivityIds],
+  );
+
+  const metrics = [
+    {
+      label: "Prédios",
+      value: dashboard.buildings.length.toString(),
+      helper: `${dashboard.units.length} unidades cadastradas`,
+    },
+    {
+      label: "Moradores",
+      value: dashboard.people.length.toString(),
+      helper: `${occupiedUnits} unidades ocupadas`,
+    },
+    {
+      label: "Receita total",
+      value: formatCurrency(totalRevenue),
+      helper: "Cobranças não canceladas",
+    },
+    {
+      label: "Receita pendente",
+      value: formatCurrency(pendingRevenue),
+      helper: "Valores aguardando pagamento",
+    },
+  ];
 
   return (
     <div className="space-y-7">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+      <header className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <p className="text-sm font-bold text-[#6B7280]">Bom dia</p>
-          <h1 className="mt-1 text-4xl font-extrabold tracking-tight text-[#111827]">
-            {displayName}
+          <h1 className="text-4xl font-black tracking-tight text-[#111827] md:text-5xl">
+            {getGreeting()}, {displayName}
           </h1>
         </div>
 
-        <p className="pt-3 text-sm font-bold text-[#6B7280]">{formatToday()}</p>
-      </div>
+        <div className="rounded-full bg-white px-4 py-2 text-sm font-extrabold capitalize text-[#6B7280] shadow-sm">
+          <time>{formatToday()}</time>
+          {temperature !== null && <span>, {temperature}°</span>}
+        </div>
+      </header>
 
-      <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-6 shadow-sm">
-        <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-[#16A34A]">
-              Dashboard Admin
-            </p>
-            <h2 className="mt-3 text-2xl font-extrabold text-[#111827]">
-              {activeCondominium?.condominiumName ?? "Condomínio não selecionado"}
-            </h2>
-          </div>
-
-          <StatusBadge
-            label={activeCondominium?.status ?? "Sem condomínio"}
-            variant={activeCondominium ? "success" : "neutral"}
-          />
+      <section className="rounded-[2.25rem] border border-[#D9DEE5] bg-white p-5 shadow-sm md:p-7">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-[#16A34A]">
+            Dashboard Admin
+          </p>
+          <h2 className="mt-3 text-2xl font-black text-[#111827]">
+            {activeCondominium?.condominiumName ??
+              "Condomínio não selecionado"}
+          </h2>
         </div>
 
         {errorMessage && (
-          <div className="mb-5 rounded-2xl border border-[#FECACA] bg-[#FDECEC] px-4 py-3 text-sm font-bold text-[#B42318]">
-            {errorMessage}
-          </div>
+          <FeedbackMessage variant="danger">{errorMessage}</FeedbackMessage>
         )}
 
         {showLoading ? (
-          <EmptyPanel title="Carregando dashboard..." description="Buscando dados do backend." />
+          <div className="mt-6">
+            <EmptyState message="Carregando dados reais do condomínio..." />
+          </div>
         ) : !activeCondominiumId ? (
-          <EmptyPanel
-            title="Nenhum condomínio ativo"
-            description="Selecione ou solicite acesso a um condomínio para visualizar o painel."
-          />
+          <div className="mt-6">
+            <EmptyState message="Nenhum condomínio ativo vinculado ao seu usuário." />
+          </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <MetricCard
-                label="Prédios"
-                value={dashboard.buildings.length.toString()}
-                helper={`${dashboard.units.length} unidades cadastradas`}
-              />
-              <MetricCard
-                label="Moradores"
-                value={dashboard.people.length.toString()}
-                helper={`${occupiedUnits} unidades ocupadas`}
-              />
-              <MetricCard
-                label="Receita total"
-                value={formatCurrency(totalRevenue)}
-                helper="Cobranças não canceladas"
-              />
-              <MetricCard
-                label="Receita pendente"
-                value={formatCurrency(pendingRevenue)}
-                helper="Valores aguardando pagamento"
-              />
+            <div className="mt-7 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {metrics.map((metric) => (
+                <MetricCard
+                  key={metric.label}
+                  label={metric.label}
+                  value={metric.value}
+                  helper={metric.helper}
+                />
+              ))}
             </div>
 
-            <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
-              <ChartCard
+            <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
+              <ChartPanel
                 title="Prédios e moradores"
                 description="Unidades cadastradas e moradores vinculados por prédio."
               >
-                {buildingChartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={buildingChartData} margin={{ left: 0, right: 12 }}>
-                      <CartesianGrid stroke="#E5E7EB" strokeDasharray="4 8" vertical={false} />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                      <YAxis allowDecimals={false} axisLine={false} tickLine={false} width={36} />
-                      <Tooltip labelStyle={{ color: "#111827", fontWeight: 800 }} />
-                      <Bar
-                        dataKey="unidades"
-                        fill="#86EFAC"
-                        name="Unidades"
-                        radius={[12, 12, 0, 0]}
-                      />
-                      <Bar
-                        dataKey="moradores"
-                        fill="#16A34A"
-                        name="Moradores"
-                        radius={[12, 12, 0, 0]}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <EmptyChart message="Cadastre prédios para visualizar a operação do condomínio." />
-                )}
-              </ChartCard>
+                <BuildingBarChart data={buildingChartData} />
+              </ChartPanel>
 
-              <ChartCard
-                title="Receita"
+              <ChartPanel
+                title="Receita do condomínio"
                 description={`${formatCurrency(paidRevenue)} recebidos · ${formatCurrency(pendingRevenue)} pendentes`}
               >
-                {hasRevenueData(revenueChartData) ? (
-                  <ResponsiveContainer width="100%" height={280}>
-                    <AreaChart data={revenueChartData} margin={{ left: 0, right: 12 }}>
-                      <defs>
-                        <linearGradient id="adminRevenuePaid" x1="0" x2="0" y1="0" y2="1">
-                          <stop offset="0%" stopColor="#16A34A" stopOpacity={0.35} />
-                          <stop offset="100%" stopColor="#16A34A" stopOpacity={0.02} />
-                        </linearGradient>
-                        <linearGradient id="adminRevenuePending" x1="0" x2="0" y1="0" y2="1">
-                          <stop offset="0%" stopColor="#F59E0B" stopOpacity={0.28} />
-                          <stop offset="100%" stopColor="#F59E0B" stopOpacity={0.02} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid stroke="#E5E7EB" strokeDasharray="4 8" vertical={false} />
-                      <XAxis dataKey="month" axisLine={false} tickLine={false} />
-                      <YAxis
-                        axisLine={false}
-                        tickFormatter={(value) => formatShortCurrency(Number(value))}
-                        tickLine={false}
-                        width={58}
-                      />
-                      <Tooltip
-                        formatter={(value) => formatCurrency(Number(value))}
-                        labelStyle={{ color: "#111827", fontWeight: 800 }}
-                      />
-                      <Area
-                        dataKey="recebido"
-                        fill="url(#adminRevenuePaid)"
-                        name="Recebido"
-                        stroke="#16A34A"
-                        strokeWidth={3}
-                        type="monotone"
-                      />
-                      <Area
-                        dataKey="pendente"
-                        fill="url(#adminRevenuePending)"
-                        name="Pendente"
-                        stroke="#F59E0B"
-                        strokeWidth={3}
-                        type="monotone"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <EmptyChart message="Nenhuma cobrança real encontrada ainda." />
-                )}
-              </ChartCard>
+                <RevenueAreaChart data={revenueChartData} />
+              </ChartPanel>
             </div>
 
-            <section className="mt-5 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-6">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <section className="mt-6 rounded-[1.75rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5">
+              <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
                 <div>
-                  <h3 className="text-lg font-extrabold text-[#111827]">
+                  <h3 className="text-xl font-black text-[#111827]">
                     Atividades recentes
                   </h3>
                   <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-                    Últimos movimentos reais entre prédios, moradores, cobranças e convites.
+                    Últimos movimentos reais entre prédios, moradores, cobranças
+                    e convites.
                   </p>
                 </div>
-                <span className="rounded-full bg-[#DCFCE7] px-3 py-1 text-xs font-black text-[#0B3D2E]">
-                  {activities.length} registro(s)
-                </span>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="rounded-full bg-[#DCFCE7] px-3 py-1 text-xs font-black text-[#0B3D2E]">
+                    {visibleActivities.length} registro(s)
+                  </span>
+
+                  {visibleActivities.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setClearedActivityIds(new Set(activities.map((activity) => activity.id)))
+                      }
+                      className="cursor-pointer rounded-full border border-[#E5E7EB] bg-white px-4 py-2 text-xs font-black text-[#6B7280] transition hover:border-[#86EFAC] hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+                    >
+                      Limpar atividades
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="mt-6 space-y-3">
-                {activities.length === 0 ? (
-                  <p className="rounded-2xl bg-white px-4 py-5 text-sm font-bold text-[#6B7280]">
-                    Nenhuma atividade real registrada ainda.
-                  </p>
-                ) : (
-                  activities.map((activity) => (
-                    <article
-                      key={activity.id}
-                      className="flex flex-col gap-3 rounded-2xl bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div>
-                        <p className="text-sm font-bold text-[#111827]">{activity.title}</p>
-                        <p className="mt-1 text-xs font-semibold text-[#6B7280]">
-                          {activity.description}
-                        </p>
-                        <p className="mt-1 text-xs font-bold text-[#9CA3AF]">
+              {activities.length === 0 ? (
+                <EmptyState message="Nenhuma atividade real registrada ainda." />
+              ) : visibleActivities.length === 0 ? (
+                <EmptyState message="Atividades recentes limpas nesta sessão." />
+              ) : (
+                <div className="mt-5 max-h-[15.5rem] overflow-y-auto pr-2">
+                  <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                    {visibleActivities.map((activity) => (
+                      <article
+                        key={activity.id}
+                        className="rounded-2xl border border-[#E5E7EB] bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-md"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-black text-[#111827]">
+                              {activity.title}
+                            </p>
+                            <p className="mt-1 text-sm font-semibold text-[#6B7280]">
+                              {activity.description}
+                            </p>
+                          </div>
+
+                          <StatusBadge
+                            label={activity.badge}
+                            variant={activity.variant}
+                          />
+                        </div>
+
+                        <p className="mt-4 text-xs font-extrabold uppercase tracking-[0.16em] text-[#9CA3AF]">
                           {formatDateTime(activity.date)}
                         </p>
-                      </div>
-
-                      <StatusBadge label={activity.badge} variant={activity.variant} />
-                    </article>
-                  ))
-                )}
-              </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              )}
             </section>
           </>
         )}
@@ -357,7 +385,7 @@ export function AdminDashboardPage() {
   );
 }
 
-function ChartCard({
+function ChartPanel({
   title,
   description,
   children,
@@ -367,27 +395,148 @@ function ChartCard({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-5">
-      <h3 className="text-xl font-black text-[#111827]">{title}</h3>
-      <p className="mt-1 text-sm font-semibold text-[#6B7280]">{description}</p>
-      <div className="mt-5 rounded-[1.25rem] bg-white p-4">{children}</div>
-    </div>
+    <section className="flex h-full flex-col rounded-[1.75rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5">
+      <div>
+        <h3 className="text-xl font-black text-[#111827]">{title}</h3>
+        <p className="mt-1 text-sm font-semibold text-[#6B7280]">
+          {description}
+        </p>
+      </div>
+
+      <div className="mt-6 h-72 rounded-[1.5rem] bg-white px-3 py-5">
+        {children}
+      </div>
+    </section>
   );
 }
 
-function EmptyPanel({ title, description }: { title: string; description: string }) {
+function BuildingBarChart({ data }: { data: BuildingChartItem[] }) {
+  const hasValues = data.some(
+    (item) => item.unidades > 0 || item.moradores > 0,
+  );
+
+  if (!hasValues) {
+    return <EmptyState message="Cadastre prédios para visualizar a operação." />;
+  }
+
   return (
-    <div className="rounded-[1.5rem] border border-dashed border-[#D1D5DB] bg-[#F9FAFB] px-6 py-12 text-center">
-      <p className="text-lg font-extrabold text-[#111827]">{title}</p>
-      <p className="mt-2 text-sm font-semibold text-[#6B7280]">{description}</p>
-    </div>
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 10, right: 24, left: 8, bottom: 0 }}>
+        <CartesianGrid stroke="#E5E7EB" strokeDasharray="4 8" vertical={false} />
+        <XAxis
+          dataKey="name"
+          axisLine={false}
+          tickLine={false}
+          tickMargin={12}
+          tick={{ fill: "#6B7280", fontSize: 12, fontWeight: 800 }}
+        />
+        <YAxis
+          width={46}
+          allowDecimals={false}
+          axisLine={false}
+          tickLine={false}
+          tick={{ fill: "#9CA3AF", fontSize: 12, fontWeight: 800 }}
+        />
+        <Tooltip contentStyle={tooltipStyle} />
+        <Bar
+          dataKey="unidades"
+          fill="#86EFAC"
+          name="Unidades"
+          radius={[12, 12, 0, 0]}
+        />
+        <Bar
+          dataKey="moradores"
+          fill="#16A34A"
+          name="Moradores"
+          radius={[12, 12, 0, 0]}
+        />
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
 
-function EmptyChart({ message }: { message: string }) {
+function RevenueAreaChart({ data }: { data: RevenueChartItem[] }) {
+  const hasValues = data.some((item) => item.recebido > 0 || item.pendente > 0);
+
+  if (!hasValues) {
+    return <EmptyState message="Nenhuma cobrança real encontrada ainda." />;
+  }
+
   return (
-    <div className="flex h-[280px] items-center justify-center rounded-2xl border border-dashed border-[#D1D5DB] bg-[#F9FAFB] px-6 text-center text-sm font-bold text-[#6B7280]">
-      {message}
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={data} margin={{ top: 10, right: 24, left: 8, bottom: 0 }}>
+        <defs>
+          <linearGradient id="adminRevenuePaid" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="5%" stopColor="#16A34A" stopOpacity={0.35} />
+            <stop offset="95%" stopColor="#16A34A" stopOpacity={0.02} />
+          </linearGradient>
+          <linearGradient id="adminRevenuePending" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.28} />
+            <stop offset="95%" stopColor="#F59E0B" stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid stroke="#E5E7EB" strokeDasharray="4 8" vertical={false} />
+        <XAxis
+          dataKey="month"
+          axisLine={false}
+          tickLine={false}
+          tickMargin={12}
+          tick={{ fill: "#6B7280", fontSize: 12, fontWeight: 800 }}
+        />
+        <YAxis
+          width={46}
+          axisLine={false}
+          tickFormatter={(value) => formatCompactCurrency(Number(value))}
+          tickLine={false}
+          tick={{ fill: "#9CA3AF", fontSize: 12, fontWeight: 800 }}
+        />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          formatter={(value) => formatCurrency(Number(value))}
+        />
+        <Area
+          dataKey="recebido"
+          fill="url(#adminRevenuePaid)"
+          name="Recebido"
+          stroke="#16A34A"
+          strokeWidth={4}
+          type="linear"
+        />
+        <Area
+          dataKey="pendente"
+          fill="url(#adminRevenuePending)"
+          name="Pendente"
+          stroke="#F59E0B"
+          strokeWidth={3}
+          type="linear"
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+function FeedbackMessage({
+  children,
+  variant,
+}: {
+  children: string;
+  variant: "danger";
+}) {
+  const classes = {
+    danger: "border border-[#FECACA] bg-[#FDECEC] text-[#B42318]",
+  };
+
+  return (
+    <p className={`mt-6 rounded-2xl px-4 py-3 text-sm font-bold ${classes[variant]}`}>
+      {children}
+    </p>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex h-full min-h-40 items-center justify-center rounded-2xl border border-dashed border-[#D0D5DD] bg-white px-5 py-8 text-center">
+      <p className="text-sm font-extrabold text-[#6B7280]">{message}</p>
     </div>
   );
 }
@@ -413,7 +562,8 @@ function buildActivities(dashboard: DashboardState): Activity[] {
     ...dashboard.people.map((person) => ({
       id: `person-${person.id}`,
       title: `${person.name} cadastrado`,
-      description: person.mainUnit || person.condominiumName || "Pessoa vinculada ao condomínio",
+      description:
+        person.mainUnit || person.condominiumName || "Pessoa vinculada ao condomínio",
       badge: "Morador",
       variant: "neutral" as const,
       date: person.createdAt,
@@ -449,12 +599,15 @@ function buildActivities(dashboard: DashboardState): Activity[] {
       date: item.createdAt,
     })),
   ]
-    .sort((first, second) => new Date(second.date).getTime() - new Date(first.date).getTime())
+    .sort(
+      (first, second) =>
+        new Date(second.date).getTime() - new Date(first.date).getTime(),
+    )
     .slice(0, 8);
 }
 
 function buildRevenueChart(charges: ChargeResponse[]): RevenueChartItem[] {
-  const months = getLastSixMonths();
+  const months = getLastMonths(6);
   const data = new Map(
     months.map((month) => [
       month.key,
@@ -469,8 +622,7 @@ function buildRevenueChart(charges: ChargeResponse[]): RevenueChartItem[] {
   charges
     .filter((charge) => charge.status !== CHARGE_STATUS_CANCELED)
     .forEach((charge) => {
-      const key = getMonthKey(charge.dueDate);
-      const item = data.get(key);
+      const item = data.get(getMonthKey(new Date(charge.dueDate)));
 
       if (!item) {
         return;
@@ -480,7 +632,10 @@ function buildRevenueChart(charges: ChargeResponse[]): RevenueChartItem[] {
         item.recebido += charge.value;
       }
 
-      if (charge.status === CHARGE_STATUS_PENDING || charge.status === CHARGE_STATUS_OVERDUE) {
+      if (
+        charge.status === CHARGE_STATUS_PENDING ||
+        charge.status === CHARGE_STATUS_OVERDUE
+      ) {
         item.pendente += charge.value;
       }
     });
@@ -496,18 +651,18 @@ function buildBuildingChart(buildings: BuildingResponse[]): BuildingChartItem[] 
   }));
 }
 
-function hasRevenueData(data: RevenueChartItem[]) {
-  return data.some((item) => item.recebido > 0 || item.pendente > 0);
-}
-
-function getLastSixMonths() {
+function getLastMonths(amount: number) {
   const today = new Date();
 
-  return Array.from({ length: 6 }, (_, index) => {
-    const date = new Date(today.getFullYear(), today.getMonth() - (5 - index), 1);
+  return Array.from({ length: amount }, (_, index) => {
+    const date = new Date(
+      today.getFullYear(),
+      today.getMonth() - (amount - 1 - index),
+      1,
+    );
 
     return {
-      key: getMonthKey(date.toISOString()),
+      key: getMonthKey(date),
       label: new Intl.DateTimeFormat("pt-BR", { month: "short" })
         .format(date)
         .replace(".", ""),
@@ -515,8 +670,7 @@ function getLastSixMonths() {
   });
 }
 
-function getMonthKey(value: string) {
-  const date = new Date(value);
+function getMonthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
@@ -537,6 +691,14 @@ function getChargeStatusVariant(status: ChargeResponse["status"]): Activity["var
   if (status === CHARGE_STATUS_PENDING) return "warning";
   if (status === CHARGE_STATUS_OVERDUE) return "danger";
   return "neutral";
+}
+
+function getGreeting() {
+  const hour = new Date().getHours();
+
+  if (hour < 12) return "Bom dia";
+  if (hour < 18) return "Boa tarde";
+  return "Boa noite";
 }
 
 function formatToday() {
@@ -572,10 +734,17 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-function formatShortCurrency(value: number) {
-  if (value >= 1000) {
-    return `R$ ${Math.round(value / 1000)}k`;
-  }
-
-  return `R$ ${Math.round(value)}`;
+function formatCompactCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    notation: "compact",
+    compactDisplay: "short",
+    maximumFractionDigits: 1,
+  }).format(value);
 }
+
+const tooltipStyle = {
+  border: "1px solid #E5E7EB",
+  borderRadius: "16px",
+  boxShadow: "0 18px 40px rgba(17, 24, 39, 0.08)",
+  fontWeight: 800,
+};

@@ -10,6 +10,9 @@ export type BuildingResponse = {
   unitCount: number;
   residentCount: number;
   occupiedUnitCount: number;
+  syndicUserId: number | null;
+  syndicName: string;
+  syndicEmail: string;
   status: string;
   createdAt: string;
   updatedAt: string;

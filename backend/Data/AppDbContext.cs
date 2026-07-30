@@ -232,6 +232,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             });
 
         builder.Entity<Occurrence>()
+            .Property(o => o.Type)
+            .HasDefaultValue(OccurrenceType.Maintenance);
+
+        builder.Entity<Occurrence>()
             .HasOne(o => o.Condominium)
             .WithMany()
             .HasForeignKey(o => o.CondominiumId)

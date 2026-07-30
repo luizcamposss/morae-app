@@ -30,17 +30,85 @@ const unitTypeOptions = [
 ];
 
 const relationshipOptions = [
-  { value: 1, label: "Proprietario" },
+  { value: 1, label: "Proprietário" },
   { value: 2, label: "Morador" },
   { value: 3, label: "Inquilino" },
 ];
 
+const UNIT_STATUS_FILTERS = [
+  { value: "all", label: "Todos" },
+  { value: "Ocupada", label: "Ocupadas" },
+  { value: "Vaga", label: "Vagas" },
+];
+
+const UNIT_FIELD_LIMITS = {
+  number: 20,
+  rooms: 20,
+  bathrooms: 20,
+  squareMeters: 10000,
+  observations: 500,
+};
+
+function validateUnitForm(form: CreateUnitRequest) {
+  const number = form.number.trim();
+  const observations = form.observations.trim();
+
+  if (!number) {
+    return "Informe o número da unidade.";
+  }
+
+  if (number.length > UNIT_FIELD_LIMITS.number) {
+    return "O número da unidade deve ter no máximo 20 caracteres.";
+  }
+
+  if (form.unitType < 1 || form.unitType > 6) {
+    return "Selecione um tipo de unidade válido.";
+  }
+
+  if (Number.isNaN(form.rooms) || form.rooms < 0 || form.rooms > UNIT_FIELD_LIMITS.rooms) {
+    return "Informe uma quantidade de quartos entre 0 e 20.";
+  }
+
+  if (
+    Number.isNaN(form.bathrooms) ||
+    form.bathrooms < 0 ||
+    form.bathrooms > UNIT_FIELD_LIMITS.bathrooms
+  ) {
+    return "Informe uma quantidade de banheiros entre 0 e 20.";
+  }
+
+  if (
+    Number.isNaN(form.squareMeters) ||
+    form.squareMeters < 0 ||
+    form.squareMeters > UNIT_FIELD_LIMITS.squareMeters
+  ) {
+    return "Informe uma metragem entre 0 e 10.000 m².";
+  }
+
+  if (observations.length > UNIT_FIELD_LIMITS.observations) {
+    return "As observações devem ter no máximo 500 caracteres.";
+  }
+
+  return "";
+}
+
+function sanitizeUnitForm(form: CreateUnitRequest): CreateUnitRequest {
+  return {
+    number: form.number.trim(),
+    unitType: form.unitType,
+    rooms: Number(form.rooms),
+    bathrooms: Number(form.bathrooms),
+    squareMeters: Number(form.squareMeters),
+    observations: form.observations.trim(),
+  };
+}
+
 function getUnitTypeLabel(unitType: number) {
-  return unitTypeOptions.find((option) => option.value === unitType)?.label ?? "Nao informado";
+  return unitTypeOptions.find((option) => option.value === unitType)?.label ?? "Não informado";
 }
 
 function getRelationshipLabel(relationshipType: number) {
-  return relationshipOptions.find((option) => option.value === relationshipType)?.label ?? "Nao informado";
+  return relationshipOptions.find((option) => option.value === relationshipType)?.label ?? "Não informado";
 }
 
 function getUnitStatusVariant(status: string) {
@@ -59,7 +127,6 @@ export function UnitsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const {
     condominiums,
-    activeCondominium,
     activeCondominiumId,
     isLoading: isLoadingCondominiums,
     errorMessage: condominiumErrorMessage,
@@ -79,22 +146,27 @@ export function UnitsPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [isBuildingSelectOpen, setIsBuildingSelectOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [isStatusFilterOpen, setIsStatusFilterOpen] = useState(false);
 
   const selectedBuilding = availableBuildings.find((building) => building.id === selectedBuildingId) ?? null;
+  const selectedStatusFilter = UNIT_STATUS_FILTERS.find((filter) => filter.value === statusFilter);
 
   const filteredUnits = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
-    if (!normalizedSearch) {
-      return units;
-    }
+    return units.filter((unit) => {
+      const matchesStatus = statusFilter === "all" || unit.status === statusFilter;
+      const matchesSearch =
+        !normalizedSearch ||
+        unit.number.toLowerCase().includes(normalizedSearch) ||
+        unit.buildingName.toLowerCase().includes(normalizedSearch) ||
+        unit.responsiblePersonName.toLowerCase().includes(normalizedSearch);
 
-    return units.filter((unit) =>
-      unit.number.toLowerCase().includes(normalizedSearch) ||
-      unit.buildingName.toLowerCase().includes(normalizedSearch) ||
-      unit.responsiblePersonName.toLowerCase().includes(normalizedSearch),
-    );
-  }, [searchTerm, units]);
+      return matchesStatus && matchesSearch;
+    });
+  }, [searchTerm, statusFilter, units]);
 
   const totalUnits = units.length;
   const occupiedUnits = units.filter((unit) => unit.status === "Ocupada").length;
@@ -103,24 +175,24 @@ export function UnitsPage() {
 
   const metrics = [
     {
-      label: "Total",
+      label: "Unidades",
       value: totalUnits.toString(),
-      helper: "Unidades cadastradas",
+      helper: "Cadastradas no prédio",
     },
     {
-      label: "Ocupadas",
+      label: "Com vínculo",
       value: occupiedUnits.toString(),
-      helper: "Com morador vinculado",
+      helper: "Possuem responsável",
     },
     {
-      label: "Vagas",
+      label: "Sem vínculo",
       value: vacantUnits.toString(),
-      helper: "Sem morador vinculado",
+      helper: "Disponíveis para cadastro",
     },
     {
       label: "Moradores",
       value: totalResidents.toString(),
-      helper: "Vinculos encontrados",
+      helper: "Vínculos ativos",
     },
   ];
 
@@ -153,7 +225,7 @@ export function UnitsPage() {
       if (error instanceof Error) {
         setErrorMessage(error.message);
       } else {
-        setErrorMessage("Nao foi possivel carregar os predios.");
+        setErrorMessage("Não foi possível carregar os prédios.");
       }
     } finally {
       setIsLoadingBuildings(false);
@@ -173,7 +245,7 @@ export function UnitsPage() {
       if (error instanceof Error) {
         setErrorMessage(error.message);
       } else {
-        setErrorMessage("Nao foi possivel carregar as unidades.");
+        setErrorMessage("Não foi possível carregar as unidades.");
       }
     } finally {
       setIsLoadingUnits(false);
@@ -228,13 +300,8 @@ export function UnitsPage() {
               Unidades
             </h1>
             <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-              Gerencie apartamentos, responsaveis e ocupacao das unidades.
+              Organize apartamentos, responsáveis e vínculos de cada unidade.
             </p>
-            {activeCondominium && (
-              <p className="mt-2 text-sm font-semibold text-[#16A34A]">
-                Condominio ativo: {activeCondominium.condominiumName}
-              </p>
-            )}
           </div>
 
           <div className="flex flex-col gap-3 md:items-end">
@@ -259,7 +326,7 @@ export function UnitsPage() {
               type="button"
               disabled={!selectedBuildingId}
               onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
+              className="h-11 cursor-pointer rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
             >
               + Nova Unidade
             </button>
@@ -278,44 +345,133 @@ export function UnitsPage() {
         </div>
 
         <div className="mt-6 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-4">
-          <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(220px,280px)_1fr_auto]">
-            <select
-              value={selectedBuildingId ?? ""}
-              onChange={(event) => handleBuildingChange(Number(event.target.value))}
-              disabled={availableBuildings.length === 0}
-              className="h-11 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30 disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {availableBuildings.length === 0 ? (
-                <option value="">Nenhum predio disponivel</option>
-              ) : (
-                availableBuildings.map((building) => (
-                  <option key={building.id} value={building.id}>
-                    {building.name}
-                  </option>
-                ))
+          <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-[1fr_max-content_minmax(140px,170px)]">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Buscar unidade, prédio ou responsável..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 pr-11 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
+              />
+
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  aria-label="Limpar busca"
+                  className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-base font-extrabold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+                >
+                  ×
+                </button>
               )}
-            </select>
+            </div>
 
-            <input
-              type="search"
-              placeholder="Buscar unidade, predio ou responsavel..."
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              className="h-11 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-            />
-
-            <button
-              type="button"
-              onClick={() => setSearchTerm("")}
-              className="h-11 rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+            <div
+              className="relative"
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) {
+                  setIsBuildingSelectOpen(false);
+                }
+              }}
             >
-              Todos
-            </button>
+              <button
+                type="button"
+                disabled={availableBuildings.length === 0}
+                onClick={() => setIsBuildingSelectOpen((current) => !current)}
+                className={`flex h-11 min-w-40 max-w-72 items-center justify-between gap-3 rounded-2xl border bg-white px-4 text-left text-sm font-bold text-[#111827] outline-none transition disabled:cursor-not-allowed disabled:opacity-70 ${isBuildingSelectOpen
+                    ? "border-[#22C55E] ring-4 ring-[#86EFAC]/30"
+                    : "border-[#E5E7EB] hover:border-[#86EFAC]"
+                  } ${availableBuildings.length === 0 ? "cursor-not-allowed" : "cursor-pointer"}`}
+              >
+                <span className="truncate">{selectedBuilding?.name ?? "Nenhum prédio disponível"}</span>
+                <span className={`text-[#6B7280] transition ${isBuildingSelectOpen ? "rotate-180" : ""}`}>
+                  ▾
+                </span>
+              </button>
+
+              {isBuildingSelectOpen && availableBuildings.length > 0 && (
+                <div className="absolute left-0 right-0 z-30 mt-2 overflow-hidden rounded-2xl border border-[#D9DEE5] bg-white p-1 shadow-xl shadow-[#111827]/10">
+                  {availableBuildings.map((building) => {
+                    const isSelected = building.id === selectedBuildingId;
+
+                    return (
+                      <button
+                        key={building.id}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          handleBuildingChange(building.id);
+                          setIsBuildingSelectOpen(false);
+                        }}
+                        className={`flex h-10 w-full cursor-pointer items-center rounded-xl px-3 text-left text-sm font-bold transition ${isSelected
+                            ? "bg-[#DCFCE7] text-[#0B3D2E]"
+                            : "text-[#4B5563] hover:bg-[#F3F4F6] hover:text-[#111827]"
+                          }`}
+                      >
+                        {building.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div
+              className="relative"
+              onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget)) {
+                  setIsStatusFilterOpen(false);
+                }
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setIsStatusFilterOpen((current) => !current)}
+                className={`flex h-11 min-w-36 cursor-pointer items-center justify-between rounded-2xl border bg-white px-4 text-left text-sm font-bold text-[#111827] outline-none transition ${
+                  isStatusFilterOpen
+                    ? "border-[#22C55E] ring-4 ring-[#86EFAC]/30"
+                    : "border-[#E5E7EB] hover:border-[#86EFAC]"
+                }`}
+              >
+                <span>{selectedStatusFilter?.label ?? "Filtrar"}</span>
+                <span className={`text-[#6B7280] transition ${isStatusFilterOpen ? "rotate-180" : ""}`}>
+                  ▾
+                </span>
+              </button>
+
+              {isStatusFilterOpen && (
+                <div className="absolute right-0 z-30 mt-2 w-40 overflow-hidden rounded-2xl border border-[#D9DEE5] bg-white p-1 shadow-xl shadow-[#111827]/10">
+                  {UNIT_STATUS_FILTERS.map((filter) => {
+                    const isSelected = filter.value === statusFilter;
+
+                    return (
+                      <button
+                        key={filter.value}
+                        type="button"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => {
+                          setStatusFilter(filter.value);
+                          setIsStatusFilterOpen(false);
+                        }}
+                        className={`flex h-10 w-full cursor-pointer items-center rounded-xl px-3 text-left text-sm font-bold transition ${
+                          isSelected
+                            ? "bg-[#DCFCE7] text-[#0B3D2E]"
+                            : "text-[#4B5563] hover:bg-[#F3F4F6] hover:text-[#111827]"
+                        }`}
+                      >
+                        {filter.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           {selectedBuilding && (
             <p className="mb-4 text-sm font-semibold text-[#6B7280]">
-              Predio selecionado: <span className="text-[#111827]">{selectedBuilding.name}</span>
+              Prédio selecionado: <span className="text-[#111827]">{selectedBuilding.name}</span>
             </p>
           )}
 
@@ -345,13 +501,13 @@ export function UnitsPage() {
               <p className="mt-2 text-sm font-semibold text-[#6B7280]">
                 {searchTerm
                   ? "Tente outro termo para localizar a unidade."
-                  : "Cadastre a primeira unidade deste predio para continuar."}
+                  : "Cadastre a primeira unidade deste prédio para continuar."}
               </p>
               {!searchTerm && selectedBuildingId && (
                 <button
                   type="button"
                   onClick={() => setIsCreateOpen(true)}
-                  className="mt-6 h-11 rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E]"
+                  className="mt-6 h-11 cursor-pointer rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E]"
                 >
                   + Nova Unidade
                 </button>
@@ -362,12 +518,12 @@ export function UnitsPage() {
               <table className="w-full border-collapse text-left text-sm">
                 <thead className="bg-[#DCFCE7] text-xs uppercase tracking-wide text-[#0B3D2E]">
                   <tr>
-                    <th className="px-4 py-3 font-extrabold">Predio</th>
+                    <th className="px-4 py-3 font-extrabold">Prédio</th>
                     <th className="px-4 py-3 font-extrabold">Unidade</th>
                     <th className="px-4 py-3 font-extrabold">Tipo</th>
-                    <th className="px-4 py-3 font-extrabold">Responsavel</th>
+                    <th className="px-4 py-3 font-extrabold">Responsável</th>
                     <th className="px-4 py-3 font-extrabold">Status</th>
-                    <th className="px-4 py-3 font-extrabold">Acoes</th>
+                    <th className="px-4 py-3 font-extrabold">Ações</th>
                   </tr>
                 </thead>
 
@@ -384,7 +540,7 @@ export function UnitsPage() {
                         {getUnitTypeLabel(unit.unitType)}
                       </td>
                       <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                        {unit.responsiblePersonName || "Sem responsavel"}
+                        {unit.responsiblePersonName || "Sem responsável"}
                       </td>
                       <td className="px-4 py-4">
                         <StatusBadge
@@ -397,28 +553,28 @@ export function UnitsPage() {
                           <button
                             type="button"
                             onClick={() => setViewingUnit(unit)}
-                            className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+                            className="cursor-pointer rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
                           >
                             Ver
                           </button>
                           <button
                             type="button"
                             onClick={() => setEditingUnit(unit)}
-                            className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+                            className="cursor-pointer rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
                           >
                             Editar
                           </button>
                           <button
                             type="button"
                             onClick={() => setLinkingUnit(unit)}
-                            className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+                            className="cursor-pointer rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
                           >
                             Vincular pessoa
                           </button>
                           <button
                             type="button"
                             onClick={() => setDeletingUnit(unit)}
-                            className="rounded-xl border border-[#FECACA] bg-white px-3 py-1.5 text-xs font-bold text-[#B42318] transition hover:bg-[#FDECEC]"
+                            className="cursor-pointer rounded-xl border border-[#FECACA] bg-white px-3 py-1.5 text-xs font-bold text-[#B42318] transition hover:bg-[#FDECEC]"
                           >
                             Excluir
                           </button>
@@ -430,10 +586,6 @@ export function UnitsPage() {
               </table>
             </div>
           )}
-
-          <p className="mt-4 text-sm font-semibold text-[#6B7280]">
-            Este modulo agora cobre cadastro, edicao, visualizacao, ocupacao e exclusao de unidades.
-          </p>
         </div>
       </section>
 
@@ -464,6 +616,10 @@ export function UnitsPage() {
         <ViewUnitModal
           unit={viewingUnit}
           onClose={() => setViewingUnit(null)}
+          onChanged={async (message) => {
+            await refreshCurrentUnits();
+            setSuccessMessage(message);
+          }}
         />
       )}
 
@@ -513,6 +669,7 @@ type EditUnitModalProps = {
 type ViewUnitModalProps = {
   unit: UnitResponse;
   onClose: () => void;
+  onChanged: (message: string) => Promise<void>;
 };
 
 type ManageUnitPeopleModalProps = {
@@ -531,7 +688,7 @@ type DeleteUnitModalProps = {
 function ModalShell({ title, children, onClose }: ModalProps & { title: string; children: ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B3D2E]/30 px-6 py-8 backdrop-blur-sm">
-      <div className="w-full max-w-4xl overflow-hidden rounded-[2rem] border border-[#E5E7EB] bg-white shadow-2xl shadow-[#0B3D2E]/20">
+      <div className="flex max-h-[calc(100vh-4rem)] w-full max-w-4xl flex-col overflow-hidden rounded-[2rem] border border-[#E5E7EB] bg-white shadow-2xl shadow-[#0B3D2E]/20">
         <div className="flex items-center justify-between border-b border-[#E5E7EB] px-6 py-5">
           <h2 className="text-2xl font-extrabold text-[#111827]">
             {title}
@@ -540,13 +697,13 @@ function ModalShell({ title, children, onClose }: ModalProps & { title: string; 
           <button
             type="button"
             onClick={onClose}
-            className="flex size-10 items-center justify-center rounded-full bg-[#F3F4F6] text-xl font-light text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
+            className="flex size-10 cursor-pointer items-center justify-center rounded-full bg-[#F3F4F6] text-xl font-light text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
           >
             x
           </button>
         </div>
 
-        <div className="px-8 py-7">
+        <div className="morae-scrollbar overflow-y-auto px-8 py-7">
           {children}
         </div>
       </div>
@@ -574,17 +731,25 @@ function CreateUnitModal({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage("");
-    setIsSubmitting(true);
+
+    const payload = sanitizeUnitForm(form);
+    const validationMessage = validateUnitForm(payload);
+
+    if (validationMessage) {
+      setErrorMessage(validationMessage);
+      return;
+    }
 
     try {
-      await createUnit(buildingId, form);
+      setIsSubmitting(true);
+      await createUnit(buildingId, payload);
       await onCreated();
       onClose();
     } catch (error) {
       if (error instanceof Error) {
         setErrorMessage(error.message);
       } else {
-        setErrorMessage("Nao foi possivel cadastrar a unidade.");
+        setErrorMessage("Não foi possível cadastrar a unidade.");
       }
     } finally {
       setIsSubmitting(false);
@@ -592,9 +757,9 @@ function CreateUnitModal({
   }
 
   return (
-    <ModalShell title="Cadastrar Nova Unidade" onClose={onClose}>
+    <ModalShell title="Cadastrar nova unidade" onClose={onClose}>
       <form className="space-y-6" onSubmit={handleSubmit}>
-        <ReadOnlyField label="Predio" value={buildingName} />
+        <ReadOnlyField label="Prédio" value={buildingName} />
         <UnitFormFields form={form} onChange={setForm} />
 
         {errorMessage && (
@@ -606,7 +771,7 @@ function CreateUnitModal({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="h-12 w-full rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
+          className="h-12 w-full cursor-pointer rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isSubmitting ? "Cadastrando..." : "Cadastrar"}
         </button>
@@ -634,17 +799,25 @@ function EditUnitModal({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage("");
-    setIsSubmitting(true);
+
+    const payload = sanitizeUnitForm(form);
+    const validationMessage = validateUnitForm(payload);
+
+    if (validationMessage) {
+      setErrorMessage(validationMessage);
+      return;
+    }
 
     try {
-      await updateUnit(unit.id, form);
+      setIsSubmitting(true);
+      await updateUnit(unit.id, payload);
       await onUpdated();
       onClose();
     } catch (error) {
       if (error instanceof Error) {
         setErrorMessage(error.message);
       } else {
-        setErrorMessage("Nao foi possivel atualizar a unidade.");
+        setErrorMessage("Não foi possível atualizar a unidade.");
       }
     } finally {
       setIsSubmitting(false);
@@ -654,7 +827,7 @@ function EditUnitModal({
   return (
     <ModalShell title="Editar Unidade" onClose={onClose}>
       <form className="space-y-6" onSubmit={handleSubmit}>
-        <ReadOnlyField label="Predio" value={unit.buildingName} />
+        <ReadOnlyField label="Prédio" value={unit.buildingName} />
         <UnitFormFields form={form} onChange={setForm} />
 
         {errorMessage && (
@@ -666,62 +839,92 @@ function EditUnitModal({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="h-12 w-full rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
+          className="h-12 w-full cursor-pointer rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {isSubmitting ? "Salvando..." : "Salvar alteracoes"}
+          {isSubmitting ? "Salvando..." : "Salvar alterações"}
         </button>
       </form>
     </ModalShell>
   );
 }
 
-function ViewUnitModal({ unit, onClose }: ViewUnitModalProps) {
+function ViewUnitModal({ unit, onClose, onChanged }: ViewUnitModalProps) {
   const [linkedPeople, setLinkedPeople] = useState<PersonUnitResponse[]>([]);
   const [isLoadingPeople, setIsLoadingPeople] = useState(true);
+  const [removingPersonUnitId, setRemovingPersonUnitId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
 
-  useEffect(() => {
-    async function loadLinkedPeople() {
-      try {
-        setErrorMessage("");
-        setIsLoadingPeople(true);
-        const result = await getPeopleByUnit(unit.id);
-        setLinkedPeople(result);
-      } catch (error) {
-        if (error instanceof Error) {
-          setErrorMessage(error.message);
-        } else {
-          setErrorMessage("Nao foi possivel carregar os vinculos da unidade.");
-        }
-      } finally {
-        setIsLoadingPeople(false);
-      }
-    }
+  const currentResidentCount = isLoadingPeople ? unit.residentCount : linkedPeople.length;
+  const currentStatus = isLoadingPeople ? unit.status : linkedPeople.length > 0 ? "Ocupada" : "Vaga";
+  const responsiblePersonName = isLoadingPeople
+    ? unit.responsiblePersonName
+    : linkedPeople.find((linkedPerson) => linkedPerson.relationshipType === 1)?.personName ??
+      linkedPeople[0]?.personName ??
+      "";
 
+  async function loadLinkedPeople() {
+    try {
+      setErrorMessage("");
+      setIsLoadingPeople(true);
+      const result = await getPeopleByUnit(unit.id);
+      setLinkedPeople(result);
+    } catch (error) {
+      if (error instanceof Error) {
+        setErrorMessage(error.message);
+      } else {
+        setErrorMessage("Não foi possível carregar os vínculos da unidade.");
+      }
+    } finally {
+      setIsLoadingPeople(false);
+    }
+  }
+
+  useEffect(() => {
     void loadLinkedPeople();
   }, [unit.id]);
+
+  async function handleRemoveLink(personUnitId: number) {
+    try {
+      setErrorMessage("");
+      setRemovingPersonUnitId(personUnitId);
+      await removePersonUnit(personUnitId);
+      await loadLinkedPeople();
+      await onChanged("Pessoa desvinculada da unidade com sucesso.");
+    } catch (error) {
+      if (error instanceof Error) {
+        setErrorMessage(error.message);
+      } else {
+        setErrorMessage("Não foi possível desvincular a pessoa.");
+      }
+    } finally {
+      setRemovingPersonUnitId(null);
+    }
+  }
 
   return (
     <ModalShell title="Detalhes da Unidade" onClose={onClose}>
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <ReadOnlyField label="Predio" value={unit.buildingName} />
+          <ReadOnlyField label="Prédio" value={unit.buildingName} />
           <ReadOnlyField label="Unidade" value={unit.number} />
           <ReadOnlyField label="Tipo" value={getUnitTypeLabel(unit.unitType)} />
-          <ReadOnlyField label="Status" value={unit.status} />
+          <ReadOnlyField label="Status" value={currentStatus} />
           <ReadOnlyField label="Quartos" value={unit.rooms.toString()} />
           <ReadOnlyField label="Banheiros" value={unit.bathrooms.toString()} />
           <ReadOnlyField label="Metros quadrados" value={unit.squareMeters.toString()} />
-          <ReadOnlyField label="Moradores vinculados" value={unit.residentCount.toString()} />
           <ReadOnlyField
-            label="Responsavel"
-            value={unit.responsiblePersonName || "Sem responsavel"}
+            label="Moradores vinculados"
+            value={currentResidentCount.toString()}
+          />
+          <ReadOnlyField
+            label="Responsável"
+            value={responsiblePersonName || "Sem responsável"}
           />
         </div>
 
         <ReadOnlyTextArea
-          label="Observacoes"
-          value={unit.observations || "Sem observacoes"}
+          label="Observações"
+          value={unit.observations || "Sem observações"}
         />
 
         <section className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-5">
@@ -731,7 +934,7 @@ function ViewUnitModal({ unit, onClose }: ViewUnitModalProps) {
 
           {isLoadingPeople && (
             <p className="mt-3 text-sm font-semibold text-[#6B7280]">
-              Carregando vinculos...
+              Carregando vínculos...
             </p>
           )}
 
@@ -752,7 +955,7 @@ function ViewUnitModal({ unit, onClose }: ViewUnitModalProps) {
               {linkedPeople.map((linkedPerson) => (
                 <div
                   key={linkedPerson.id}
-                  className="flex items-center justify-between rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3"
+                  className="flex flex-col gap-3 rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 md:flex-row md:items-center md:justify-between"
                 >
                   <div>
                     <p className="text-sm font-extrabold text-[#111827]">
@@ -763,10 +966,21 @@ function ViewUnitModal({ unit, onClose }: ViewUnitModalProps) {
                     </p>
                   </div>
 
-                  <StatusBadge
-                    label={getRelationshipLabel(linkedPerson.relationshipType)}
-                    variant="neutral"
-                  />
+                  <div className="flex flex-wrap items-center gap-3">
+                    <StatusBadge
+                      label={getRelationshipLabel(linkedPerson.relationshipType)}
+                      variant="neutral"
+                    />
+
+                    <button
+                      type="button"
+                      disabled={removingPersonUnitId === linkedPerson.id}
+                      onClick={() => void handleRemoveLink(linkedPerson.id)}
+                      className="cursor-pointer rounded-xl border border-[#FECACA] bg-white px-3 py-1.5 text-xs font-bold text-[#B42318] transition hover:bg-[#FDECEC] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {removingPersonUnitId === linkedPerson.id ? "Removendo..." : "Desvincular"}
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -817,7 +1031,7 @@ function ManageUnitPeopleModal({
       if (error instanceof Error) {
         setErrorMessage(error.message);
       } else {
-        setErrorMessage("Nao foi possivel carregar os dados da unidade.");
+        setErrorMessage("Não foi possível carregar os dados da unidade.");
       }
     } finally {
       setIsLoading(false);
@@ -866,7 +1080,7 @@ function ManageUnitPeopleModal({
       if (error instanceof Error) {
         setErrorMessage(error.message);
       } else {
-        setErrorMessage("Nao foi possivel vincular a pessoa.");
+        setErrorMessage("Não foi possível vincular a pessoa.");
       }
     } finally {
       setIsSubmitting(false);
@@ -883,7 +1097,7 @@ function ManageUnitPeopleModal({
       if (error instanceof Error) {
         setErrorMessage(error.message);
       } else {
-        setErrorMessage("Nao foi possivel remover o vinculo.");
+        setErrorMessage("Não foi possível remover o vínculo.");
       }
     }
   }
@@ -892,18 +1106,18 @@ function ManageUnitPeopleModal({
     <ModalShell title="Vincular Pessoas a Unidade" onClose={onClose}>
       <div className="space-y-6">
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <ReadOnlyField label="Predio" value={unit.buildingName} />
+          <ReadOnlyField label="Prédio" value={unit.buildingName} />
           <ReadOnlyField label="Unidade" value={unit.number} />
         </div>
 
         <section className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-5">
           <h3 className="text-sm font-extrabold uppercase tracking-wide text-[#0B3D2E]">
-            Vinculos atuais
+            Vínculos atuais
           </h3>
 
           {isLoading && (
             <p className="mt-3 text-sm font-semibold text-[#6B7280]">
-              Carregando vinculos...
+              Carregando vínculos...
             </p>
           )}
 
@@ -932,9 +1146,9 @@ function ManageUnitPeopleModal({
                   <button
                     type="button"
                     onClick={() => void handleRemoveLink(linkedPerson.id)}
-                    className="rounded-xl border border-[#FECACA] bg-white px-3 py-1.5 text-xs font-bold text-[#B42318] transition hover:bg-[#FDECEC]"
+                    className="cursor-pointer rounded-xl border border-[#FECACA] bg-white px-3 py-1.5 text-xs font-bold text-[#B42318] transition hover:bg-[#FDECEC]"
                   >
-                    Remover vinculo
+                    Remover vínculo
                   </button>
                 </div>
               ))}
@@ -947,22 +1161,20 @@ function ManageUnitPeopleModal({
             <button
               type="button"
               onClick={() => setMode("existing")}
-              className={`rounded-2xl px-4 py-2 text-sm font-extrabold transition ${
-                mode === "existing"
+              className={`cursor-pointer rounded-2xl px-4 py-2 text-sm font-extrabold transition ${mode === "existing"
                   ? "bg-[#16A34A] text-white"
                   : "border border-[#E5E7EB] bg-white text-[#6B7280]"
-              }`}
+                }`}
             >
               Pessoa existente
             </button>
             <button
               type="button"
               onClick={() => setMode("new")}
-              className={`rounded-2xl px-4 py-2 text-sm font-extrabold transition ${
-                mode === "new"
+              className={`cursor-pointer rounded-2xl px-4 py-2 text-sm font-extrabold transition ${mode === "new"
                   ? "bg-[#16A34A] text-white"
                   : "border border-[#E5E7EB] bg-white text-[#6B7280]"
-              }`}
+                }`}
             >
               Nova pessoa
             </button>
@@ -977,16 +1189,16 @@ function ManageUnitPeopleModal({
                 options={
                   availablePersons.length > 0
                     ? availablePersons.map((person) => ({
-                        value: person.id,
-                        label: `${person.name} - CPF ${person.cpf}`,
-                      }))
+                      value: person.id,
+                      label: `${person.name} - CPF ${person.cpf}`,
+                    }))
                     : [{ value: 0, label: "Nenhuma pessoa disponivel" }]
                 }
                 disabled={availablePersons.length === 0}
               />
 
               <SelectField
-                label="Tipo de vinculo"
+                label="Tipo de vínculo"
                 value={relationshipType}
                 onChange={setRelationshipType}
                 options={relationshipOptions}
@@ -1024,7 +1236,7 @@ function ManageUnitPeopleModal({
                   placeholder="11999999999"
                 />
                 <SelectField
-                  label="Tipo de vinculo"
+                  label="Tipo de vínculo"
                   value={relationshipType}
                   onChange={setRelationshipType}
                   options={relationshipOptions}
@@ -1042,9 +1254,9 @@ function ManageUnitPeopleModal({
           <button
             type="submit"
             disabled={isSubmitting || isLoading}
-            className="h-12 w-full rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
+            className="h-12 w-full cursor-pointer rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {isSubmitting ? "Salvando..." : "Confirmar vinculo"}
+            {isSubmitting ? "Salvando..." : "Confirmar vínculo"}
           </button>
         </form>
       </div>
@@ -1067,7 +1279,7 @@ function DeleteUnitModal({ unit, onClose, onDeleted }: DeleteUnitModalProps) {
       if (error instanceof Error) {
         setErrorMessage(error.message);
       } else {
-        setErrorMessage("Nao foi possivel excluir a unidade.");
+        setErrorMessage("Não foi possível excluir a unidade.");
       }
     } finally {
       setIsSubmitting(false);
@@ -1075,15 +1287,51 @@ function DeleteUnitModal({ unit, onClose, onDeleted }: DeleteUnitModalProps) {
   }
 
   return (
-    <ModalShell title="Excluir Unidade" onClose={onClose}>
+    <ModalShell title="Excluir unidade" onClose={onClose}>
       <div className="space-y-6">
         <p className="text-sm font-semibold text-[#6B7280]">
-          Esta acao vai excluir a unidade <span className="text-[#111827]">{unit.number}</span> do predio{" "}
-          <span className="text-[#111827]">{unit.buildingName}</span>.
+          Você está prestes a excluir a unidade{" "}
+          <span className="font-extrabold text-[#111827]">{unit.number}</span> do prédio{" "}
+          <span className="font-extrabold text-[#111827]">{unit.buildingName}</span>.
         </p>
 
-        <p className="text-sm font-semibold text-[#B42318]">
-          Use esta acao apenas quando tiver certeza.
+        <div className="grid grid-cols-1 gap-3 rounded-3xl border border-[#E5E7EB] bg-[#F9FAFB] p-4 text-sm md:grid-cols-2">
+          <div>
+            <span className="block text-xs font-extrabold uppercase tracking-wide text-[#6B7280]">
+              Tipo
+            </span>
+            <strong className="mt-1 block text-[#111827]">
+              {getUnitTypeLabel(unit.unitType)}
+            </strong>
+          </div>
+          <div>
+            <span className="block text-xs font-extrabold uppercase tracking-wide text-[#6B7280]">
+              Status
+            </span>
+            <strong className="mt-1 block text-[#111827]">
+              {unit.status || "Não informado"}
+            </strong>
+          </div>
+          <div>
+            <span className="block text-xs font-extrabold uppercase tracking-wide text-[#6B7280]">
+              Moradores vinculados
+            </span>
+            <strong className="mt-1 block text-[#111827]">
+              {unit.residentCount}
+            </strong>
+          </div>
+          <div>
+            <span className="block text-xs font-extrabold uppercase tracking-wide text-[#6B7280]">
+              Responsável
+            </span>
+            <strong className="mt-1 block text-[#111827]">
+              {unit.responsiblePersonName || "Sem responsável"}
+            </strong>
+          </div>
+        </div>
+
+        <p className="rounded-2xl border border-[#FECDCA] bg-[#FEE4E2] px-4 py-3 text-sm font-extrabold text-[#B42318]">
+          Esta ação é permanente. Confirme apenas se a unidade não deve mais existir no condomínio.
         </p>
 
         {errorMessage && (
@@ -1096,7 +1344,7 @@ function DeleteUnitModal({ unit, onClose, onDeleted }: DeleteUnitModalProps) {
           <button
             type="button"
             onClick={onClose}
-            className="h-12 flex-1 rounded-2xl border border-[#E5E7EB] bg-white text-sm font-extrabold text-[#6B7280] transition hover:bg-[#F3F4F6]"
+            className="h-12 flex-1 cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white text-sm font-extrabold text-[#6B7280] transition hover:bg-[#F3F4F6]"
           >
             Cancelar
           </button>
@@ -1105,7 +1353,7 @@ function DeleteUnitModal({ unit, onClose, onDeleted }: DeleteUnitModalProps) {
             type="button"
             onClick={() => void handleDelete()}
             disabled={isSubmitting}
-            className="h-12 flex-1 rounded-2xl bg-[#B42318] text-sm font-extrabold text-white transition hover:bg-[#912018] disabled:cursor-not-allowed disabled:opacity-70"
+            className="h-12 flex-1 cursor-pointer rounded-2xl bg-[#B42318] text-sm font-extrabold text-white transition hover:bg-[#912018] disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isSubmitting ? "Excluindo..." : "Excluir unidade"}
           </button>
@@ -1132,10 +1380,12 @@ function UnitFormFields({ form, onChange }: UnitFormFieldsProps) {
     <>
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
         <Field
-          label="Numero da unidade"
+          label="Número da unidade"
           value={form.number}
           onChange={(value) => updateField("number", value)}
           placeholder="101"
+          maxLength={UNIT_FIELD_LIMITS.number}
+          helper="Identificação da unidade dentro do prédio."
         />
 
         <SelectField
@@ -1143,33 +1393,42 @@ function UnitFormFields({ form, onChange }: UnitFormFieldsProps) {
           value={form.unitType}
           onChange={(value) => updateField("unitType", value)}
           options={unitTypeOptions}
+          helper="Classificação usada para organizar a ocupação."
         />
 
         <NumberField
           label="Quartos"
           value={form.rooms}
           onChange={(value) => updateField("rooms", value)}
+          max={UNIT_FIELD_LIMITS.rooms}
+          helper="Use 0 quando não se aplicar."
         />
 
         <NumberField
           label="Banheiros"
           value={form.bathrooms}
           onChange={(value) => updateField("bathrooms", value)}
+          max={UNIT_FIELD_LIMITS.bathrooms}
+          helper="Quantidade cadastrada para a unidade."
         />
 
         <NumberField
-          label="Metros quadrados"
+          label="Área privativa"
           value={form.squareMeters}
           onChange={(value) => updateField("squareMeters", value)}
+          max={UNIT_FIELD_LIMITS.squareMeters}
           step="0.01"
+          helper="Informe a metragem em m²."
         />
       </div>
 
       <TextAreaField
-        label="Observacoes"
+        label="Observações"
         value={form.observations}
         onChange={(value) => updateField("observations", value)}
-        placeholder="Opcional"
+        placeholder="Ex.: posição da unidade, vaga vinculada, observações administrativas..."
+        maxLength={UNIT_FIELD_LIMITS.observations}
+        helper="Campo opcional para detalhes internos da gestão."
       />
     </>
   );
@@ -1180,9 +1439,11 @@ type FieldProps = {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  helper?: string;
+  maxLength?: number;
 };
 
-function Field({ label, value, onChange, placeholder }: FieldProps) {
+function Field({ label, value, onChange, placeholder, helper, maxLength }: FieldProps) {
   return (
     <label className="block">
       <span className="mb-2 block text-sm font-extrabold text-[#111827]">
@@ -1193,8 +1454,14 @@ function Field({ label, value, onChange, placeholder }: FieldProps) {
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
+        maxLength={maxLength}
         className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
       />
+      {helper && (
+        <span className="mt-2 block text-xs font-semibold text-[#6B7280]">
+          {helper}
+        </span>
+      )}
     </label>
   );
 }
@@ -1204,9 +1471,11 @@ type NumberFieldProps = {
   value: number;
   onChange: (value: number) => void;
   step?: string;
+  max?: number;
+  helper?: string;
 };
 
-function NumberField({ label, value, onChange, step = "1" }: NumberFieldProps) {
+function NumberField({ label, value, onChange, step = "1", max, helper }: NumberFieldProps) {
   return (
     <label className="block">
       <span className="mb-2 block text-sm font-extrabold text-[#111827]">
@@ -1215,11 +1484,17 @@ function NumberField({ label, value, onChange, step = "1" }: NumberFieldProps) {
       <input
         type="number"
         min="0"
+        max={max}
         step={step}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
         className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
       />
+      {helper && (
+        <span className="mt-2 block text-xs font-semibold text-[#6B7280]">
+          {helper}
+        </span>
+      )}
     </label>
   );
 }
@@ -1230,27 +1505,75 @@ type SelectFieldProps = {
   onChange: (value: number) => void;
   options: Array<{ value: number; label: string }>;
   disabled?: boolean;
+  helper?: string;
 };
 
-function SelectField({ label, value, onChange, options, disabled = false }: SelectFieldProps) {
+function SelectField({ label, value, onChange, options, disabled = false, helper }: SelectFieldProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedOption = options.find((option) => option.value === value);
+
+  function handleSelect(optionValue: number) {
+    onChange(optionValue);
+    setIsOpen(false);
+  }
+
   return (
-    <label className="block">
+    <div
+      className="relative"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setIsOpen(false);
+        }
+      }}
+    >
       <span className="mb-2 block text-sm font-extrabold text-[#111827]">
         {label}
       </span>
-      <select
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
+
+      <button
+        type="button"
         disabled={disabled}
-        className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30 disabled:cursor-not-allowed disabled:opacity-70"
+        onClick={() => setIsOpen((current) => !current)}
+        className={`flex h-11 w-full items-center justify-between rounded-2xl border bg-white px-4 text-left text-sm font-bold text-[#111827] outline-none transition disabled:cursor-not-allowed disabled:opacity-70 ${isOpen
+            ? "border-[#22C55E] ring-4 ring-[#86EFAC]/30"
+            : "border-[#E5E7EB] hover:border-[#86EFAC]"
+          } ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
       >
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
+        <span>{selectedOption?.label ?? "Selecione"}</span>
+        <span className={`text-[#6B7280] transition ${isOpen ? "rotate-180" : ""}`}>
+          ▾
+        </span>
+      </button>
+
+      {isOpen && !disabled && (
+        <div className="morae-scrollbar absolute left-0 right-0 z-30 mt-2 max-h-60 overflow-y-auto rounded-2xl border border-[#D9DEE5] bg-white p-1 shadow-xl shadow-[#111827]/10">
+          {options.map((option) => {
+            const isSelected = option.value === value;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => handleSelect(option.value)}
+                className={`flex min-h-10 w-full cursor-pointer items-center rounded-xl px-3 py-2 text-left text-sm font-bold transition ${isSelected
+                    ? "bg-[#DCFCE7] text-[#0B3D2E]"
+                    : "text-[#4B5563] hover:bg-[#F3F4F6] hover:text-[#111827]"
+                  }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {helper && (
+        <span className="mt-2 block text-xs font-semibold text-[#6B7280]">
+          {helper}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -1259,9 +1582,11 @@ type TextAreaFieldProps = {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  helper?: string;
+  maxLength?: number;
 };
 
-function TextAreaField({ label, value, onChange, placeholder }: TextAreaFieldProps) {
+function TextAreaField({ label, value, onChange, placeholder, helper, maxLength }: TextAreaFieldProps) {
   return (
     <label className="block">
       <span className="mb-2 block text-sm font-extrabold text-[#111827]">
@@ -1271,8 +1596,17 @@ function TextAreaField({ label, value, onChange, placeholder }: TextAreaFieldPro
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
+        maxLength={maxLength}
         className="min-h-28 w-full resize-none rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm font-bold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
       />
+      <span className="mt-2 flex justify-between gap-3 text-xs font-semibold text-[#6B7280]">
+        {helper && <span>{helper}</span>}
+        {maxLength && (
+          <span className="ml-auto">
+            {value.length}/{maxLength}
+          </span>
+        )}
+      </span>
     </label>
   );
 }

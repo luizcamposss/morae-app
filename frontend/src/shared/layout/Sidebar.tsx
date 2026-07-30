@@ -2,12 +2,20 @@
 import { useEffect, useState } from "react";
 import { svgIcone } from "@edusites/icons/core";
 import { useAuth } from "../../app/providers/useAuth";
+import { useCondominium } from "../../app/providers/useCondominium";
+import {
+  defaultSyndicAccess,
+  getMySyndicAccess,
+  type SyndicAccessKey,
+  type SyndicAccessSettings,
+} from "../../features/syndicAccess/syndicAccessService";
 import logoMorae from "../../assets/logo-morae.svg";
 
 type MenuItem = {
   label: string;
   icon: string;
   to: string;
+  accessKey?: SyndicAccessKey;
 };
 
 function getPrimaryRole(roles: string[]) {
@@ -57,10 +65,10 @@ function getMenuItemsByRole(role: string): MenuItem[] {
   if (role === "Syndic") {
     return [
       { label: "Dashboard", icon: "dashboard", to: "/syndic/dashboard" },
-      { label: "Moradores", icon: "usuarios", to: "/syndic/residents" },
-      { label: "Financeiro", icon: "boleto", to: "/syndic/finance" },
-      { label: "Comunicados", icon: "envelope-2", to: "/syndic/communication" },
-      { label: "Ocorrências", icon: "alerta", to: "/syndic/maintenance" },
+      { label: "Moradores", icon: "usuarios", to: "/syndic/residents", accessKey: "residents" },
+      { label: "Financeiro", icon: "boleto", to: "/syndic/finance", accessKey: "finance" },
+      { label: "Comunicados", icon: "envelope-2", to: "/syndic/communication", accessKey: "communication" },
+      { label: "Ocorrências", icon: "atencao", to: "/syndic/maintenance", accessKey: "maintenance" },
       { label: "Configurações", icon: "engrenagem", to: "/syndic/settings" },
     ];
   }
@@ -69,19 +77,62 @@ function getMenuItemsByRole(role: string): MenuItem[] {
     { label: "Dashboard", icon: "dashboard", to: "/resident/dashboard" },
     { label: "Minha unidade", icon: "apartamento", to: "/resident/unit" },
     { label: "Boletos", icon: "boleto", to: "/resident/bills" },
+    { label: "Ocorrências", icon: "atencao", to: "/resident/occurrences" },
     { label: "Avisos", icon: "envelope-2", to: "/resident/notices" },
     { label: "Configurações", icon: "engrenagem", to: "/resident/settings" },
   ];
 }
 
+function getVisibleMenuItems(role: string, access: SyndicAccessSettings) {
+  const menuItems = getMenuItemsByRole(role);
+
+  if (role !== "Syndic") {
+    return menuItems;
+  }
+
+  return menuItems.filter((item) => !item.accessKey || access[item.accessKey]);
+}
+
 export function Sidebar() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { activeCondominiumId } = useCondominium();
   const primaryRole = getPrimaryRole(user?.roles ?? []);
   const userDisplayName = getUserDisplayName(user);
   const userInitials = getUserInitials(userDisplayName);
-  const menuItems = getMenuItemsByRole(primaryRole);
+  const [syndicAccess, setSyndicAccess] =
+    useState<SyndicAccessSettings>(defaultSyndicAccess);
+  const menuItems = getVisibleMenuItems(primaryRole, syndicAccess);
   const sidebarTopClass = "top-[12rem]";
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadSyndicAccess() {
+      if (primaryRole !== "Syndic" || !activeCondominiumId) {
+        setSyndicAccess(defaultSyndicAccess);
+        return;
+      }
+
+      try {
+        const access = await getMySyndicAccess(activeCondominiumId);
+
+        if (isMounted) {
+          setSyndicAccess(access);
+        }
+      } catch {
+        if (isMounted) {
+          setSyndicAccess(defaultSyndicAccess);
+        }
+      }
+    }
+
+    void loadSyndicAccess();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeCondominiumId, primaryRole]);
 
   function handleLogout() {
     logout();

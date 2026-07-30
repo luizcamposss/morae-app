@@ -4,7 +4,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using AutoMapper;
 using backend.Data;
+using backend.Constants;
 using backend.DTOs.Building;
+using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
 using backend.Services.Buildings;
@@ -42,6 +44,39 @@ public class BuildingService : IBuildingService
                 OccupiedUnitCount = _context.Units.Count(u =>
                     u.BuildingId == b.Id &&
                     _context.PersonUnits.Any(pu => pu.UnitId == u.Id)),
+                SyndicUserId = _context.UserCondominiums
+                    .Where(uc =>
+                        uc.CondominiumId == b.CondominiumId &&
+                        uc.Role == AppRoles.Syndic &&
+                        uc.Status == UserCondominiumStatus.Active &&
+                        _context.PersonUnits.Any(pu =>
+                            pu.PersonId == uc.User.PersonId &&
+                            pu.Unit.BuildingId == b.Id))
+                    .OrderBy(uc => uc.Id)
+                    .Select(uc => (int?)uc.UserId)
+                    .FirstOrDefault(),
+                SyndicName = _context.UserCondominiums
+                    .Where(uc =>
+                        uc.CondominiumId == b.CondominiumId &&
+                        uc.Role == AppRoles.Syndic &&
+                        uc.Status == UserCondominiumStatus.Active &&
+                        _context.PersonUnits.Any(pu =>
+                            pu.PersonId == uc.User.PersonId &&
+                            pu.Unit.BuildingId == b.Id))
+                    .OrderBy(uc => uc.Id)
+                    .Select(uc => uc.User.Person.Name)
+                    .FirstOrDefault() ?? string.Empty,
+                SyndicEmail = _context.UserCondominiums
+                    .Where(uc =>
+                        uc.CondominiumId == b.CondominiumId &&
+                        uc.Role == AppRoles.Syndic &&
+                        uc.Status == UserCondominiumStatus.Active &&
+                        _context.PersonUnits.Any(pu =>
+                            pu.PersonId == uc.User.PersonId &&
+                            pu.Unit.BuildingId == b.Id))
+                    .OrderBy(uc => uc.Id)
+                    .Select(uc => uc.User.Email)
+                    .FirstOrDefault() ?? string.Empty,
                 Status = _context.Units.Any(u =>
                     u.BuildingId == b.Id &&
                     _context.PersonUnits.Any(pu => pu.UnitId == u.Id))
@@ -91,11 +126,22 @@ public class BuildingService : IBuildingService
             throw new NotFoundException("Condominium wasn't registered");
         }
 
-        await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
+        await _permissionService.EnsureCondominiumPermissionAsync(
+            userId,
+            condominiumId,
+            AppPermissions.ResidentsView);
 
-        return await BuildBuildingResponseQuery()
+        var query = BuildBuildingResponseQuery()
             .Where(b => b.CondominiumId == condominiumId)
-            .ToListAsync();
+            .AsQueryable();
+
+        if (await _permissionService.IsSyndicAsync(userId))
+        {
+            var linkedBuildingIds = await GetLinkedBuildingIdsAsync(userId, condominiumId);
+            query = query.Where(building => linkedBuildingIds.Contains(building.Id));
+        }
+
+        return await query.ToListAsync();
     }
 
     public async Task<BuildingResponseDto?> GetByIdAsync(int userId, int buildingId)
@@ -106,6 +152,11 @@ public class BuildingService : IBuildingService
 
         if (building is null)
             return null;
+
+        await _permissionService.EnsureCondominiumPermissionAsync(
+            userId,
+            building.CondominiumId,
+            AppPermissions.ResidentsView);
 
         await _permissionService.EnsureBuildingAccessAsync(userId, buildingId);
 
@@ -154,5 +205,23 @@ public class BuildingService : IBuildingService
         await _context.SaveChangesAsync();
 
         return true;
+    }
+    private async Task<List<int>> GetLinkedBuildingIdsAsync(int userId, int condominiumId)
+    {
+        var user = await _context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user is null)
+            throw new NotFoundException("User not found.");
+
+        return await _context.PersonUnits
+            .AsNoTracking()
+            .Where(personUnit =>
+                personUnit.PersonId == user.PersonId &&
+                personUnit.Unit.Building.CondominiumId == condominiumId)
+            .Select(personUnit => personUnit.Unit.BuildingId)
+            .Distinct()
+            .ToListAsync();
     }
 }

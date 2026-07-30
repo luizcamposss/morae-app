@@ -30,6 +30,7 @@ import { SyndicResidentsPage } from "../features/syndicResidents/SyndicResidents
 import { ResidentUnitPage } from "../features/residentUnit/ResidentUnitPage";
 import { ResidentBillsPage } from "../features/residentBills/ResidentBillsPage";
 import { ResidentNoticesPage } from "../features/residentNotices/ResidentNoticesPage";
+import { ResidentInspectionsPage } from "../features/residentInspections/ResidentInspectionsPage";
 
 export function AppRouter() {
     return (
@@ -83,6 +84,7 @@ export function AppRouter() {
                             <Route path="dashboard" element={<ResidentDashboardPage />} />
                             <Route path="unit" element={<ResidentUnitPage />} />
                             <Route path="bills" element={<ResidentBillsPage />} />
+                            <Route path="occurrences" element={<ResidentInspectionsPage />} />
                             <Route path="notices" element={<ResidentNoticesPage />} />
                             <Route path="settings" element={<ResidentSettingsPage />} />
                         </Route>

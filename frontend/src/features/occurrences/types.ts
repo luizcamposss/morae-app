@@ -2,6 +2,8 @@ export type OccurrenceStatus = 0 | 1 | 2 | 3 | 4;
 
 export type OccurrencePriority = 0 | 1 | 2 | 3 | 4;
 
+export type OccurrenceType = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
 export type OccurrenceResponse = {
   id: number;
   condominiumId: number;
@@ -9,6 +11,7 @@ export type OccurrenceResponse = {
   createdByUserId: number;
   title: string;
   description: string;
+  type: OccurrenceType;
   status: OccurrenceStatus;
   priority: OccurrencePriority;
   createdAt: string;
@@ -21,6 +24,7 @@ export type CreateOccurrenceRequest = {
   unitId: number;
   title: string;
   description: string;
+  type: OccurrenceType;
   priority: OccurrencePriority;
 };
 

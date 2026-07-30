@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Area,
   AreaChart,
@@ -96,7 +96,7 @@ export function MasterDashboardPage() {
         );
 
         if (hasInvitationFailure) {
-          setWarningMessage("Alguns convites não puderam ser carregados agora.");
+          setWarningMessage("Alguns convites n�o puderam ser carregados agora.");
         }
       } catch (error) {
         setCondominiums([]);
@@ -106,7 +106,7 @@ export function MasterDashboardPage() {
         if (error instanceof Error) {
           setErrorMessage(error.message);
         } else {
-          setErrorMessage("Não foi possível carregar o dashboard Master.");
+          setErrorMessage("N�o foi poss�vel carregar o dashboard Master.");
         }
       } finally {
         setIsLoading(false);
@@ -211,8 +211,8 @@ export function MasterDashboardPage() {
         })),
         ...platformCharges.map((charge) => ({
           id: `charge-${charge.id}`,
-          title: `Cobrança MORAÊ para ${charge.condominiumName}`,
-          description: `${formatCurrency(charge.value)} · vencimento ${formatDate(charge.dueDate)}`,
+          title: `Cobran�a MORA� para ${charge.condominiumName}`,
+          description: `${formatCurrency(charge.value)} � vencimento ${formatDate(charge.dueDate)}`,
           date: charge.dueDate,
           badge: getChargeStatusLabel(charge.status),
           variant: getChargeStatusVariant(charge.status),
@@ -220,7 +220,7 @@ export function MasterDashboardPage() {
         ...pendingAdminInvitations.map((invitation) => ({
           id: `invitation-${invitation.id}`,
           title: `Convite pendente para ${invitation.personName}`,
-          description: `${invitation.condominiumName} · ${invitation.email}`,
+          description: `${invitation.condominiumName} � ${invitation.email}`,
           date: invitation.createdAt,
           badge: invitation.statusName,
           variant: getInvitationStatusVariant(invitation.invitationStatus),
@@ -229,9 +229,15 @@ export function MasterDashboardPage() {
         .sort(
           (first, second) =>
             new Date(second.date).getTime() - new Date(first.date).getTime(),
-        )
-        .slice(0, 6),
+        ),
     [condominiums, pendingAdminInvitations, platformCharges],
+  );
+  const [clearedActivityIds, setClearedActivityIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const visibleActivities = useMemo(
+    () => activities.filter((activity) => !clearedActivityIds.has(activity.id)),
+    [activities, clearedActivityIds],
   );
 
   const chartPeriodFilter = (
@@ -240,9 +246,9 @@ export function MasterDashboardPage() {
 
   const metrics = [
     {
-      label: "Total de condomínios",
+      label: "Total de condom�nios",
       value: condominiums.length.toString(),
-      helper: "Condomínios cadastrados",
+      helper: "Condom�nios cadastrados",
     },
     {
       label: "Convites pendentes",
@@ -252,12 +258,12 @@ export function MasterDashboardPage() {
     {
       label: "Receita total",
       value: formatCurrency(totalRevenue),
-      helper: "Cobranças ativas da plataforma",
+      helper: "Cobran�as ativas da plataforma",
     },
     {
       label: "Receita pendente",
       value: formatCurrency(pendingRevenue),
-      helper: "A receber dos condomínios",
+      helper: "A receber dos condom�nios",
     },
   ];
 
@@ -272,7 +278,7 @@ export function MasterDashboardPage() {
 
         <div className="rounded-full bg-white px-4 py-2 text-sm font-extrabold capitalize text-[#6B7280] shadow-sm">
           <time>{formatToday()}</time>
-          {temperature !== null && <span>, {temperature}°</span>}
+          {temperature !== null && <span>, {temperature}�</span>}
         </div>
       </header>
 
@@ -310,7 +316,7 @@ export function MasterDashboardPage() {
 
         <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
           <ChartPanel
-            title="Crescimento de condomínios"
+            title="Crescimento de condom�nios"
             description={`Novos cadastros e base acumulada em ${chartPeriod} meses.`}
             action={chartPeriodFilter}
           >
@@ -318,8 +324,8 @@ export function MasterDashboardPage() {
           </ChartPanel>
 
           <ChartPanel
-            title="Receita Moraê"
-            description={`${formatCurrency(chartPaidRevenue)} recebidos · ${formatCurrency(chartPendingRevenue)} pendentes`}
+            title="Receita Mora�"
+            description={`${formatCurrency(chartPaidRevenue)} recebidos � ${formatCurrency(chartPendingRevenue)} pendentes`}
             action={chartPeriodFilter}
           >
             <RevenueAreaChart data={revenueChartData} />
@@ -333,16 +339,37 @@ export function MasterDashboardPage() {
                 Atividades recentes
               </h3>
               <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-                Últimos movimentos reais entre condomínios, cobranças e convites.
+                �ltimos movimentos reais entre condom�nios, cobran�as e convites.
               </p>
             </div>
           </div>
 
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <span className="rounded-full bg-[#DCFCE7] px-3 py-1 text-xs font-black text-[#0B3D2E]">
+              {visibleActivities.length} registro(s)
+            </span>
+
+            {visibleActivities.length > 0 && (
+              <button
+                type="button"
+                onClick={() =>
+                  setClearedActivityIds(new Set(activities.map((activity) => activity.id)))
+                }
+                className="cursor-pointer rounded-full border border-[#E5E7EB] bg-white px-4 py-2 text-xs font-black text-[#6B7280] transition hover:border-[#86EFAC] hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+              >
+                Limpar atividades
+              </button>
+            )}
+          </div>
+
           {activities.length === 0 && !isLoading ? (
             <EmptyState message="Nenhuma atividade encontrada ainda." />
+          ) : visibleActivities.length === 0 ? (
+            <EmptyState message="Atividades recentes limpas nesta sess�o." />
           ) : (
-            <div className="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-2">
-              {activities.map((activity) => (
+            <div className="mt-5 max-h-[15.5rem] overflow-y-auto pr-2">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              {visibleActivities.map((activity) => (
                 <article
                   key={activity.id}
                   className="rounded-2xl border border-[#E5E7EB] bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-md"
@@ -365,6 +392,7 @@ export function MasterDashboardPage() {
                   </p>
                 </article>
               ))}
+              </div>
             </div>
           )}
         </section>
@@ -436,7 +464,7 @@ function CondominiumLineChart({ data }: { data: CondominiumChartItem[] }) {
   const hasValues = data.some((item) => item.novos > 0 || item.acumulado > 0);
 
   if (!hasValues) {
-    return <EmptyState message="Nenhum condomínio cadastrado ainda." />;
+    return <EmptyState message="Nenhum condom�nio cadastrado ainda." />;
   }
 
   return (
@@ -457,7 +485,7 @@ function RevenueAreaChart({ data }: { data: RevenueChartItem[] }) {
   const hasValues = data.some((item) => item.recebida > 0 || item.pendente > 0);
 
   if (!hasValues) {
-    return <EmptyState message="Nenhuma cobrança MORAÊ encontrada ainda." />;
+    return <EmptyState message="Nenhuma cobran�a MORA� encontrada ainda." />;
   }
 
   return (
@@ -629,7 +657,7 @@ function formatLocation(condominium: CondominiumResponse) {
     .filter(Boolean)
     .join(" - ");
 
-  return cityState || condominium.address || "Sem localização";
+  return cityState || condominium.address || "Sem localiza��o";
 }
 
 function getCondominiumStatusLabel(status: number) {

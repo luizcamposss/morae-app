@@ -74,26 +74,27 @@ type UnitCardProps = {
 
 function UnitCard({ unit }: UnitCardProps) {
   return (
-    <article className="overflow-hidden rounded-[1.8rem] border border-[#E5E7EB] bg-[#F9FAFB] shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#0B3D2E]/8">
-      <div className="relative bg-gradient-to-br from-[#0B3D2E] via-[#0D7A3A] to-[#22C55E] p-5 text-white">
-        <div className="absolute right-5 top-5 rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur">
-          {getRelationshipLabel(unit.relationshipType)}
+    <article className="overflow-hidden rounded-[1.8rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#0B3D2E]/8">
+      <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-white p-5 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex size-12 items-center justify-center rounded-2xl bg-[#DCFCE7] text-2xl text-[#16A34A]">
+            <EduIcon nome="apartamento" />
+          </div>
+          <span className="rounded-full bg-[#DCFCE7] px-3 py-1 text-xs font-black text-[#0B3D2E]">
+            {getRelationshipLabel(unit.relationshipType)}
+          </span>
         </div>
 
-        <div className="flex size-12 items-center justify-center rounded-2xl bg-white/15 text-2xl backdrop-blur">
-          <EduIcon nome="apartamento" />
-        </div>
-
-        <p className="mt-6 text-sm font-bold text-white/75">{unit.buildingName}</p>
-        <h2 className="mt-1 text-3xl font-black tracking-tight">
+        <p className="mt-6 text-sm font-bold text-[#6B7280]">{unit.buildingName}</p>
+        <h2 className="mt-1 text-3xl font-black tracking-tight text-[#111827]">
           Unidade {unit.unitNumber}
         </h2>
-        <p className="mt-2 max-w-md text-sm font-semibold leading-6 text-white/80">
+        <p className="mt-2 max-w-md text-sm font-semibold leading-6 text-[#4B5563]">
           {unit.condominiumName}
         </p>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <DetailItem icon="predio" label="Prédio" value={unit.buildingName} />
         <DetailItem icon="apartamento" label="Unidade" value={unit.unitNumber} />
         <DetailItem

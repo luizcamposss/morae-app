@@ -21,7 +21,6 @@ export function PeoplePage() {
   const navigate = useNavigate();
   const {
     condominiums,
-    activeCondominium,
     activeCondominiumId,
     isLoading: isLoadingCondominiums,
     errorMessage: condominiumErrorMessage,
@@ -58,10 +57,10 @@ export function PeoplePage() {
   const totalUnitLinks = people.reduce((sum, person) => sum + person.unitCount, 0);
 
   const metrics = [
-    { label: "Total", value: totalPeople.toString(), helper: "Pessoas cadastradas" },
-    { label: "Com unidade", value: linkedPeople.toString(), helper: "Ja vinculadas" },
-    { label: "Sem unidade", value: unlinkedPeople.toString(), helper: "Aguardando vinculo" },
-    { label: "Vinculos", value: totalUnitLinks.toString(), helper: "Pessoa-unidade" },
+    { label: "Total", value: totalPeople.toString(), helper: "Cadastros ativos" },
+    { label: "Com unidade", value: linkedPeople.toString(), helper: "Vínculo residencial ativo" },
+    { label: "Sem unidade", value: unlinkedPeople.toString(), helper: "Aguardam associação" },
+    { label: "Vínculos", value: totalUnitLinks.toString(), helper: "Relações com unidades" },
   ];
 
   async function loadPeople(condominiumId: number) {
@@ -78,7 +77,7 @@ export function PeoplePage() {
       if (error instanceof Error) {
         setErrorMessage(error.message);
       } else {
-        setErrorMessage("Nao foi possivel carregar os moradores.");
+        setErrorMessage("Não foi possível carregar os moradores.");
       }
     } finally {
       setIsLoadingPeople(false);
@@ -117,11 +116,6 @@ export function PeoplePage() {
             <p className="mt-1 text-sm font-semibold text-[#6B7280]">
               Cadastre pessoas, acompanhe vinculos e prepare convites de acesso.
             </p>
-            {activeCondominium && (
-              <p className="mt-2 text-sm font-semibold text-[#16A34A]">
-                Condominio ativo: {activeCondominium.condominiumName}
-              </p>
-            )}
           </div>
 
           <div className="flex flex-col gap-3 md:items-end">
@@ -146,7 +140,7 @@ export function PeoplePage() {
               type="button"
               disabled={!activeCondominiumId}
               onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
+              className="h-11 cursor-pointer rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
             >
               + Novo Morador
             </button>
@@ -166,21 +160,26 @@ export function PeoplePage() {
 
         <div className="mt-6 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-4">
           <div className="mb-4 flex flex-col gap-3 md:flex-row">
-            <input
-              type="search"
-              placeholder="Buscar morador, CPF, telefone ou unidade..."
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              className="h-11 flex-1 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-            />
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder="Buscar morador, CPF, telefone ou unidade..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 pr-11 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
+              />
 
-            <button
-              type="button"
-              onClick={() => setSearchTerm("")}
-              className="h-11 rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
-            >
-              Todos
-            </button>
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  aria-label="Limpar busca"
+                  className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-base font-extrabold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+                >
+                  ×
+                </button>
+              )}
+            </div>
           </div>
 
           {isLoading && (
@@ -230,7 +229,7 @@ export function PeoplePage() {
                     <th className="px-4 py-3 font-extrabold">Contato</th>
                     <th className="px-4 py-3 font-extrabold">Unidade principal</th>
                     <th className="px-4 py-3 font-extrabold">Status</th>
-                    <th className="px-4 py-3 font-extrabold">Acoes</th>
+                    <th className="px-4 py-3 font-extrabold">Ações</th>
                   </tr>
                 </thead>
 
@@ -260,21 +259,21 @@ export function PeoplePage() {
                           <button
                             type="button"
                             onClick={() => setViewingPerson(person)}
-                            className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+                            className="cursor-pointer rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
                           >
                             Ver
                           </button>
                           <button
                             type="button"
                             onClick={() => setEditingPerson(person)}
-                            className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+                            className="cursor-pointer rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
                           >
                             Editar
                           </button>
                           <button
                             type="button"
                             onClick={() => navigate(`/admin/invitations?personId=${person.id}`)}
-                            className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+                            className="cursor-pointer rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
                           >
                             Preparar convite
                           </button>
@@ -286,10 +285,6 @@ export function PeoplePage() {
               </table>
             </div>
           )}
-
-          <p className="mt-4 text-sm font-semibold text-[#6B7280]">
-            Este modulo cadastra pessoas no condominio ativo. O vinculo com unidade continua no modulo de unidades.
-          </p>
         </div>
       </section>
 
@@ -376,7 +371,7 @@ function PersonFormModal({
       if (error instanceof Error) {
         setErrorMessage(error.message);
       } else {
-        setErrorMessage("Nao foi possivel salvar o morador.");
+        setErrorMessage("Não foi possível salvar o morador.");
       }
     } finally {
       setIsSubmitting(false);
@@ -391,19 +386,19 @@ function PersonFormModal({
             label="Nome"
             value={form.name}
             onChange={(value) => updateField("name", value)}
-            placeholder="Nome completo"
+            placeholder="Ex.: Ana Martins"
           />
           <Field
             label="CPF"
             value={form.cpf}
             onChange={(value) => updateField("cpf", onlyDigits(value, 11))}
-            placeholder="Somente numeros"
+            placeholder="000.000.000-00"
           />
           <Field
             label="Telefone"
             value={form.phoneNumber}
             onChange={(value) => updateField("phoneNumber", onlyDigits(value, 20))}
-            placeholder="11999999999"
+            placeholder="(11) 99999-9999"
           />
         </div>
 
@@ -416,7 +411,7 @@ function PersonFormModal({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="h-12 w-full rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
+          className="h-12 w-full cursor-pointer rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isSubmitting ? "Salvando..." : submitLabel}
         </button>
@@ -483,7 +478,7 @@ function ModalShell({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full bg-[#F3F4F6] px-3 py-1 text-sm font-extrabold text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
+            className="cursor-pointer rounded-full bg-[#F3F4F6] px-3 py-1 text-sm font-extrabold text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
           >
             Fechar
           </button>

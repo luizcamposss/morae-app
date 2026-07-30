@@ -2,6 +2,7 @@ namespace backend.Constants;
 
 public static class AppPermissions
 {
+    public const string ResidentsView = "residents.view";
     public const string NewsCreate = "news.create";
     public const string NewsEdit = "news.edit";
     public const string ChargesCreate = "charges.create";
@@ -11,6 +12,7 @@ public static class AppPermissions
 
     public static readonly IReadOnlySet<string> All = new HashSet<string>
     {
+        ResidentsView,
         NewsCreate,
         NewsEdit,
         ChargesCreate,

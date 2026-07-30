@@ -14,7 +14,7 @@ const CANCELED_STATUS = 5;
 type StatusFilter = "all" | InvitationStatus;
 
 const statusFilterOptions: Array<{ value: StatusFilter; label: string }> = [
-  { value: "all", label: "Todos" },
+  { value: "all", label: "Status" },
   { value: PENDING_STATUS, label: "Pendentes" },
   { value: ACCEPTED_STATUS, label: "Aceitos" },
   { value: EXPIRED_STATUS, label: "Expirados" },
@@ -260,7 +260,7 @@ export function MasterInvitationsPage() {
                 }`}
               >
                 <span>
-                  {statusFilterOptions.find((option) => option.value === statusFilter)?.label ?? "Todos"}
+                  {statusFilterOptions.find((option) => option.value === statusFilter)?.label ?? "Status"}
                 </span>
                 <span
                   className={`block size-2 shrink-0 border-r-2 border-b-2 border-current transition-transform ${

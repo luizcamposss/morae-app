@@ -1,345 +1,246 @@
-# MORAE - Project Context for AI Assistants
+# MORAÊ - Contexto Completo do Projeto
 
-## Overview
+Última atualização: 30/07/2026
 
-MORAE is a condominium management platform developed as an ASP.NET Core Web API.
-
-The application is being built as a multi-condominium backend, where users can
-belong to one or more condominiums and their capabilities depend on both global
-roles and condominium-specific access.
-
-Current stack:
-
-* ASP.NET Core 8
-* Entity Framework Core
-* MySQL
-* ASP.NET Identity
-* JWT Authentication
-* AutoMapper
-* Swagger
-
-The project follows a layered architecture. Controllers must stay thin and all
-business rules must remain inside services.
-
-Frontend stack currently in use:
-
-* React 19
-* TypeScript
-* Vite
-* Tailwind CSS 4
-* React Router DOM
-
-The frontend is evolving from a static UI prototype into a real application
-connected to the backend. Prefer adapting existing screens instead of replacing
-them.
+Este arquivo é a memória principal para qualquer IA continuar o projeto sem perder contexto. Leia tudo antes de sugerir ou alterar qualquer coisa.
 
 ---
 
-# Working Mode With The Developer
+## 1. Identidade do Produto
 
-Important collaboration rules for this repository:
+Nome do app: **MORAÊ**
 
-* The developer wants to learn and usually prefers to write the code.
-* The assistant should act primarily as a copilot/guide.
-* Prefer explaining the reason for each change and suggesting small steps.
-* Keep answers short and practical unless deeper explanation is requested.
-* Prefer module-by-module progress.
-* At the end of each meaningful module, suggest a branch name and a commit.
-* Before suggesting frontend changes, inspect the existing files instead of
-  assuming the structure.
-* Respect the current architecture rather than proposing large rewrites.
+Idioma do produto: **PT-BR**
 
-Current working style used in this project:
+Tema visual:
 
-1. Read the current code first.
-2. Explain the goal of the module.
-3. Suggest small file-level changes.
-4. Review what the developer changed.
-5. Only edit files directly when explicitly allowed.
+- Verde moderno.
+- Clean, Apple-like, profissional.
+- Nada com “cara de IA” ou layout genérico.
+- Tipografia principal no frontend: **Nunito**.
+- Ícones: biblioteca `@edusites/icons`.
+- Paleta visual recorrente:
+  - Verde escuro: `#0B3D2E`
+  - Verde primário: `#16A34A`
+  - Verde claro: `#22C55E`
+  - Verde suave: `#86EFAC`
+  - Verde pastel: `#DCFCE7`
+  - Neutro claro: `#F3F4F6`
+  - Neutro escuro: `#111827`
+
+Diretriz de UI/UX:
+
+- Visual limpo, espaçado e coerente entre perfis.
+- Cards claros com borda suave e sombra leve.
+- Evitar excesso de cards verdes fortes.
+- Usar verde forte só para CTAs, destaques pontuais e estados positivos.
+- Tudo que é clicável deve ter `cursor-pointer`.
+- Modais devem usar `X` circular no canto superior direito, seguindo padrão do app.
+- Selects nativos estavam feios; vários foram substituídos por dropdown custom limpo.
+- Placeholders devem ser claros, humanos e padronizados.
+- Não mostrar dados falsos/mockados no MVP. Tudo que aparece em tela deve vir do backend ou ser estado vazio real.
 
 ---
 
-# Product Model
+## 2. Como Trabalhar com o Luiz
 
-The main hierarchy is:
+O Luiz está aprendendo React/backend e quer entender as decisões.
+
+Modo de colaboração:
+
+- Explicar o porquê das mudanças.
+- Fazer por módulos pequenos.
+- Antes de alterações grandes, avisar o que será alterado.
+- Quando ele pedir, pode alterar diretamente.
+- Quando ele disser que quer guiar, entregar trechos e revisar depois.
+- Manter respostas curtas e práticas.
+- Ao final de módulo relevante, sugerir branch e commit.
+- Nunca sair mudando arquitetura sem verificar os padrões existentes.
+- Sempre preservar o fluxo já criado.
+
+Regras importantes:
+
+- O Luiz quer fazer um MVP para deploy e portfólio.
+- O projeto precisa ficar profissional para GitHub, LinkedIn e recrutadores.
+- A arquitetura e segurança são tão importantes quanto a UI.
+- Se algo impactar banco, explicar e pedir/indicar migration.
+- Não usar dados fake no frontend.
+- Master não pode acessar operação interna de condomínio.
+
+---
+
+## 3. Stack Atual
+
+Backend:
+
+- ASP.NET Core 8
+- Entity Framework Core
+- MySQL
+- ASP.NET Identity
+- JWT Bearer Authentication
+- AutoMapper
+- Swagger
+- Middleware global de exceções
+
+Frontend:
+
+- React 19
+- TypeScript
+- Vite
+- Tailwind CSS 4
+- React Router DOM
+- Recharts
+- `@edusites/icons`
+
+Infra local:
+
+- Docker Compose com MySQL 8.4.
+
+Portas locais:
+
+- Frontend: `http://localhost:5173`
+- Backend/API: `http://localhost:5242`
+
+Banco local:
+
+- Database: `moraeDB`
+- MySQL local via Docker.
+
+---
+
+## 4. Arquitetura Geral
+
+O projeto segue arquitetura em camadas, mesmo dentro de um único projeto backend.
+
+Backend:
+
+```text
+backend
+├── Controllers
+├── Services
+├── DTOs
+├── Models
+├── Enums
+├── Constants
+├── Profiles
+├── Data
+├── Migrations
+├── Middlewares
+└── Program.cs
+```
+
+Frontend:
+
+```text
+frontend/src
+├── app
+├── features
+├── shared
+└── assets
+```
+
+Regras de arquitetura:
+
+- Controller deve ser fino.
+- Controller não acessa `AppDbContext` diretamente.
+- Controller recebe DTO, chama service e retorna DTO.
+- Regra de negócio fica em service.
+- Validação de acesso fica centralizada em `PermissionService`.
+- DTOs são obrigatórios; não retornar entidade EF diretamente.
+- AutoMapper deve ser usado para mappings.
+- Services devem lançar exceções customizadas:
+  - `BadRequestException`
+  - `ConflictException`
+  - `ForbiddenException`
+  - `NotFoundException`
+- Backend é a fonte da verdade.
+- Frontend pode esconder rotas/botões, mas segurança real é no backend.
+
+---
+
+## 5. Modelo de Acesso
+
+Hierarquia conceitual:
 
 ```text
 Master -> Admin -> Syndic -> Resident
 ```
 
-Portuguese domain names:
+Termos no produto:
 
-* `Master`: system/platform administrator.
-* `Admin`: condominium administrator.
-* `Syndic`: syndic/manager delegated by the condominium admin.
-* `Resident`: morador/final user.
+- Master: administrador da plataforma.
+- Admin: administrador institucional do condomínio.
+- Syndic: síndico/gestor delegado.
+- Resident: morador.
 
-The application manages:
+Importante:
 
-* Condominiums.
-* Buildings/towers/blocks.
-* Units/apartments.
-* Persons.
-* Person-unit relationships.
-* Users.
-* Invitations.
-* User access to condominiums.
-* Condominium-specific permissions.
-
-Future modules such as news, charges, payments, delinquency and occurrences must
-follow the same access-control model.
+- `Master` gerencia plataforma e dados institucionais.
+- `Admin` gerencia operação do condomínio.
+- `Syndic` gerencia somente o que for permitido.
+- `Resident` vê apenas seus dados e unidades.
 
 ---
 
-# Current Project Shape
+## 6. Regras de Segurança por Papel
 
-Although the code currently lives inside a single `backend` project, keep the
-logical separation below.
+### Master
 
-The repository also contains a `frontend` application. The backend remains the
-source of truth for authorization and business rules. The frontend should mirror
-those concepts for UX, but must not become the only protection layer.
+Pode:
 
-## API Layer
+- Criar condomínios.
+- Fazer onboarding de condomínio com primeiro Admin.
+- Criar/gerenciar Admins institucionais dos condomínios criados por ele.
+- Gerenciar convites de Admin.
+- Criar cobranças institucionais da plataforma para condomínios.
+- Ver dados comerciais/institucionais dos condomínios.
+- Editar pessoas globais criadas por ele.
+- Editar usuários/Admins criados por ele dentro dos condomínios dele.
 
-Current location:
+Não pode:
 
-```text
-backend/Controllers
-backend/Program.cs
-backend/Middlewares
-backend/Settings
-```
+- Acessar unidades internas.
+- Acessar moradores internos.
+- Acessar prédios operacionais.
+- Acessar cobranças internas do condomínio.
+- Acessar dados operacionais que pertencem ao Admin.
+- Virar “membro automático” do condomínio.
 
-Responsibilities:
+Regra essencial:
 
-* Controllers.
-* Authentication configuration.
-* JWT configuration.
-* Dependency Injection.
-* Swagger.
-* Exception middleware.
+> Master não é operador do condomínio. Ele cuida da plataforma e da relação institucional/comercial.
 
-Rules:
+### Admin
 
-* Controllers must never access `AppDbContext` directly.
-* Controllers must only communicate with services.
-* Controllers must receive and return DTOs.
-* Controllers should not contain business logic.
-* Controllers may extract the current authenticated user id from claims and pass
-  it to services.
+Pode:
 
-Current user id extraction pattern:
+- Acessar condomínios vinculados via `UserCondominium`.
+- Gerenciar prédios.
+- Gerenciar unidades.
+- Gerenciar moradores/pessoas do condomínio.
+- Vincular pessoas a unidades.
+- Criar convites para moradores e síndicos.
+- Gerenciar permissões dos síndicos.
+- Criar cobranças internas do condomínio.
+- Ver cobranças MORAÊ do condomínio.
+- Configurar conta bancária/Pix do condomínio.
 
-```csharp
-var userId = int.Parse(
-    User.FindFirstValue(ClaimTypes.NameIdentifier)!
-);
-```
+Não pode:
 
-## Application Layer
+- Acessar outro condomínio apenas por ter role `Admin`.
+- Gerenciar plataforma inteira.
+- Criar cobranças institucionais MORAÊ.
 
-Current location:
+### Syndic
 
-```text
-backend/Services
-backend/DTOs
-backend/Profiles
-backend/Exceptions
-```
+Pode:
 
-Responsibilities:
+- Acessar somente dados delegados.
+- No fluxo definido mais recentemente, o síndico deve ver **apenas o prédio ao qual está vinculado**, não o condomínio inteiro.
+- Suas permissões vêm de `UserCondominiumPermission`.
+- Admin define o que o síndico pode acessar.
 
-* Services.
-* Interfaces.
-* DTOs.
-* AutoMapper profiles.
-* Business rules.
-* Permission checks.
-* Meaningful domain/application exceptions.
-
-Rules:
-
-* All business logic must be implemented here.
-* Services validate permissions before reading or mutating protected data.
-* Services throw custom exceptions such as `ForbiddenException`,
-  `NotFoundException`, `ConflictException` and `BadRequestException`.
-* Services persist through `AppDbContext`.
-* Services map entities to response DTOs before returning data.
-
-## Domain Layer
-
-Current location:
-
-```text
-backend/Models
-backend/Enums
-backend/Constants
-```
-
-Responsibilities:
-
-* Entities.
-* Enums.
-* Role constants.
-* Permission constants.
-
-Rules:
-
-* Domain classes should not depend on controllers.
-* Role names must come from `AppRoles`.
-* Permission keys must come from `AppPermissions`.
-
-## Infrastructure Layer
-
-Current location:
-
-```text
-backend/Data
-backend/Migrations
-```
-
-Responsibilities:
-
-* `AppDbContext`.
-* Entity Framework relationships.
-* Unique constraints.
-* Migrations.
-* Database access configuration.
-
-## Frontend Layer
-
-Current location:
-
-```text
-frontend/src/app
-frontend/src/features
-frontend/src/shared
-```
-
-Responsibilities:
-
-* `app`: router, providers, application bootstrap.
-* `features`: feature-specific pages, auth flow, future services/hooks by
-  domain.
-* `shared`: reusable layout, components, and future shared API helpers.
-
-Current frontend architectural rules:
-
-* Keep pages focused on UI composition and user interaction.
-* Do not spread raw `fetch` usage across page components.
-* Keep authentication/session logic centralized.
-* Prefer role-aware routing and role-aware navigation.
-* Backend authorization remains mandatory even if the frontend hides routes.
-
----
-
-# Authentication
-
-Authentication is based on:
-
-* ASP.NET Identity.
-* JWT Bearer Token.
-
-Claims currently used:
-
-```csharp
-ClaimTypes.NameIdentifier
-ClaimTypes.Email
-ClaimTypes.Name
-ClaimTypes.Role
-```
-
-Login is handled by `AuthController` and `AuthService`.
-
-JWT tokens include one or more role claims from ASP.NET Identity.
-
-Frontend authentication status:
-
-* Login page is connected to the backend.
-* JWT token is currently stored in `localStorage`.
-* Frontend session is rehydrated through `GET /api/me`.
-* Session state is centralized in an auth provider.
-
----
-
-# Authorization
-
-The system uses two complementary access concepts:
-
-1. Global role through ASP.NET Identity.
-2. Condominium access through `UserCondominium`.
-
-Do not rely only on `[Authorize(Roles = "...")]` for data isolation. Role
-attributes can block broad categories of users, but condominium isolation must be
-validated inside services through `PermissionService`.
-
-## Master
-
-System/platform administrator.
-
-Capabilities:
-
-* Create condominiums.
-* Onboard condominiums with an initial admin.
-* Manage platform-level condominium records and commercial/contact data.
-* Invite condominium admins.
-* Contact condominium admins/representatives directly.
-
-Rules:
-
-* Master actions should call `EnsureMasterAsync`.
-* Master should not be treated as a condominium member unless explicitly linked.
-* Master must not automatically access condominium operations such as
-  buildings, units, residents, person-unit links, charges, occurrences or
-  condominium-scoped management screens.
-* Master may manage global platform/contact people created by that same Master,
-  but must not edit condominium residents created/managed by Admin users.
-* Operational condominium access belongs to Admin, Syndic and Resident according
-  to `UserCondominium` and permission checks.
-
-## Admin
-
-Condominium administrator.
-
-Capabilities:
-
-* Manage only assigned condominiums.
-* Manage buildings.
-* Manage units.
-* Manage residents/persons in assigned condominiums.
-* Invite syndics and residents.
-* Manage syndic permissions in assigned condominiums.
-
-Rules:
-
-* Admin access to a condominium is represented by `UserCondominium`.
-* Admin is powerful only inside condominiums where the user has a
-  `UserCondominium` row with role `Admin`.
-* Admin should not access another condominium just because the Identity role is
-  `Admin`.
-
-## Syndic
-
-Delegated condominium manager.
-
-Capabilities:
-
-* Access assigned condominiums.
-* Read condominium data according to service validations.
-* Perform specific actions only when allowed by condominium-specific
-  permissions.
-
-Rules:
-
-* Syndic access is represented by `UserCondominium`.
-* Syndic permissions are represented by `UserCondominiumPermission`.
-* New syndic write actions should check `EnsureCondominiumPermissionAsync`.
-* Admins have all condominium permissions for the condominiums they administer.
-* Syndics only have permissions explicitly stored in
-  `UserCondominiumPermission`.
-
-Current permission keys:
+Permissões atuais:
 
 ```text
 news.create
@@ -350,215 +251,149 @@ delinquency.view
 occurrences.manage
 ```
 
-## Resident
+Observação importante:
 
-Morador/final user.
+- Já foi criada área no Admin para configurar acesso do síndico.
+- A conexão real com backend foi feita via `syndicAccessService`.
+- A mensagem verde explicativa da tela de permissões foi removida a pedido do Luiz.
 
-Capabilities:
+### Resident
 
-* Access personal data.
-* Access condominium/unit information only when linked through the current access
-  model.
+Pode:
 
-Rules:
+- Ver suas unidades.
+- Ver boletos/cobranças vinculadas às suas unidades.
+- Ver avisos/comunicados do condomínio.
+- Criar/acompanhar ocorrências/manutenções quando o backend permitir.
+- Ver configurações do próprio perfil.
 
-* Resident should not manage condominium structure.
-* Resident access should be restricted to personal data and related units.
-* When implementing resident-specific access, prefer explicit service methods
-  over controller-side checks.
+Não pode:
 
----
-
-# Access Control Model
-
-The system is evolving from simple role-based access control to condominium
-scoped authorization.
-
-## UserCondominium
-
-Purpose:
-
-Represents which condominiums a user can access and which role the user has in
-that condominium.
-
-Relationship:
-
-```text
-ApplicationUser
-  -> UserCondominium
-      -> Condominium
-```
-
-Business rules:
-
-* A user may belong to multiple condominiums.
-* A condominium may have multiple users.
-* A user must not have duplicated access to the same condominium.
-* The unique key is `UserId + CondominiumId`.
-* The role stored in `UserCondominium.Role` defines the user's condominium-level
-  responsibility.
-
-## UserCondominiumPermission
-
-Purpose:
-
-Stores granular permissions for a user's condominium access, mainly for
-`Syndic` users.
-
-Relationship:
-
-```text
-UserCondominium
-  -> UserCondominiumPermission
-```
-
-Business rules:
-
-* Permissions can only be managed for syndic users.
-* Admin users can manage syndic permissions only inside condominiums they
-  administer.
-* Permission keys must exist in `AppPermissions.All`.
-* The unique key is `UserCondominiumId + PermissionKey`.
+- Gerenciar estrutura do condomínio.
+- Ver dados de outras unidades ou moradores.
 
 ---
 
-# PermissionService
+## 7. Entidades Principais
 
-Purpose:
+### Condominium
 
-Centralize all access validations.
+Representa o condomínio.
 
-No controller should implement permission validation directly.
+Campos/regras importantes:
 
-All access checks must go through `PermissionService`.
+- CNPJ único.
+- Nome.
+- E-mail de contato.
+- Endereço.
+- Número.
+- Cidade.
+- Estado.
+- CEP.
+- Status.
+- `CreatedByUserId`: Master que criou.
 
-Current responsibilities:
+No frontend Master:
 
-```csharp
-IsMasterAsync()
-IsAdminAsync()
-IsSyndicAsync()
-IsResidentAsync()
+- Página de condomínios está conectada ao backend.
+- Cadastro tem validação completa.
+- CNPJ validado com 14 dígitos.
+- CPF validado no admin inicial.
+- Estado é select, não input livre.
+- CEP foi adicionado e pode preencher endereço automaticamente.
+- Texto “Endereço preenchido automaticamente pelo CEP.” foi removido quando incomodava.
 
-EnsureMasterAsync()
-EnsureCondominiumAdminAsync()
+### Building
 
-HasCondominiumAccessAsync()
-HasBuildingAccessAsync()
-HasUnitAccessAsync()
-HasPersonAccessAsync()
+Representa prédio/bloco/torre.
 
-HasCondominiumPermissionAsync()
+Campos/regras:
 
-EnsureCondominiumAccessAsync()
-EnsureBuildingAccessAsync()
-EnsureUnitAccessAsync()
-EnsurePersonAccessAsync()
-EnsureCondominiumPermissionAsync()
-```
+- CondominiumId.
+- Nome do prédio.
+- Código/identificação único dentro do condomínio.
+- Tipo do prédio.
+- Quantidade de andares.
+- Possui elevador.
+- Observações.
+- Status.
+- Datas de criação/atualização.
 
-Use `Ensure...` methods when lack of access should stop the operation with a
-`ForbiddenException`.
+Frontend Admin:
 
-Example:
+- Página `Prédios` conectada ao backend.
+- Cadastro foi ajustado para usar os campos reais do backend.
+- Select de tipo do prédio foi melhorado.
+- Detalhes do prédio mostram dados reais.
+- Deve mostrar o síndico quando houver vínculo.
+- Texto “Esta tela usa dados reais...” foi removido.
 
-```csharp
-await _permissionService.EnsureCondominiumAccessAsync(
-    userId,
-    condominiumId
-);
-```
+### Unit
 
-Example for future syndic permission checks:
+Representa unidade/apartamento.
 
-```csharp
-await _permissionService.EnsureCondominiumPermissionAsync(
-    userId,
-    condominiumId,
-    AppPermissions.NewsCreate
-);
-```
+Campos/regras:
 
----
+- BuildingId.
+- Número da unidade.
+- Tipo.
+- Quartos.
+- Banheiros.
+- Metros quadrados.
+- Observações.
+- Status.
 
-# Main Entities
+Frontend Admin:
 
-## Condominium
+- Página `Unidades` conectada ao backend.
+- Filtros em ordem: busca / filtro prédio / status.
+- Filtro de prédio deve se ajustar ao tamanho do nome.
+- Botão “Todos” isolado foi removido.
+- Modais têm `X`.
+- Excluir unidade tem confirmação.
+- Vincular pessoa a unidade deve permitir scroll na lista.
+- Deve ser possível desvincular pessoa da unidade.
 
-Represents a condominium.
+### Person
 
-Relationships:
+Representa pessoa física antes ou depois de ter usuário.
 
-```text
-Condominium
-  -> Buildings
-  -> UserCondominiums
-```
+Campos/regras:
 
-Important rules:
+- Nome.
+- CPF único.
+- Telefone.
+- Pode existir sem usuário.
+- Pode estar vinculada a condomínio via `PersonCondominium`.
+- Pode estar vinculada a unidade via `PersonUnit`.
+- Pode se tornar usuário via convite.
 
-* `CNPJ` must be unique.
-* `CreatedByUserId` points to the Master that created the condominium.
+Frontend Admin:
 
-## Building
+- Página de moradores/pessoas conectada.
+- Síndico também deve aparecer em moradores/pessoas.
+- A coluna de status deve indicar vínculo, não simplesmente papel.
+- Pessoa já registrada não deve aparecer para convite novamente.
+- Botão “Preparar convite” foi removido para quem já possui acesso.
+- Detalhe do morador mostra:
+  - Nome.
+  - CPF formatado.
+  - Telefone formatado.
+  - Condomínio.
+  - Unidade principal.
+  - Vínculos com unidades.
+  - Acesso ao sistema.
+  - Papel atual.
+  - Criado em.
+  - Atualizado em.
+- A mensagem “Acesso do morador” só aparece quando a pessoa ainda não tem acesso.
+- Em editar morador, o campo papel foi removido.
 
-Represents a tower/block.
+### PersonUnit
 
-Relationships:
+Relaciona pessoa e unidade.
 
-```text
-Condominium
-  -> Building
-      -> Units
-```
-
-Important rules:
-
-* `Code` must be unique inside a condominium.
-
-## Unit
-
-Represents an apartment/unit.
-
-Relationships:
-
-```text
-Building
-  -> Unit
-      -> PersonUnit
-```
-
-Important rules:
-
-* `Number` must be unique inside a building.
-
-## Person
-
-Represents a physical person.
-
-Relationships:
-
-```text
-Person
-  -> ApplicationUser
-Person
-  -> PersonUnit
-```
-
-Important rules:
-
-* `CPF` must be unique.
-* A person may exist before the user account is created.
-* `CreatedByUserId` stores who created the person.
-* Master can update/delete only global people created by that same Master.
-* Condominium residents should be managed through condominium-scoped endpoints
-  and `PersonCondominium`.
-
-## PersonUnit
-
-Relationship entity that links a person to a unit.
-
-Relationship types:
+Tipos:
 
 ```text
 Owner
@@ -566,589 +401,968 @@ Resident
 Tenant
 ```
 
-Important rules:
+No frontend:
 
-* The same person cannot have the same relationship type duplicated for the same
-  unit.
+- Tela de vínculo deve permitir escolher pessoa existente ou nova pessoa.
+- Deve ter `cursor-pointer`.
+- Deve permitir remover vínculo.
 
-## Invitation
+### Invitation
 
-Represents an invitation to create a user account for an existing person.
+Convite para criar acesso.
 
-Important rules:
+Regras:
 
-* Master can invite only Admin users.
-* Admin can invite only Syndic or Resident users.
-* Admin can invite users only for condominiums where the admin has
-  condominium-admin access.
-* Invitations expire.
-* Accepting an invitation creates the `ApplicationUser`, assigns the Identity
-  role and creates the `UserCondominium` link.
+- Master cria convites apenas para Admin.
+- Admin cria convites para Resident ou Syndic.
+- Convite gera link `/accept-invitation/{token}`.
+- Aceitar convite cria `ApplicationUser`, atribui role Identity e cria `UserCondominium`.
+- Se convite já foi aceito, não exibir link de aceite.
+- Em detalhes do convite:
+  - Traduzir status.
+  - Se aceito, mostrar “Aceito em” no lugar de “Expira em”.
+  - Remover botão “Copiar link” quando convite estiver aceito.
+
+Frontend:
+
+- Página de convites Master conectada.
+- Página de convites Admin conectada.
+- Modal de novo convite foi padronizado.
+- Botão “Novo Convite” voltou para o canto superior direito.
+- Empty state não deve ter botão duplicado no meio.
+- Selects de pessoa/papel foram estilizados.
+- X dos filtros/modais foi padronizado.
+
+### Charge
+
+Cobranças.
+
+Conceito importante:
+
+- Existem cobranças institucionais da plataforma MORAÊ.
+- Existem cobranças internas do condomínio.
+
+Regras:
+
+- Master cria cobrança institucional MORAÊ para condomínio.
+- Admin vê cobranças MORAÊ do seu condomínio, mas não cria essas cobranças.
+- Admin cria cobranças internas do condomínio para unidades.
+- Morador vê boletos vinculados às suas unidades.
+
+Frontend:
+
+- Master Payments conectado.
+- Admin Payments conectado.
+- Resident Bills conectado.
+- Cards verdes fortes de “Próxima cobrança” foram padronizados para cards claros.
+
+### FinancialAccount
+
+Conta bancária/Pix.
+
+Regras:
+
+- Master configura conta recebedora da plataforma.
+- Admin configura conta recebedora do condomínio ativo.
+- Dados ficam isolados pelo escopo.
+
+Frontend:
+
+- Master Settings tem blocos de configuração.
+- Admin Settings tinha formulário grande, mas foi pedido para ficar mais próximo do modelo clean do Master.
+
+### News
+
+Comunicados/avisos.
+
+Frontend:
+
+- Resident Notices usa dados reais.
+- Card verde grande de aviso em destaque foi padronizado para card claro.
+- Cards que eram verdes fortes devem seguir padrão claro quando destoarem.
+
+### Occurrence
+
+Ocorrências/manutenções.
+
+Foi adicionado:
+
+- Enum `OccurrenceType`.
+- Campo `Type` em `Occurrence`.
+- `CreateOccurrenceDto.Type`.
+- `OccurrenceResponseDto.Type`.
+- Validação em `OccurrenceService`.
+- Default no `AppDbContext`.
+
+Migration:
+
+- Migration `AddOccurrenceType` existe no repositório:
+  - `20260730144629_AddOccurrenceType.cs`
+  - `20260730144629_AddOccurrenceType.Designer.cs`
+
+Comando que já foi indicado:
+
+```powershell
+dotnet ef migrations add AddOccurrenceType --project .\backend\backend.csproj --startup-project .\backend\backend.csproj
+dotnet ef database update --project .\backend\backend.csproj --startup-project .\backend\backend.csproj
+```
+
+Frontend:
+
+- Resident/Syndic Occurrences devem mostrar o tipo.
+- Ícone de ocorrência no Sidebar foi corrigido de `alerta` para `atencao`.
+
+### Notification
+
+Notificações.
+
+Regras decididas:
+
+- Integrar notificações reais ao backend.
+- Notificar eventos úteis:
+  - Convite recebido/aceito.
+  - Usuário suspenso/reativado.
+  - Cobrança criada/paga/cancelada.
+  - Comunicado publicado.
+  - Ocorrência criada/atualizada.
+- Menu de notificações no topo:
+  - Ícone com bolinha quando houver nova notificação.
+  - Sem bolinha quando não houver.
+  - Deve permitir limpar todas.
+
+Problema já visto:
+
+- Erro `Table 'moraeDB.Notifications' doesn't exist`.
+- Causa: migration não aplicada ou banco fora de sincronia.
+- Também houve erro tentando criar tabelas Identity já existentes quando migrations estavam desalinhadas.
 
 ---
 
-# Existing Endpoint Areas
+## 8. Backend - Controllers Existentes
 
-Current controllers:
+Controllers presentes:
 
 ```text
 AuthController
+BuildingController
+ChargesController
 CondominiumController
+DelinquencyController
+FinancialAccountsController
+InvitationController
+MeController
 MyCondominiumsController
-BuildingsController
-UnitsController
+NewsController
+NotificationsController
+OccurrencesController
+PaymentsController
 PersonsController
+PermissionsController
 PersonUnitsController
-InvitationsController
+UnitsController
+UserCondominiumAccessController
 UserCondominiumPermissionsController
 ```
 
-Important frontend-connected endpoints currently used:
+Endpoints importantes:
 
 ```text
 POST /Auth/login
 GET  /api/me
-```
-
-Controller guidelines:
-
-* Use route patterns already present in the project.
-* Keep nested resources when the parent context matters, for example:
-
-```text
-POST /api/condominiums/{condominiumId}/buildings
+GET  /api/me/units
+GET  /api/me/condominiums
+POST /api/condominium/onboarding
 GET  /api/condominiums/{condominiumId}/buildings
-POST /api/buildings/{buildingId}/units
+POST /api/condominiums/{condominiumId}/buildings
 GET  /api/buildings/{buildingId}/units
-POST /api/units/{unitId}/persons
-GET  /api/units/{unitId}/persons
+POST /api/buildings/{buildingId}/units
+GET  /api/condominiums/{condominiumId}/persons
+POST /api/condominiums/{condominiumId}/persons
+GET  /api/condominiums/{condominiumId}/invitations
+POST /api/invitations
+GET  /api/invitations/{token}
+POST /api/invitations/{token}/accept
 ```
 
-* Use `[Authorize]` for authenticated routes.
-* Use role attributes only for broad access gates.
-* Always perform condominium/resource access validation in services.
+Observação:
+
+- Verificar assinatura real no código antes de usar endpoint em novos módulos.
 
 ---
 
-# Service Pattern
+## 9. Frontend - Estrutura Atual
 
-Every entity service should follow the existing pattern:
-
-```csharp
-CreateAsync()
-GetAllAsync()
-GetByIdAsync()
-UpdateAsync()
-DeleteAsync()
-```
-
-Nested resources may use more specific names:
-
-```csharp
-GetByCondominiumAsync()
-GetByBuildingAsync()
-GetByUnitAsync()
-```
-
-Rules:
-
-* Validate the authenticated user.
-* Validate parent resources exist.
-* Validate access through `PermissionService`.
-* Validate uniqueness and business constraints.
-* Throw meaningful custom exceptions.
-* Use AutoMapper.
-* Persist through `AppDbContext`.
-* Return DTOs, not entities.
-
----
-
-# Controller Pattern
-
-Controllers should:
-
-* Receive services through dependency injection.
-* Extract the authenticated user id from claims when needed.
-* Pass user id and DTOs to services.
-* Return DTOs.
-* Use `ActionResult<T>` or `IActionResult` consistently with existing files.
-* Use `CreatedAtAction` or `Created` when creating resources.
-
-Example:
-
-```csharp
-[HttpPost]
-public async Task<IActionResult> Create([FromBody] CreateEntityDto dto)
-{
-    var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-
-    var result = await _service.CreateAsync(userId, dto);
-
-    return CreatedAtAction(
-        nameof(GetById),
-        new { id = result.Id },
-        result
-    );
-}
-```
-
-Controllers must not:
-
-* Query `AppDbContext`.
-* Implement permission checks directly.
-* Return EF entities.
-* Duplicate business rules from services.
-
----
-
-# DTO Rules
-
-Never expose entities directly.
-
-Use:
-
-```text
-CreateDto
-UpdateDto
-ResponseDto
-```
-
-Examples:
-
-```text
-CreateBuildingDto
-UpdateBuildingDto
-BuildingResponseDto
-```
-
-DTOs should live under:
-
-```text
-backend/DTOs/{FeatureName}
-```
-
----
-
-# AutoMapper Rules
-
-All entity mappings must be centralized inside AutoMapper profiles.
-
-Profiles should live under:
-
-```text
-backend/Profiles
-```
-
-Example:
-
-```csharp
-CreateMap<CreateBuildingDto, Building>();
-CreateMap<Building, BuildingResponseDto>();
-```
-
-When a new profile is added, register it in `Program.cs`.
-
----
-
-# Database Rules
-
-Current important unique constraints:
-
-```text
-Condominium.CNPJ
-Building: CondominiumId + Code
-Unit: BuildingId + Number
-Person.CPF
-PersonUnit: PersonId + UnitId + RelationshipType
-UserCondominium: UserId + CondominiumId
-UserCondominiumPermission: UserCondominiumId + PermissionKey
-```
-
-When adding new entities:
-
-* Configure relationships in `AppDbContext`.
-* Add indexes/unique constraints when business rules require them.
-* Create EF Core migrations.
-* Keep delete behavior intentional.
-
----
-
-# Development Rules
-
-Always:
-
-* Follow existing project patterns.
-* Use async/await.
-* Use DTOs.
-* Use AutoMapper.
-* Use dependency injection.
-* Keep business logic inside services.
-* Centralize permission validation in `PermissionService`.
-* Respect the `Master -> Admin -> Syndic -> Resident` hierarchy.
-* Keep condominium data isolated by `UserCondominium`.
-* Keep frontend route protection aligned with backend roles.
-* Prefer reusing the UI screens already created in `frontend/src/features`.
-
-Never:
-
-* Access `AppDbContext` in controllers.
-* Return entities directly from controllers.
-* Duplicate permission validations.
-* Duplicate business rules.
-* Add role strings manually when `AppRoles` should be used.
-* Add permission strings manually when `AppPermissions` should be used.
-* Give Admin access to all condominiums just because the user has the Identity
-  role `Admin`.
-* Treat frontend route guards as a substitute for backend authorization.
-
----
-
-# Frontend Current State
-
-The frontend already contains many visual pages and dashboards, but many of them
-are still static/mock-driven. The current goal is to make them functional
-without rewriting the existing visual foundation.
-
-## Current Frontend Routing
-
-The current router lives in:
+Arquivos principais:
 
 ```text
 frontend/src/app/AppRouter.tsx
-```
-
-Implemented route concepts:
-
-* `PublicRoute`: protects public pages from already-authenticated users.
-* `ProtectedRoute`: protects authenticated areas.
-* `RoleRoute`: protects role-specific route groups.
-
-Current protected route groups:
-
-```text
-/master/dashboard
-/admin/dashboard
-/syndic/dashboard
-/resident/dashboard
-/resident/settings
-```
-
-## Current Frontend Session Architecture
-
-Current auth/session files:
-
-```text
-frontend/src/app/providers/AuthContext.ts
 frontend/src/app/providers/AuthProvider.tsx
+frontend/src/app/providers/AuthContext.ts
 frontend/src/app/providers/useAuth.ts
-frontend/src/features/auth/authService.ts
-frontend/src/features/auth/authStorage.ts
-frontend/src/features/me/meService.ts
-```
-
-Current session behavior:
-
-* `LoginPage` logs in through the backend.
-* Token is saved using `authStorage`.
-* After login, the frontend calls `refreshUser()` from the auth provider.
-* `refreshUser()` loads `GET /api/me` and stores the authenticated user in
-  memory.
-* `PublicRoute` redirects authenticated users to their default dashboard.
-* `ProtectedRoute` blocks access without a valid session.
-* `RoleRoute` blocks access to route groups outside the user's role.
-
-## Current Frontend Role Navigation
-
-Role-based redirection currently uses:
-
-```text
-frontend/src/features/auth/authRedirect.ts
-frontend/src/features/auth/roleGuard.ts
-frontend/src/features/auth/RoleRoute.tsx
-```
-
-The current default route logic is:
-
-```text
-Master  -> /master/dashboard
-Admin   -> /admin/dashboard
-Syndic  -> /syndic/dashboard
-Resident -> /resident/dashboard
-```
-
-## Current Shared Layout Status
-
-Current layout files:
-
-```text
+frontend/src/app/providers/CondominiumProvider.tsx
+frontend/src/app/providers/CondominiumContext.ts
+frontend/src/app/providers/useCondominium.ts
 frontend/src/shared/layout/AppLayout.tsx
 frontend/src/shared/layout/Topbar.tsx
 frontend/src/shared/layout/Sidebar.tsx
+frontend/src/shared/lib/api/apiClient.ts
+frontend/src/shared/lib/api/config.ts
 ```
 
-Important current behavior:
+API base atual:
 
-* `AppLayout` uses `Outlet`.
-* `Topbar` already reads the authenticated user from session.
-* `Sidebar` is a single modern hover-expand container.
-* `Sidebar` already changes visible menu items by primary role.
-* `Sidebar` already triggers logout.
+```ts
+export const API_BASE_URL = "http://localhost:5242";
+```
 
-## Current Frontend UX Helpers
+Autenticação:
 
-Current shared loading component:
+- Login conectado ao backend.
+- Token salvo em `localStorage`.
+- `AuthProvider` chama `GET /api/me`.
+- `useAuth` fica separado para evitar erro de Fast Refresh.
+- `AuthContext` fica separado para evitar erro de Fast Refresh.
+
+Roteamento:
+
+- `PublicRoute`
+- `ProtectedRoute`
+- `RoleRoute`
+
+Redirecionamento padrão:
 
 ```text
-frontend/src/shared/components/PageLoader.tsx
+Master   -> /master/dashboard
+Admin    -> /admin/dashboard
+Syndic   -> /syndic/dashboard
+Resident -> /resident/dashboard
 ```
 
-This is already used by route guards during session/permission validation.
+---
+
+## 10. Frontend - Módulos/Páginas
+
+### Auth
+
+Arquivos:
+
+```text
+frontend/src/features/auth/LoginPage.tsx
+frontend/src/features/auth/AcceptInvitationPage.tsx
+frontend/src/features/auth/ProtectedRoute.tsx
+frontend/src/features/auth/PublicRoute.tsx
+frontend/src/features/auth/RoleRoute.tsx
+frontend/src/features/auth/authRedirect.ts
+frontend/src/features/auth/authService.ts
+frontend/src/features/auth/authStorage.ts
+```
+
+Estado:
+
+- Login real funcionando.
+- Login com credencial válida e inválida já foi testado.
+- CORS foi habilitado no backend para `http://localhost:5173`.
+- Login UI foi muito trabalhado:
+  - Nome MORAÊ.
+  - Acentos corrigidos.
+  - Sem botões F/G/A.
+  - Olho de senha.
+  - “Esqueceu sua senha?” visual apenas.
+  - Responsivo mobile.
+  - Background e planta visual.
+  - Vaso/planta foram ajustados várias vezes.
+
+Accept Invitation:
+
+- UI refeita no padrão do login.
+- Fundo igual ao login.
+- Texto “Seu acesso ao MORAÊ está quase pronto.”
+- Logo no canto superior direito da área branca.
+- Sem borda pesada no card de dados.
+- Placeholder de senha.
+- Botão “Ativar meu acesso”.
+
+### Shared Layout
+
+Sidebar:
+
+- Usa logo MORAÊ.
+- Ícones em vez de letras.
+- Hover expand.
+- Alinhada visualmente com dashboard.
+- Fixa/padrão para todos os perfis.
+- Exibe foto de perfil quando houver.
+- Mostra nome do usuário e role no menu expandido.
+- Botão sair.
+- Ícones do menu:
+  - Dashboard
+  - Condomínios
+  - Convites
+  - Pagamentos
+  - Usuários/Moradores
+  - Configurações
+  - Prédios
+  - Unidades
+  - Avisos
+  - Ocorrências
+
+Topbar:
+
+- Mostra data.
+- Temperatura foi ajustada/removida em alguns perfis quando aparecia estranho.
+- Bolinha de notificação virou menu de notificações.
+
+Scroll:
+
+- Foi criado scroll custom verde/clean.
+- Marcadores/triângulos do scrollbar incomodaram e foram removidos.
 
 ---
 
-# Current Implementation Focus
+## 11. Master - Estado Atual
 
-Current focus:
+Regra:
 
-1. Keep the current architecture consistent.
-2. Strengthen access validation through `PermissionService`.
-3. Finish applying the `Syndic` permission model to future modules.
-4. Preserve condominium isolation for Admin, Syndic and Resident users.
-5. Add new modules using the same controller-service-DTO-profile pattern.
+- Master cuida da plataforma, não da operação interna.
 
-Current frontend focus:
+Páginas:
 
-1. Keep the existing visual design while connecting real data.
-2. Strengthen session handling and role-aware navigation.
-3. Centralize HTTP access before connecting many pages.
-4. Turn existing static screens into real modules gradually.
-5. Prefer one working module at a time over broad rewrites.
+```text
+/master/dashboard
+/master/condominiums
+/master/invitations
+/master/payments
+/master/users
+/master/settings
+```
 
-When implementing new features, first identify:
+Dashboard Master:
 
-1. Which role can call the endpoint.
-2. Which condominium/resource the action belongs to.
-3. Which `PermissionService` method must validate access.
-4. Whether a syndic needs a specific `AppPermissions` key.
-5. Which DTOs and AutoMapper mappings are needed.
+- Modelo visual usado como referência para os demais perfis.
+- Cards:
+  - Total de condomínios.
+  - Convites pendentes.
+  - Receita total.
+  - Receita pendente.
+- Gráficos com Recharts:
+  - Crescimento de condomínios.
+  - Receita MORAÊ.
+- Atividades recentes reais.
+- Texto “Plataforma MORAÊ” foi removido a pedido.
+- Frases verdes dos cards foram refinadas.
+- Filtros dos gráficos foram adicionados e depois removidos quando não agradaram.
 
----
+Condomínios:
 
-# Frontend Modules Roadmap
+- Conectado ao backend.
+- Novo condomínio com onboarding.
+- Sem senha inicial no formulário depois da decisão: admin deve definir senha via convite/link.
+- CEP adicionado.
+- Estado por select.
+- Validações completas.
+- Placeholder padronizado.
+- Tabela mostra admins vinculados.
+- Ver condomínio mostra dados institucionais, contato, localização e admins.
+- Editar condomínio permite alterar Admin vinculado.
+- Remover/adicionar admin vinculado no modal foi solicitado.
+- Tabela deve parecer com tabela de usuários:
+  - Botões limpos.
+  - Data sem negrito.
+  - Admins sem fundo exagerado.
+  - Mostrar apenas nomes dos admins.
 
-Modules already implemented or substantially advanced:
+Convites Master:
 
-1. Frontend foundation
-   * Router base
-   * Layout with `Outlet`
-   * Public and protected route separation
+- Conectado.
+- Master cria Admin.
+- Convite gera link.
+- Se expirado, pode renovar.
+- Textos e filtros melhorados.
+- Botão atualizar/recarregar com ícone.
+- Dropdown customizado.
 
-2. Authentication
-   * Login integrated with backend
-   * Token persistence
+Usuários Master:
 
-3. Session and identity
-   * Global auth provider
-   * Session rehydration via `GET /api/me`
-   * Logout
-   * `PublicRoute` and `ProtectedRoute`
+- Lista apenas Admins dos condomínios criados pelo Master.
+- Pode suspender/reativar.
+- Pode excluir usuário.
+- Botão `+ Novo Admin`.
+- Criar novo Admin deve gerar convite e ir para aba de convites.
+- Suspensão deve notificar e ter tela/mensagem adequada.
 
-4. Role-based routing
-   * `RoleRoute`
-   * Role-aware redirects
-   * Role-aware sidebar/menu
+Pagamentos Master:
 
-5. API layer
-   * Centralize `API_BASE_URL`
-   * Create shared API client
-   * Centralize auth headers
-   * Handle JSON responses and `204 No Content`
+- Cobranças MORAÊ.
+- Master cria cobrança institucional.
+- Admin vê do lado dele.
+- Registro manual de pagamento.
+- Conta bancária/Pix da plataforma em settings.
 
-6. Application context beyond auth
-   * Active condominium provider
-   * Persisted active condominium selection
-   * Reusable condominium context for operational modules
+Configurações Master:
 
-7. Buildings and units operational modules
-   * Buildings page connected to real backend data
-   * Building metrics, search, create, edit and detail modal
-   * Units page connected to real backend data
-   * Unit metrics, search, create, edit, detail and delete flow
-   * Unit person-link flow using `PersonUnits`
-   * Unit backend response enriched with building, condominium, status and responsible person data
-   * Unit deletion blocked when people are linked
-   * Person/unit DTO validation strengthened for MVP safety
-
-8. People / residents management
-   * Dedicated admin route `/admin/people`
-   * Sidebar entry `Moradores` for Admin users
-   * People page connected to `GET /api/condominiums/{condominiumId}/persons`
-   * Create and edit people inside the active condominium context
-   * People response enriched with condominium, unit count and main unit
-   * `PersonCondominium` relationship added so people can belong to a condominium before being linked to a unit
-   * Unit person-link modal now loads people from the active condominium instead of global `/api/persons`
-   * Master remains blocked from condominium operational people/residents endpoints
-   * Master global person update/delete now requires `Person.CreatedByUserId` to match the authenticated Master
-
-9. Invitations and access management
-   * Backend invitation responses enriched with condominium, role and status display fields
-   * `GET /api/condominiums/{condominiumId}/invitations` lists invitations scoped by role and condominium
-   * Admin can create and list invitations for `Syndic` and `Resident` in assigned condominiums
-   * Admin invitation creation requires the person to belong to the target condominium
-   * Master can create and list only `Admin` invitations
-   * Master invitation creation requires a global/contact person created by that same Master
-   * Public route `/accept-invitation/:token` loads the invitation and accepts it
-   * Accepting an invitation creates the `ApplicationUser`, assigns the Identity role and creates `UserCondominium`
-   * Admin route `/admin/invitations` lists and creates invitations for the active condominium
-   * Master route `/master/invitations` creates admin invitations without giving Master condominium operational access
-   * People page action `Preparar convite` now opens the invitation flow with a selected person
-
-10. Master condominium onboarding
-   * Master condominium page uses real backend data only
-   * New condominium creation now uses `POST /api/condominium/onboarding`
-   * Onboarding creates the condominium and the first Admin user in one flow
-   * Frontend validates condominium fields, Admin CPF, Admin phone, Admin e-mail and initial password before submit
-   * Initial onboarding password policy is simplified for MVP: minimum 6 characters
-   * API client now surfaces ASP.NET validation errors from `errors` responses
-   * Editing existing condominiums remains limited to institutional condominium data and status
-
-11. Master admin invitations UX
-   * Master route `/master/invitations` is connected to real backend data
-   * Master selects a real condominium and lists only Admin invitations for it
-   * Creating an Admin invitation creates a Master-owned global person, then creates the invitation
-   * The created invitation token is transformed into `/accept-invitation/{token}` on the frontend
-   * The generated invitation link is shown after creation and can be copied
-   * Invitation metrics, search and status filters use backend invitation data only
-
-12. Master users management
-   * Master route `/master/users` is connected to real backend data
-   * Backend endpoint `GET /api/master/users` lists only Admin users from condominiums created by the authenticated Master
-   * Master users page does not show syndic, resident or operational condominium users
-   * Master can suspend/reactivate only Admin access for condominiums created by that same Master
-   * Existing suspend/reactivate backend flow now validates Master ownership of the condominium before changing access
-   * Frontend user metrics, filters and detail modal use backend user access data only
-
-13. Multi-profile frontend functional pass
-   * Shared frontend services added for charges, news and occurrences
-   * `GET /api/me/units` is now exposed through the frontend `meService`
-   * Admin dashboard now aggregates real buildings, units, people, invitations, charges, news and occurrences for the active condominium
-   * Syndic dashboard now uses real condominium data available to the logged-in syndic
-   * Resident dashboard now uses real user units, charges, occurrences and condominium news
-   * Master payments page now lists real platform charges only, preserving the rule that Master cannot see internal condominium operations
-   * Admin payments page now lists real condominium charges and can create a condominium charge for a real unit
-   * Syndic residents page now lists real people from the active condominium
-   * Resident unit, bills and notices pages now use backend data instead of static examples
-   * Sidebar navigation was updated with real routes for Admin payments, Syndic residents and Resident unit/bills/notices
-   * Sidebar labels were corrected to proper PT-BR accents and `MORAÊ`
-
-14. Platform billing flow
-   * Current branch for this module: `feat/platform-billing-flow`
-   * Platform charges are condominium debts, not debts tied to one specific Admin user
-   * Master can create, list, cancel and manually mark as paid only platform charges from condominiums created by that Master
-   * Admin can list platform charges only for condominiums where the user has an active `UserCondominium` row with role `Admin`
-   * Admin cannot create platform charges and cannot manually mark platform charges as paid
-   * Condominium charges remain operational/internal and are still scoped to Admin/Syndic/Resident access rules
-   * `ChargeResponseDto` now returns condominium and unit display data so the frontend does not render raw IDs
-   * Pending charges with due dates in the past are returned as `Overdue` in the response mapping
-   * Frontend added a payments API service for manual payments
-   * Master payments page now creates real platform charges, cancels eligible charges and registers manual payment
-   * Admin payments page now separates `Cobranças MORAÊ` from `Cobranças do condomínio`
-   * Financial account registration was added for bank account and Pix data
-   * Master settings can register the platform receiving bank account and Pix key
-   * Admin settings can register the active condominium receiving bank account and Pix key
-   * Financial account access follows backend isolation: Master controls platform data; Admin controls only assigned condominium data
-   * Migration `AddFinancialAccounts` creates the `FinancialAccounts` table
-
-Modules still planned:
-
-15. UX hardening
-   * Better empty states
-   * Better error/success feedback
-   * Better form validation
-   * Better expired-session handling
-
-16. Additional business modules
-   * News/communication
-   * Delinquency
-   * Occurrences
-
-Preferred near-term order:
-
-1. Finish `Módulo 4` testing/commit if not yet committed.
-2. Build `Módulo 5: camada de API`.
-3. Connect the first real CRUD/module using the shared API layer.
+- Modelo clean com blocos.
+- Blocos:
+  - Perfil e dados pessoais.
+  - Notificações.
+  - Conta bancária/Pix quando aplicável.
+- Abre popup para configurar.
+- Título e texto embaixo como outras páginas.
 
 ---
 
-# Current Working Point
+## 12. Admin - Estado Atual
 
-The previous near-term order has been superseded by the completed frontend/API
-work.
+Páginas:
 
-Current state:
+```text
+/admin/dashboard
+/admin/buildings
+/admin/units
+/admin/people
+/admin/invitations
+/admin/payments
+/admin/settings
+```
 
-1. Units module is complete and tested.
-2. People/residents module is implemented and tested locally.
-3. Current branch for this work is `feat/platform-billing-flow`.
-4. Invitations and access management module is implemented and tested locally.
-5. Platform billing is being implemented after the multi-profile functional pass.
+Dashboard Admin:
 
-Latest module 8 validation:
+- Deve seguir modelo do Master.
+- Esquerda: prédios e moradores, com gráfico.
+- Direita: receita total e receita pendente.
+- Abaixo: atividades recentes funcionando.
+- Remover “receita atrasada”.
+- Temperatura e número “1” indesejado foram ajustados.
+- Atividades recentes devem ser reais.
+- Não usar mock.
 
-* Frontend build passed with `npm.cmd run build`.
-* Backend build passed with `dotnet build backend\backend.csproj /p:UseAppHost=false`.
-* Latest backend build can show a warning when `dotnet watch run` is active because `backend.exe` is locked, but compilation still succeeds.
-* Admin can list, create and update condominium people.
-* Invalid person payload returns `400`.
-* Master receives `403` when trying to access condominium-scoped people.
-* Migration creates the `PersonCondominiums` table with a unique `PersonId + CondominiumId` index.
-* Master can update a global person created by themselves.
-* Master receives `403` when trying to update a condominium person created/managed outside the Master scope.
-* Admin can still update people inside their assigned condominium.
+Prédios:
 
-Latest module 9 validation:
+- Conectado ao backend.
+- Textos melhorados.
+- Cadastro precisa usar exatamente campos do backend.
+- Select do tipo do prédio estilizado.
+- Cursor pointer em botões, filtros e X.
+- Modal de detalhes com dados reais.
+- Criado em / Atualizado em precisaram de correção/formatar horário.
+- Deve exibir síndico vinculado quando houver.
 
-* Frontend build passed with `npm.cmd run build`.
-* Backend build passed with `dotnet build backend\backend.csproj /p:UseAppHost=false`.
-* Admin can create a `Resident` invitation.
-* Admin receives `403` when trying to invite an `Admin`.
-* Master can create an `Admin` invitation using a global person created by that Master.
-* Master receives `403` when trying to invite a `Resident`.
-* Master receives `403` when trying to invite a condominium person outside the Master-owned global contact scope.
-* Invitation list by condominium works for Admin and Master.
-* Public invitation lookup by token returns person, condominium and role data.
-* Invitation acceptance returns `200`, creates login access and creates `UserCondominium`.
-* New accepted resident can login and appears in `/api/me/condominiums`.
+Unidades:
 
-Latest platform billing validation:
+- Conectado ao backend.
+- Textos dos cards refinados.
+- Modal de cadastro melhorado.
+- Select de prédio custom.
+- Filtros: busca / prédio / status.
+- Cursor pointer em botões.
+- Modal detalhes precisa permitir desvincular pessoa.
+- Vincular pessoas deve ter scroll na lista.
+- Excluir unidade com confirmação.
 
-* Frontend build passed with `npm.cmd run build`.
-* Backend build passed with `dotnet build backend\backend.csproj /p:UseAppHost=false -o .tmp\backend-build`.
-* Normal backend build can fail while `dotnet watch run` is active because `backend.dll` is locked by the running API process.
-* Migration `AddFinancialAccounts` was applied to the local database.
-* Financial account endpoints require restarting the backend after code changes before testing through `http://localhost:5242`.
+Moradores/Pessoas:
+
+- Conectado ao backend.
+- Síndico deve aparecer também aqui.
+- Status deve falar de vínculo.
+- Botão `+ Novo Morador`.
+- Modais com `X`.
+- Placeholders padronizados.
+- Detalhes mostram todas as infos.
+- Editar morador não deve ter campo papel.
+- Se pessoa já tem acesso, não exibir opção/mensagem de preparar convite.
+- Pessoas já registradas não podem ser convidadas de novo.
+
+Convites Admin:
+
+- Admin cria convite para Morador ou Síndico usando pessoa cadastrada.
+- Botão `+ Novo Convite` no canto superior direito.
+- Empty state sem botão duplicado.
+- Detalhes traduzidos:
+  - `Accepted` -> `Aceito`
+  - `Pending` -> `Pendente`
+  - `Expired` -> `Expirado`
+- Se convite aceito, remover link e mostrar “Aceito em”.
+- X padronizado.
+
+Configurações Admin:
+
+- Deve ficar igual ao Master: cards clean e popups.
+- Também inclui dados financeiros do condomínio:
+  - Conta bancária.
+  - Chave Pix.
+  - Condomínio ativo.
+
+Permissões do Síndico:
+
+- Existe área no Admin para gerenciar acesso do síndico.
+- Deve conectar com backend.
+- Select de síndico foi melhorado.
+- Mensagem verde explicativa removida.
 
 ---
 
-# Guidance for AI Assistants
+## 13. Syndic - Estado Atual
 
-When helping with this project:
+Regra mais recente e importante:
 
-* Explain the reason for changes before or while implementing them.
-* Prefer teaching the developer the pattern instead of only pasting code.
-* Keep changes aligned with the current architecture.
-* Read the existing service/controller/profile before adding a new feature.
-* Make small, coherent changes.
-* Update interfaces when services change.
-* Register new services and profiles in `Program.cs`.
-* Run build or tests when possible.
-* If a new feature needs database changes, add a migration and explain why.
-* On frontend tasks, prefer guiding the developer step by step.
-* Reuse existing pages instead of replacing them unless explicitly requested.
-* Keep route/session/role logic centralized.
-* When proposing frontend architecture, preserve the current `app/features/shared`
-  structure.
-* Suggest branch names and commit messages at the end of each module.
+> Agora estamos mexendo apenas no Síndico. Master e Admin estão ok. Síndico deve ver apenas o prédio ao qual está vinculado, não o condomínio inteiro.
 
-The developer wants to code and understand the architecture, not just copy final
-snippets.
+Páginas:
+
+```text
+/syndic/dashboard
+/syndic/residents
+/syndic/maintenance
+/syndic/communication
+/syndic/finance
+/syndic/inspections
+/syndic/settings
+```
+
+Dashboard Syndic:
+
+- Ajustar temperatura.
+- Remover número “1” que aparecia no canto do card.
+- Cards atuais precisam refletir prédio vinculado:
+  - Prédios: provavelmente deve virar “Prédio vinculado” ou equivalente.
+  - Unidades.
+  - Moradores.
+  - Ocorrências.
+- Gráfico “Ocupação por prédio” precisa respeitar prédio vinculado.
+- Mensagens devem deixar claro que o síndico vê sua área delegada.
+- Não deve mostrar dados do condomínio todo se ele só tem prédio.
+
+Syndic Residents:
+
+- Lista pessoas conforme escopo permitido.
+- Precisa respeitar vínculo/permissão.
+
+Maintenance / Occurrences:
+
+- Deve usar ocorrências reais.
+- Deve incluir tipo da ocorrência.
+
+Settings:
+
+- Deve seguir padrão visual do Master/Admin.
+
+---
+
+## 14. Resident - Estado Atual
+
+Páginas:
+
+```text
+/resident/dashboard
+/resident/unit
+/resident/bills
+/resident/notices
+/resident/occurrences ou manutenção/inspeções conforme rotas existentes
+/resident/settings
+```
+
+Dashboard Resident:
+
+- Temperatura ajustada.
+- Remover badge “1 unidade(s)” que ficava no canto.
+- Cards:
+  - Minhas unidades.
+  - Boletos em aberto.
+  - Boletos pagos.
+  - Ocorrências.
+- Textos verdes precisam ser bonitos:
+  - Evitar “Vinculadas ao seu cadastro” se soar genérico.
+  - Usar frases claras e humanas.
+
+Minha Unidade:
+
+- Card verde grande foi padronizado para card claro.
+- Cards verdes fortes devem seguir padrão claro.
+- Mostrar dados reais:
+  - Prédio.
+  - Unidade.
+  - Tipo.
+  - Vínculo.
+- Texto explicativo extra foi removido.
+
+Meus Boletos:
+
+- Conectado ao backend.
+- Card “Próxima cobrança” foi padronizado para card claro.
+- Não usar mock.
+
+Avisos:
+
+- Conectado ao backend.
+- Card verde grande de aviso em destaque foi padronizado para card claro.
+- Cards verdes devem seguir padrão do sistema.
+
+Configurações Resident:
+
+- Blocos:
+  - Perfil/dados pessoais/foto.
+  - Notificações.
+- Foto de perfil deve aparecer no app.
+
+Ocorrências/Manutenção:
+
+- Deve exibir tipo de ocorrência.
+- Integração com backend em evolução.
+
+---
+
+## 15. Decisões Recentes de UI
+
+Aplicar daqui para frente:
+
+- Cards verdes grandes que parecem pesados devem virar cards claros.
+- Verde forte fica para:
+  - Botão principal.
+  - Destaque muito específico.
+  - Estado positivo.
+- Cards padrão:
+
+```text
+rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 shadow-sm
+```
+
+Ícone padrão:
+
+```text
+bg-[#DCFCE7] text-[#16A34A]
+```
+
+Badge padrão:
+
+```text
+bg-[#DCFCE7] text-[#0B3D2E]
+```
+
+Texto principal:
+
+```text
+text-[#111827]
+```
+
+Texto secundário:
+
+```text
+text-[#4B5563] ou text-[#6B7280]
+```
+
+Botões:
+
+- Principal: verde `#16A34A`, branco, sombra leve.
+- Secundário: branco, borda cinza, texto cinza/escuro.
+- Perigo: vermelho suave/borda vermelha.
+- Todos com `cursor-pointer`.
+
+Modais:
+
+- Cabeçalho limpo.
+- Botão fechar como X circular.
+- Sem botão “Fechar” escrito quando o resto do sistema usa X.
+
+Selects:
+
+- Nativo pode ficar feio no Windows.
+- Preferir dropdown custom quando o select aparecer aberto/azul feio.
+
+---
+
+## 16. README / Portfólio
+
+Foi criado um README profissional para GitHub e LinkedIn.
+
+Arquivos criados:
+
+```text
+README.md
+docs/images/morae-cover.svg
+docs/images/role-flow.svg
+docs/images/architecture.svg
+```
+
+Objetivo do README:
+
+- Mostrar o projeto para recrutadores.
+- Explicar stack.
+- Explicar fluxo Master/Admin/Síndico/Morador.
+- Explicar arquitetura.
+- Explicar segurança e isolamento multi-condomínio.
+- Incluir sugestão de post para LinkedIn.
+
+Validação:
+
+- SVGs foram validados como XML.
+- README está em UTF-8 correto.
+- O terminal pode mostrar `MORAÃŠ`, mas os bytes do arquivo estão corretos.
+
+Commit sugerido para README:
+
+```bash
+docs: create professional readme and project visuals
+```
+
+---
+
+## 17. Branch Atual e Status Git
+
+Branch vista recentemente:
+
+```text
+codex/system-review
+```
+
+Há muitos arquivos modificados no worktree por causa da evolução do app.
+
+Importante:
+
+- Não reverter alterações sem permissão do Luiz.
+- Não usar `git reset --hard`.
+- Não usar `git checkout --` para desfazer arquivos sem autorização explícita.
+- Se precisar limpar algo, perguntar antes.
+
+Arquivos/módulos com alterações recentes incluem backend e frontend:
+
+- Permissões de síndico.
+- OccurrenceType.
+- Dashboards.
+- Sidebar.
+- Resident pages.
+- Admin pages.
+- README/docs.
+
+---
+
+## 18. Build e Validações Recentes
+
+Frontend:
+
+```powershell
+cd frontend
+npm.cmd run build
+```
+
+Últimos builds frontend passaram.
+
+Backend:
+
+```powershell
+dotnet build backend\backend.csproj /p:UseAppHost=false
+```
+
+Observação:
+
+- Build normal pode falhar se `dotnet watch run` estiver ativo porque DLL/EXE ficam bloqueados.
+- Usar saída temporária quando necessário:
+
+```powershell
+dotnet build backend\backend.csproj /p:UseAppHost=false -o .tmp\backend-build
+```
+
+Migrations:
+
+- Luiz costuma rodar migrations quando combinamos.
+- Sempre explicar quando migration é necessária.
+
+---
+
+## 19. Problemas Já Vistos e Soluções
+
+### CORS
+
+Erro:
+
+```text
+No 'Access-Control-Allow-Origin' header is present
+```
+
+Solução:
+
+- Backend habilitou CORS para `http://localhost:5173`.
+
+### MySQL caching_sha2_password
+
+Erro:
+
+```text
+Authentication method 'caching_sha2_password' failed
+```
+
+Solução provável:
+
+- Adicionar `AllowPublicKeyRetrieval=True` na connection string local.
+
+### Fast Refresh
+
+Erro:
+
+```text
+Fast refresh only works when a file only exports components
+```
+
+Solução aplicada:
+
+- Separar `AuthProvider`, `AuthContext` e `useAuth` em arquivos diferentes.
+
+### React effect warning
+
+Erro:
+
+```text
+Calling setState synchronously within an effect
+```
+
+Contexto:
+
+- Aconteceu no `AuthProvider`.
+- Foi discutido e ajustado para evitar padrão problemático.
+
+### Tabela Notifications não existe
+
+Erro:
+
+```text
+Table 'moraeDB.Notifications' doesn't exist
+```
+
+Causa:
+
+- Migration não aplicada ou banco fora de sincronia.
+
+### AspNetRoles already exists
+
+Erro:
+
+```text
+Table 'AspNetRoles' already exists
+```
+
+Causa:
+
+- Tentativa de aplicar migration inicial em banco que já tinha tabelas Identity.
+- Cuidado ao mexer em migrations/banco final.
+
+### Encoding no terminal
+
+Problema:
+
+- PowerShell pode mostrar `MORAÃŠ` mesmo quando o arquivo está UTF-8 correto.
+
+Como validar:
+
+```powershell
+$bytes = [System.IO.File]::ReadAllBytes('README.md')
+[System.Text.Encoding]::UTF8.GetString($bytes[0..40])
+```
+
+---
+
+## 20. Regras para Próximos Passos
+
+Antes de implementar qualquer módulo:
+
+1. Ler arquivos existentes.
+2. Confirmar papel/permissão.
+3. Confirmar se dados vêm do backend.
+4. Não criar mock temporário.
+5. Seguir padrão visual atual.
+6. Rodar build quando possível.
+7. Sugerir commit.
+
+Para backend:
+
+1. Criar/ajustar Model se necessário.
+2. Criar/ajustar Enum se necessário.
+3. DTOs.
+4. Profile AutoMapper.
+5. Service/interface.
+6. Controller fino.
+7. `Program.cs` se novo serviço/profile.
+8. Migration se mudou banco.
+9. Validar permissões no `PermissionService`.
+
+Para frontend:
+
+1. Criar service em `features/{modulo}` ou usar service existente.
+2. Tipar responses em `types.ts`.
+3. Usar `apiClient`.
+4. Página não deve fazer `fetch` cru.
+5. Usar loaders/empty/error states.
+6. Garantir responsividade.
+7. Usar textos PT-BR com acentos.
+
+---
+
+## 21. Próximo Foco Provável
+
+O último foco funcional era:
+
+```text
+Mexer apenas no Síndico.
+Master e Admin estão ok.
+Síndico deve ver apenas o prédio ao qual está vinculado, não o condomínio inteiro.
+Depois seguir para Morador.
+```
+
+Depois o foco foi:
+
+- Ajustar Resident cards verdes para padrão claro.
+- Padronizar UI dos módulos Resident.
+- Atualizar README e contexto.
+
+Se continuar desenvolvimento:
+
+1. Revisar dashboard Síndico com escopo por prédio.
+2. Validar se backend já consegue saber prédio vinculado ao síndico.
+3. Se não conseguir, definir modelagem de vínculo Síndico -> Building.
+4. Ajustar telas do Síndico para não somar condomínio inteiro.
+5. Rodar build.
+6. Commit.
+
+---
+
+## 22. Commits Sugeridos Recentes
+
+Para README:
+
+```bash
+docs: create professional readme and project visuals
+```
+
+Para contexto:
+
+```bash
+docs: update project context memory
+```
+
+Para UI Resident cards:
+
+```bash
+style: standardize resident highlight cards
+```
+
+Para occurrence type:
+
+```bash
+feat: add occurrence type to maintenance flow
+```
+
+---
+
+## 23. Observações Finais
+
+Este projeto está em fase forte de polimento para MVP/deploy/portfólio.
+
+O mais importante é não quebrar os pilares:
+
+- Dados reais vindos do backend.
+- Segurança por condomínio.
+- Master sem acesso operacional.
+- Admin só nos condomínios vinculados.
+- Síndico limitado por prédio/permissões.
+- Morador limitado às próprias unidades.
+- UI consistente, limpa e profissional.
+- PT-BR com acentos corretos.
+- Código seguindo padrões já existentes.
+

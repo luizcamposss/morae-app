@@ -149,39 +149,37 @@ function NextChargeCard({ charge, isLoading }: NextChargeCardProps) {
   }
 
   return (
-    <article className="relative overflow-hidden rounded-[1.8rem] bg-gradient-to-br from-[#0B3D2E] via-[#0D7A3A] to-[#22C55E] p-6 text-white shadow-xl shadow-[#0B3D2E]/15">
-      <div className="absolute -right-16 -top-16 size-40 rounded-full bg-white/10" />
-      <div className="absolute -bottom-20 right-10 size-44 rounded-full bg-[#86EFAC]/20" />
+    <article className="rounded-[1.8rem] border border-[#E5E7EB] bg-[#F9FAFB] p-6 shadow-sm">
 
-      <div className="relative">
+      <div>
         <div className="flex items-center justify-between gap-4">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-white/15 text-2xl backdrop-blur">
+          <div className="flex size-12 items-center justify-center rounded-2xl bg-[#DCFCE7] text-2xl text-[#16A34A]">
             <EduIcon nome="boleto" />
           </div>
           {charge && (
-            <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur">
+            <span className="rounded-full bg-[#DCFCE7] px-3 py-1 text-xs font-black text-[#0B3D2E]">
               {getChargeStatusLabel(charge.status)}
             </span>
           )}
         </div>
 
-        <p className="mt-8 text-sm font-bold text-white/75">Próxima cobrança</p>
+        <p className="mt-8 text-sm font-bold text-[#6B7280]">Próxima cobrança</p>
 
         {charge ? (
           <>
-            <h2 className="mt-2 text-4xl font-black tracking-tight">
+            <h2 className="mt-2 text-4xl font-black tracking-tight text-[#111827]">
               {formatCurrency(charge.value)}
             </h2>
-            <p className="mt-3 text-sm font-semibold leading-6 text-white/80">
+            <p className="mt-3 text-sm font-semibold leading-6 text-[#4B5563]">
               Vence em {formatDate(charge.dueDate)} · {charge.description}
             </p>
           </>
         ) : (
           <>
-            <h2 className="mt-2 text-2xl font-black tracking-tight">
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#111827]">
               Nenhuma cobrança pendente
             </h2>
-            <p className="mt-3 text-sm font-semibold leading-6 text-white/80">
+            <p className="mt-3 text-sm font-semibold leading-6 text-[#4B5563]">
               Quando houver uma cobrança em aberto, ela aparecerá em destaque aqui.
             </p>
           </>

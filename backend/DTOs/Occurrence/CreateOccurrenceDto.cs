@@ -24,5 +24,8 @@ public class CreateOccurrenceDto
     public string Description { get; set; } = string.Empty;
 
     [Required]
+    public OccurrenceType Type { get; set; } = OccurrenceType.Maintenance;
+
+    [Required]
     public OccurrencePriority Priority { get; set; } = OccurrencePriority.Medium;
 }

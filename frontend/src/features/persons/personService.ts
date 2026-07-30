@@ -1,5 +1,10 @@
 import { apiRequest } from "../../shared/lib/api/apiClient";
-import type { CreatePersonRequest, PersonResponse, UpdatePersonRequest } from "./types";
+import type {
+  CreatePersonRequest,
+  PersonAccessRole,
+  PersonResponse,
+  UpdatePersonRequest,
+} from "./types";
 
 export async function getPersons(): Promise<PersonResponse[]> {
   return apiRequest<PersonResponse[]>("/api/persons", {
@@ -42,6 +47,18 @@ export async function updatePersonInCondominium(
   return apiRequest<void>(`/api/condominiums/${condominiumId}/persons/${personId}`, {
     method: "PUT",
     body: data,
+    auth: true,
+  });
+}
+
+export async function updatePersonAccessRole(
+  condominiumId: number,
+  userId: number,
+  role: PersonAccessRole,
+): Promise<void> {
+  return apiRequest<void>(`/api/condominiums/${condominiumId}/users/${userId}/role`, {
+    method: "PUT",
+    body: { role },
     auth: true,
   });
 }

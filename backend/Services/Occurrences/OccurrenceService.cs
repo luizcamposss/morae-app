@@ -56,9 +56,32 @@ public class OccurrenceService : IOccurrenceService
     {
         await EnsureCanManageCondominiumOccurrencesAsync(userId, condominiumId);
 
-        var occurrences = await _context.Occurrences
+        var query = _context.Occurrences
             .AsNoTracking()
             .Where(o => o.CondominiumId == condominiumId)
+            .AsQueryable();
+
+        if (await _permissionService.IsSyndicAsync(userId))
+        {
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+
+            if (user is null)
+                throw new NotFoundException("User not found.");
+
+            var linkedBuildingIds = await _context.PersonUnits
+                .AsNoTracking()
+                .Where(personUnit =>
+                    personUnit.PersonId == user.PersonId &&
+                    personUnit.Unit.Building.CondominiumId == condominiumId)
+                .Select(personUnit => personUnit.Unit.BuildingId)
+                .Distinct()
+                .ToListAsync();
+
+            query = query.Where(occurrence =>
+                linkedBuildingIds.Contains(occurrence.Unit.BuildingId));
+        }
+
+        var occurrences = await query
             .OrderByDescending(o => o.CreatedAt)
             .ToListAsync();
 
@@ -98,7 +121,7 @@ public class OccurrenceService : IOccurrenceService
         if (occurrence is null)
             return false;
 
-        await EnsureCanManageCondominiumOccurrencesAsync(userId, occurrence.CondominiumId);
+        await EnsureCanManageOccurrenceAsync(userId, occurrence);
 
         if (dto.Status == OccurrenceStatus.Undefined)
             throw new BadRequestException("Invalid occurrence status.");
@@ -121,6 +144,9 @@ public class OccurrenceService : IOccurrenceService
     {
         if (dto.Priority == OccurrencePriority.Undefined)
             throw new BadRequestException("Invalid occurrence priority.");
+
+        if (dto.Type == OccurrenceType.Undefined)
+            throw new BadRequestException("Invalid occurrence type.");
 
         var unit = await _context.Units
             .AsNoTracking()
@@ -154,6 +180,8 @@ public class OccurrenceService : IOccurrenceService
                 dto.CondominiumId,
                 AppPermissions.OccurrencesManage);
 
+            await _permissionService.EnsureUnitAccessAsync(userId, dto.UnitId);
+
             return;
         }
 
@@ -177,10 +205,20 @@ public class OccurrenceService : IOccurrenceService
         if (occurrence.CreatedByUserId == userId)
             return;
 
-        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin) ||
-            await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
         {
-            await _permissionService.EnsureCondominiumAccessAsync(userId, occurrence.CondominiumId);
+            await _permissionService.EnsureCondominiumAdminAsync(userId, occurrence.CondominiumId);
+            return;
+        }
+
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
+        {
+            await _permissionService.EnsureCondominiumPermissionAsync(
+                userId,
+                occurrence.CondominiumId,
+                AppPermissions.OccurrencesManage);
+
+            await _permissionService.EnsureUnitAccessAsync(userId, occurrence.UnitId);
             return;
         }
 
@@ -207,6 +245,33 @@ public class OccurrenceService : IOccurrenceService
                 condominiumId,
                 AppPermissions.OccurrencesManage);
 
+            return;
+        }
+
+        throw new ForbiddenException("User cannot manage occurrences.");
+    }
+
+    private async Task EnsureCanManageOccurrenceAsync(int userId, Occurrence occurrence)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+
+        if (user is null)
+            throw new NotFoundException("User not found.");
+
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
+        {
+            await _permissionService.EnsureCondominiumAdminAsync(userId, occurrence.CondominiumId);
+            return;
+        }
+
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
+        {
+            await _permissionService.EnsureCondominiumPermissionAsync(
+                userId,
+                occurrence.CondominiumId,
+                AppPermissions.OccurrencesManage);
+
+            await _permissionService.EnsureUnitAccessAsync(userId, occurrence.UnitId);
             return;
         }
 

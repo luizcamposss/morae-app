@@ -93,7 +93,7 @@ public class InvitationService : IInvitationService
             .AnyAsync(u => u.PersonId == dto.PersonId);
 
         if (personAlreadyHasUser)
-            throw new ConflictException("Person already has a registered user.");
+            throw new ConflictException("Esta pessoa ja possui acesso cadastrado no sistema.");
 
         var pendingInvitationExists = await _context.Invitations
             .AnyAsync(i =>
@@ -180,7 +180,7 @@ public class InvitationService : IInvitationService
             .AnyAsync(u => u.PersonId == invitation.PersonId);
 
         if (personAlreadyHasUser)
-            throw new ConflictException("Person already has a registered user.");
+            throw new ConflictException("Esta pessoa ja possui acesso cadastrado no sistema.");
 
         var emailAlreadyUsed = await _userManager.FindByEmailAsync(invitation.Email);
 
@@ -318,7 +318,7 @@ public class InvitationService : IInvitationService
             .AnyAsync(u => u.PersonId == invitation.PersonId);
 
         if (personAlreadyHasUser)
-            throw new ConflictException("Person already has a registered user.");
+            throw new ConflictException("Esta pessoa ja possui acesso cadastrado no sistema.");
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -346,13 +346,41 @@ public class InvitationService : IInvitationService
             throw new BadRequestException(errors);
         }
 
-        _context.UserCondominiums.Add(new UserCondominium
+        var userCondominium = new UserCondominium
         {
             UserId = user.Id,
             CondominiumId = invitation.CondominiumId,
             Role = invitation.Role.ToString(),
             CreatedAt = DateTime.UtcNow
-        });
+        };
+
+        if (invitation.Role == UserRole.Syndic)
+        {
+            userCondominium.Permissions = AppPermissions.All
+                .Select(permission => new UserCondominiumPermission
+                {
+                    PermissionKey = permission,
+                    CreatedAt = DateTime.UtcNow
+                })
+                .ToList();
+        }
+
+        _context.UserCondominiums.Add(userCondominium);
+
+        var personCondominiumExists = await _context.PersonCondominiums
+            .AnyAsync(personCondominium =>
+                personCondominium.PersonId == invitation.PersonId &&
+                personCondominium.CondominiumId == invitation.CondominiumId);
+
+        if (!personCondominiumExists)
+        {
+            _context.PersonCondominiums.Add(new PersonCondominium
+            {
+                PersonId = invitation.PersonId,
+                CondominiumId = invitation.CondominiumId,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
 
         invitation.InvitationStatus = InvitationStatus.Accepted;
         invitation.AcceptedAt = DateTime.UtcNow;

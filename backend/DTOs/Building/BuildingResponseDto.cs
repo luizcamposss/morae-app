@@ -18,6 +18,9 @@ public class BuildingResponseDto
     public int UnitCount { get; set; }
     public int ResidentCount { get; set; }
     public int OccupiedUnitCount { get; set; }
+    public int? SyndicUserId { get; set; }
+    public string SyndicName { get; set; } = string.Empty;
+    public string SyndicEmail { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

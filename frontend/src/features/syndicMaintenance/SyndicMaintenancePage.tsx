@@ -4,7 +4,12 @@ import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
 import { getBuildingsByCondominium } from "../buildings/buildingService";
 import { createOccurrence, getOccurrencesByCondominium, updateOccurrenceStatus } from "../occurrences/occurrenceService";
-import type { OccurrencePriority, OccurrenceResponse, OccurrenceStatus } from "../occurrences/types";
+import type {
+  OccurrencePriority,
+  OccurrenceResponse,
+  OccurrenceStatus,
+  OccurrenceType,
+} from "../occurrences/types";
 import { getUnitsByBuilding } from "../units/unitService";
 import type { UnitResponse } from "../units/types";
 
@@ -73,7 +78,12 @@ export function SyndicMaintenancePage() {
     if (!normalizedSearch) return occurrences;
 
     return occurrences.filter((occurrence) =>
-      [occurrence.title, occurrence.description, getUnitLabel(occurrence.unitId, units)]
+      [
+        occurrence.title,
+        occurrence.description,
+        getTypeLabel(occurrence.type),
+        getUnitLabel(occurrence.unitId, units),
+      ]
         .join(" ")
         .toLowerCase()
         .includes(normalizedSearch),
@@ -168,6 +178,7 @@ export function SyndicMaintenancePage() {
                   <tr>
                     <th className="px-4 py-3 font-extrabold">Título</th>
                     <th className="px-4 py-3 font-extrabold">Unidade</th>
+                    <th className="px-4 py-3 font-extrabold">Tipo</th>
                     <th className="px-4 py-3 font-extrabold">Prioridade</th>
                     <th className="px-4 py-3 font-extrabold">Status</th>
                     <th className="px-4 py-3 font-extrabold">Ações</th>
@@ -177,13 +188,13 @@ export function SyndicMaintenancePage() {
                 <tbody className="divide-y divide-[#E5E7EB]">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-10 text-center font-bold text-[#6B7280]">
+                      <td colSpan={6} className="px-4 py-10 text-center font-bold text-[#6B7280]">
                         Carregando ocorrências...
                       </td>
                     </tr>
                   ) : filteredOccurrences.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-4 py-10 text-center font-bold text-[#6B7280]">
+                      <td colSpan={6} className="px-4 py-10 text-center font-bold text-[#6B7280]">
                         Nenhuma ocorrência encontrada.
                       </td>
                     </tr>
@@ -198,6 +209,12 @@ export function SyndicMaintenancePage() {
                         </td>
                         <td className="px-4 py-4 font-semibold text-[#6B7280]">
                           {getUnitLabel(occurrence.unitId, units)}
+                        </td>
+                        <td className="px-4 py-4">
+                          <StatusBadge
+                            label={getTypeLabel(occurrence.type)}
+                            variant="neutral"
+                          />
                         </td>
                         <td className="px-4 py-4">
                           <StatusBadge
@@ -270,6 +287,7 @@ function CreateOccurrenceModal({
     unitId: units[0]?.id.toString() ?? "",
     title: "",
     description: "",
+    type: "1",
     priority: "2",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -302,6 +320,7 @@ function CreateOccurrenceModal({
         unitId: Number(form.unitId),
         title: form.title.trim(),
         description: form.description.trim(),
+        type: Number(form.type) as OccurrenceType,
         priority: Number(form.priority) as OccurrencePriority,
       });
 
@@ -356,6 +375,22 @@ function CreateOccurrenceModal({
             value={form.title}
             onChange={(value) => setForm((current) => ({ ...current, title: value }))}
           />
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-black text-[#111827]">Tipo</span>
+            <select
+              value={form.type}
+              onChange={(event) => setForm((current) => ({ ...current, type: event.target.value }))}
+              className="h-12 w-full cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
+            >
+              <option value={1}>Manutenção</option>
+              <option value={2}>Segurança</option>
+              <option value={3}>Limpeza</option>
+              <option value={4}>Barulho</option>
+              <option value={5}>Área comum</option>
+              <option value={6}>Outro</option>
+            </select>
+          </label>
 
           <label className="block">
             <span className="mb-2 block text-sm font-black text-[#111827]">Descrição</span>
@@ -442,6 +477,16 @@ function getStatusVariant(status: OccurrenceStatus) {
   if (status === 3) return "success";
   if (status === 4) return "danger";
   return "neutral";
+}
+
+function getTypeLabel(type: OccurrenceType) {
+  if (type === 1) return "Manutenção";
+  if (type === 2) return "Segurança";
+  if (type === 3) return "Limpeza";
+  if (type === 4) return "Barulho";
+  if (type === 5) return "Área comum";
+  if (type === 6) return "Outro";
+  return "Não informado";
 }
 
 function getPriorityLabel(priority: OccurrencePriority) {

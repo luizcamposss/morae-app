@@ -25,6 +25,12 @@ public interface IUserCondominiumAccessService
         int condominiumId,
         int targetUserId);
 
+    Task<UserCondominiumAccessResponseDto> UpdateRoleAsync(
+        int requesterUserId,
+        int condominiumId,
+        int targetUserId,
+        UpdateUserCondominiumRoleDto dto);
+
     Task DeleteAsync(
         int requesterUserId,
         int condominiumId,

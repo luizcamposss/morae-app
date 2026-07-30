@@ -150,42 +150,40 @@ function FeaturedNotice({ notice, isLoading }: FeaturedNoticeProps) {
   }
 
   return (
-    <article className="relative overflow-hidden rounded-[1.8rem] bg-gradient-to-br from-[#0B3D2E] via-[#0D7A3A] to-[#22C55E] p-6 text-white shadow-xl shadow-[#0B3D2E]/15">
-      <div className="absolute -right-16 -top-16 size-40 rounded-full bg-white/10" />
-      <div className="absolute -bottom-20 right-10 size-44 rounded-full bg-[#86EFAC]/20" />
+    <article className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 shadow-sm">
 
-      <div className="relative">
+      <div>
         <div className="flex items-center justify-between gap-4">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-white/15 text-2xl backdrop-blur">
+          <div className="flex size-11 items-center justify-center rounded-2xl bg-[#DCFCE7] text-xl text-[#16A34A]">
             <EduIcon nome="envelope-2" />
           </div>
           {notice && (
-            <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur">
+            <span className="rounded-full bg-[#DCFCE7] px-3 py-1 text-xs font-black text-[#0B3D2E]">
               {getPriorityLabel(notice.priority)}
             </span>
           )}
         </div>
 
-        <p className="mt-8 text-sm font-bold text-white/75">Aviso em destaque</p>
+        <p className="mt-5 text-sm font-extrabold text-[#6B7280]">Aviso em destaque</p>
 
         {notice ? (
           <>
-            <h2 className="mt-2 line-clamp-2 text-3xl font-black tracking-tight">
+            <h2 className="mt-2 line-clamp-2 text-3xl font-black tracking-tight text-[#111827]">
               {notice.title}
             </h2>
-            <p className="mt-3 line-clamp-3 text-sm font-semibold leading-6 text-white/80">
+            <p className="mt-3 line-clamp-3 text-sm font-semibold leading-6 text-[#374151]">
               {notice.description}
             </p>
-            <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-white/65">
+            <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-[#9CA3AF]">
               Publicado em {formatDate(notice.createdAt)}
             </p>
           </>
         ) : (
           <>
-            <h2 className="mt-2 text-2xl font-black tracking-tight">
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#111827]">
               Nenhum comunicado publicado
             </h2>
-            <p className="mt-3 text-sm font-semibold leading-6 text-white/80">
+            <p className="mt-3 text-sm font-semibold leading-6 text-[#374151]">
               Quando o condomínio publicar um aviso, ele aparecerá em destaque aqui.
             </p>
           </>
