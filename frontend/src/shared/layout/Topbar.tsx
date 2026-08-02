@@ -138,9 +138,6 @@ export function Topbar() {
             className="h-10 w-10 object-contain"
           />
         </div>
-        <span className="text-lg font-extrabold tracking-wide text-[#0B3D2E]">
-          MORAÊ
-        </span>
       </div>
 
       <div className="flex items-center gap-3">
@@ -251,8 +248,8 @@ export function Topbar() {
                     title={activeTab === "unread" ? "Nada novo por aqui" : "Tudo em dia"}
                     description={
                       activeTab === "unread"
-                        ? "Você não tem notificações não lidas."
-                        : "Nenhuma notificação real foi recebida pelo sistema."
+                        ? "Você já leu todas as notificações."
+                        : "Quando houver novidades importantes, elas aparecerão aqui."
                     }
                   />
                 ) : (
@@ -342,7 +339,7 @@ function NotificationItem({ notification, onClick }: NotificationItemProps) {
         <p className="mt-1 text-xs font-semibold leading-5 text-[#6B7280]">
           {notification.message}
         </p>
-        <p className="mt-2 text-[0.68rem] font-black uppercase tracking-[0.14em] text-[#9CA3AF]">
+        <p className="mt-2 text-[0.68rem] font-black tracking-[0.08em] text-[#9CA3AF]">
           {formatNotificationDate(notification.createdAt)}
         </p>
       </div>
@@ -460,8 +457,9 @@ function formatNotificationDate(value: string) {
 
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
-    month: "short",
+    month: "2-digit",
+    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(date);
+  }).format(date).replace(",", " às");
 }

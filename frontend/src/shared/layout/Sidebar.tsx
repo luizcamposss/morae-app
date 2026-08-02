@@ -22,7 +22,7 @@ function getPrimaryRole(roles: string[]) {
   if (roles.includes("Master")) return "Master";
   if (roles.includes("Admin")) return "Admin";
   if (roles.includes("Syndic")) return "Syndic";
-  return "Resident";
+  return "Morador";
 }
 
 function getUserDisplayName(user: ReturnType<typeof useAuth>["user"]) {
@@ -36,6 +36,12 @@ function getUserInitials(name: string) {
   if (words.length === 1) return words[0].slice(0, 1).toUpperCase();
 
   return `${words[0].slice(0, 1)}${words[words.length - 1].slice(0, 1)}`.toUpperCase();
+}
+
+function getRoleLabel(role: string) {
+  if (role === "Syndic") return "Síndico";
+  if (role === "Morador") return "Morador";
+  return role;
 }
 
 function getMenuItemsByRole(role: string): MenuItem[] {
@@ -194,7 +200,7 @@ export function Sidebar() {
                 <p className="max-w-44 truncate text-sm font-extrabold text-[#111827]">
                   {userDisplayName}
                 </p>
-                <p className="text-sm font-semibold text-[#6B7280]">{primaryRole}</p>
+                <p className="text-sm font-semibold text-[#6B7280]">{getRoleLabel(primaryRole)}</p>
               </div>
             </div>
 

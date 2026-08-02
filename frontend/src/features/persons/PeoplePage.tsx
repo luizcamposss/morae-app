@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
+import { CreateInvitationModal } from "../invitations/InvitationsPage";
+import { getInvitationsByCondominium } from "../invitations/invitationService";
+import type { InvitationResponse } from "../invitations/types";
 import {
   createPersonInCondominium,
   getPersonsByCondominium,
@@ -18,7 +20,6 @@ const emptyForm: CreatePersonRequest = {
 };
 
 export function PeoplePage() {
-  const navigate = useNavigate();
   const {
     condominiums,
     activeCondominiumId,
@@ -28,10 +29,12 @@ export function PeoplePage() {
   } = useCondominium();
 
   const [people, setPeople] = useState<PersonResponse[]>([]);
+  const [invitations, setInvitations] = useState<InvitationResponse[]>([]);
   const [isLoadingPeople, setIsLoadingPeople] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<PersonResponse | null>(null);
   const [viewingPerson, setViewingPerson] = useState<PersonResponse | null>(null);
+  const [invitingPerson, setInvitingPerson] = useState<PersonResponse | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -55,6 +58,23 @@ export function PeoplePage() {
   const linkedPeople = people.filter((person) => person.unitCount > 0).length;
   const unlinkedPeople = totalPeople - linkedPeople;
   const totalUnitLinks = people.reduce((sum, person) => sum + person.unitCount, 0);
+  const blockedInvitationPersonIds = useMemo(
+    () =>
+      new Set(
+        invitations
+          .filter((invitation) => isPreparedInvitation(invitation))
+          .map((invitation) => invitation.personId),
+      ),
+    [invitations],
+  );
+  const invitablePeople = useMemo(
+    () =>
+      people.filter(
+        (person) =>
+          !person.hasRegisteredUser && !blockedInvitationPersonIds.has(person.id),
+      ),
+    [people, blockedInvitationPersonIds],
+  );
 
   const metrics = [
     { label: "Total", value: totalPeople.toString(), helper: "Cadastros ativos" },
@@ -69,10 +89,16 @@ export function PeoplePage() {
       setSuccessMessage("");
       setIsLoadingPeople(true);
 
-      const result = await getPersonsByCondominium(condominiumId);
-      setPeople(result);
+      const [peopleResult, invitationsResult] = await Promise.all([
+        getPersonsByCondominium(condominiumId),
+        getInvitationsByCondominium(condominiumId),
+      ]);
+
+      setPeople(peopleResult);
+      setInvitations(invitationsResult);
     } catch (error) {
       setPeople([]);
+      setInvitations([]);
 
       if (error instanceof Error) {
         setErrorMessage(error.message);
@@ -95,6 +121,7 @@ export function PeoplePage() {
   useEffect(() => {
     if (!activeCondominiumId) {
       setPeople([]);
+      setInvitations([]);
       setIsLoadingPeople(false);
       return;
     }
@@ -234,7 +261,10 @@ export function PeoplePage() {
                 </thead>
 
                 <tbody className="divide-y divide-[#E5E7EB]">
-                  {filteredPeople.map((person) => (
+                  {filteredPeople.map((person) => {
+                    const hasPreparedInvitation = blockedInvitationPersonIds.has(person.id);
+
+                    return (
                     <tr key={person.id} className="transition hover:bg-[#F3F4F6]">
                       <td className="px-4 py-4 font-extrabold text-[#111827]">
                         <div>{person.name}</div>
@@ -270,17 +300,25 @@ export function PeoplePage() {
                           >
                             Editar
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/admin/invitations?personId=${person.id}`)}
-                            className="cursor-pointer rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
-                          >
-                            Preparar convite
-                          </button>
+                          {!person.hasRegisteredUser && !hasPreparedInvitation && (
+                            <button
+                              type="button"
+                              onClick={() => setInvitingPerson(person)}
+                              className="cursor-pointer rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+                            >
+                              Preparar convite
+                            </button>
+                          )}
+                          {!person.hasRegisteredUser && hasPreparedInvitation && (
+                            <span className="rounded-xl bg-[#DCFCE7] px-3 py-1.5 text-xs font-bold text-[#047857]">
+                              Convite preparado
+                            </span>
+                          )}
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -326,6 +364,19 @@ export function PeoplePage() {
           onClose={() => setViewingPerson(null)}
         />
       )}
+
+      {invitingPerson && activeCondominiumId && (
+        <CreateInvitationModal
+          condominiumId={activeCondominiumId}
+          people={invitablePeople}
+          initialPersonId={invitingPerson.id}
+          onClose={() => setInvitingPerson(null)}
+          onCreated={async () => {
+            await refreshPeople();
+            setSuccessMessage("Convite criado com sucesso.");
+          }}
+        />
+      )}
     </>
   );
 }
@@ -362,6 +413,14 @@ function PersonFormModal({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage("");
+
+    const validationMessage = validatePersonForm(form);
+
+    if (validationMessage) {
+      setErrorMessage(validationMessage);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -369,7 +428,7 @@ function PersonFormModal({
       onClose();
     } catch (error) {
       if (error instanceof Error) {
-        setErrorMessage(error.message);
+        setErrorMessage(getPersonErrorMessage(error.message));
       } else {
         setErrorMessage("Não foi possível salvar o morador.");
       }
@@ -403,7 +462,7 @@ function PersonFormModal({
         </div>
 
         {errorMessage && (
-          <p className="text-sm font-semibold text-[#B42318]">
+          <p className="rounded-2xl border border-[#FECDCA] bg-[#FEE4E2] px-4 py-3 text-sm font-extrabold text-[#B42318]">
             {errorMessage}
           </p>
         )}
@@ -534,4 +593,51 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
 
 function onlyDigits(value: string, maxLength: number) {
   return value.replace(/\D/g, "").slice(0, maxLength);
+}
+
+function validatePersonForm(form: CreatePersonRequest) {
+  if (form.name.trim().length < 2) {
+    return "Informe o nome completo do morador.";
+  }
+
+  if (form.cpf.length !== 11) {
+    return "Informe um CPF válido com 11 números.";
+  }
+
+  if (form.phoneNumber.length < 10) {
+    return "Informe um telefone válido com DDD.";
+  }
+
+  return "";
+}
+
+function getPersonErrorMessage(message: string) {
+  if (message.includes("CPF already registered")) {
+    return "Este CPF já está cadastrado no sistema.";
+  }
+
+  if (message.includes("CPF must contain exactly 11 digits")) {
+    return "Informe um CPF válido com 11 números.";
+  }
+
+  if (message.includes("Phone number must contain between 10 and 20 digits")) {
+    return "Informe um telefone válido com DDD.";
+  }
+
+  if (message.includes("Erro ao comunicar com a API. Status 400")) {
+    return "Revise os dados informados antes de cadastrar o morador.";
+  }
+
+  return message;
+}
+
+function isPreparedInvitation(invitation: InvitationResponse) {
+  const status = invitation.statusName || invitation.invitationStatus.toString();
+
+  return (
+    status === "Pending" ||
+    status === "Accepted" ||
+    invitation.invitationStatus === 1 ||
+    invitation.invitationStatus === 2
+  );
 }

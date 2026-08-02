@@ -114,6 +114,13 @@ export function AcceptInvitationPage() {
           <div className="absolute left-[-42px] top-[-42px] size-32 rounded-full bg-[#86EFAC]/70" />
           <div className="absolute left-8 top-16 h-12 w-28 rounded-full bg-[#86EFAC]/55" />
           <div className="absolute bottom-0 left-0 h-28 w-full bg-gradient-to-t from-[#052E20]/35 to-transparent" />
+          <div className="absolute right-6 top-7 flex size-24 items-center justify-center rounded-[2rem] bg-white/10 shadow-lg shadow-[#052E20]/20 ring-1 ring-white/10 sm:right-8 sm:top-8 sm:size-28">
+            <img
+              src={logoMorae}
+              alt="Logo MORAÊ"
+              className="h-16 w-16 object-contain drop-shadow-sm sm:h-20 sm:w-20"
+            />
+          </div>
 
           <div className="relative flex h-full flex-col">
             <div className="mt-24 max-w-sm sm:mt-28 lg:mt-36">

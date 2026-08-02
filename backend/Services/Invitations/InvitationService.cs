@@ -217,6 +217,68 @@ public class InvitationService : IInvitationService
         return _mapper.Map<InvitationResponseDto>(result);
     }
 
+    public async Task<InvitationResponseDto> CancelAsync(int userId, int invitationId)
+    {
+        var invitation = await _context.Invitations
+            .Include(i => i.Condominium)
+            .Include(i => i.Person)
+            .FirstOrDefaultAsync(i => i.Id == invitationId);
+
+        if (invitation is null)
+            throw new NotFoundException("Invitation not found.");
+
+        var requester = await _userManager.FindByIdAsync(userId.ToString());
+
+        if (requester is null)
+            throw new NotFoundException("User not found.");
+
+        var requesterIsMaster = await _userManager.IsInRoleAsync(requester, AppRoles.Master);
+        var requesterIsAdmin = await _userManager.IsInRoleAsync(requester, AppRoles.Admin);
+
+        if (!requesterIsMaster && !requesterIsAdmin)
+            throw new ForbiddenException("User cannot cancel invitations.");
+
+        if (requesterIsMaster)
+        {
+            if (invitation.Role is not UserRole.Admin)
+                throw new ForbiddenException("Master users can only cancel admin invitations.");
+
+            if (invitation.CreatedByUserId != userId)
+                throw new ForbiddenException("Master can only cancel invitations created by themselves.");
+        }
+
+        if (requesterIsAdmin)
+        {
+            if (invitation.Role is not UserRole.Syndic and not UserRole.Resident)
+                throw new ForbiddenException("Admin users can only cancel syndic or resident invitations.");
+
+            await _permissionService.EnsureCondominiumAdminAsync(userId, invitation.CondominiumId);
+        }
+
+        if (invitation.InvitationStatus == InvitationStatus.Accepted)
+            throw new BadRequestException("Accepted invitations cannot be canceled.");
+
+        if (invitation.InvitationStatus == InvitationStatus.Canceled)
+            throw new BadRequestException("Invitation already canceled.");
+
+        if (invitation.InvitationStatus != InvitationStatus.Pending)
+            throw new BadRequestException("Only pending invitations can be canceled.");
+
+        if (invitation.ExpiresAt < DateTime.UtcNow)
+        {
+            invitation.InvitationStatus = InvitationStatus.Expired;
+            await _context.SaveChangesAsync();
+
+            throw new BadRequestException("Expired invitations cannot be canceled.");
+        }
+
+        invitation.InvitationStatus = InvitationStatus.Canceled;
+
+        await _context.SaveChangesAsync();
+
+        return _mapper.Map<InvitationResponseDto>(invitation);
+    }
+
     public async Task<IEnumerable<InvitationResponseDto>> GetByCondominiumAsync(int userId, int condominiumId)
     {
         var user = await _userManager.FindByIdAsync(userId.ToString());

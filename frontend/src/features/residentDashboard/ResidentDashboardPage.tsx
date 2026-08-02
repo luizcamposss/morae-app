@@ -14,6 +14,7 @@ import { useAuth } from "../../app/providers/useAuth";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
+import { usePersistentClearedIds } from "../../shared/hooks/usePersistentClearedIds";
 import { getMyCharges } from "../charges/chargeService";
 import type { ChargeResponse } from "../charges/types";
 import { getMyUnits } from "../me/meService";
@@ -183,8 +184,8 @@ export function ResidentDashboardPage() {
     [dashboard.occurrences],
   );
   const activities = useMemo(() => buildActivities(dashboard), [dashboard]);
-  const [clearedActivityIds, setClearedActivityIds] = useState<Set<string>>(
-    () => new Set(),
+  const [clearedActivityIds, setClearedActivityIds] = usePersistentClearedIds(
+    `morae:resident-dashboard:${user?.userId ?? "anonymous"}:${activeCondominiumId ?? "all"}:cleared-activities`,
   );
   const visibleActivities = useMemo(
     () => activities.filter((activity) => !clearedActivityIds.has(activity.id)),

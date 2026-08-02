@@ -211,6 +211,27 @@ public class CondominiumService : ICondominiumService
 
         return true;
     }
+
+    public async Task<bool> UpdateStatusAsync(int userId, int id, UpdateCondominiumStatusDto dto)
+    {
+        await _permissionService.EnsureMasterAsync(userId);
+
+        var condominium = await _context.Condominiums
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (condominium is null) return false;
+
+        if (condominium.CreatedByUserId != userId)
+            throw new ForbiddenException("Master can only change status from condominiums created by themselves.");
+
+        condominium.Status = dto.Status;
+        condominium.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+
     public async Task<bool> UpdateAdminAsync(int userId, int id, UpdateCondominiumAdminDto dto)
     {
         await _permissionService.EnsureMasterAsync(userId);

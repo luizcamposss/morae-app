@@ -323,6 +323,24 @@ function CreateOccurrenceModal({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const unitOptions = units.map((unit) => ({
+    label: `${unit.buildingName} - Unidade ${unit.unitNumber}`,
+    value: unit.unitId.toString(),
+  }));
+  const typeOptions = [
+    { label: "Manutenção", value: "1" },
+    { label: "Segurança", value: "2" },
+    { label: "Limpeza", value: "3" },
+    { label: "Barulho", value: "4" },
+    { label: "Área comum", value: "5" },
+    { label: "Outro", value: "6" },
+  ];
+  const priorityOptions = [
+    { label: "Baixa", value: "1" },
+    { label: "Média", value: "2" },
+    { label: "Alta", value: "3" },
+    { label: "Urgente", value: "4" },
+  ];
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -396,22 +414,12 @@ function CreateOccurrenceModal({
         </div>
 
         <div className="space-y-5 px-5 py-6 sm:px-8">
-          <label className="block">
-            <span className="mb-2 block text-sm font-black text-[#111827]">Unidade</span>
-            <select
-              value={form.unitId}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, unitId: event.target.value }))
-              }
-              className="h-12 w-full cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-            >
-              {units.map((unit) => (
-                <option key={unit.unitId} value={unit.unitId}>
-                  {unit.buildingName} - Unidade {unit.unitNumber}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SelectField
+            label="Unidade"
+            value={form.unitId}
+            options={unitOptions}
+            onChange={(value) => setForm((current) => ({ ...current, unitId: value }))}
+          />
 
           <TextField
             label="Título"
@@ -420,23 +428,12 @@ function CreateOccurrenceModal({
             onChange={(value) => setForm((current) => ({ ...current, title: value }))}
           />
 
-          <label className="block">
-            <span className="mb-2 block text-sm font-black text-[#111827]">Tipo</span>
-            <select
-              value={form.type}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, type: event.target.value }))
-              }
-              className="h-12 w-full cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-            >
-              <option value={1}>Manutenção</option>
-              <option value={2}>Segurança</option>
-              <option value={3}>Limpeza</option>
-              <option value={4}>Barulho</option>
-              <option value={5}>Área comum</option>
-              <option value={6}>Outro</option>
-            </select>
-          </label>
+          <SelectField
+            label="Tipo"
+            value={form.type}
+            options={typeOptions}
+            onChange={(value) => setForm((current) => ({ ...current, type: value }))}
+          />
 
           <label className="block">
             <span className="mb-2 block text-sm font-black text-[#111827]">Descrição</span>
@@ -450,21 +447,12 @@ function CreateOccurrenceModal({
             />
           </label>
 
-          <label className="block">
-            <span className="mb-2 block text-sm font-black text-[#111827]">Prioridade</span>
-            <select
-              value={form.priority}
-              onChange={(event) =>
-                setForm((current) => ({ ...current, priority: event.target.value }))
-              }
-              className="h-12 w-full cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-            >
-              <option value={1}>Baixa</option>
-              <option value={2}>Média</option>
-              <option value={3}>Alta</option>
-              <option value={4}>Urgente</option>
-            </select>
-          </label>
+          <SelectField
+            label="Prioridade"
+            value={form.priority}
+            options={priorityOptions}
+            onChange={(value) => setForm((current) => ({ ...current, priority: value }))}
+          />
 
           {errorMessage && (
             <p className="rounded-2xl border border-[#FECACA] bg-[#FDECEC] px-4 py-3 text-sm font-bold text-[#B42318]">
@@ -503,6 +491,64 @@ function TextField({ label, placeholder, value, onChange }: TextFieldProps) {
         className="h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
       />
     </label>
+  );
+}
+
+type SelectFieldProps = {
+  label: string;
+  value: string;
+  options: Array<{ label: string; value: string }>;
+  onChange: (value: string) => void;
+};
+
+function SelectField({ label, value, options, onChange }: SelectFieldProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedOption = options.find((option) => option.value === value);
+
+  return (
+    <div className="relative">
+      <span className="mb-2 block text-sm font-black text-[#111827]">{label}</span>
+      <button
+        type="button"
+        onClick={() => setIsOpen((current) => !current)}
+        className={`flex h-12 w-full cursor-pointer items-center justify-between rounded-2xl border bg-white px-4 text-left text-sm font-bold text-[#111827] outline-none transition ${
+          isOpen
+            ? "border-[#22C55E] ring-4 ring-[#86EFAC]/30"
+            : "border-[#E5E7EB] hover:border-[#BBF7D0]"
+        }`}
+      >
+        <span>{selectedOption?.label ?? "Selecione"}</span>
+        <span className={`text-[#6B7280] transition ${isOpen ? "rotate-180" : ""}`}>
+          ⌄
+        </span>
+      </button>
+
+      {isOpen && (
+        <div className="absolute left-0 right-0 z-30 mt-2 overflow-hidden rounded-2xl border border-[#D9DEE5] bg-white p-1 shadow-xl shadow-[#111827]/10">
+          {options.map((option) => {
+            const isSelected = option.value === value;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                className={`flex min-h-10 w-full cursor-pointer items-center rounded-xl px-3 py-2 text-left text-sm font-bold transition ${
+                  isSelected
+                    ? "bg-[#DCFCE7] text-[#0B3D2E]"
+                    : "text-[#4B5563] hover:bg-[#F3F4F6] hover:text-[#111827]"
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 

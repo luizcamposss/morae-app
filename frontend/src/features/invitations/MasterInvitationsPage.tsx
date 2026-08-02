@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getCondominiums } from "../condominiums/condominiumService";
 import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
-import { getInvitationsByCondominium, renewInvitation } from "./invitationService";
+import { cancelInvitation, getInvitationsByCondominium, renewInvitation } from "./invitationService";
 import type { InvitationResponse, InvitationStatus } from "./types";
 
 const ADMIN_ROLE = 2;
@@ -14,7 +14,7 @@ const CANCELED_STATUS = 5;
 type StatusFilter = "all" | InvitationStatus;
 
 const statusFilterOptions: Array<{ value: StatusFilter; label: string }> = [
-  { value: "all", label: "Status" },
+  { value: "all", label: "Todos" },
   { value: PENDING_STATUS, label: "Pendentes" },
   { value: ACCEPTED_STATUS, label: "Aceitos" },
   { value: EXPIRED_STATUS, label: "Expirados" },
@@ -29,6 +29,7 @@ export function MasterInvitationsPage() {
   const [invitations, setInvitations] = useState<InvitationResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRenewingId, setIsRenewingId] = useState<number | null>(null);
+  const [isCancelingId, setIsCancelingId] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [isStatusFilterOpen, setIsStatusFilterOpen] = useState(false);
@@ -163,6 +164,32 @@ export function MasterInvitationsPage() {
       setErrorMessage(getFriendlyErrorMessage(error, "Não foi possível renovar o convite."));
     } finally {
       setIsRenewingId(null);
+    }
+  }
+
+  async function handleCancelInvitation(invitation: InvitationResponse) {
+    const shouldCancel = window.confirm(
+      "Deseja cancelar este convite? O link deixará de funcionar imediatamente.",
+    );
+
+    if (!shouldCancel) {
+      return;
+    }
+
+    try {
+      setErrorMessage("");
+      setSuccessMessage("");
+      setGeneratedLink("");
+      setIsCancelingId(invitation.id);
+
+      await cancelInvitation(invitation.id);
+      await loadPageData();
+
+      setSuccessMessage("Convite cancelado com sucesso.");
+    } catch (error) {
+      setErrorMessage(getFriendlyErrorMessage(error, "Não foi possível cancelar o convite."));
+    } finally {
+      setIsCancelingId(null);
     }
   }
 
@@ -334,7 +361,7 @@ export function MasterInvitationsPage() {
                   <th className="px-4 py-3 font-extrabold">Condomínio</th>
                   <th className="px-4 py-3 font-extrabold">Status</th>
                   <th className="px-4 py-3 font-extrabold">Criado em</th>
-                  <th className="px-4 py-3 font-extrabold">Expira em</th>
+                  <th className="px-4 py-3 font-extrabold">Data</th>
                   <th className="px-4 py-3 font-extrabold">Ações</th>
                 </tr>
               </thead>
@@ -343,6 +370,7 @@ export function MasterInvitationsPage() {
                 {filteredInvitations.map((invitation) => {
                   const status = getEffectiveStatus(invitation);
                   const canCopyLink = status === PENDING_STATUS;
+                  const canCancel = status === PENDING_STATUS;
                   const canRenew = status === EXPIRED_STATUS;
 
                   return (
@@ -366,7 +394,12 @@ export function MasterInvitationsPage() {
                         {formatDateTime(invitation.createdAt)}
                       </td>
                       <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                        {formatDateTime(invitation.expiresAt)}
+                        <span className="block text-[0.65rem] font-black uppercase tracking-[0.14em] text-[#16A34A]">
+                          {getInvitationDateLabel(status)}
+                        </span>
+                        <span className="mt-1 block">
+                          {formatDateTime(getInvitationDisplayDate(invitation, status))}
+                        </span>
                       </td>
                       <td className="px-4 py-4">
                         <div className="flex flex-wrap gap-2">
@@ -388,6 +421,14 @@ export function MasterInvitationsPage() {
                               >
                                 Copiar
                               </button>
+                              <button
+                                type="button"
+                                disabled={isCancelingId === invitation.id}
+                                onClick={() => void handleCancelInvitation(invitation)}
+                                className="cursor-pointer rounded-xl border border-[#FECACA] bg-white px-3 py-1.5 text-xs font-bold text-[#B42318] transition hover:bg-[#FDECEC] disabled:cursor-not-allowed disabled:opacity-70"
+                              >
+                                {isCancelingId === invitation.id ? "Cancelando..." : "Cancelar"}
+                              </button>
                             </>
                           )}
 
@@ -402,7 +443,7 @@ export function MasterInvitationsPage() {
                             </button>
                           )}
 
-                          {!canCopyLink && !canRenew && (
+                          {!canCopyLink && !canRenew && !canCancel && (
                             <span className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-1.5 text-xs font-bold text-[#6B7280]">
                               Sem ação
                             </span>
@@ -477,14 +518,36 @@ function getStatusVariant(status: InvitationStatus) {
   return "neutral" as const;
 }
 
-function formatDateTime(value: string) {
+function getInvitationDateLabel(status: InvitationStatus) {
+  return status === ACCEPTED_STATUS ? "Aceito em" : "Expira em";
+}
+
+function getInvitationDisplayDate(invitation: InvitationResponse, status: InvitationStatus) {
+  if (status === ACCEPTED_STATUS) {
+    return invitation.acceptedAt || invitation.createdAt;
+  }
+
+  return invitation.expiresAt;
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
   return new Intl.DateTimeFormat("pt-BR", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 function getFriendlyErrorMessage(error: unknown, fallback: string) {

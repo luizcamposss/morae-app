@@ -5,6 +5,7 @@ import type {
   CreateCondominiumRequest,
   UpdateCondominiumAdminRequest,
   UpdateCondominiumRequest,
+  UpdateCondominiumStatusRequest,
 } from "./types";
 
 export async function getCondominiums(): Promise<CondominiumResponse[]> {
@@ -38,6 +39,17 @@ export async function updateCondominium(
   data: UpdateCondominiumRequest,
 ): Promise<void> {
   return apiRequest<void>(`/api/condominium/${id}`, {
+    method: "PUT",
+    body: data,
+    auth: true,
+  });
+}
+
+export async function updateCondominiumStatus(
+  id: number,
+  data: UpdateCondominiumStatusRequest,
+): Promise<void> {
+  return apiRequest<void>(`/api/condominium/${id}/status`, {
     method: "PUT",
     body: data,
     auth: true,

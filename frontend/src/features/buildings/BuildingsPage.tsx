@@ -76,30 +76,31 @@ export function BuildingsPage() {
 
   const totalBuildings = buildings.length;
   const totalUnits = buildings.reduce((sum, building) => sum + building.unitCount, 0);
-  const totalFloors = buildings.reduce((sum, building) => sum + building.floorCount, 0);
-  const buildingsWithElevator = buildings.filter((building) => building.hasElevator).length;
-  const occupiedBuildings = buildings.filter((building) => building.occupiedUnitCount > 0).length;
+  const occupiedUnits = buildings.reduce((sum, building) => sum + building.occupiedUnitCount, 0);
+  const vacantUnits = Math.max(totalUnits - occupiedUnits, 0);
+  const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
+  const buildingsWithoutSyndic = buildings.filter((building) => !building.syndicUserId).length;
 
   const metrics = [
     {
-      label: "Prédios",
-      value: totalBuildings.toString(),
-      helper: "Blocos cadastrados",
+      label: "Unidades cadastradas",
+      value: totalUnits.toString(),
+      helper: `${totalBuildings} prédio(s) na operação`,
     },
     {
-      label: "Com ocupação",
-      value: occupiedBuildings.toString(),
-      helper: "Possuem unidades ocupadas",
+      label: "Ocupação geral",
+      value: `${occupancyRate}%`,
+      helper: `${occupiedUnits} de ${totalUnits} unidade(s) ocupada(s)`,
     },
     {
-      label: "Andares",
-      value: totalFloors.toString(),
-      helper: "Soma estrutural",
+      label: "Unidades vagas",
+      value: vacantUnits.toString(),
+      helper: "Disponíveis para vínculo",
     },
     {
-      label: "Com elevador",
-      value: buildingsWithElevator.toString(),
-      helper: `${totalUnits} unidade(s) cadastrada(s)`,
+      label: "Prédios sem síndico",
+      value: buildingsWithoutSyndic.toString(),
+      helper: "Precisam de responsável",
     },
   ];
 

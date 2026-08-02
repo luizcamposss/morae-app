@@ -31,6 +31,13 @@ export async function renewInvitation(id: number): Promise<InvitationResponse> {
   });
 }
 
+export async function cancelInvitation(id: number): Promise<InvitationResponse> {
+  return apiRequest<InvitationResponse>(`/api/invitations/${id}/cancel`, {
+    method: "POST",
+    auth: true,
+  });
+}
+
 export async function getInvitationByToken(
   token: string,
 ): Promise<InvitationResponse> {

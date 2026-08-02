@@ -9,6 +9,7 @@ import {
     removeCondominiumAdmin,
     updateCondominium,
     updateCondominiumAdmin,
+    updateCondominiumStatus,
 } from "../condominiums/condominiumService";
 import type {
     CreateCondominiumOnboardingRequest,
@@ -342,16 +343,7 @@ export function CondominiumsPage() {
             setErrorMessage("");
             setSuccessMessage("");
 
-            await updateCondominium(condominium.id, {
-                name: condominium.name,
-                cep: condominium.cep || "",
-                number: condominium.number,
-                address: condominium.address,
-                city: condominium.city,
-                state: condominium.state,
-                emailContact: condominium.emailContact,
-                status: nextStatus,
-            });
+            await updateCondominiumStatus(condominium.id, { status: nextStatus });
 
             setSuccessMessage(
                 nextStatus === ACTIVE_STATUS
@@ -1000,41 +992,22 @@ function CondominiumModal({
 
                     {isEdit && (
                         <>
-                            <label className="block">
-                                <span className="mb-2 block text-sm font-extrabold text-[#111827]">
-                                    Status
-                                </span>
-                                <select
-                                    value={form.status}
-                                    onChange={(event) =>
-                                        updateField("status", Number(event.target.value))
-                                    }
-                                    className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-                                >
-                                    <option value={ACTIVE_STATUS}>Ativo</option>
-                                    <option value={INACTIVE_STATUS}>Inativo</option>
-                                </select>
-                            </label>
+                            <StatusSelectField
+                                label="Status"
+                                value={form.status}
+                                onChange={(value) => updateField("status", value)}
+                            />
 
                             <div className="md:col-span-2">
-                                <span className="mb-2 block text-sm font-extrabold text-[#111827]">
-                                    Admin vinculado
-                                </span>
-                                <div className="flex flex-col gap-3 sm:flex-row">
-                                    <select
-                                    value={form.linkedAdminUserId}
-                                    onChange={(event) =>
-                                        updateField("linkedAdminUserId", event.target.value)
-                                    }
-                                        className="h-11 flex-1 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-                                >
-                                    <option value="">Sem Admin ativo</option>
-                                    {adminUsers.map((admin) => (
-                                        <option key={admin.userId} value={admin.userId}>
-                                            {admin.personName} - {admin.email}
-                                        </option>
-                                    ))}
-                                    </select>
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                                    <div className="min-w-0 flex-1">
+                                        <AdminSelectField
+                                            label="Admin vinculado"
+                                            value={form.linkedAdminUserId}
+                                            admins={adminUsers}
+                                            onChange={(value) => updateField("linkedAdminUserId", value)}
+                                        />
+                                    </div>
 
                                     <button
                                         type="button"
@@ -1458,6 +1431,156 @@ function SelectField({
                 <span className="mt-2 block text-xs font-extrabold text-[#B42318]">
                     {error}
                 </span>
+            )}
+        </div>
+    );
+}
+
+function AdminSelectField({
+    label,
+    value,
+    admins,
+    onChange,
+}: {
+    label: string;
+    value: string;
+    admins: MasterUserResponse[];
+    onChange: (value: string) => void;
+}) {
+    const [isOpen, setIsOpen] = useState(false);
+    const selectedAdmin = admins.find((admin) => admin.userId.toString() === value);
+    const selectedLabel = selectedAdmin
+        ? `${selectedAdmin.personName} - ${selectedAdmin.email}`
+        : "Sem Admin ativo";
+    const options = [
+        { value: "", label: "Sem Admin ativo" },
+        ...admins.map((admin) => ({
+            value: admin.userId.toString(),
+            label: `${admin.personName} - ${admin.email}`,
+        })),
+    ];
+
+    function selectOption(nextValue: string) {
+        onChange(nextValue);
+        setIsOpen(false);
+    }
+
+    return (
+        <div className="relative block">
+            <span className="mb-2 block text-sm font-extrabold text-[#111827]">
+                {label}
+            </span>
+            <button
+                type="button"
+                aria-expanded={isOpen}
+                onClick={() => setIsOpen((current) => !current)}
+                className={`flex h-11 w-full cursor-pointer items-center justify-between rounded-2xl border bg-white px-4 text-left text-sm font-bold outline-none transition ${
+                    isOpen
+                        ? "border-[#22C55E] text-[#111827] ring-4 ring-[#86EFAC]/30"
+                        : "border-[#E5E7EB] text-[#111827] hover:border-[#BBF7D0]"
+                }`}
+            >
+                <span className="truncate">{selectedLabel}</span>
+                <span
+                    className={`block size-2 shrink-0 border-r-2 border-b-2 border-current text-[#6B7280] transition-transform ${
+                        isOpen ? "rotate-[225deg] translate-y-0.5" : "rotate-45 -translate-y-0.5"
+                    }`}
+                    aria-hidden="true"
+                />
+            </button>
+
+            {isOpen && (
+                <div className="absolute left-0 top-[4.75rem] z-[90] max-h-64 w-full overflow-y-auto rounded-2xl border border-[#E5E7EB] bg-white p-1 shadow-xl shadow-[#111827]/10">
+                    {options.map((option) => {
+                        const isSelected = value === option.value;
+
+                        return (
+                            <button
+                                key={option.value || "empty-admin"}
+                                type="button"
+                                onClick={() => selectOption(option.value)}
+                                className={`flex h-10 w-full cursor-pointer items-center rounded-xl px-3 text-left text-sm font-extrabold transition ${
+                                    isSelected
+                                        ? "bg-[#DCFCE7] text-[#0B3D2E]"
+                                        : "text-[#6B7280] hover:bg-[#F0FDF4] hover:text-[#0B3D2E]"
+                                }`}
+                            >
+                                <span className="truncate">{option.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function StatusSelectField({
+    label,
+    value,
+    onChange,
+}: {
+    label: string;
+    value: number;
+    onChange: (value: number) => void;
+}) {
+    const [isOpen, setIsOpen] = useState(false);
+    const options = [
+        { value: ACTIVE_STATUS, label: "Ativo" },
+        { value: INACTIVE_STATUS, label: "Inativo" },
+    ];
+    const selectedLabel = options.find((option) => option.value === value)?.label ?? "Status";
+
+    function selectOption(nextValue: number) {
+        onChange(nextValue);
+        setIsOpen(false);
+    }
+
+    return (
+        <div className="relative block">
+            <span className="mb-2 block text-sm font-extrabold text-[#111827]">
+                {label}
+            </span>
+            <button
+                type="button"
+                aria-expanded={isOpen}
+                onClick={() => setIsOpen((current) => !current)}
+                className={`flex h-11 w-full cursor-pointer items-center justify-between rounded-2xl border bg-white px-4 text-left text-sm font-bold outline-none transition ${
+                    isOpen
+                        ? "border-[#22C55E] text-[#111827] ring-4 ring-[#86EFAC]/30"
+                        : "border-[#E5E7EB] text-[#111827] hover:border-[#BBF7D0]"
+                }`}
+            >
+                <span>{selectedLabel}</span>
+                <span
+                    className={`block size-2 shrink-0 border-r-2 border-b-2 border-current text-[#6B7280] transition-transform ${
+                        isOpen ? "rotate-[225deg] translate-y-0.5" : "rotate-45 -translate-y-0.5"
+                    }`}
+                    aria-hidden="true"
+                />
+            </button>
+
+            {isOpen && (
+                <div className="absolute left-0 top-[4.75rem] z-[90] w-full overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white p-1 shadow-xl shadow-[#111827]/10">
+                    {options.map((option) => {
+                        const isSelected = value === option.value;
+
+                        return (
+                            <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => selectOption(option.value)}
+                                className={`flex h-10 w-full cursor-pointer items-center rounded-xl px-3 text-left text-sm font-extrabold transition ${
+                                    isSelected
+                                        ? "bg-[#DCFCE7] text-[#0B3D2E]"
+                                        : "text-[#6B7280] hover:bg-[#F0FDF4] hover:text-[#0B3D2E]"
+                                }`}
+                            >
+                                {option.label}
+                            </button>
+                        );
+                    })}
+                </div>
             )}
         </div>
     );

@@ -6,7 +6,7 @@ import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
 import { getPersonsByCondominium } from "../persons/personService";
 import type { PersonResponse } from "../persons/types";
-import { createInvitation, getInvitationsByCondominium } from "./invitationService";
+import { cancelInvitation, createInvitation, getInvitationsByCondominium } from "./invitationService";
 import type { CreateInvitationRequest, InvitationResponse, InvitationRole } from "./types";
 
 const roleOptions: Array<{ value: InvitationRole; label: string }> = [
@@ -86,6 +86,7 @@ export function InvitationsPage() {
   const [people, setPeople] = useState<PersonResponse[]>([]);
   const [isLoadingInvitations, setIsLoadingInvitations] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isCancelingId, setIsCancelingId] = useState<number | null>(null);
   const [viewingInvitation, setViewingInvitation] = useState<InvitationResponse | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -188,6 +189,35 @@ export function InvitationsPage() {
       setSuccessMessage("Link do convite copiado.");
     } catch {
       setSuccessMessage(buildInvitationLink(invitation.token));
+    }
+  }
+
+  async function handleCancelInvitation(invitation: InvitationResponse) {
+    const shouldCancel = window.confirm(
+      "Deseja cancelar este convite? O link deixará de funcionar imediatamente.",
+    );
+
+    if (!shouldCancel) {
+      return;
+    }
+
+    try {
+      setErrorMessage("");
+      setSuccessMessage("");
+      setIsCancelingId(invitation.id);
+
+      await cancelInvitation(invitation.id);
+      await refreshInvitations();
+
+      setSuccessMessage("Convite cancelado com sucesso.");
+    } catch (error) {
+      if (error instanceof Error) {
+        setErrorMessage(getInvitationErrorMessage(error.message));
+      } else {
+        setErrorMessage("Não foi possível cancelar o convite.");
+      }
+    } finally {
+      setIsCancelingId(null);
     }
   }
 
@@ -403,6 +433,25 @@ export function InvitationsPage() {
                           >
                             Ver
                           </button>
+                          {getStatusLabel(invitation) === "Pending" && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => void copyInvitationLink(invitation)}
+                                className="cursor-pointer rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+                              >
+                                Copiar link
+                              </button>
+                              <button
+                                type="button"
+                                disabled={isCancelingId === invitation.id}
+                                onClick={() => void handleCancelInvitation(invitation)}
+                                className="cursor-pointer rounded-xl border border-[#FECACA] bg-white px-3 py-1.5 text-xs font-bold text-[#B42318] transition hover:bg-[#FDECEC] disabled:cursor-not-allowed disabled:opacity-70"
+                              >
+                                {isCancelingId === invitation.id ? "Cancelando..." : "Cancelar"}
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -447,7 +496,7 @@ type CreateInvitationModalProps = {
   onCreated: (invitation: InvitationResponse) => Promise<void>;
 };
 
-function CreateInvitationModal({
+export function CreateInvitationModal({
   condominiumId,
   people,
   initialPersonId,

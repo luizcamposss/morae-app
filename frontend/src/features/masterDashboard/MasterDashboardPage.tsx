@@ -13,6 +13,7 @@ import {
 import { useAuth } from "../../app/providers/useAuth";
 import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
+import { usePersistentClearedIds } from "../../shared/hooks/usePersistentClearedIds";
 import { getPlatformCharges } from "../charges/chargeService";
 import type { ChargeResponse } from "../charges/types";
 import { getCondominiums } from "../condominiums/condominiumService";
@@ -96,7 +97,7 @@ export function MasterDashboardPage() {
         );
 
         if (hasInvitationFailure) {
-          setWarningMessage("Alguns convites n�o puderam ser carregados agora.");
+          setWarningMessage("Alguns convites não puderam ser carregados agora.");
         }
       } catch (error) {
         setCondominiums([]);
@@ -106,7 +107,7 @@ export function MasterDashboardPage() {
         if (error instanceof Error) {
           setErrorMessage(error.message);
         } else {
-          setErrorMessage("N�o foi poss�vel carregar o dashboard Master.");
+          setErrorMessage("Não foi possível carregar o dashboard Master.");
         }
       } finally {
         setIsLoading(false);
@@ -211,8 +212,8 @@ export function MasterDashboardPage() {
         })),
         ...platformCharges.map((charge) => ({
           id: `charge-${charge.id}`,
-          title: `Cobran�a MORA� para ${charge.condominiumName}`,
-          description: `${formatCurrency(charge.value)} � vencimento ${formatDate(charge.dueDate)}`,
+          title: `Cobrança MORAÊ para ${charge.condominiumName}`,
+          description: `${formatCurrency(charge.value)} · vencimento ${formatDate(charge.dueDate)}`,
           date: charge.dueDate,
           badge: getChargeStatusLabel(charge.status),
           variant: getChargeStatusVariant(charge.status),
@@ -220,7 +221,7 @@ export function MasterDashboardPage() {
         ...pendingAdminInvitations.map((invitation) => ({
           id: `invitation-${invitation.id}`,
           title: `Convite pendente para ${invitation.personName}`,
-          description: `${invitation.condominiumName} � ${invitation.email}`,
+          description: `${invitation.condominiumName} · ${invitation.email}`,
           date: invitation.createdAt,
           badge: invitation.statusName,
           variant: getInvitationStatusVariant(invitation.invitationStatus),
@@ -232,8 +233,8 @@ export function MasterDashboardPage() {
         ),
     [condominiums, pendingAdminInvitations, platformCharges],
   );
-  const [clearedActivityIds, setClearedActivityIds] = useState<Set<string>>(
-    () => new Set(),
+  const [clearedActivityIds, setClearedActivityIds] = usePersistentClearedIds(
+    `morae:master-dashboard:${user?.userId ?? "anonymous"}:cleared-activities`,
   );
   const visibleActivities = useMemo(
     () => activities.filter((activity) => !clearedActivityIds.has(activity.id)),
@@ -246,9 +247,9 @@ export function MasterDashboardPage() {
 
   const metrics = [
     {
-      label: "Total de condom�nios",
+      label: "Total de condomínios",
       value: condominiums.length.toString(),
-      helper: "Condom�nios cadastrados",
+      helper: "Condomínios cadastrados",
     },
     {
       label: "Convites pendentes",
@@ -258,12 +259,12 @@ export function MasterDashboardPage() {
     {
       label: "Receita total",
       value: formatCurrency(totalRevenue),
-      helper: "Cobran�as ativas da plataforma",
+      helper: "Cobranças ativas da plataforma",
     },
     {
       label: "Receita pendente",
       value: formatCurrency(pendingRevenue),
-      helper: "A receber dos condom�nios",
+      helper: "A receber dos condomínios",
     },
   ];
 
@@ -278,7 +279,7 @@ export function MasterDashboardPage() {
 
         <div className="rounded-full bg-white px-4 py-2 text-sm font-extrabold capitalize text-[#6B7280] shadow-sm">
           <time>{formatToday()}</time>
-          {temperature !== null && <span>, {temperature}�</span>}
+          {temperature !== null && <span>, {temperature}°</span>}
         </div>
       </header>
 
@@ -316,7 +317,7 @@ export function MasterDashboardPage() {
 
         <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
           <ChartPanel
-            title="Crescimento de condom�nios"
+            title="Crescimento de condomínios"
             description={`Novos cadastros e base acumulada em ${chartPeriod} meses.`}
             action={chartPeriodFilter}
           >
@@ -324,8 +325,8 @@ export function MasterDashboardPage() {
           </ChartPanel>
 
           <ChartPanel
-            title="Receita Mora�"
-            description={`${formatCurrency(chartPaidRevenue)} recebidos � ${formatCurrency(chartPendingRevenue)} pendentes`}
+            title="Receita MORAÊ"
+            description={`${formatCurrency(chartPaidRevenue)} recebidos · ${formatCurrency(chartPendingRevenue)} pendentes`}
             action={chartPeriodFilter}
           >
             <RevenueAreaChart data={revenueChartData} />
@@ -339,7 +340,7 @@ export function MasterDashboardPage() {
                 Atividades recentes
               </h3>
               <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-                �ltimos movimentos reais entre condom�nios, cobran�as e convites.
+                Últimos movimentos reais entre condomínios, cobranças e convites.
               </p>
             </div>
           </div>
@@ -365,7 +366,7 @@ export function MasterDashboardPage() {
           {activities.length === 0 && !isLoading ? (
             <EmptyState message="Nenhuma atividade encontrada ainda." />
           ) : visibleActivities.length === 0 ? (
-            <EmptyState message="Atividades recentes limpas nesta sess�o." />
+            <EmptyState message="Atividades recentes limpas nesta sessão." />
           ) : (
             <div className="mt-5 max-h-[15.5rem] overflow-y-auto pr-2">
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -464,7 +465,7 @@ function CondominiumLineChart({ data }: { data: CondominiumChartItem[] }) {
   const hasValues = data.some((item) => item.novos > 0 || item.acumulado > 0);
 
   if (!hasValues) {
-    return <EmptyState message="Nenhum condom�nio cadastrado ainda." />;
+    return <EmptyState message="Nenhum condomínio cadastrado ainda." />;
   }
 
   return (
@@ -485,7 +486,7 @@ function RevenueAreaChart({ data }: { data: RevenueChartItem[] }) {
   const hasValues = data.some((item) => item.recebida > 0 || item.pendente > 0);
 
   if (!hasValues) {
-    return <EmptyState message="Nenhuma cobran�a MORA� encontrada ainda." />;
+    return <EmptyState message="Nenhuma cobrança MORAÊ encontrada ainda." />;
   }
 
   return (
@@ -657,7 +658,7 @@ function formatLocation(condominium: CondominiumResponse) {
     .filter(Boolean)
     .join(" - ");
 
-  return cityState || condominium.address || "Sem localiza��o";
+  return cityState || condominium.address || "Sem localização";
 }
 
 function getCondominiumStatusLabel(status: number) {

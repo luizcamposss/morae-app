@@ -49,6 +49,10 @@ export type UpdateCondominiumRequest = {
   status: number;
 };
 
+export type UpdateCondominiumStatusRequest = {
+  status: number;
+};
+
 export type UpdateCondominiumAdminRequest = {
   adminUserId: number;
 };

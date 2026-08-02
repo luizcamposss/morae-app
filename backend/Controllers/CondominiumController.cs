@@ -76,6 +76,19 @@ public class CondominiumController : ControllerBase
         return NoContent();
     }
 
+    [HttpPut("{id}/status")]
+    public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateCondominiumStatusDto dto)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var updated = await _condominium.UpdateStatusAsync(userId, id, dto);
+
+        if (!updated)
+            return NotFound();
+
+        return NoContent();
+    }
+
     [HttpPut("{id}/admin")]
     public async Task<IActionResult> UpdateAdmin(int id, [FromBody] UpdateCondominiumAdminDto dto)
     {
