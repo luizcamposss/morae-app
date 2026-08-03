@@ -33,6 +33,9 @@ public class Occurrence
     public string Description { get; set; } = string.Empty;
 
     [Required]
+    public OccurrenceType Type { get; set; } = OccurrenceType.Maintenance;
+
+    [Required]
     public OccurrenceStatus Status { get; set; } = OccurrenceStatus.Open;
 
     [Required]

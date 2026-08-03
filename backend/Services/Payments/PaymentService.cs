@@ -6,6 +6,7 @@ using backend.DTOs.Payment;
 using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
+using backend.Services.Notifications;
 using backend.Services.Permissions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -18,13 +19,20 @@ public class PaymentService : IPaymentService
     private readonly IMapper _mapper;
     private readonly IPermissionService _permissionService;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly INotificationService _notificationService;
 
-    public PaymentService(AppDbContext context, IPermissionService permissionService, UserManager<ApplicationUser> userManager, IMapper mapper)
+    public PaymentService(
+        AppDbContext context,
+        IPermissionService permissionService,
+        UserManager<ApplicationUser> userManager,
+        IMapper mapper,
+        INotificationService notificationService)
     {
         _context = context;
         _permissionService = permissionService;
         _userManager = userManager;
         _mapper = mapper;
+        _notificationService = notificationService;
     }
     public async Task<PaymentResponseDto> CreateManualAsync(
         int userId,
@@ -64,6 +72,7 @@ public class PaymentService : IPaymentService
         charge.Status = ChargeStatus.Paid;
 
         await _context.SaveChangesAsync();
+        await CreatePaymentNotificationsAsync(charge);
 
         return _mapper.Map<PaymentResponseDto>(payment);
     }
@@ -98,6 +107,10 @@ public class PaymentService : IPaymentService
         if (charge.Scope == ChargeScope.Platform)
         {
             await _permissionService.EnsureMasterAsync(userId);
+
+            if (!await IsMasterCondominiumOwnerAsync(userId, charge.CondominiumId))
+                throw new ForbiddenException("Master can only register platform payments for condominiums created by them.");
+
             return;
         }
 
@@ -134,10 +147,13 @@ public class PaymentService : IPaymentService
 
         if (charge.Scope == ChargeScope.Platform)
         {
-            if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
+            if (await _userManager.IsInRoleAsync(user, AppRoles.Master) &&
+                await IsMasterCondominiumOwnerAsync(userId, charge.CondominiumId))
+            {
                 return;
+            }
 
-            if (charge.TargetUserId == userId)
+            if (await _permissionService.IsCondominiumAdminAsync(userId, charge.CondominiumId))
                 return;
 
             throw new ForbiddenException("User cannot access this payment.");
@@ -166,5 +182,68 @@ public class PaymentService : IPaymentService
         }
 
         throw new BadRequestException("Invalid charge scope.");
+    }
+
+    private async Task<bool> IsMasterCondominiumOwnerAsync(int userId, int condominiumId)
+    {
+        return await _context.Condominiums
+            .AsNoTracking()
+            .AnyAsync(c =>
+                c.Id == condominiumId &&
+                c.CreatedByUserId == userId);
+    }
+
+    private async Task CreatePaymentNotificationsAsync(Charge charge)
+    {
+        var condominiumName = await _context.Condominiums
+            .AsNoTracking()
+            .Where(condominium => condominium.Id == charge.CondominiumId)
+            .Select(condominium => condominium.Name)
+            .FirstAsync();
+
+        if (charge.Scope == ChargeScope.Platform)
+        {
+            var adminUserIds = await _context.UserCondominiums
+                .AsNoTracking()
+                .Where(userCondominium =>
+                    userCondominium.CondominiumId == charge.CondominiumId &&
+                    userCondominium.Role == AppRoles.Admin &&
+                    userCondominium.Status == UserCondominiumStatus.Active)
+                .Select(userCondominium => userCondominium.UserId)
+                .Distinct()
+                .ToListAsync();
+
+            await _notificationService.CreateManyAsync(
+                adminUserIds,
+                NotificationType.Payment,
+                "Pagamento MORAÊ registrado",
+                $"O pagamento institucional de {condominiumName} foi registrado.",
+                "/admin/payments",
+                charge.CondominiumId);
+
+            return;
+        }
+
+        if (charge.Scope == ChargeScope.Condominium && charge.UnitId.HasValue)
+        {
+            var residentUserIds = await _context.PersonUnits
+                .AsNoTracking()
+                .Where(personUnit => personUnit.UnitId == charge.UnitId.Value)
+                .Join(
+                    _context.Users.AsNoTracking(),
+                    personUnit => personUnit.PersonId,
+                    user => user.PersonId,
+                    (_, user) => user.Id)
+                .Distinct()
+                .ToListAsync();
+
+            await _notificationService.CreateManyAsync(
+                residentUserIds,
+                NotificationType.Payment,
+                "Pagamento registrado",
+                "O pagamento de uma cobrança da sua unidade foi registrado.",
+                "/resident/bills",
+                charge.CondominiumId);
+        }
     }
 }

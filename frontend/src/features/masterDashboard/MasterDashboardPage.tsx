@@ -1,153 +1,701 @@
-import { MetricCard } from "../../shared/components/MetricCard"
-import { StatusBadge } from "../../shared/components/StatusBadge"
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { useAuth } from "../../app/providers/useAuth";
+import { MetricCard } from "../../shared/components/MetricCard";
+import { StatusBadge } from "../../shared/components/StatusBadge";
+import { usePersistentClearedIds } from "../../shared/hooks/usePersistentClearedIds";
+import { getPlatformCharges } from "../charges/chargeService";
+import type { ChargeResponse } from "../charges/types";
+import { getCondominiums } from "../condominiums/condominiumService";
+import type { CondominiumResponse } from "../condominiums/types";
+import { getInvitationsByCondominium } from "../invitations/invitationService";
+import type { InvitationResponse } from "../invitations/types";
 
-const metrics = [
-    {
-        label: 'Total de condominios ativos',
-        value: '24',
-        helper: '+3 neste mes',
-    },
-    {
-        label: 'Convites pendentes',
-        value: '8',
-        helper: 'Aguardando aceite',
-    },
-    {
-        label: 'Receita mensal',
-        value: 'R$ 12.400',
-        helper: '+18% vs mes anterior',
-    },
-    {
-        label: 'Pagamentos atrasados',
-        value: '3',
-        helper: 'Precisam de atencao',
-    },
-]
+const ACTIVE_STATUS = 1;
+const PENDING_INVITATION_STATUS = 1;
+const ACCEPTED_INVITATION_STATUS = 2;
+const ADMIN_ROLE = 2;
+const CHARGE_STATUS_PENDING = 1;
+const CHARGE_STATUS_PAID = 2;
+const CHARGE_STATUS_OVERDUE = 3;
+const CHARGE_STATUS_CANCELED = 4;
 
-const activities = [
-    {
-        title: 'Condominio Jardim Sul foi cadastrado.',
-        time: 'Ha 12 minutos',
-        badge: 'Novo',
-        variant: 'success' as const,
-    },
-    {
-        title: 'Pagamento manual registrado para Solar Norte.',
-        time: 'Ha 35 minutos',
-        badge: 'Pago',
-        variant: 'success' as const,
-    },
-    {
-        title: 'Convite de administrador aguardando aceite.',
-        time: 'Ha 1 hora',
-        badge: 'Pendente',
-        variant: 'warning' as const,
-    },
-]
+type ActivityItem = {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  badge: string;
+  variant: "success" | "warning" | "danger" | "neutral";
+};
+
+type CondominiumChartItem = {
+  month: string;
+  novos: number;
+  acumulado: number;
+};
+
+type RevenueChartItem = {
+  month: string;
+  recebida: number;
+  pendente: number;
+};
 
 export function MasterDashboardPage() {
-    return (
-        <div className="space-y-7">
-            <div className="flex items-start justify-between gap-6">
-                <div>
-                    <p className="text-sm font-bold text-[#6B7280]">
-                        Bom dia
-                    </p>
-                    <h1 className="mt-1 text-4xl font-extrabold tracking-tight text-[#111827]">
-                        User
-                    </h1>
-                </div>
+  const { user } = useAuth();
 
-                <p className="pt-3 text-sm font-bold text-[#6B7280]">
-                    Segunda, 18, 11 graus
-                </p>
-            </div>
+  const [condominiums, setCondominiums] = useState<CondominiumResponse[]>([]);
+  const [platformCharges, setPlatformCharges] = useState<ChargeResponse[]>([]);
+  const [invitations, setInvitations] = useState<InvitationResponse[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [warningMessage, setWarningMessage] = useState("");
+  const [temperature, setTemperature] = useState<number | null>(null);
+  const [chartPeriod, setChartPeriod] = useState<6 | 12>(6);
 
-            <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-6 shadow-sm">
-                <div className="mb-5">
-                    <h2 className="text-xl font-extrabold text-[#111827]">
-                        Dashboard Master
-                    </h2>
-                    <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-                        Visao geral do sistema
-                    </p>
-                </div>
+  useEffect(() => {
+    async function loadDashboard() {
+      try {
+        setErrorMessage("");
+        setWarningMessage("");
+        setIsLoading(true);
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    {metrics.map((metric) => (
-                        <MetricCard
-                            key={metric.label}
-                            label={metric.label}
-                            value={metric.value}
-                            helper={metric.helper}
-                        />
-                    ))}
-                </div>
+        const [condominiumResult, chargeResult] = await Promise.all([
+          getCondominiums(),
+          getPlatformCharges(),
+        ]);
 
-                <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
-                    <div className="min-h-48 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-6">
-                        <p className="text-sm font-extrabold text-[#111827]">
-                            Grafico de condominios
-                        </p>
-                        <p className="mt-2 text-sm font-semibold text-[#6B7280]">
-                            Aqui entra um resumo visual de ativos, pendentes e inativos.
-                        </p>
+        setCondominiums(condominiumResult);
+        setPlatformCharges(chargeResult);
 
-                        <div className="mt-8 flex items-end gap-3">
-                            <div className="h-16 flex-1 rounded-t-2xl bg-[#86EFAC]" />
-                            <div className="h-24 flex-1 rounded-t-2xl bg-[#16A34A]" />
-                            <div className="h-12 flex-1 rounded-t-2xl bg-[#DCFCE7]" />
-                            <div className="h-20 flex-1 rounded-t-2xl bg-[#22C55E]" />
-                        </div>
-                    </div>
+        const invitationResults = await Promise.allSettled(
+          condominiumResult.map((condominium) =>
+            getInvitationsByCondominium(condominium.id),
+          ),
+        );
 
-                    <div className="min-h-48 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-6">
-                        <p className="text-sm font-extrabold text-[#111827]">
-                            Grafico de receita
-                        </p>
-                        <p className="mt-2 text-sm font-semibold text-[#6B7280]">
-                            Receita prevista, recebida e atrasada no mes atual.
-                        </p>
+        const loadedInvitations = invitationResults
+          .filter((result): result is PromiseFulfilledResult<InvitationResponse[]> =>
+            result.status === "fulfilled",
+          )
+          .flatMap((result) => result.value);
 
-                        <div className="mt-8 h-20 rounded-3xl bg-white p-3">
-                            <div className="h-full rounded-2xl bg-gradient-to-r from-[#0B3D2E] via-[#16A34A] to-[#86EFAC]" />
-                        </div>
-                    </div>
-                </div>
+        setInvitations(loadedInvitations);
 
-                <section className="mt-5 rounded-[1.5rem] border border-[#E5E7EB] bg-white p-6">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <h3 className="text-lg font-extrabold uppercase tracking-wide text-[#111827]">
-                                Atividades recentes
-                            </h3>
-                            <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-                                Ultimas acoes importantes da plataforma.
-                            </p>
-                        </div>
-                    </div>
+        const hasInvitationFailure = invitationResults.some(
+          (result) => result.status === "rejected",
+        );
 
-                    <div className="mt-6 space-y-3">
-                        {activities.map((activity) => (
-                            <div
-                                key={activity.title}
-                                className="flex items-center justify-between rounded-2xl bg-[#F3F4F6] px-4 py-3"
-                            >
-                                <div>
-                                    <p className="text-sm font-bold text-[#111827]">
-                                        {activity.title}
-                                    </p>
-                                    <p className="mt-1 text-xs font-semibold text-[#6B7280]">
-                                        {activity.time}
-                                    </p>
-                                </div>
+        if (hasInvitationFailure) {
+          setWarningMessage("Alguns convites não puderam ser carregados agora.");
+        }
+      } catch (error) {
+        setCondominiums([]);
+        setPlatformCharges([]);
+        setInvitations([]);
 
-                                <StatusBadge label={activity.badge} variant={activity.variant} />
-                            </div>
-                        ))}
-                    </div>
-                </section>
-            </section>
-        </div>
+        if (error instanceof Error) {
+          setErrorMessage(error.message);
+        } else {
+          setErrorMessage("Não foi possível carregar o dashboard Master.");
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    void loadDashboard();
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!("geolocation" in navigator)) {
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const response = await fetch(
+            `https://api.open-meteo.com/v1/forecast?latitude=${coords.latitude}&longitude=${coords.longitude}&current=temperature_2m`,
+          );
+
+          if (!response.ok) {
+            return;
+          }
+
+          const data = (await response.json()) as {
+            current?: {
+              temperature_2m?: number;
+            };
+          };
+
+          if (isMounted && typeof data.current?.temperature_2m === "number") {
+            setTemperature(Math.round(data.current.temperature_2m));
+          }
+        } catch {
+          setTemperature(null);
+        }
+      },
+      () => undefined,
+      {
+        maximumAge: 15 * 60 * 1000,
+        timeout: 5000,
+      },
+    );
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const adminInvitations = invitations.filter(
+    (invitation) => invitation.role === ADMIN_ROLE,
+  );
+
+  const pendingAdminInvitations = adminInvitations.filter(
+    (invitation) => invitation.invitationStatus === PENDING_INVITATION_STATUS,
+  );
+
+  const validPlatformCharges = platformCharges.filter(
+    (charge) => charge.status !== CHARGE_STATUS_CANCELED,
+  );
+
+  const pendingRevenue = platformCharges
+    .filter(
+      (charge) =>
+        charge.status === CHARGE_STATUS_PENDING ||
+        charge.status === CHARGE_STATUS_OVERDUE,
     )
+    .reduce((total, charge) => total + charge.value, 0);
+
+  const totalRevenue = validPlatformCharges.reduce(
+    (total, charge) => total + charge.value,
+    0,
+  );
+
+  const displayName = user?.personName || user?.userName || "Master";
+  const chartPaidRevenue = platformCharges
+    .filter((charge) => charge.status === CHARGE_STATUS_PAID)
+    .reduce((total, charge) => total + charge.value, 0);
+  const chartPendingRevenue = platformCharges
+    .filter(
+      (charge) =>
+        charge.status === CHARGE_STATUS_PENDING ||
+        charge.status === CHARGE_STATUS_OVERDUE,
+    )
+    .reduce((total, charge) => total + charge.value, 0);
+  const condominiumChartData = buildCondominiumChart(condominiums, chartPeriod);
+  const revenueChartData = buildRevenueChart(platformCharges, chartPeriod);
+
+  const activities = useMemo<ActivityItem[]>(
+    () =>
+      [
+        ...condominiums.map((condominium) => ({
+          id: `condominium-${condominium.id}`,
+          title: `${condominium.name} cadastrado`,
+          description: formatLocation(condominium),
+          date: condominium.createdAt,
+          badge: getCondominiumStatusLabel(condominium.status),
+          variant: getCondominiumStatusVariant(condominium.status),
+        })),
+        ...platformCharges.map((charge) => ({
+          id: `charge-${charge.id}`,
+          title: `Cobrança MORAÊ para ${charge.condominiumName}`,
+          description: `${formatCurrency(charge.value)} · vencimento ${formatDate(charge.dueDate)}`,
+          date: charge.dueDate,
+          badge: getChargeStatusLabel(charge.status),
+          variant: getChargeStatusVariant(charge.status),
+        })),
+        ...pendingAdminInvitations.map((invitation) => ({
+          id: `invitation-${invitation.id}`,
+          title: `Convite pendente para ${invitation.personName}`,
+          description: `${invitation.condominiumName} · ${invitation.email}`,
+          date: invitation.createdAt,
+          badge: invitation.statusName,
+          variant: getInvitationStatusVariant(invitation.invitationStatus),
+        })),
+      ]
+        .sort(
+          (first, second) =>
+            new Date(second.date).getTime() - new Date(first.date).getTime(),
+        ),
+    [condominiums, pendingAdminInvitations, platformCharges],
+  );
+  const [clearedActivityIds, setClearedActivityIds] = usePersistentClearedIds(
+    `morae:master-dashboard:${user?.userId ?? "anonymous"}:cleared-activities`,
+  );
+  const visibleActivities = useMemo(
+    () => activities.filter((activity) => !clearedActivityIds.has(activity.id)),
+    [activities, clearedActivityIds],
+  );
+
+  const chartPeriodFilter = (
+    <ChartPeriodFilter value={chartPeriod} onChange={setChartPeriod} />
+  );
+
+  const metrics = [
+    {
+      label: "Total de condomínios",
+      value: condominiums.length.toString(),
+      helper: "Condomínios cadastrados",
+    },
+    {
+      label: "Convites pendentes",
+      value: pendingAdminInvitations.length.toString(),
+      helper: "Aguardando aceite dos admins",
+    },
+    {
+      label: "Receita total",
+      value: formatCurrency(totalRevenue),
+      helper: "Cobranças ativas da plataforma",
+    },
+    {
+      label: "Receita pendente",
+      value: formatCurrency(pendingRevenue),
+      helper: "A receber dos condomínios",
+    },
+  ];
+
+  return (
+    <div className="space-y-7">
+      <header className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h1 className="text-4xl font-black tracking-tight text-[#111827] md:text-5xl">
+            {getGreeting()}, {displayName}
+          </h1>
+        </div>
+
+        <div className="rounded-full bg-white px-4 py-2 text-sm font-extrabold capitalize text-[#6B7280] shadow-sm">
+          <time>{formatToday()}</time>
+          {temperature !== null && <span>, {temperature}°</span>}
+        </div>
+      </header>
+
+      <section className="rounded-[2.25rem] border border-[#D9DEE5] bg-white p-5 shadow-sm md:p-7">
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-[#16A34A]">
+            Dashboard Master
+          </p>
+        </div>
+
+        {isLoading && (
+          <FeedbackMessage variant="neutral">
+            Carregando dados reais da plataforma...
+          </FeedbackMessage>
+        )}
+
+        {errorMessage && (
+          <FeedbackMessage variant="danger">{errorMessage}</FeedbackMessage>
+        )}
+
+        {warningMessage && (
+          <FeedbackMessage variant="warning">{warningMessage}</FeedbackMessage>
+        )}
+
+        <div className="mt-7 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {metrics.map((metric) => (
+            <MetricCard
+              key={metric.label}
+              label={metric.label}
+              value={metric.value}
+              helper={metric.helper}
+            />
+          ))}
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <ChartPanel
+            title="Crescimento de condomínios"
+            description={`Novos cadastros e base acumulada em ${chartPeriod} meses.`}
+            action={chartPeriodFilter}
+          >
+            <CondominiumLineChart data={condominiumChartData} />
+          </ChartPanel>
+
+          <ChartPanel
+            title="Receita MORAÊ"
+            description={`${formatCurrency(chartPaidRevenue)} recebidos · ${formatCurrency(chartPendingRevenue)} pendentes`}
+            action={chartPeriodFilter}
+          >
+            <RevenueAreaChart data={revenueChartData} />
+          </ChartPanel>
+        </div>
+
+        <section className="mt-6 rounded-[1.75rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5">
+          <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h3 className="text-xl font-black text-[#111827]">
+                Atividades recentes
+              </h3>
+              <p className="mt-1 text-sm font-semibold text-[#6B7280]">
+                Últimos movimentos reais entre condomínios, cobranças e convites.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <span className="rounded-full bg-[#DCFCE7] px-3 py-1 text-xs font-black text-[#0B3D2E]">
+              {visibleActivities.length} registro(s)
+            </span>
+
+            {visibleActivities.length > 0 && (
+              <button
+                type="button"
+                onClick={() =>
+                  setClearedActivityIds(new Set(activities.map((activity) => activity.id)))
+                }
+                className="cursor-pointer rounded-full border border-[#E5E7EB] bg-white px-4 py-2 text-xs font-black text-[#6B7280] transition hover:border-[#86EFAC] hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+              >
+                Limpar atividades
+              </button>
+            )}
+          </div>
+
+          {activities.length === 0 && !isLoading ? (
+            <EmptyState message="Nenhuma atividade encontrada ainda." />
+          ) : visibleActivities.length === 0 ? (
+            <EmptyState message="Atividades recentes limpas nesta sessão." />
+          ) : (
+            <div className="mt-5 max-h-[15.5rem] overflow-y-auto pr-2">
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              {visibleActivities.map((activity) => (
+                <article
+                  key={activity.id}
+                  className="rounded-2xl border border-[#E5E7EB] bg-white p-4 transition hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-black text-[#111827]">
+                        {activity.title}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-[#6B7280]">
+                        {activity.description}
+                      </p>
+                    </div>
+
+                    <StatusBadge label={activity.badge} variant={activity.variant} />
+                  </div>
+
+                  <p className="mt-4 text-xs font-extrabold uppercase tracking-[0.16em] text-[#9CA3AF]">
+                    {formatDate(activity.date)}
+                  </p>
+                </article>
+              ))}
+              </div>
+            </div>
+          )}
+        </section>
+      </section>
+    </div>
+  );
 }
+
+function ChartPeriodFilter({
+  value,
+  onChange,
+}: {
+  value: 6 | 12;
+  onChange: (value: 6 | 12) => void;
+}) {
+  const periods = [6, 12] as const;
+
+  return (
+    <div className="flex rounded-full border border-[#E5E7EB] bg-white p-1 shadow-sm">
+      {periods.map((period) => (
+        <button
+          key={period}
+          type="button"
+          onClick={() => onChange(period)}
+          className={`cursor-pointer rounded-full px-3 py-1.5 text-xs font-black transition ${
+            value === period
+              ? "bg-[#16A34A] text-white shadow-sm"
+              : "text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#0B3D2E]"
+          }`}
+        >
+          {period} meses
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ChartPanel({
+  title,
+  description,
+  action,
+  children,
+}: {
+  title: string;
+  description: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="flex h-full flex-col rounded-[1.75rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-xl font-black text-[#111827]">{title}</h3>
+          <p className="mt-1 text-sm font-semibold text-[#6B7280]">
+            {description}
+          </p>
+        </div>
+
+        {action && <div className="shrink-0">{action}</div>}
+      </div>
+
+      <div className="mt-6 h-72 rounded-[1.5rem] bg-white px-3 py-5">
+        {children}
+      </div>
+    </section>
+  );
+}
+function CondominiumLineChart({ data }: { data: CondominiumChartItem[] }) {
+  const hasValues = data.some((item) => item.novos > 0 || item.acumulado > 0);
+
+  if (!hasValues) {
+    return <EmptyState message="Nenhum condomínio cadastrado ainda." />;
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={data} margin={{ top: 10, right: 24, left: 8, bottom: 0 }}>
+        <CartesianGrid stroke="#E5E7EB" strokeDasharray="4 8" vertical={false} />
+        <XAxis dataKey="month" axisLine={false} tickLine={false} tickMargin={12} tick={{ fill: "#6B7280", fontSize: 12, fontWeight: 800 }} />
+        <YAxis width={46} allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "#9CA3AF", fontSize: 12, fontWeight: 800 }} />
+        <Tooltip contentStyle={tooltipStyle} />
+        <Line type="linear" dataKey="acumulado" name="Base acumulada" stroke="#0B3D2E" strokeWidth={4} dot={{ r: 5, fill: "#0B3D2E" }} activeDot={{ r: 7 }} />
+        <Line type="linear" dataKey="novos" name="Novos" stroke="#22C55E" strokeWidth={3} dot={{ r: 4, fill: "#22C55E" }} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+function RevenueAreaChart({ data }: { data: RevenueChartItem[] }) {
+  const hasValues = data.some((item) => item.recebida > 0 || item.pendente > 0);
+
+  if (!hasValues) {
+    return <EmptyState message="Nenhuma cobrança MORAÊ encontrada ainda." />;
+  }
+
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <AreaChart data={data} margin={{ top: 10, right: 24, left: 8, bottom: 0 }}>
+        <defs>
+          <linearGradient id="paidRevenue" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#16A34A" stopOpacity={0.35} />
+            <stop offset="95%" stopColor="#16A34A" stopOpacity={0.02} />
+          </linearGradient>
+          <linearGradient id="pendingRevenue" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.28} />
+            <stop offset="95%" stopColor="#F59E0B" stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid stroke="#E5E7EB" strokeDasharray="4 8" vertical={false} />
+        <XAxis dataKey="month" axisLine={false} tickLine={false} tickMargin={12} tick={{ fill: "#6B7280", fontSize: 12, fontWeight: 800 }} />
+        <YAxis width={46} axisLine={false} tickLine={false} tickFormatter={(value) => formatCompactCurrency(Number(value))} tick={{ fill: "#9CA3AF", fontSize: 12, fontWeight: 800 }} />
+        <Tooltip contentStyle={tooltipStyle} formatter={(value) => formatCurrency(Number(value))} />
+        <Area type="linear" dataKey="recebida" name="Recebida" stroke="#16A34A" strokeWidth={4} fill="url(#paidRevenue)" />
+        <Area type="linear" dataKey="pendente" name="Pendente" stroke="#F59E0B" strokeWidth={3} fill="url(#pendingRevenue)" />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+function FeedbackMessage({
+  children,
+  variant,
+}: {
+  children: string;
+  variant: "neutral" | "warning" | "danger";
+}) {
+  const classes = {
+    neutral: "bg-[#F3F4F6] text-[#6B7280]",
+    warning: "border border-[#FDE68A] bg-[#FFF6DF] text-[#9A6A00]",
+    danger: "border border-[#FECACA] bg-[#FDECEC] text-[#B42318]",
+  };
+
+  return (
+    <p className={`mt-6 rounded-2xl px-4 py-3 text-sm font-bold ${classes[variant]}`}>
+      {children}
+    </p>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex h-full min-h-40 items-center justify-center rounded-2xl border border-dashed border-[#D0D5DD] bg-white px-5 py-8 text-center">
+      <p className="text-sm font-extrabold text-[#6B7280]">{message}</p>
+    </div>
+  );
+}
+
+function buildCondominiumChart(
+  condominiums: CondominiumResponse[],
+  amount: number,
+) {
+  const months = getLastMonths(amount);
+  const sortedCondominiums = [...condominiums].sort(
+    (first, second) =>
+      new Date(first.createdAt).getTime() - new Date(second.createdAt).getTime(),
+  );
+
+  return months.map((month) => {
+    const monthEnd = new Date(month.year, month.month + 1, 0, 23, 59, 59);
+    const novos = sortedCondominiums.filter(
+      (condominium) => getMonthKey(new Date(condominium.createdAt)) === month.key,
+    ).length;
+    const acumulado = sortedCondominiums.filter(
+      (condominium) => new Date(condominium.createdAt) <= monthEnd,
+    ).length;
+
+    return {
+      month: month.label,
+      novos,
+      acumulado,
+    };
+  });
+}
+
+function buildRevenueChart(charges: ChargeResponse[], amount: number) {
+  const months = getLastMonths(amount);
+
+  return months.map((month) => {
+    const monthCharges = charges.filter(
+      (charge) => getMonthKey(new Date(charge.dueDate)) === month.key,
+    );
+
+    return {
+      month: month.label,
+      recebida: sumChargesByStatus(monthCharges, [CHARGE_STATUS_PAID]),
+      pendente: sumChargesByStatus(monthCharges, [
+        CHARGE_STATUS_PENDING,
+        CHARGE_STATUS_OVERDUE,
+      ]),
+    };
+  });
+}
+
+function sumChargesByStatus(charges: ChargeResponse[], statuses: number[]) {
+  return charges
+    .filter((charge) => statuses.includes(charge.status))
+    .reduce((total, charge) => total + charge.value, 0);
+}
+
+function getLastMonths(amount: number) {
+  const today = new Date();
+
+  return Array.from({ length: amount }, (_, index) => {
+    const date = new Date(today.getFullYear(), today.getMonth() - (amount - 1 - index), 1);
+
+    return {
+      key: getMonthKey(date),
+      label: new Intl.DateTimeFormat("pt-BR", { month: "short" })
+        .format(date)
+        .replace(".", ""),
+      year: date.getFullYear(),
+      month: date.getMonth(),
+    };
+  });
+}
+
+function getMonthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getGreeting() {
+  const hour = new Date().getHours();
+
+  if (hour < 12) return "Bom dia";
+  if (hour < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
+function formatToday() {
+  return new Intl.DateTimeFormat("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+  }).format(new Date());
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  }).format(value);
+}
+
+function formatCompactCurrency(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    notation: "compact",
+    compactDisplay: "short",
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
+function formatLocation(condominium: CondominiumResponse) {
+  const cityState = [condominium.city, condominium.state]
+    .filter(Boolean)
+    .join(" - ");
+
+  return cityState || condominium.address || "Sem localização";
+}
+
+function getCondominiumStatusLabel(status: number) {
+  return status === ACTIVE_STATUS ? "Ativo" : "Inativo";
+}
+
+function getCondominiumStatusVariant(status: number) {
+  return status === ACTIVE_STATUS ? ("success" as const) : ("neutral" as const);
+}
+
+function getInvitationStatusVariant(status: number) {
+  if (status === PENDING_INVITATION_STATUS) return "warning" as const;
+  if (status === ACCEPTED_INVITATION_STATUS) return "success" as const;
+  if (status === 3 || status === 4 || status === 5) return "danger" as const;
+  return "neutral" as const;
+}
+
+function getChargeStatusLabel(status: ChargeResponse["status"]) {
+  if (status === CHARGE_STATUS_PENDING) return "Pendente";
+  if (status === CHARGE_STATUS_PAID) return "Pago";
+  if (status === CHARGE_STATUS_OVERDUE) return "Atrasado";
+  if (status === CHARGE_STATUS_CANCELED) return "Cancelado";
+  return "Indefinido";
+}
+
+function getChargeStatusVariant(status: ChargeResponse["status"]) {
+  if (status === CHARGE_STATUS_PAID) return "success" as const;
+  if (status === CHARGE_STATUS_PENDING) return "warning" as const;
+  if (status === CHARGE_STATUS_OVERDUE || status === CHARGE_STATUS_CANCELED) {
+    return "danger" as const;
+  }
+  return "neutral" as const;
+}
+
+const tooltipStyle = {
+  border: "1px solid #E5E7EB",
+  borderRadius: "16px",
+  boxShadow: "0 18px 40px rgba(17, 24, 39, 0.08)",
+  fontWeight: 800,
+};

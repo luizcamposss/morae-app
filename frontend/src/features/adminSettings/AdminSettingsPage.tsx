@@ -1,322 +1,937 @@
-import { useState } from 'react'
-import type { ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { svgIcone } from "@edusites/icons/core";
+import { useAuth } from "../../app/providers/useAuth";
+import { useCondominium } from "../../app/providers/useCondominium";
+import {
+  getNotificationPreferences,
+  updateMyProfile,
+  updateNotificationPreferences,
+} from "../me/meService";
+import type { NotificationPreferences } from "../me/types";
+import { FinancialAccountForm } from "../financialAccounts/FinancialAccountForm";
+import {
+  getCondominiumFinancialAccount,
+  upsertCondominiumFinancialAccount,
+} from "../financialAccounts/financialAccountService";
+import type {
+  FinancialAccountResponse,
+  UpsertFinancialAccountRequest,
+} from "../financialAccounts/types";
+import { ProfilePhotoBlock } from "../profile/ProfilePhotoBlock";
+import {
+  defaultSyndicAccess,
+  getSyndicAccess,
+  syndicAccessOptions,
+  updateSyndicAccess,
+  type SyndicAccessKey,
+  type SyndicAccessSettings,
+} from "../syndicAccess/syndicAccessService";
+import { getPersonsByCondominium } from "../persons/personService";
+import type { PersonResponse } from "../persons/types";
 
-type ModalType = 'data' | 'finance' | 'permissions' | 'invites' | 'notifications' | null
+type ModalType = "profile" | "notifications" | "financial" | "syndicAccess" | null;
 
-const settings = [
-    {
-        label: 'Dados',
-        description: 'Informacoes gerais do condominio',
-        modal: 'data' as const,
-    },
-    {
-        label: 'Financeiro',
-        description: 'Cobranca, vencimento e mensagem padrao',
-        modal: 'finance' as const,
-    },
-    {
-        label: 'Permissoes',
-        description: 'Ajuste acessos de sindicos e moradores',
-        modal: 'permissions' as const,
-    },
-    {
-        label: 'Convites',
-        description: 'Expiracao e mensagem de convite',
-        modal: 'invites' as const,
-    },
-    {
-        label: 'Notificacoes',
-        description: 'Avisos automaticos do condominio',
-        modal: 'notifications' as const,
-    },
-]
+const defaultNotificationPreferences: NotificationPreferences = {
+  noticesEnabled: true,
+  billsEnabled: true,
+  unitUpdatesEnabled: true,
+};
 
 export function AdminSettingsPage() {
-    const [modal, setModal] = useState<ModalType>(null)
+  const { user, refreshUser } = useAuth();
+  const { activeCondominium, activeCondominiumId } = useCondominium();
+  const [modal, setModal] = useState<ModalType>(null);
+  const [account, setAccount] = useState<FinancialAccountResponse | null>(null);
+  const [isLoadingAccount, setIsLoadingAccount] = useState(true);
+  const [accountError, setAccountError] = useState("");
 
-    return (
-        <>
-            <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-6 shadow-sm">
-                <div>
-                    <h1 className="text-3xl font-extrabold tracking-tight text-[#111827]">
-                        Configuracoes
-                    </h1>
-                    <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-                        Ajustes gerais do condominio.
-                    </p>
-                </div>
+  async function loadAccount() {
+    if (!activeCondominiumId) {
+      setAccount(null);
+      setIsLoadingAccount(false);
+      return;
+    }
 
-                <div className="mt-10 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-                    {settings.slice(0, 3).map((setting) => (
-                        <SettingCard
-                            key={setting.label}
-                            label={setting.label}
-                            description={setting.description}
-                            onClick={() => setModal(setting.modal)}
-                        />
-                    ))}
-                </div>
+    try {
+      setIsLoadingAccount(true);
+      setAccountError("");
+      setAccount(await getCondominiumFinancialAccount(activeCondominiumId));
+    } catch (error) {
+      setAccount(null);
+      setAccountError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar os dados financeiros do condomínio.",
+      );
+    } finally {
+      setIsLoadingAccount(false);
+    }
+  }
 
-                <div className="mx-auto mt-5 grid max-w-3xl grid-cols-1 gap-5 md:grid-cols-2">
-                    {settings.slice(3).map((setting) => (
-                        <SettingCard
-                            key={setting.label}
-                            label={setting.label}
-                            description={setting.description}
-                            onClick={() => setModal(setting.modal)}
-                        />
-                    ))}
-                </div>
-            </section>
+  useEffect(() => {
+    void loadAccount();
+  }, [activeCondominiumId]);
 
-            {modal === 'data' && <CondominiumDataModal onClose={() => setModal(null)} />}
-            {modal === 'finance' && <FinanceModal onClose={() => setModal(null)} />}
-            {modal === 'permissions' && <PermissionsModal onClose={() => setModal(null)} />}
-            {modal === 'invites' && <InvitesModal onClose={() => setModal(null)} />}
-            {modal === 'notifications' && <NotificationsModal onClose={() => setModal(null)} />}
-        </>
-    )
+  const condominiumName = activeCondominium?.condominiumName ?? "Nenhum condomínio selecionado";
+  const hasBankAccount = Boolean(account?.bankName && account?.agency && account?.accountNumber);
+  const hasPixKey = Boolean(account?.pixKey);
+
+  return (
+    <>
+      <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm sm:p-6 lg:p-7">
+        <div className="border-b border-[#E5E7EB] pb-6">
+          <p className="text-sm font-black uppercase tracking-[0.2em] text-[#16A34A]">
+            Configurações
+          </p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-[#111827] sm:text-4xl">
+            Preferências do Admin
+          </h1>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#6B7280]">
+            Ajuste seu perfil, notificações e a conta recebedora do condomínio ativo.
+          </p>
+        </div>
+
+        {accountError && <FeedbackMessage variant="error" message={accountError} />}
+
+        <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-4">
+          <SettingsBlock
+            icon="usuario"
+            title="Perfil e dados pessoais"
+            description="Foto, nome, telefone e e-mail usados no seu acesso Admin."
+            action="Editar perfil"
+            onClick={() => setModal("profile")}
+          />
+
+          <SettingsBlock
+            icon="sino"
+            title="Notificações"
+            description="Preferências de avisos, cobranças e atualizações do condomínio."
+            action="Configurar"
+            onClick={() => setModal("notifications")}
+          />
+
+          <SettingsBlock
+            icon="escudo"
+            title="Acessos do síndico"
+            description="Defina quais áreas do condomínio ficam disponíveis para o síndico."
+            action="Gerenciar acessos"
+            onClick={() => setModal("syndicAccess")}
+          />
+
+          <SettingsBlock
+            icon="carteira"
+            title="Dados financeiros"
+            description={getFinancialCardDescription(isLoadingAccount, hasBankAccount, hasPixKey)}
+            action="Configurar"
+            onClick={() => setModal("financial")}
+          />
+        </div>
+      </section>
+
+      {modal === "profile" && user && (
+        <ProfileDataModal
+          userName={user.personName}
+          email={user.email}
+          phoneNumber={user.phoneNumber ?? ""}
+          onClose={() => setModal(null)}
+          onSaved={async () => {
+            await refreshUser();
+          }}
+        />
+      )}
+
+      {modal === "notifications" && <NotificationsModal onClose={() => setModal(null)} />}
+
+      {modal === "syndicAccess" && (
+        <SyndicAccessModal
+          condominiumId={activeCondominiumId}
+          onClose={() => setModal(null)}
+        />
+      )}
+
+      {modal === "financial" && (
+        <FinancialAccountModal
+          account={account}
+          condominiumName={condominiumName}
+          isLoading={isLoadingAccount}
+          condominiumId={activeCondominiumId}
+          onClose={() => setModal(null)}
+          onSaved={async (result) => {
+            setAccount(result);
+            await loadAccount();
+          }}
+        />
+      )}
+    </>
+  );
 }
 
-type SettingCardProps = {
-    label: string
-    description: string
-    onClick: () => void
-}
+type SettingsBlockProps = {
+  icon: string;
+  title: string;
+  description: string;
+  action: string;
+  onClick: () => void;
+};
 
-function SettingCard({ label, description, onClick }: SettingCardProps) {
-    return (
-        <button
-            type="button"
-            onClick={onClick}
-            className="min-h-40 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#86EFAC] hover:bg-[#DCFCE7] hover:shadow-md"
-        >
-            <span className="block text-2xl font-extrabold text-[#111827]">
-                {label}
-            </span>
-            <span className="mt-3 block text-sm font-semibold text-[#6B7280]">
-                {description}
-            </span>
-        </button>
-    )
+function SettingsBlock({ icon, title, description, action, onClick }: SettingsBlockProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group min-h-56 cursor-pointer rounded-[1.7rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#86EFAC] hover:bg-white hover:shadow-xl hover:shadow-[#0B3D2E]/8"
+    >
+      <div className="flex size-12 items-center justify-center rounded-2xl bg-[#DCFCE7] text-2xl text-[#16A34A] transition group-hover:bg-[#16A34A] group-hover:text-white">
+        <EduIcon nome={icon} />
+      </div>
+
+      <h2 className="mt-7 text-2xl font-black text-[#111827]">{title}</h2>
+      <p className="mt-3 min-h-12 text-sm font-semibold leading-6 text-[#6B7280]">
+        {description}
+      </p>
+
+      <span className="mt-6 inline-flex items-center gap-2 text-sm font-black text-[#16A34A]">
+        {action}
+        <span className="transition group-hover:translate-x-1">→</span>
+      </span>
+    </button>
+  );
 }
 
 type ModalProps = {
-    onClose: () => void
-}
+  onClose: () => void;
+};
 
-function ModalShell({ title, children, onClose }: ModalProps & { title: string; children: ReactNode }) {
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B3D2E]/30 px-6 py-8 backdrop-blur-sm">
-            <div className="w-full max-w-3xl overflow-hidden rounded-[2rem] border border-[#E5E7EB] bg-white shadow-2xl shadow-[#0B3D2E]/20">
-                <div className="flex items-center justify-between border-b border-[#E5E7EB] px-6 py-5">
-                    <h2 className="text-2xl font-extrabold text-[#111827]">
-                        {title}
-                    </h2>
+function ModalShell({
+  title,
+  children,
+  onClose,
+}: ModalProps & { title: string; children: ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B3D2E]/30 px-4 py-8 backdrop-blur-sm">
+      <div className="max-h-[calc(100vh-4rem)] w-full max-w-3xl overflow-y-auto rounded-[2rem] border border-[#E5E7EB] bg-white shadow-2xl shadow-[#0B3D2E]/20">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#E5E7EB] bg-white px-6 py-5">
+          <h2 className="text-2xl font-black text-[#111827]">{title}</h2>
 
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="flex size-10 items-center justify-center rounded-full bg-[#F3F4F6] text-xl font-light text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
-                    >
-                        x
-                    </button>
-                </div>
-
-                <div className="px-8 py-7">
-                    {children}
-                </div>
-            </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex size-10 cursor-pointer items-center justify-center rounded-full bg-[#F3F4F6] text-xl font-light text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
+          >
+            ×
+          </button>
         </div>
-    )
+
+        <div className="px-5 py-6 sm:px-8">{children}</div>
+      </div>
+    </div>
+  );
 }
 
-function CondominiumDataModal({ onClose }: ModalProps) {
-    return (
-        <ModalShell title="Dados do Condominio" onClose={onClose}>
-            <div className="space-y-6">
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                    <Field label="Nome do condominio" value="Residencial Jardim Sul" />
-                    <Field label="CNPJ" value="00.000.000/001-00" />
-                    <Field label="Endereco" value="Rua das Flores, 120" />
-                    <Field label="Cidade" value="Caxias do Sul" />
-                    <Field label="E-mail de contato" value="contato@jardimsul.com" />
-                    <Field label="Telefone" value="(54) 99999-9999" />
-                </div>
+function ProfileDataModal({
+  userName,
+  email,
+  phoneNumber,
+  onClose,
+  onSaved,
+}: ModalProps & {
+  userName: string;
+  email: string;
+  phoneNumber: string;
+  onSaved: () => Promise<void>;
+}) {
+  const [form, setForm] = useState({
+    name: userName,
+    phoneNumber,
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-                <button className="h-12 w-full rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E]">
-                    Salvar alteracoes
-                </button>
-            </div>
-        </ModalShell>
-    )
-}
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
 
-function FinanceModal({ onClose }: ModalProps) {
-    return (
-        <ModalShell title="Dados Financeiros" onClose={onClose}>
-            <div className="space-y-6">
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-[1fr_160px_120px]">
-                    <Field label="Chave PIX do condominio" value="financeiro@jardimsul.com" />
-                    <Field label="Valor mensal" value="R$ 350,00" />
-                    <Field label="Vencimento" value="10" />
-                </div>
+    const phoneDigits = onlyDigits(form.phoneNumber);
 
-                <TextArea label="Mensagem padrao" value="Taxa condominial referente ao mes atual." />
+    if (form.name.trim().length < 2) {
+      setErrorMessage("Informe um nome com pelo menos 2 caracteres.");
+      return;
+    }
 
-                <button className="h-12 w-full rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E]">
-                    Salvar alteracoes
-                </button>
-            </div>
-        </ModalShell>
-    )
-}
+    if (phoneDigits.length < 10) {
+      setErrorMessage("Informe um telefone válido com DDD.");
+      return;
+    }
 
-function PermissionsModal({ onClose }: ModalProps) {
-    return (
-        <ModalShell title="Permissoes" onClose={onClose}>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <PermissionGroup
-                    title="Sindico"
-                    permissions={[
-                        ['Ver moradores do predio', true],
-                        ['Criar avisos para o predio', true],
-                        ['Registrar manutencoes', true],
-                        ['Executar vistorias', true],
-                        ['Marcar pagamentos como pagos', false],
-                    ]}
-                />
+    try {
+      setIsSubmitting(true);
+      setErrorMessage("");
+      setSuccessMessage("");
 
-                <PermissionGroup
-                    title="Morador"
-                    permissions={[
-                        ['Ver proprios boletos', true],
-                        ['Enviar comprovante', true],
-                        ['Abrir solicitacao de manutencao', true],
-                        ['Ver avisos do predio', true],
-                        ['Enviar mensagem direta ao Admin', false],
-                    ]}
-                />
+      await updateMyProfile({
+        name: form.name.trim(),
+        phoneNumber: phoneDigits,
+      });
+      await onSaved();
+      setSuccessMessage("Dados pessoais atualizados.");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível atualizar seus dados.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
-                <button className="h-12 rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] md:col-span-2">
-                    Salvar alteracoes e continuar
-                </button>
-            </div>
-        </ModalShell>
-    )
-}
+  return (
+    <ModalShell title="Perfil e dados pessoais" onClose={onClose}>
+      <div className="space-y-6">
+        <ProfilePhotoBlock />
 
-function InvitesModal({ onClose }: ModalProps) {
-    return (
-        <ModalShell title="Convites" onClose={onClose}>
-            <div className="space-y-6">
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                    <Field label="Expiracao do convite" value="7 dias" />
-                    <Field label="Permitir reenvio de convite" value="Sim" />
-                </div>
+        <form onSubmit={(event) => void handleSubmit(event)} className="space-y-6">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <TextField
+              label="Nome"
+              value={form.name}
+              onChange={(value) => setForm((current) => ({ ...current, name: value }))}
+            />
+            <TextField
+              label="Telefone"
+              value={form.phoneNumber}
+              onChange={(value) =>
+                setForm((current) => ({ ...current, phoneNumber: value }))
+              }
+            />
+            <TextField label="E-mail" value={email} disabled />
+          </div>
 
-                <TextArea label="Mensagem padrao do convite" value="Voce foi convidado para acessar o app do condominio." />
+          {(errorMessage || successMessage) && (
+            <FeedbackMessage
+              variant={errorMessage ? "error" : "success"}
+              message={errorMessage || successMessage}
+            />
+          )}
 
-                <button className="h-12 w-full rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E]">
-                    Salvar alteracoes
-                </button>
-            </div>
-        </ModalShell>
-    )
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-12 cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-black text-[#6B7280] transition hover:bg-[#F3F4F6]"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="h-12 cursor-pointer rounded-2xl bg-[#16A34A] px-6 text-sm font-black text-white shadow-sm shadow-[#16A34A]/25 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isSubmitting ? "Salvando..." : "Salvar alterações"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </ModalShell>
+  );
 }
 
 function NotificationsModal({ onClose }: ModalProps) {
-    return (
-        <ModalShell title="Notificacoes" onClose={onClose}>
-            <div className="space-y-6">
-                <div className="space-y-3 rounded-2xl bg-[#F3F4F6] p-5">
-                    {[
-                        'Avisar moradores quando novo boleto for gerado',
-                        'Avisar moradores antes do vencimento',
-                        'Avisar Admin sobre pagamento atrasado',
-                        'Avisar sindico sobre nova manutencao no predio',
-                        'Avisar moradores sobre novo comunicado',
-                    ].map((item) => (
-                        <label key={item} className="flex items-center gap-3 text-sm font-bold text-[#111827]">
-                            <input
-                                type="checkbox"
-                                checked
-                                readOnly
-                                className="size-4 accent-[#16A34A]"
-                            />
-                            {item}
-                        </label>
-                    ))}
-                </div>
+  const [preferences, setPreferences] = useState<NotificationPreferences>(
+    defaultNotificationPreferences,
+  );
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-                <button className="h-12 w-full rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E]">
-                    Salvar alteracoes
-                </button>
-            </div>
-        </ModalShell>
-    )
-}
+  useEffect(() => {
+    async function loadPreferences() {
+      try {
+        setIsLoading(true);
+        setErrorMessage("");
+        setPreferences(await getNotificationPreferences());
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Não foi possível carregar suas preferências.",
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    }
 
-type PermissionGroupProps = {
-    title: string
-    permissions: [string, boolean][]
-}
+    void loadPreferences();
+  }, []);
 
-function PermissionGroup({ title, permissions }: PermissionGroupProps) {
-    return (
-        <div className="rounded-2xl bg-[#F3F4F6] p-5">
-            <h3 className="text-xl font-extrabold text-[#111827]">
-                {title}
-            </h3>
+  function updatePreference(key: keyof NotificationPreferences) {
+    setSuccessMessage("");
+    setPreferences((current) => ({
+      ...current,
+      [key]: !current[key],
+    }));
+  }
 
-            <div className="mt-4 space-y-3">
-                {permissions.map(([label, checked]) => (
-                    <label key={label} className="flex items-center gap-3 text-sm font-bold text-[#111827]">
-                        <input
-                            type="checkbox"
-                            checked={checked}
-                            readOnly
-                            className="size-4 accent-[#16A34A]"
-                        />
-                        {label}
-                    </label>
-                ))}
-            </div>
+  async function handleSave() {
+    try {
+      setIsSubmitting(true);
+      setErrorMessage("");
+      setSuccessMessage("");
+
+      const result = await updateNotificationPreferences(preferences);
+      setPreferences(result);
+      setSuccessMessage("Preferências de notificação atualizadas.");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar suas preferências.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <ModalShell title="Notificações" onClose={onClose}>
+      <div className="space-y-4">
+        {isLoading ? (
+          <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 text-sm font-bold text-[#6B7280]">
+            Carregando preferências...
+          </div>
+        ) : (
+          <>
+            <ToggleRow
+              label="Avisos do condomínio"
+              description="Receber comunicados importantes da gestão."
+              checked={preferences.noticesEnabled}
+              onChange={() => updatePreference("noticesEnabled")}
+            />
+            <ToggleRow
+              label="Lembretes financeiros"
+              description="Exibir alertas sobre cobranças e recebimentos."
+              checked={preferences.billsEnabled}
+              onChange={() => updatePreference("billsEnabled")}
+            />
+            <ToggleRow
+              label="Atualizações de cadastro"
+              description="Receber avisos sobre moradores, unidades e convites."
+              checked={preferences.unitUpdatesEnabled}
+              onChange={() => updatePreference("unitUpdatesEnabled")}
+            />
+          </>
+        )}
+
+        {(errorMessage || successMessage) && (
+          <FeedbackMessage
+            variant={errorMessage ? "error" : "success"}
+            message={errorMessage || successMessage}
+          />
+        )}
+
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={isLoading || isSubmitting}
+            className="h-12 cursor-pointer rounded-2xl bg-[#16A34A] px-6 text-sm font-black text-white shadow-sm shadow-[#16A34A]/25 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isSubmitting ? "Salvando..." : "Salvar preferências"}
+          </button>
         </div>
-    )
+      </div>
+    </ModalShell>
+  );
 }
 
-type FieldProps = {
-    label: string
-    value: string
+function SyndicAccessModal({
+  condominiumId,
+  onClose,
+}: ModalProps & {
+  condominiumId: number | null;
+}) {
+  const [access, setAccess] = useState<SyndicAccessSettings>(defaultSyndicAccess);
+  const [syndics, setSyndics] = useState<PersonResponse[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSyndicSelectOpen, setIsSyndicSelectOpen] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const enabledCount = Object.values(access).filter(Boolean).length;
+  const selectedSyndic = syndics.find((syndic) => syndic.userId === selectedUserId);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadSyndics() {
+      if (!condominiumId) {
+        setSyndics([]);
+        setSelectedUserId(null);
+        setAccess(defaultSyndicAccess);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setErrorMessage("");
+        setSuccessMessage("");
+
+        const people = await getPersonsByCondominium(condominiumId);
+        const syndicPeople = people.filter(
+          (person) => person.accessRole === "Syndic" && person.userId,
+        );
+        const firstUserId = syndicPeople[0]?.userId ?? null;
+
+        if (!isMounted) {
+          return;
+        }
+
+        setSyndics(syndicPeople);
+        setSelectedUserId(firstUserId);
+
+        if (firstUserId) {
+          setAccess(await getSyndicAccess(condominiumId, firstUserId));
+        } else {
+          setAccess(defaultSyndicAccess);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setSyndics([]);
+          setSelectedUserId(null);
+          setAccess(defaultSyndicAccess);
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "Não foi possível carregar os acessos do síndico.",
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    void loadSyndics();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [condominiumId]);
+
+  async function handleSelectSyndic(userId: number) {
+    if (!condominiumId) {
+      return;
+    }
+
+    try {
+      setIsSyndicSelectOpen(false);
+      setSelectedUserId(userId);
+      setIsLoading(true);
+      setErrorMessage("");
+      setSuccessMessage("");
+      setAccess(await getSyndicAccess(condominiumId, userId));
+    } catch (error) {
+      setAccess(defaultSyndicAccess);
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar os acessos deste síndico.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  function updateAccess(key: SyndicAccessKey) {
+    setErrorMessage("");
+    setSuccessMessage("");
+    setAccess((current) => ({
+      ...current,
+      [key]: !current[key],
+    }));
+  }
+
+  async function handleSave() {
+    if (!condominiumId || !selectedUserId) {
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setErrorMessage("");
+      setSuccessMessage("");
+
+      const result = await updateSyndicAccess(condominiumId, selectedUserId, access);
+      setAccess(result);
+      setSuccessMessage("Acessos do síndico atualizados.");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar os acessos do síndico.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <ModalShell title="Acessos do síndico" onClose={onClose}>
+      <div className="space-y-5">
+        {syndics.length > 0 && (
+          <div className="relative">
+            <span className="mb-2 block text-sm font-black text-[#111827]">Síndico</span>
+
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={() => setIsSyndicSelectOpen((current) => !current)}
+              className="flex h-12 w-full cursor-pointer items-center justify-between rounded-2xl border border-[#E5E7EB] bg-white px-4 text-left text-sm font-bold text-[#111827] outline-none transition hover:border-[#86EFAC] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30 disabled:cursor-not-allowed disabled:bg-[#F3F4F6] disabled:text-[#6B7280]"
+            >
+              <span>{selectedSyndic?.name ?? "Selecione um síndico"}</span>
+              <span
+                className={`text-xs text-[#6B7280] transition ${
+                  isSyndicSelectOpen ? "rotate-180" : ""
+                }`}
+              >
+                ▼
+              </span>
+            </button>
+
+            {isSyndicSelectOpen && (
+              <div className="absolute left-0 right-0 top-[4.7rem] z-20 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white p-1 shadow-xl shadow-[#0B3D2E]/10">
+                {syndics.map((syndic) => {
+                  const isSelected = syndic.userId === selectedUserId;
+
+                  return (
+                    <button
+                      key={syndic.userId}
+                      type="button"
+                      onClick={() => void handleSelectSyndic(Number(syndic.userId))}
+                      className={`flex w-full cursor-pointer items-center justify-between rounded-xl px-4 py-3 text-left text-sm font-bold transition ${
+                        isSelected
+                          ? "bg-[#DCFCE7] text-[#0B3D2E]"
+                          : "text-[#111827] hover:bg-[#F3F4F6]"
+                      }`}
+                    >
+                      <span>{syndic.name}</span>
+                      {isSelected && <span className="text-[#16A34A]">Selecionado</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#6B7280]">
+              Áreas liberadas
+            </p>
+            <p className="mt-2 text-3xl font-black text-[#111827]">{enabledCount}</p>
+            <p className="mt-1 text-sm font-bold text-[#16A34A]">
+              De {syndicAccessOptions.length} módulos disponíveis
+            </p>
+          </div>
+
+          <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#6B7280]">
+              Aplicação
+            </p>
+            <p className="mt-2 text-lg font-black text-[#111827]">Controle por usuário</p>
+            <p className="mt-1 text-sm font-semibold leading-6 text-[#6B7280]">
+              Cada síndico pode ter uma configuração própria dentro do condomínio.
+            </p>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 text-sm font-bold text-[#6B7280]">
+            Carregando acessos...
+          </div>
+        ) : syndics.length === 0 ? (
+          <div className="rounded-[1.5rem] border border-dashed border-[#CBD5E1] bg-[#F9FAFB] p-6 text-sm font-bold text-[#6B7280]">
+            Nenhum síndico com acesso ativo foi encontrado neste condomínio.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {syndicAccessOptions.map((option) => (
+              <ToggleRow
+                key={option.key}
+                label={option.label}
+                description={option.description}
+                checked={access[option.key]}
+                onChange={() => updateAccess(option.key)}
+              />
+            ))}
+          </div>
+        )}
+
+        {(errorMessage || successMessage) && (
+          <FeedbackMessage
+            variant={errorMessage ? "error" : "success"}
+            message={errorMessage || successMessage}
+          />
+        )}
+
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-12 cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-black text-[#6B7280] transition hover:bg-[#F3F4F6]"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={!condominiumId || !selectedUserId || isLoading || isSaving}
+            onClick={() => void handleSave()}
+            className="h-12 cursor-pointer rounded-2xl bg-[#16A34A] px-6 text-sm font-black text-white shadow-sm shadow-[#16A34A]/25 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isSaving ? "Salvando..." : "Salvar acessos"}
+          </button>
+        </div>
+      </div>
+    </ModalShell>
+  );
 }
 
-function Field({ label, value }: FieldProps) {
-    return (
-        <label className="block">
-            <span className="mb-2 block text-sm font-extrabold text-[#111827]">
-                {label}
-            </span>
-            <input
-                value={value}
-                readOnly
-                className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none"
-            />
-        </label>
-    )
+function FinancialAccountModal({
+  account,
+  condominiumName,
+  condominiumId,
+  isLoading,
+  onClose,
+  onSaved,
+}: ModalProps & {
+  account: FinancialAccountResponse | null;
+  condominiumName: string;
+  condominiumId: number | null;
+  isLoading: boolean;
+  onSaved: (account: FinancialAccountResponse) => Promise<void>;
+}) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  async function handleSubmit(data: UpsertFinancialAccountRequest) {
+    if (!condominiumId) {
+      setErrorMessage("Selecione um condomínio antes de salvar os dados financeiros.");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setErrorMessage("");
+      setSuccessMessage("");
+
+      const result = await upsertCondominiumFinancialAccount(condominiumId, data);
+      await onSaved(result);
+      setSuccessMessage("Dados financeiros do condomínio atualizados.");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível salvar os dados financeiros.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <ModalShell title="Dados financeiros" onClose={onClose}>
+      <div className="space-y-5">
+        <div className="rounded-2xl border border-[#BBF7D0] bg-[#DCFCE7] p-4">
+          <p className="text-sm font-extrabold text-[#0B3D2E]">
+            Configure a conta bancária e a chave Pix do condomínio ativo.
+          </p>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#0D7A3A]">
+            Esses dados ficam vinculados ao {condominiumName} e organizam os recebimentos internos.
+          </p>
+        </div>
+
+        {isLoading ? (
+          <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 text-sm font-bold text-[#6B7280]">
+            Carregando dados financeiros...
+          </div>
+        ) : (
+          <FinancialAccountForm
+            account={account}
+            isSubmitting={isSubmitting}
+            onSubmit={handleSubmit}
+          />
+        )}
+
+        {(errorMessage || successMessage) && (
+          <FeedbackMessage
+            variant={errorMessage ? "error" : "success"}
+            message={errorMessage || successMessage}
+          />
+        )}
+      </div>
+    </ModalShell>
+  );
 }
 
-function TextArea({ label, value }: FieldProps) {
-    return (
-        <label className="block">
-            <span className="mb-2 block text-sm font-extrabold text-[#111827]">
-                {label}
-            </span>
-            <textarea
-                value={value}
-                readOnly
-                className="min-h-28 w-full resize-none rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm font-bold text-[#111827] outline-none"
-            />
-        </label>
-    )
+type TextFieldProps = {
+  label: string;
+  value: string;
+  disabled?: boolean;
+  onChange?: (value: string) => void;
+};
+
+function TextField({ label, value, disabled = false, onChange }: TextFieldProps) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-black text-[#111827]">{label}</span>
+      <input
+        value={value}
+        disabled={disabled}
+        onChange={(event) => onChange?.(event.target.value)}
+        className="h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30 disabled:bg-[#F3F4F6] disabled:text-[#6B7280]"
+      />
+    </label>
+  );
+}
+
+type ToggleRowProps = {
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: () => void;
+};
+
+function ToggleRow({ label, description, checked, onChange }: ToggleRowProps) {
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      className="flex w-full cursor-pointer items-center justify-between gap-4 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 text-left transition hover:border-[#86EFAC] hover:bg-white"
+    >
+      <span>
+        <span className="block text-base font-black text-[#111827]">{label}</span>
+        <span className="mt-1 block text-sm font-semibold leading-6 text-[#6B7280]">
+          {description}
+        </span>
+      </span>
+
+      <span
+        className={`flex h-8 w-14 shrink-0 items-center rounded-full p-1 transition ${
+          checked ? "bg-[#16A34A]" : "bg-[#E5E7EB]"
+        }`}
+      >
+        <span
+          className={`size-6 rounded-full bg-white shadow-sm transition ${
+            checked ? "translate-x-6" : "translate-x-0"
+          }`}
+        />
+      </span>
+    </button>
+  );
+}
+
+function FeedbackMessage({
+  message,
+  variant,
+}: {
+  message: string;
+  variant: "success" | "error";
+}) {
+  const classes =
+    variant === "success"
+      ? "border-[#BBF7D0] bg-[#DCFCE7] text-[#0B3D2E]"
+      : "border-[#FECACA] bg-[#FDECEC] text-[#B42318]";
+
+  return (
+    <div className={`mt-5 rounded-2xl border px-4 py-3 text-sm font-bold ${classes}`}>
+      {message}
+    </div>
+  );
+}
+
+function EduIcon({ nome }: { nome: string }) {
+  const [svg, setSvg] = useState<string | null>(() =>
+    svgIcone({
+      nome,
+      cor: "currentColor",
+      tamanho: "1em",
+    }) ?? null,
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadIcon() {
+      const icons = await import("@edusites/icons/core");
+      const loadedSvg = await (icons as typeof icons & {
+        svgIconeAsync?: (options: {
+          nome: string;
+          cor: string;
+          tamanho: string;
+        }) => Promise<string | null | undefined>;
+      }).svgIconeAsync?.({
+        nome,
+        cor: "currentColor",
+        tamanho: "1em",
+      });
+
+      if (isMounted) {
+        setSvg(loadedSvg ?? null);
+      }
+    }
+
+    if (!svg) {
+      void loadIcon();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [nome, svg]);
+
+  if (!svg) {
+    return <span aria-hidden="true" className="inline-flex size-[1em]" />;
+  }
+
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-flex leading-none"
+      dangerouslySetInnerHTML={{ __html: svg }}
+    />
+  );
+}
+
+function getFinancialCardDescription(
+  isLoading: boolean,
+  hasBankAccount: boolean,
+  hasPixKey: boolean,
+) {
+  if (isLoading) {
+    return "Carregando status da conta recebedora.";
+  }
+
+  if (hasBankAccount && hasPixKey) {
+    return "Conta bancária e Pix configurados para o condomínio.";
+  }
+
+  if (hasBankAccount) {
+    return "Conta bancária cadastrada. Falta adicionar a chave Pix.";
+  }
+
+  if (hasPixKey) {
+    return "Chave Pix cadastrada. Falta completar os dados bancários.";
+  }
+
+  return "Cadastre banco e Pix para organizar recebimentos internos.";
+}
+
+function onlyDigits(value: string) {
+  return value.replace(/\D/g, "");
 }

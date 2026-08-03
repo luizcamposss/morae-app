@@ -34,3 +34,4 @@ appsettings.Local.json
 # Testes
 TestResults/
 coverage/
+.build/

@@ -26,6 +26,8 @@ using backend.Services.Me;
 using backend.Services.Payments;
 using backend.Services.Delinquency;
 using backend.Services.Occurrences;
+using backend.Services.FinancialAccounts;
+using backend.Services.Notifications;
 
 DotEnv.Load();
 
@@ -38,7 +40,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("FrontendPolicy", policy =>
     {
         policy
-            .WithOrigins("http://localhost:5173")
+            .WithOrigins("http://localhost:5174")
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -48,7 +50,14 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Configuration.AddEnvironmentVariables();
 
-builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>()
+builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
+{
+    options.Password.RequiredLength = 6;
+    options.Password.RequireDigit = false;
+    options.Password.RequireLowercase = false;
+    options.Password.RequireUppercase = false;
+    options.Password.RequireNonAlphanumeric = false;
+})
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
 
@@ -61,6 +70,7 @@ builder.Services.AddAutoMapper(
     typeof(PersonUnitProfile),
     typeof(InvitationProfile),
     typeof(NewsProfile),
+    typeof(NotificationProfile),
     typeof(OccurrenceProfile),
     typeof(UserCondominiumAccessProfile));
 
@@ -72,7 +82,9 @@ builder.Services.AddScoped<IDelinquencyService, DelinquencyService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<IMeService, MeService>();
 builder.Services.AddScoped<INewsService, NewsService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IFinancialAccountService, FinancialAccountService>();
 builder.Services.AddScoped<IPersonService, PersonService>();
 builder.Services.AddScoped<IPersonUnitService, PersonUnitService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
@@ -164,7 +176,6 @@ using (var scope = app.Services.CreateScope())
 
     await IdentitySeeder.SeedRolesAsync(roleManager);
     await IdentitySeeder.SeedMasterAsync(db, userManager, configuration);
-    await IdentitySeeder.SeedDemoUsersAsync(db, userManager, configuration);
 }
 
 app.Run();

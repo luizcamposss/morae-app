@@ -14,6 +14,7 @@ public class OccurrenceResponseDto
     public int CreatedByUserId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public OccurrenceType Type { get; set; }
     public OccurrenceStatus Status { get; set; }
     public OccurrencePriority Priority { get; set; }
     public DateTime CreatedAt { get; set; }

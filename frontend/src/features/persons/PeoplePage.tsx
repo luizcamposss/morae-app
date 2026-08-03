@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
+import { CreateInvitationModal } from "../invitations/InvitationsPage";
+import { getInvitationsByCondominium } from "../invitations/invitationService";
+import type { InvitationResponse } from "../invitations/types";
 import {
   createPersonInCondominium,
   getPersonsByCondominium,
@@ -18,10 +20,8 @@ const emptyForm: CreatePersonRequest = {
 };
 
 export function PeoplePage() {
-  const navigate = useNavigate();
   const {
     condominiums,
-    activeCondominium,
     activeCondominiumId,
     isLoading: isLoadingCondominiums,
     errorMessage: condominiumErrorMessage,
@@ -29,10 +29,12 @@ export function PeoplePage() {
   } = useCondominium();
 
   const [people, setPeople] = useState<PersonResponse[]>([]);
+  const [invitations, setInvitations] = useState<InvitationResponse[]>([]);
   const [isLoadingPeople, setIsLoadingPeople] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<PersonResponse | null>(null);
   const [viewingPerson, setViewingPerson] = useState<PersonResponse | null>(null);
+  const [invitingPerson, setInvitingPerson] = useState<PersonResponse | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -56,12 +58,29 @@ export function PeoplePage() {
   const linkedPeople = people.filter((person) => person.unitCount > 0).length;
   const unlinkedPeople = totalPeople - linkedPeople;
   const totalUnitLinks = people.reduce((sum, person) => sum + person.unitCount, 0);
+  const blockedInvitationPersonIds = useMemo(
+    () =>
+      new Set(
+        invitations
+          .filter((invitation) => isPreparedInvitation(invitation))
+          .map((invitation) => invitation.personId),
+      ),
+    [invitations],
+  );
+  const invitablePeople = useMemo(
+    () =>
+      people.filter(
+        (person) =>
+          !person.hasRegisteredUser && !blockedInvitationPersonIds.has(person.id),
+      ),
+    [people, blockedInvitationPersonIds],
+  );
 
   const metrics = [
-    { label: "Total", value: totalPeople.toString(), helper: "Pessoas cadastradas" },
-    { label: "Com unidade", value: linkedPeople.toString(), helper: "Ja vinculadas" },
-    { label: "Sem unidade", value: unlinkedPeople.toString(), helper: "Aguardando vinculo" },
-    { label: "Vinculos", value: totalUnitLinks.toString(), helper: "Pessoa-unidade" },
+    { label: "Total", value: totalPeople.toString(), helper: "Cadastros ativos" },
+    { label: "Com unidade", value: linkedPeople.toString(), helper: "Vínculo residencial ativo" },
+    { label: "Sem unidade", value: unlinkedPeople.toString(), helper: "Aguardam associação" },
+    { label: "Vínculos", value: totalUnitLinks.toString(), helper: "Relações com unidades" },
   ];
 
   async function loadPeople(condominiumId: number) {
@@ -70,15 +89,21 @@ export function PeoplePage() {
       setSuccessMessage("");
       setIsLoadingPeople(true);
 
-      const result = await getPersonsByCondominium(condominiumId);
-      setPeople(result);
+      const [peopleResult, invitationsResult] = await Promise.all([
+        getPersonsByCondominium(condominiumId),
+        getInvitationsByCondominium(condominiumId),
+      ]);
+
+      setPeople(peopleResult);
+      setInvitations(invitationsResult);
     } catch (error) {
       setPeople([]);
+      setInvitations([]);
 
       if (error instanceof Error) {
         setErrorMessage(error.message);
       } else {
-        setErrorMessage("Nao foi possivel carregar os moradores.");
+        setErrorMessage("Não foi possível carregar os moradores.");
       }
     } finally {
       setIsLoadingPeople(false);
@@ -96,6 +121,7 @@ export function PeoplePage() {
   useEffect(() => {
     if (!activeCondominiumId) {
       setPeople([]);
+      setInvitations([]);
       setIsLoadingPeople(false);
       return;
     }
@@ -117,11 +143,6 @@ export function PeoplePage() {
             <p className="mt-1 text-sm font-semibold text-[#6B7280]">
               Cadastre pessoas, acompanhe vinculos e prepare convites de acesso.
             </p>
-            {activeCondominium && (
-              <p className="mt-2 text-sm font-semibold text-[#16A34A]">
-                Condominio ativo: {activeCondominium.condominiumName}
-              </p>
-            )}
           </div>
 
           <div className="flex flex-col gap-3 md:items-end">
@@ -146,7 +167,7 @@ export function PeoplePage() {
               type="button"
               disabled={!activeCondominiumId}
               onClick={() => setIsCreateOpen(true)}
-              className="h-11 rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
+              className="h-11 cursor-pointer rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
             >
               + Novo Morador
             </button>
@@ -166,21 +187,26 @@ export function PeoplePage() {
 
         <div className="mt-6 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-4">
           <div className="mb-4 flex flex-col gap-3 md:flex-row">
-            <input
-              type="search"
-              placeholder="Buscar morador, CPF, telefone ou unidade..."
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              className="h-11 flex-1 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-            />
+            <div className="relative flex-1">
+              <input
+                type="text"
+                placeholder="Buscar morador, CPF, telefone ou unidade..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 pr-11 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
+              />
 
-            <button
-              type="button"
-              onClick={() => setSearchTerm("")}
-              className="h-11 rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
-            >
-              Todos
-            </button>
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm("")}
+                  aria-label="Limpar busca"
+                  className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-base font-extrabold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+                >
+                  ×
+                </button>
+              )}
+            </div>
           </div>
 
           {isLoading && (
@@ -230,12 +256,15 @@ export function PeoplePage() {
                     <th className="px-4 py-3 font-extrabold">Contato</th>
                     <th className="px-4 py-3 font-extrabold">Unidade principal</th>
                     <th className="px-4 py-3 font-extrabold">Status</th>
-                    <th className="px-4 py-3 font-extrabold">Acoes</th>
+                    <th className="px-4 py-3 font-extrabold">Ações</th>
                   </tr>
                 </thead>
 
                 <tbody className="divide-y divide-[#E5E7EB]">
-                  {filteredPeople.map((person) => (
+                  {filteredPeople.map((person) => {
+                    const hasPreparedInvitation = blockedInvitationPersonIds.has(person.id);
+
+                    return (
                     <tr key={person.id} className="transition hover:bg-[#F3F4F6]">
                       <td className="px-4 py-4 font-extrabold text-[#111827]">
                         <div>{person.name}</div>
@@ -260,36 +289,40 @@ export function PeoplePage() {
                           <button
                             type="button"
                             onClick={() => setViewingPerson(person)}
-                            className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+                            className="cursor-pointer rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
                           >
                             Ver
                           </button>
                           <button
                             type="button"
                             onClick={() => setEditingPerson(person)}
-                            className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+                            className="cursor-pointer rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
                           >
                             Editar
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/admin/invitations?personId=${person.id}`)}
-                            className="rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
-                          >
-                            Preparar convite
-                          </button>
+                          {!person.hasRegisteredUser && !hasPreparedInvitation && (
+                            <button
+                              type="button"
+                              onClick={() => setInvitingPerson(person)}
+                              className="cursor-pointer rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+                            >
+                              Preparar convite
+                            </button>
+                          )}
+                          {!person.hasRegisteredUser && hasPreparedInvitation && (
+                            <span className="rounded-xl bg-[#DCFCE7] px-3 py-1.5 text-xs font-bold text-[#047857]">
+                              Convite preparado
+                            </span>
+                          )}
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
-
-          <p className="mt-4 text-sm font-semibold text-[#6B7280]">
-            Este modulo cadastra pessoas no condominio ativo. O vinculo com unidade continua no modulo de unidades.
-          </p>
         </div>
       </section>
 
@@ -331,6 +364,19 @@ export function PeoplePage() {
           onClose={() => setViewingPerson(null)}
         />
       )}
+
+      {invitingPerson && activeCondominiumId && (
+        <CreateInvitationModal
+          condominiumId={activeCondominiumId}
+          people={invitablePeople}
+          initialPersonId={invitingPerson.id}
+          onClose={() => setInvitingPerson(null)}
+          onCreated={async () => {
+            await refreshPeople();
+            setSuccessMessage("Convite criado com sucesso.");
+          }}
+        />
+      )}
     </>
   );
 }
@@ -367,6 +413,14 @@ function PersonFormModal({
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage("");
+
+    const validationMessage = validatePersonForm(form);
+
+    if (validationMessage) {
+      setErrorMessage(validationMessage);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -374,9 +428,9 @@ function PersonFormModal({
       onClose();
     } catch (error) {
       if (error instanceof Error) {
-        setErrorMessage(error.message);
+        setErrorMessage(getPersonErrorMessage(error.message));
       } else {
-        setErrorMessage("Nao foi possivel salvar o morador.");
+        setErrorMessage("Não foi possível salvar o morador.");
       }
     } finally {
       setIsSubmitting(false);
@@ -391,24 +445,24 @@ function PersonFormModal({
             label="Nome"
             value={form.name}
             onChange={(value) => updateField("name", value)}
-            placeholder="Nome completo"
+            placeholder="Ex.: Ana Martins"
           />
           <Field
             label="CPF"
             value={form.cpf}
             onChange={(value) => updateField("cpf", onlyDigits(value, 11))}
-            placeholder="Somente numeros"
+            placeholder="000.000.000-00"
           />
           <Field
             label="Telefone"
             value={form.phoneNumber}
             onChange={(value) => updateField("phoneNumber", onlyDigits(value, 20))}
-            placeholder="11999999999"
+            placeholder="(11) 99999-9999"
           />
         </div>
 
         {errorMessage && (
-          <p className="text-sm font-semibold text-[#B42318]">
+          <p className="rounded-2xl border border-[#FECDCA] bg-[#FEE4E2] px-4 py-3 text-sm font-extrabold text-[#B42318]">
             {errorMessage}
           </p>
         )}
@@ -416,7 +470,7 @@ function PersonFormModal({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="h-12 w-full rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
+          className="h-12 w-full cursor-pointer rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isSubmitting ? "Salvando..." : submitLabel}
         </button>
@@ -483,7 +537,7 @@ function ModalShell({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full bg-[#F3F4F6] px-3 py-1 text-sm font-extrabold text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
+            className="cursor-pointer rounded-full bg-[#F3F4F6] px-3 py-1 text-sm font-extrabold text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
           >
             Fechar
           </button>
@@ -539,4 +593,51 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
 
 function onlyDigits(value: string, maxLength: number) {
   return value.replace(/\D/g, "").slice(0, maxLength);
+}
+
+function validatePersonForm(form: CreatePersonRequest) {
+  if (form.name.trim().length < 2) {
+    return "Informe o nome completo do morador.";
+  }
+
+  if (form.cpf.length !== 11) {
+    return "Informe um CPF válido com 11 números.";
+  }
+
+  if (form.phoneNumber.length < 10) {
+    return "Informe um telefone válido com DDD.";
+  }
+
+  return "";
+}
+
+function getPersonErrorMessage(message: string) {
+  if (message.includes("CPF already registered")) {
+    return "Este CPF já está cadastrado no sistema.";
+  }
+
+  if (message.includes("CPF must contain exactly 11 digits")) {
+    return "Informe um CPF válido com 11 números.";
+  }
+
+  if (message.includes("Phone number must contain between 10 and 20 digits")) {
+    return "Informe um telefone válido com DDD.";
+  }
+
+  if (message.includes("Erro ao comunicar com a API. Status 400")) {
+    return "Revise os dados informados antes de cadastrar o morador.";
+  }
+
+  return message;
+}
+
+function isPreparedInvitation(invitation: InvitationResponse) {
+  const status = invitation.statusName || invitation.invitationStatus.toString();
+
+  return (
+    status === "Pending" ||
+    status === "Accepted" ||
+    invitation.invitationStatus === 1 ||
+    invitation.invitationStatus === 2
+  );
 }

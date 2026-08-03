@@ -13,6 +13,9 @@ public class UpdateCondominiumDto
     public string Name { get; set; } = string.Empty;
 
     [Required]
+    public string CEP { get; set; } = string.Empty;
+
+    [Required]
     public string Number { get; set; } = string.Empty;
 
     [Required]

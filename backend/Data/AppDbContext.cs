@@ -26,6 +26,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<Invitation> Invitations { get; set; }
     public DbSet<Charge> Charges { get; set; }
     public DbSet<Payment> Payments { get; set; }
+    public DbSet<FinancialAccount> FinancialAccounts { get; set; }
+    public DbSet<UserNotificationPreference> UserNotificationPreferences { get; set; }
+    public DbSet<Notification> Notifications { get; set; }
     public DbSet<UserCondominium> UserCondominiums { get; set; }
     public DbSet<UserCondominiumPermission> UserCondominiumPermissions { get; set; }
     public DbSet<Occurrence> Occurrences { get; set; }
@@ -72,6 +75,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
         builder.Entity<Person>()
             .HasIndex(p => p.CPF)
             .IsUnique();
+
+        builder.Entity<Person>()
+            .Property(p => p.ProfilePhotoUrl)
+            .HasColumnType("longtext");
 
         builder.Entity<Person>()
             .HasOne(p => p.CreatedByUser)
@@ -177,6 +184,56 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
         builder.Entity<Payment>()
             .Property(p => p.AmountPaid)
             .HasPrecision(10, 2);
+
+        builder.Entity<FinancialAccount>()
+            .HasIndex(account => new { account.Scope, account.CondominiumId })
+            .IsUnique();
+
+        builder.Entity<FinancialAccount>()
+            .HasOne(account => account.Condominium)
+            .WithMany()
+            .HasForeignKey(account => account.CondominiumId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<FinancialAccount>()
+            .HasOne(account => account.UpdatedByUser)
+            .WithMany()
+            .HasForeignKey(account => account.UpdatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<UserNotificationPreference>()
+            .HasIndex(preference => preference.UserId)
+            .IsUnique();
+
+        builder.Entity<UserNotificationPreference>()
+            .HasOne(preference => preference.User)
+            .WithMany()
+            .HasForeignKey(preference => preference.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Notification>()
+            .HasOne(notification => notification.User)
+            .WithMany()
+            .HasForeignKey(notification => notification.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Notification>()
+            .HasOne(notification => notification.Condominium)
+            .WithMany()
+            .HasForeignKey(notification => notification.CondominiumId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Notification>()
+            .HasIndex(notification => new
+            {
+                notification.UserId,
+                notification.ReadAt,
+                notification.CreatedAt
+            });
+
+        builder.Entity<Occurrence>()
+            .Property(o => o.Type)
+            .HasDefaultValue(OccurrenceType.Maintenance);
 
         builder.Entity<Occurrence>()
             .HasOne(o => o.Condominium)

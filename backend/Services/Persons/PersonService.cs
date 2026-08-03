@@ -27,23 +27,83 @@ public class PersonService : IPersonService
 
     private IQueryable<PersonResponseDto> BuildPersonResponseQuery(int? condominiumId = null)
     {
-        var query = _context.PersonCondominiums
-            .AsNoTracking();
-
         if (condominiumId is not null)
         {
-            query = query.Where(personCondominium =>
-                personCondominium.CondominiumId == condominiumId.Value);
+            var condominiumIdValue = condominiumId.Value;
+
+            return _context.Persons
+                .AsNoTracking()
+                .Where(person =>
+                    _context.PersonCondominiums.Any(personCondominium =>
+                        personCondominium.PersonId == person.Id &&
+                        personCondominium.CondominiumId == condominiumIdValue) ||
+                    _context.UserCondominiums.Any(userCondominium =>
+                        userCondominium.CondominiumId == condominiumIdValue &&
+                        userCondominium.User.PersonId == person.Id &&
+                        (userCondominium.Role == AppRoles.Resident ||
+                         userCondominium.Role == AppRoles.Syndic)))
+                .Select(person => new PersonResponseDto
+                {
+                    Id = person.Id,
+                    CondominiumId = condominiumIdValue,
+                    UserId = _context.Users
+                        .Where(user => user.PersonId == person.Id)
+                        .Select(user => (int?)user.Id)
+                        .FirstOrDefault(),
+                    CondominiumName = _context.Condominiums
+                        .Where(condominium => condominium.Id == condominiumIdValue)
+                        .Select(condominium => condominium.Name)
+                        .FirstOrDefault() ?? string.Empty,
+                    Name = person.Name,
+                    CPF = person.CPF,
+                    PhoneNumber = person.PhoneNumber,
+                    HasRegisteredUser = _context.Users.Any(user =>
+                        user.PersonId == person.Id),
+                    AccessRole = _context.UserCondominiums
+                        .Where(userCondominium =>
+                            userCondominium.CondominiumId == condominiumIdValue &&
+                            userCondominium.User.PersonId == person.Id)
+                        .Select(userCondominium => userCondominium.Role)
+                        .FirstOrDefault() ?? string.Empty,
+                    UnitCount = _context.PersonUnits.Count(personUnit =>
+                        personUnit.PersonId == person.Id &&
+                        personUnit.Unit.Building.CondominiumId == condominiumIdValue),
+                    MainUnit = _context.PersonUnits
+                        .Where(personUnit =>
+                            personUnit.PersonId == person.Id &&
+                            personUnit.Unit.Building.CondominiumId == condominiumIdValue)
+                        .OrderBy(personUnit => personUnit.Unit.Building.Name)
+                        .ThenBy(personUnit => personUnit.Unit.Number)
+                        .Select(personUnit => personUnit.Unit.Building.Name + " - " + personUnit.Unit.Number)
+                        .FirstOrDefault() ?? string.Empty,
+                    CreatedAt = person.CreatedAt,
+                    UpdatedAt = person.UpdatedAt
+                });
         }
+
+        var query = _context.PersonCondominiums
+            .AsNoTracking();
 
         return query.Select(personCondominium => new PersonResponseDto
         {
             Id = personCondominium.Person.Id,
             CondominiumId = personCondominium.CondominiumId,
+            UserId = _context.Users
+                .Where(user => user.PersonId == personCondominium.PersonId)
+                .Select(user => (int?)user.Id)
+                .FirstOrDefault(),
             CondominiumName = personCondominium.Condominium.Name,
             Name = personCondominium.Person.Name,
             CPF = personCondominium.Person.CPF,
             PhoneNumber = personCondominium.Person.PhoneNumber,
+            HasRegisteredUser = _context.Users.Any(user =>
+                user.PersonId == personCondominium.PersonId),
+            AccessRole = _context.UserCondominiums
+                .Where(userCondominium =>
+                    userCondominium.CondominiumId == personCondominium.CondominiumId &&
+                    userCondominium.User.PersonId == personCondominium.PersonId)
+                .Select(userCondominium => userCondominium.Role)
+                .FirstOrDefault() ?? string.Empty,
             UnitCount = _context.PersonUnits.Count(personUnit =>
                 personUnit.PersonId == personCondominium.PersonId &&
                 personUnit.Unit.Building.CondominiumId == personCondominium.CondominiumId),
@@ -179,9 +239,37 @@ public class PersonService : IPersonService
 
     public async Task<IEnumerable<PersonResponseDto>> GetByCondominiumAsync(int userId, int condominiumId)
     {
-        await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
+        await _permissionService.EnsureCondominiumPermissionAsync(
+            userId,
+            condominiumId,
+            AppPermissions.ResidentsView);
 
-        return await BuildPersonResponseQuery(condominiumId)
+        var query = BuildPersonResponseQuery(condominiumId);
+
+        if (await _permissionService.IsSyndicAsync(userId))
+        {
+            var personId = await _context.Users
+                .AsNoTracking()
+                .Where(user => user.Id == userId)
+                .Select(user => user.PersonId)
+                .FirstAsync();
+
+            var linkedBuildingIds = await _context.PersonUnits
+                .AsNoTracking()
+                .Where(personUnit =>
+                    personUnit.PersonId == personId &&
+                    personUnit.Unit.Building.CondominiumId == condominiumId)
+                .Select(personUnit => personUnit.Unit.BuildingId)
+                .Distinct()
+                .ToListAsync();
+
+            query = query.Where(person =>
+                _context.PersonUnits.Any(personUnit =>
+                    personUnit.PersonId == person.Id &&
+                    linkedBuildingIds.Contains(personUnit.Unit.BuildingId)));
+        }
+
+        return await query
             .OrderBy(person => person.Name)
             .ToListAsync();
     }

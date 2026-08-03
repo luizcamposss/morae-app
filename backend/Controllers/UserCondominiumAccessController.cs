@@ -17,6 +17,28 @@ public class UserCondominiumAccessController : ControllerBase
         _userCondominiumAccessService = userCondominiumAccessService;
     }
 
+    [HttpGet("api/master/users")]
+    public async Task<IActionResult> GetMasterUsers()
+    {
+        var requesterUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var users = await _userCondominiumAccessService.GetMasterUsersAsync(requesterUserId);
+
+        return Ok(users);
+    }
+
+    [HttpPost("api/master/users")]
+    public async Task<IActionResult> CreateMasterUser([FromBody] CreateMasterUserDto dto)
+    {
+        var requesterUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var user = await _userCondominiumAccessService.CreateMasterUserAsync(
+            requesterUserId,
+            dto);
+
+        return CreatedAtAction(nameof(GetMasterUsers), new { id = user.UserId }, user);
+    }
+
     [HttpPut("api/condominiums/{condominiumId}/users/{userId}/suspend")]
     public async Task<IActionResult> Suspend(
         [FromRoute] int condominiumId,
@@ -49,6 +71,36 @@ public class UserCondominiumAccessController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPut("api/condominiums/{condominiumId}/users/{userId}/role")]
+    public async Task<IActionResult> UpdateRole(
+        [FromRoute] int condominiumId,
+        [FromRoute] int userId,
+        [FromBody] UpdateUserCondominiumRoleDto dto)
+    {
+        var requesterUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
+        var result = await _userCondominiumAccessService.UpdateRoleAsync(
+            requesterUserId,
+            condominiumId,
+            userId,
+            dto);
+
+        return Ok(result);
+    }
+
+    [HttpDelete("api/condominiums/{condominiumId}/users/{userId}")]
+    public async Task<IActionResult> Delete(
+        [FromRoute] int condominiumId,
+        [FromRoute] int userId)
+    {
+        var requesterUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        await _userCondominiumAccessService.DeleteAsync(
+            requesterUserId,
+            condominiumId,
+            userId);
+
+        return NoContent();
+    }
 
 }

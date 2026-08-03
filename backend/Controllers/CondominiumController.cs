@@ -76,6 +76,45 @@ public class CondominiumController : ControllerBase
         return NoContent();
     }
 
+    [HttpPut("{id}/status")]
+    public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateCondominiumStatusDto dto)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var updated = await _condominium.UpdateStatusAsync(userId, id, dto);
+
+        if (!updated)
+            return NotFound();
+
+        return NoContent();
+    }
+
+    [HttpPut("{id}/admin")]
+    public async Task<IActionResult> UpdateAdmin(int id, [FromBody] UpdateCondominiumAdminDto dto)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var updated = await _condominium.UpdateAdminAsync(userId, id, dto);
+
+        if (!updated)
+            return NotFound();
+
+        return NoContent();
+    }
+
+    [HttpDelete("{id}/admin")]
+    public async Task<IActionResult> RemoveAdmin(int id)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var updated = await _condominium.RemoveAdminAsync(userId, id);
+
+        if (!updated)
+            return NotFound();
+
+        return NoContent();
+    }
+
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {

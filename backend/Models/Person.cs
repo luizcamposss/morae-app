@@ -24,6 +24,7 @@ public class Person
     [Required]
     [StringLength(20)]
     public string PhoneNumber { get; set; } = string.Empty;
+    public string? ProfilePhotoUrl { get; set; }
     public int? CreatedByUserId { get; set; }
     public ApplicationUser? CreatedByUser { get; set; }
     public ApplicationUser? User { get; set; }

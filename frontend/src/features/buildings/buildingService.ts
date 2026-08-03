@@ -26,6 +26,12 @@ export async function createBuilding(
   );
 }
 
+export async function getBuildingById(buildingId: number): Promise<BuildingResponse> {
+  return apiRequest<BuildingResponse>(`/api/Buildings/${buildingId}`, {
+    auth: true,
+  });
+}
+
 export async function updateBuilding(
   buildingId: number,
   data: CreateBuildingRequest,

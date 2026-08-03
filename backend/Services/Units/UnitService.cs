@@ -1,4 +1,5 @@
 using AutoMapper;
+using backend.Constants;
 using backend.Data;
 using backend.DTOs.Unit;
 using backend.Enums;
@@ -95,6 +96,11 @@ public class UnitService : IUnitService
         if (building is null)
             throw new NotFoundException("Building not found.");
 
+        await _permissionService.EnsureCondominiumPermissionAsync(
+            userId,
+            building.CondominiumId,
+            AppPermissions.ResidentsView);
+
         await _permissionService.EnsureBuildingAccessAsync(userId, buildingId);
 
         return await BuildUnitResponseQuery()
@@ -110,6 +116,17 @@ public class UnitService : IUnitService
 
         if (unit is null)
             return null;
+
+        var condominiumId = await _context.Units
+            .AsNoTracking()
+            .Where(u => u.Id == unitId)
+            .Select(u => u.Building.CondominiumId)
+            .FirstAsync();
+
+        await _permissionService.EnsureCondominiumPermissionAsync(
+            userId,
+            condominiumId,
+            AppPermissions.ResidentsView);
 
         await _permissionService.EnsureUnitAccessAsync(userId, unitId);
 

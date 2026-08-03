@@ -12,5 +12,10 @@ public class MeResponseDto
     public string UserName { get; set; } = string.Empty;
     public int PersonId { get; set; }
     public string PersonName { get; set; } = string.Empty;
+    public string PhoneNumber { get; set; } = string.Empty;
+    public string? ProfilePhotoUrl { get; set; }
+    public bool IsSuspended { get; set; }
+    public string? SuspensionReason { get; set; }
+    public DateTime? SuspendedAt { get; set; }
     public IEnumerable<string> Roles { get; set; } = [];
 }

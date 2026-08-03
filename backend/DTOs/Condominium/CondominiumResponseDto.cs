@@ -14,6 +14,8 @@ public class CondominiumResponseDto
 
     public string CNPJ { get; set; } = string.Empty;
 
+    public string CEP { get; set; } = string.Empty;
+
     public string Number { get; set; } = string.Empty;
 
     public string Address { get; set; } = string.Empty;
@@ -25,6 +27,12 @@ public class CondominiumResponseDto
     public string EmailContact { get; set; } = string.Empty;
 
     public Status Status { get; set; }
+
+    public int? AdminUserId { get; set; }
+
+    public string? AdminName { get; set; }
+
+    public string? AdminEmail { get; set; }
 
     public DateTime CreatedAt { get; set; }
 }

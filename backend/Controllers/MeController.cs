@@ -31,6 +31,47 @@ public class MeController : ControllerBase
         return Ok(me);
     }
 
+    [HttpPut("profile")]
+    public async Task<IActionResult> UpdateMyProfile([FromBody] DTOs.Me.UpdateMyProfileDto dto)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var me = await _meService.UpdateMyProfileAsync(userId, dto);
+
+        return Ok(me);
+    }
+
+    [HttpPut("profile-photo")]
+    public async Task<IActionResult> UpdateProfilePhoto([FromBody] DTOs.Me.UpdateProfilePhotoDto dto)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var me = await _meService.UpdateProfilePhotoAsync(userId, dto);
+
+        return Ok(me);
+    }
+
+    [HttpGet("notification-preferences")]
+    public async Task<IActionResult> GetNotificationPreferences()
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var preferences = await _meService.GetNotificationPreferencesAsync(userId);
+
+        return Ok(preferences);
+    }
+
+    [HttpPut("notification-preferences")]
+    public async Task<IActionResult> UpdateNotificationPreferences(
+        [FromBody] DTOs.Me.NotificationPreferencesDto dto)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var preferences = await _meService.UpdateNotificationPreferencesAsync(userId, dto);
+
+        return Ok(preferences);
+    }
+
     [HttpGet("condominiums")]
     public async Task<IActionResult> GetMyCondominiums()
     {

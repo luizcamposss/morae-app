@@ -29,6 +29,28 @@ public class InvitationsController : ControllerBase
         return CreatedAtAction(nameof(GetByToken), new { token = invitation.Token }, invitation);
     }
 
+    [HttpPost("{id:int}/renew")]
+    [Authorize(Roles = $"{AppRoles.Master},{AppRoles.Admin}")]
+    public async Task<IActionResult> Renew([FromRoute] int id)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var invitation = await _invitationService.RenewAsync(userId, id);
+
+        return Ok(invitation);
+    }
+
+    [HttpPost("{id:int}/cancel")]
+    [Authorize(Roles = $"{AppRoles.Master},{AppRoles.Admin}")]
+    public async Task<IActionResult> Cancel([FromRoute] int id)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var invitation = await _invitationService.CancelAsync(userId, id);
+
+        return Ok(invitation);
+    }
+
     [HttpGet("/api/condominiums/{condominiumId}/invitations")]
     [Authorize(Roles = $"{AppRoles.Master},{AppRoles.Admin}")]
     public async Task<IActionResult> GetByCondominium([FromRoute] int condominiumId)

@@ -102,6 +102,13 @@ public class PermissionService : IPermissionService
 
     public async Task<bool> HasBuildingAccessAsync(int userId, int buildingId)
     {
+        var user = await _context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user is null)
+            return false;
+
         var building = await _context.Buildings
             .AsNoTracking()
             .FirstOrDefaultAsync(b => b.Id == buildingId);
@@ -109,10 +116,37 @@ public class PermissionService : IPermissionService
         if (building is null)
             return false;
 
-        return await HasCondominiumAccessAsync(userId, building.CondominiumId);
+        var activeAccess = await _context.UserCondominiums
+            .AsNoTracking()
+            .FirstOrDefaultAsync(uc =>
+                uc.UserId == userId &&
+                uc.CondominiumId == building.CondominiumId &&
+                uc.Status == UserCondominiumStatus.Active);
+
+        if (activeAccess is null)
+            return false;
+
+        if (activeAccess.Role == AppRoles.Admin)
+            return true;
+
+        if (activeAccess.Role != AppRoles.Syndic)
+            return false;
+
+        return await _context.PersonUnits
+            .AsNoTracking()
+            .AnyAsync(personUnit =>
+                personUnit.PersonId == user.PersonId &&
+                personUnit.Unit.BuildingId == buildingId);
     }
     public async Task<bool> HasUnitAccessAsync(int userId, int unitId)
     {
+        var user = await _context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user is null)
+            return false;
+
         var unit = await _context.Units
             .AsNoTracking()
             .Include(u => u.Building)
@@ -121,11 +155,39 @@ public class PermissionService : IPermissionService
         if (unit is null)
             return false;
 
-        return await HasCondominiumAccessAsync(userId, unit.Building.CondominiumId);
+        var activeAccess = await _context.UserCondominiums
+            .AsNoTracking()
+            .FirstOrDefaultAsync(uc =>
+                uc.UserId == userId &&
+                uc.CondominiumId == unit.Building.CondominiumId &&
+                uc.Status == UserCondominiumStatus.Active);
+
+        if (activeAccess is not null)
+        {
+            if (activeAccess.Role == AppRoles.Admin)
+                return true;
+
+            if (activeAccess.Role == AppRoles.Syndic)
+            {
+                return await _context.PersonUnits
+                    .AsNoTracking()
+                    .AnyAsync(personUnit =>
+                        personUnit.PersonId == user.PersonId &&
+                        personUnit.Unit.BuildingId == unit.BuildingId);
+            }
+        }
+
+        return await _context.PersonUnits
+            .AsNoTracking()
+            .AnyAsync(personUnit =>
+                personUnit.PersonId == user.PersonId &&
+                personUnit.UnitId == unitId);
     }
     public async Task<bool> HasPersonAccessAsync(int userId, int personId)
     {
-        var user = await _userManager.FindByIdAsync(userId.ToString());
+        var user = await _context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId);
 
         if (user is null)
             return false;
@@ -137,8 +199,10 @@ public class PermissionService : IPermissionService
         if (!personExists)
             return false;
 
-        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin) ||
-            await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
+        if (user.PersonId == personId)
+            return true;
+
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
         {
             var hasCondominiumPersonLink = await _context.PersonCondominiums
                 .AsNoTracking()
@@ -147,6 +211,7 @@ public class PermissionService : IPermissionService
                     _context.UserCondominiums.Any(uc =>
                         uc.UserId == userId &&
                         uc.CondominiumId == personCondominium.CondominiumId &&
+                        uc.Role == AppRoles.Admin &&
                         uc.Status == UserCondominiumStatus.Active));
 
             if (hasCondominiumPersonLink)
@@ -156,13 +221,30 @@ public class PermissionService : IPermissionService
                 .AsNoTracking()
                 .AnyAsync(personUnit =>
                     personUnit.PersonId == personId &&
+                    _context.UserCondominiums.Any(uc =>
+                        uc.UserId == userId &&
+                        uc.CondominiumId == personUnit.Unit.Building.CondominiumId &&
+                        uc.Role == AppRoles.Admin &&
+                        uc.Status == UserCondominiumStatus.Active));
+        }
+
+        if (await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
+        {
+            return await _context.PersonUnits
+                .AsNoTracking()
+                .AnyAsync(targetPersonUnit =>
+                    targetPersonUnit.PersonId == personId &&
+                    _context.PersonUnits.Any(syndicPersonUnit =>
+                        syndicPersonUnit.PersonId == user.PersonId &&
+                        syndicPersonUnit.Unit.BuildingId == targetPersonUnit.Unit.BuildingId) &&
                     _context.UserCondominiums.Any(userCondominium =>
                         userCondominium.UserId == userId &&
-                        userCondominium.CondominiumId == personUnit.Unit.Building.CondominiumId &&
+                        userCondominium.CondominiumId == targetPersonUnit.Unit.Building.CondominiumId &&
+                        userCondominium.Role == AppRoles.Syndic &&
                         userCondominium.Status == UserCondominiumStatus.Active));
         }
 
-        return user.PersonId == personId;
+        return false;
     }
 
     public async Task<bool> HasCondominiumPermissionAsync(int userId, int condominiumId, string permissionKey)
