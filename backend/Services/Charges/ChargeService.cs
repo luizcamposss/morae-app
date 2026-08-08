@@ -230,6 +230,8 @@ public class ChargeService : IChargeService
 
         if (!ownsCondominium)
             throw new ForbiddenException("Master can only create platform charges for condominiums created by them.");
+
+        await EnsurePixKeyConfiguredAsync(FinancialAccountScope.Platform, null);
     }
 
     private async Task ValidateCondominiumChargeCreateAsync(int userId, CreateChargeDto dto)
@@ -259,6 +261,29 @@ public class ChargeService : IChargeService
 
         if (!unitBelongsToCondominium)
             throw new BadRequestException("Unit does not belong to this condominium.");
+
+        await EnsurePixKeyConfiguredAsync(FinancialAccountScope.Condominium, dto.CondominiumId);
+    }
+
+    private async Task EnsurePixKeyConfiguredAsync(
+        FinancialAccountScope scope,
+        int? condominiumId)
+    {
+        var hasPixKey = await _context.FinancialAccounts
+            .AsNoTracking()
+            .AnyAsync(account =>
+                account.Scope == scope &&
+                account.CondominiumId == condominiumId &&
+                !string.IsNullOrWhiteSpace(account.PixKey));
+
+        if (hasPixKey)
+            return;
+
+        var message = scope == FinancialAccountScope.Platform
+            ? "Configure a chave Pix da plataforma antes de criar cobranças MORAÊ."
+            : "Configure a chave Pix do condomínio antes de criar cobranças internas.";
+
+        throw new BadRequestException(message);
     }
 
     private async Task EnsureCanReadAsync(int userId, Charge charge)

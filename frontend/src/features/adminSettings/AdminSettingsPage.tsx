@@ -61,7 +61,7 @@ export function AdminSettingsPage() {
       setAccountError(
         error instanceof Error
           ? error.message
-          : "Não foi possível carregar os dados financeiros do condomínio.",
+          : "Não foi possível carregar a chave Pix do condomínio.",
       );
     } finally {
       setIsLoadingAccount(false);
@@ -73,7 +73,6 @@ export function AdminSettingsPage() {
   }, [activeCondominiumId]);
 
   const condominiumName = activeCondominium?.condominiumName ?? "Nenhum condomínio selecionado";
-  const hasBankAccount = Boolean(account?.bankName && account?.agency && account?.accountNumber);
   const hasPixKey = Boolean(account?.pixKey);
 
   return (
@@ -87,7 +86,7 @@ export function AdminSettingsPage() {
             Preferências do Admin
           </h1>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#6B7280]">
-            Ajuste seu perfil, notificações e a conta recebedora do condomínio ativo.
+            Ajuste seu perfil, notificações e o método de pagamento do condomínio ativo.
           </p>
         </div>
 
@@ -120,8 +119,8 @@ export function AdminSettingsPage() {
 
           <SettingsBlock
             icon="carteira"
-            title="Dados financeiros"
-            description={getFinancialCardDescription(isLoadingAccount, hasBankAccount, hasPixKey)}
+            title="Método de pagamento"
+            description={getFinancialCardDescription(isLoadingAccount, hasPixKey)}
             action="Configurar"
             onClick={() => setModal("financial")}
           />
@@ -718,10 +717,11 @@ function FinancialAccountModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [selectedMethod, setSelectedMethod] = useState<"choice" | "pix" | "mercadoPago">("choice");
 
   async function handleSubmit(data: UpsertFinancialAccountRequest) {
     if (!condominiumId) {
-      setErrorMessage("Selecione um condomínio antes de salvar os dados financeiros.");
+      setErrorMessage("Selecione um condomínio antes de salvar a chave Pix.");
       return;
     }
 
@@ -732,40 +732,120 @@ function FinancialAccountModal({
 
       const result = await upsertCondominiumFinancialAccount(condominiumId, data);
       await onSaved(result);
-      setSuccessMessage("Dados financeiros do condomínio atualizados.");
+      setSuccessMessage("Chave Pix do condomínio atualizada.");
     } catch (error) {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : "Não foi possível salvar os dados financeiros.",
+          : "Não foi possível salvar a chave Pix.",
       );
     } finally {
       setIsSubmitting(false);
     }
   }
 
+  if (selectedMethod === "choice") {
+    return (
+      <ModalShell title="Método de pagamento" onClose={onClose}>
+        <div className="space-y-5">
+          <PaymentMethodStatus
+            label="Método em uso"
+            value={account?.pixKey ? "Pix normal" : "Nenhum método configurado"}
+            description={
+              account?.pixKey
+                ? `As cobranças internas do ${condominiumName} usam a chave Pix cadastrada.`
+                : "Cadastre uma chave Pix para liberar a criação de cobranças internas."
+            }
+            tone={account?.pixKey ? "success" : "warning"}
+          />
+
+          <PaymentMethodChoice
+            pixConfigured={Boolean(account?.pixKey)}
+            pixKey={account?.pixKey ?? ""}
+            onSelectPix={() => setSelectedMethod("pix")}
+            onSelectMercadoPago={() => setSelectedMethod("mercadoPago")}
+          />
+        </div>
+      </ModalShell>
+    );
+  }
+
+  if (selectedMethod === "mercadoPago") {
+    return (
+      <ModalShell title="Mercado Pago" onClose={onClose}>
+        <div className="space-y-5">
+          <PaymentMethodStatus
+            label="Visualizando método"
+            value="Mercado Pago"
+            description="Esta opção ainda não está ativa para recebimentos."
+            tone="info"
+          />
+
+          <div className="rounded-2xl border border-[#D1FAE5] bg-[#ECFDF5] p-5">
+            <p className="text-sm font-extrabold text-[#065F46]">
+              Integração Mercado Pago em preparação.
+            </p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#047857]">
+              Esta opção ainda é apenas visual. Em breve ela poderá conectar o condomínio aos recebimentos automáticos.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setSelectedMethod("choice")}
+            className="h-11 cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-black text-[#6B7280] transition hover:bg-[#F3F4F6] hover:text-[#111827]"
+          >
+            Voltar
+          </button>
+        </div>
+      </ModalShell>
+    );
+  }
+
   return (
-    <ModalShell title="Dados financeiros" onClose={onClose}>
+    <ModalShell title="Pix normal" onClose={onClose}>
       <div className="space-y-5">
+        <PaymentMethodStatus
+          label="Método selecionado"
+          value="Pix normal"
+          description={
+            account?.pixKey
+              ? "Este é o método em uso nas cobranças internas."
+              : "Cadastre a chave Pix para ativar este método."
+          }
+          tone={account?.pixKey ? "success" : "warning"}
+        />
+
         <div className="rounded-2xl border border-[#BBF7D0] bg-[#DCFCE7] p-4">
           <p className="text-sm font-extrabold text-[#0B3D2E]">
-            Configure a conta bancária e a chave Pix do condomínio ativo.
+            Configure a chave Pix do condomínio ativo.
           </p>
           <p className="mt-2 text-sm font-semibold leading-6 text-[#0D7A3A]">
             Esses dados ficam vinculados ao {condominiumName} e organizam os recebimentos internos.
           </p>
         </div>
 
+        <button
+          type="button"
+          onClick={() => setSelectedMethod("choice")}
+          className="h-11 cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-black text-[#6B7280] transition hover:bg-[#F3F4F6] hover:text-[#111827]"
+        >
+          Trocar método
+        </button>
+
         {isLoading ? (
           <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 text-sm font-bold text-[#6B7280]">
-            Carregando dados financeiros...
+            Carregando chave Pix...
           </div>
         ) : (
-          <FinancialAccountForm
-            account={account}
-            isSubmitting={isSubmitting}
-            onSubmit={handleSubmit}
-          />
+          <>
+            {account?.pixKey && <PixKeyPreview pixKey={account.pixKey} />}
+            <FinancialAccountForm
+              account={account}
+              isSubmitting={isSubmitting}
+              onSubmit={handleSubmit}
+            />
+          </>
         )}
 
         {(errorMessage || successMessage) && (
@@ -776,6 +856,101 @@ function FinancialAccountModal({
         )}
       </div>
     </ModalShell>
+  );
+}
+
+function PaymentMethodStatus({
+  label,
+  value,
+  description,
+  tone,
+}: {
+  label: string;
+  value: string;
+  description: string;
+  tone: "success" | "warning" | "info";
+}) {
+  const styles = {
+    success: "border-[#BBF7D0] bg-[#ECFDF5] text-[#065F46]",
+    warning: "border-[#FDE68A] bg-[#FFFBEB] text-[#92400E]",
+    info: "border-[#BAE6FD] bg-[#F0F9FF] text-[#075985]",
+  }[tone];
+
+  return (
+    <div className={`rounded-2xl border px-5 py-4 ${styles}`}>
+      <p className="text-xs font-black uppercase tracking-[0.16em]">{label}</p>
+      <p className="mt-1 text-lg font-black text-[#111827]">{value}</p>
+      <p className="mt-1 text-sm font-semibold leading-6">{description}</p>
+    </div>
+  );
+}
+
+function PaymentMethodChoice({
+  pixConfigured,
+  pixKey,
+  onSelectPix,
+  onSelectMercadoPago,
+}: {
+  pixConfigured: boolean;
+  pixKey: string;
+  onSelectPix: () => void;
+  onSelectMercadoPago: () => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <button
+        type="button"
+        onClick={onSelectPix}
+        className="group min-h-48 cursor-pointer rounded-[1.5rem] border border-[#BBF7D0] bg-[#F9FAFB] p-5 text-left transition hover:-translate-y-0.5 hover:bg-white hover:shadow-xl hover:shadow-[#0B3D2E]/10"
+      >
+        <div className="flex size-12 items-center justify-center rounded-2xl bg-[#DCFCE7] text-2xl text-[#16A34A] transition group-hover:bg-[#16A34A] group-hover:text-white">
+          <EduIcon nome="carteira" />
+        </div>
+        <h3 className="mt-5 text-xl font-black text-[#111827]">Pix normal</h3>
+        <p className="mt-2 text-sm font-semibold leading-6 text-[#6B7280]">
+          Receba usando uma chave Pix cadastrada manualmente.
+        </p>
+        <span className="mt-5 inline-flex text-sm font-black text-[#16A34A]">
+          {pixConfigured ? "Editar chave Pix" : "Cadastrar chave Pix"} →
+        </span>
+        {pixConfigured && (
+          <div className="mt-4 rounded-2xl border border-[#BBF7D0] bg-white px-4 py-3">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#16A34A]">
+              Chave cadastrada
+            </p>
+            <p className="mt-1 break-all text-sm font-black text-[#111827]">{pixKey}</p>
+          </div>
+        )}
+      </button>
+
+      <button
+        type="button"
+        onClick={onSelectMercadoPago}
+        className="group min-h-48 cursor-pointer rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 text-left transition hover:-translate-y-0.5 hover:bg-white hover:shadow-xl hover:shadow-[#0B3D2E]/10"
+      >
+        <div className="flex size-12 items-center justify-center rounded-2xl bg-[#E0F2FE] text-2xl text-[#0284C7] transition group-hover:bg-[#0284C7] group-hover:text-white">
+          <EduIcon nome="cartao" />
+        </div>
+        <h3 className="mt-5 text-xl font-black text-[#111827]">Mercado Pago</h3>
+        <p className="mt-2 text-sm font-semibold leading-6 text-[#6B7280]">
+          Opção visual para futura integração com checkout e recebimentos automáticos.
+        </p>
+        <span className="mt-5 inline-flex text-sm font-black text-[#0284C7]">
+          Visualizar opção →
+        </span>
+      </button>
+    </div>
+  );
+}
+
+function PixKeyPreview({ pixKey }: { pixKey: string }) {
+  return (
+    <div className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] px-5 py-4">
+      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#16A34A]">
+        Chave Pix atual
+      </p>
+      <p className="mt-2 break-all text-base font-black text-[#111827]">{pixKey}</p>
+    </div>
   );
 }
 
@@ -910,26 +1085,17 @@ function EduIcon({ nome }: { nome: string }) {
 
 function getFinancialCardDescription(
   isLoading: boolean,
-  hasBankAccount: boolean,
   hasPixKey: boolean,
 ) {
   if (isLoading) {
-    return "Carregando status da conta recebedora.";
-  }
-
-  if (hasBankAccount && hasPixKey) {
-    return "Conta bancária e Pix configurados para o condomínio.";
-  }
-
-  if (hasBankAccount) {
-    return "Conta bancária cadastrada. Falta adicionar a chave Pix.";
+    return "Carregando método de pagamento do condomínio.";
   }
 
   if (hasPixKey) {
-    return "Chave Pix cadastrada. Falta completar os dados bancários.";
+    return "Pix normal configurado para recebimentos internos.";
   }
 
-  return "Cadastre banco e Pix para organizar recebimentos internos.";
+  return "Escolha Pix normal ou Mercado Pago para organizar recebimentos internos.";
 }
 
 function onlyDigits(value: string) {
