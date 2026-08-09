@@ -28,7 +28,12 @@ public class FinancialAccountService : IFinancialAccountService
 
     public async Task<FinancialAccountResponseDto?> GetPlatformAsync(int userId)
     {
-        await _permissionService.EnsureMasterAsync(userId);
+        var canReadPlatformAccount =
+            await _permissionService.IsMasterAsync(userId) ||
+            await _permissionService.IsAdminAsync(userId);
+
+        if (!canReadPlatformAccount)
+            throw new ForbiddenException("Only Master or Admin can access platform payment information.");
 
         var account = await BuildResponseQuery()
             .FirstOrDefaultAsync(account => account.Scope == FinancialAccountScope.Platform);
@@ -142,57 +147,23 @@ public class FinancialAccountService : IFinancialAccountService
         UpsertFinancialAccountDto dto,
         int userId)
     {
-        account.HolderName = dto.HolderName.Trim();
-        account.HolderDocument = OnlyDigits(dto.HolderDocument);
-        account.BankName = dto.BankName.Trim();
-        account.BankCode = OnlyDigits(dto.BankCode);
-        account.Agency = OnlyDigits(dto.Agency);
-        account.AccountNumber = OnlyDigits(dto.AccountNumber);
-        account.AccountDigit = string.IsNullOrWhiteSpace(dto.AccountDigit)
-            ? null
-            : OnlyDigits(dto.AccountDigit);
-        account.AccountType = dto.AccountType;
-        account.PixKeyType = dto.PixKeyType;
-        account.PixKey = NormalizePixKey(dto.PixKey, dto.PixKeyType);
+        account.HolderName = "Pix";
+        account.HolderDocument = "00000000000";
+        account.BankName = "Pix";
+        account.BankCode = "0";
+        account.Agency = "0";
+        account.AccountNumber = "0";
+        account.AccountDigit = null;
+        account.AccountType = BankAccountType.Checking;
+        account.PixKeyType = PixKeyType.Random;
+        account.PixKey = dto.PixKey.Trim();
         account.UpdatedByUserId = userId;
         account.UpdatedAt = DateTime.UtcNow;
     }
 
     private static void ValidateDto(UpsertFinancialAccountDto dto)
     {
-        var holderDocument = OnlyDigits(dto.HolderDocument);
-
-        if (holderDocument.Length is not 11 and not 14)
-            throw new BadRequestException("Holder document must be a CPF or CNPJ.");
-
-        if (!Enum.IsDefined(dto.AccountType))
-            throw new BadRequestException("Invalid bank account type.");
-
-        if (!Enum.IsDefined(dto.PixKeyType))
-            throw new BadRequestException("Invalid Pix key type.");
-
-        if (dto.PixKeyType == PixKeyType.Cpf && OnlyDigits(dto.PixKey).Length != 11)
-            throw new BadRequestException("Pix CPF key must have 11 digits.");
-
-        if (dto.PixKeyType == PixKeyType.Cnpj && OnlyDigits(dto.PixKey).Length != 14)
-            throw new BadRequestException("Pix CNPJ key must have 14 digits.");
-
-        if (dto.PixKeyType == PixKeyType.Email && !dto.PixKey.Contains('@'))
-            throw new BadRequestException("Pix email key must be a valid email.");
-
-        if (dto.PixKeyType == PixKeyType.Phone && OnlyDigits(dto.PixKey).Length < 10)
-            throw new BadRequestException("Pix phone key must have a valid phone number.");
-    }
-
-    private static string NormalizePixKey(string value, PixKeyType type)
-    {
-        return type is PixKeyType.Cpf or PixKeyType.Cnpj or PixKeyType.Phone
-            ? OnlyDigits(value)
-            : value.Trim();
-    }
-
-    private static string OnlyDigits(string value)
-    {
-        return new string(value.Where(char.IsDigit).ToArray());
+        if (string.IsNullOrWhiteSpace(dto.PixKey))
+            throw new BadRequestException("Pix key is required.");
     }
 }
