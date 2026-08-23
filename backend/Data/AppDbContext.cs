@@ -27,8 +27,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<Charge> Charges { get; set; }
     public DbSet<Payment> Payments { get; set; }
     public DbSet<FinancialAccount> FinancialAccounts { get; set; }
-    public DbSet<UserNotificationPreference> UserNotificationPreferences { get; set; }
+    public DbSet<MercadoPagoAccount> MercadoPagoAccounts { get; set; }
+    public DbSet<MercadoPagoOAuthState> MercadoPagoOAuthStates { get; set; }
     public DbSet<Notification> Notifications { get; set; }
+    public DbSet<UserNotificationPreference> UserNotificationPreferences { get; set; }
     public DbSet<UserCondominium> UserCondominiums { get; set; }
     public DbSet<UserCondominiumPermission> UserCondominiumPermissions { get; set; }
     public DbSet<Occurrence> Occurrences { get; set; }
@@ -252,5 +254,43 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .WithMany()
             .HasForeignKey(o => o.CreatedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MercadoPagoAccount>()
+            .HasIndex(account => account.UserId)
+            .IsUnique();
+
+        builder.Entity<MercadoPagoAccount>()
+            .HasIndex(account => account.MercadoPagoUserId);
+
+        builder.Entity<MercadoPagoAccount>()
+            .Property(account => account.AccessToken)
+            .HasColumnType("longtext");
+
+        builder.Entity<MercadoPagoAccount>()
+            .Property(account => account.RefreshToken)
+            .HasColumnType("longtext");
+
+        builder.Entity<MercadoPagoAccount>()
+            .Property(account => account.Scope)
+            .HasColumnType("longtext");
+
+        builder.Entity<MercadoPagoAccount>()
+            .HasOne(account => account.User)
+            .WithMany()
+            .HasForeignKey(account => account.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<MercadoPagoOAuthState>()
+            .HasIndex(state => state.State)
+            .IsUnique();
+
+        builder.Entity<MercadoPagoOAuthState>()
+            .HasIndex(state => new { state.UserId, state.UsedAt, state.ExpiresAt });
+
+        builder.Entity<MercadoPagoOAuthState>()
+            .HasOne(state => state.User)
+            .WithMany()
+            .HasForeignKey(state => state.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

@@ -28,12 +28,15 @@ using backend.Services.Delinquency;
 using backend.Services.Occurrences;
 using backend.Services.FinancialAccounts;
 using backend.Services.Notifications;
+using backend.Services.MercadoPago;
 
 DotEnv.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+
+builder.Services.AddHttpClient();
 
 builder.Services.AddCors(options =>
 {
@@ -45,6 +48,10 @@ builder.Services.AddCors(options =>
             .AllowAnyMethod();
     });
 });
+
+builder.Services.Configure<MercadoPagoSettings>(
+    builder.Configuration.GetSection("MercadoPago")
+);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -71,6 +78,7 @@ builder.Services.AddAutoMapper(
     typeof(InvitationProfile),
     typeof(NewsProfile),
     typeof(NotificationProfile),
+    typeof(MercadoPagoProfile),
     typeof(OccurrenceProfile),
     typeof(UserCondominiumAccessProfile));
 
@@ -83,6 +91,9 @@ builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<IMeService, MeService>();
 builder.Services.AddScoped<INewsService, NewsService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IPkceService, PkceService>();
+builder.Services.AddScoped<IMercadoPagoOAuthClient, MercadoPagoOAuthClient>();
+builder.Services.AddScoped<IMercadoPagoService, MercadoPagoService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IFinancialAccountService, FinancialAccountService>();
 builder.Services.AddScoped<IPersonService, PersonService>();
