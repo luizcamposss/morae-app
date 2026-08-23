@@ -17,6 +17,7 @@ import type {
   UpsertFinancialAccountRequest,
 } from "../financialAccounts/types";
 import { ProfilePhotoBlock } from "../profile/ProfilePhotoBlock";
+import { MercadoPagoConnectionPanel } from "../mercadoPago/MercadoPagoConnectionPanel";
 
 type ModalType = "profile" | "notifications" | "financial" | null;
 
@@ -471,31 +472,10 @@ function FinancialAccountModal({
   if (selectedMethod === "mercadoPago") {
     return (
       <ModalShell title="Mercado Pago" onClose={onClose}>
-        <div className="space-y-5">
-          <PaymentMethodStatus
-            label="Visualizando método"
-            value="Mercado Pago"
-            description="Esta opção ainda não está ativa para recebimentos."
-            tone="info"
-          />
-
-          <div className="rounded-2xl border border-[#D1FAE5] bg-[#ECFDF5] p-5">
-            <p className="text-sm font-extrabold text-[#065F46]">
-              Integração Mercado Pago em preparação.
-            </p>
-            <p className="mt-2 text-sm font-semibold leading-6 text-[#047857]">
-              Esta opção ainda é apenas visual. Em breve ela poderá conectar a conta da plataforma aos recebimentos automáticos.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setSelectedMethod("choice")}
-            className="h-11 cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-black text-[#6B7280] transition hover:bg-[#F3F4F6] hover:text-[#111827]"
-          >
-            Voltar
-          </button>
-        </div>
+        <MercadoPagoConnectionPanel
+          contextLabel="recebimentos MORAÊ"
+          onBack={() => setSelectedMethod("choice")}
+        />
       </ModalShell>
     );
   }
@@ -618,10 +598,10 @@ function PaymentMethodChoice({
         </div>
         <h3 className="mt-5 text-xl font-black text-[#111827]">Mercado Pago</h3>
         <p className="mt-2 text-sm font-semibold leading-6 text-[#6B7280]">
-          Opção visual para futura integração com checkout e recebimentos automáticos.
+          Conecte a conta Mercado Pago para ativar checkout e recebimentos automaticos.
         </p>
         <span className="mt-5 inline-flex text-sm font-black text-[#0284C7]">
-          Visualizar opção →
+          Conectar conta →
         </span>
       </button>
     </div>
