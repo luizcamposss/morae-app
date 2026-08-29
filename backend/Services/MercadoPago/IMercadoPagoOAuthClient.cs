@@ -7,4 +7,6 @@ public interface IMercadoPagoOAuthClient
     Task<MercadoPagoOAuthCredentialDto> ExchangeCodeForTokenAsync(
         string code,
         string codeVerifier);
+
+    Task<MercadoPagoOAuthCredentialDto> RefreshTokenAsync(string refreshToken);
 }

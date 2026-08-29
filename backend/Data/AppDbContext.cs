@@ -29,6 +29,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<FinancialAccount> FinancialAccounts { get; set; }
     public DbSet<MercadoPagoAccount> MercadoPagoAccounts { get; set; }
     public DbSet<MercadoPagoOAuthState> MercadoPagoOAuthStates { get; set; }
+    public DbSet<MercadoPagoPayment> MercadoPagoPayments { get; set; }
     public DbSet<Notification> Notifications { get; set; }
     public DbSet<UserNotificationPreference> UserNotificationPreferences { get; set; }
     public DbSet<UserCondominium> UserCondominiums { get; set; }
@@ -187,6 +188,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .Property(p => p.AmountPaid)
             .HasPrecision(10, 2);
 
+        builder.Entity<Payment>()
+            .HasIndex(payment => payment.ChargeId)
+            .IsUnique();
+
         builder.Entity<FinancialAccount>()
             .HasIndex(account => new { account.Scope, account.CondominiumId })
             .IsUnique();
@@ -292,5 +297,43 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .WithMany()
             .HasForeignKey(state => state.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasIndex(payment => payment.ChargeId)
+            .IsUnique();
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasIndex(payment => payment.PreferenceId)
+            .IsUnique();
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasIndex(payment => payment.ExternalReference)
+            .IsUnique();
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasIndex(payment => payment.MercadoPagoPaymentId)
+            .IsUnique();
+
+        builder.Entity<MercadoPagoPayment>()
+            .Property(payment => payment.Amount)
+            .HasPrecision(10, 2);
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasOne(payment => payment.Charge)
+            .WithMany()
+            .HasForeignKey(payment => payment.ChargeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasOne(payment => payment.MercadoPagoAccount)
+            .WithMany()
+            .HasForeignKey(payment => payment.MercadoPagoAccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasOne(payment => payment.Payment)
+            .WithOne()
+            .HasForeignKey<MercadoPagoPayment>(payment => payment.PaymentId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

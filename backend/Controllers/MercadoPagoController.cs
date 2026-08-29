@@ -1,8 +1,5 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Security.Claims;
-using System.Threading.Tasks;
+using backend.DTOs.MercadoPago;
 using backend.Services.MercadoPago;
 using backend.Settings;
 using Microsoft.AspNetCore.Authorization;
@@ -17,13 +14,16 @@ public class MercadoPagoController : ControllerBase
 {
     private readonly IMercadoPagoService _mercadoPagoService;
     private readonly MercadoPagoSettings _settings;
+    private readonly ILogger<MercadoPagoController> _logger;
 
     public MercadoPagoController(
         IMercadoPagoService mercadoPagoService,
-        IOptions<MercadoPagoSettings> options)
+        IOptions<MercadoPagoSettings> options,
+        ILogger<MercadoPagoController> logger)
     {
         _mercadoPagoService = mercadoPagoService;
         _settings = options.Value;
+        _logger = logger;
     }
 
     [Authorize]
@@ -47,8 +47,9 @@ public class MercadoPagoController : ControllerBase
 
             return Redirect(GetOAuthSuccessRedirectUrl());
         }
-        catch
+        catch (Exception exception)
         {
+            _logger.LogError(exception, "Mercado Pago OAuth callback failed.");
             return Redirect(GetOAuthFailureRedirectUrl());
         }
     }
@@ -61,6 +62,33 @@ public class MercadoPagoController : ControllerBase
         var result = await _mercadoPagoService.GetConnectionStatusAsync(userId);
 
         return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPost("/api/charges/{chargeId}/mercadopago/checkout")]
+    public async Task<IActionResult> CreateCheckout([FromRoute] int chargeId)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var result = await _mercadoPagoService.CreateCheckoutAsync(userId, chargeId);
+
+        return Ok(result);
+    }
+
+    [AllowAnonymous]
+    [HttpPost("webhooks")]
+    public async Task<IActionResult> ReceiveWebhook(
+        [FromBody] MercadoPagoWebhookDto notification,
+        [FromQuery(Name = "type")] string? type,
+        [FromQuery(Name = "data.id")] string? dataId)
+    {
+        await _mercadoPagoService.HandleWebhookAsync(
+            notification,
+            type,
+            dataId,
+            Request.Headers["x-signature"].FirstOrDefault(),
+            Request.Headers["x-request-id"].FirstOrDefault());
+
+        return Ok();
     }
 
     private string GetOAuthSuccessRedirectUrl()

@@ -49,6 +49,32 @@ public class MercadoPagoOAuthClient : IMercadoPagoOAuthClient
             ?? throw new BadRequestException("Mercado Pago OAuth returned an empty response.");
     }
 
+    public async Task<MercadoPagoOAuthCredentialDto> RefreshTokenAsync(string refreshToken)
+    {
+        var httpClient = _httpClientFactory.CreateClient();
+        var request = new
+        {
+            client_id = _settings.ClientId,
+            client_secret = _settings.ClientSecret,
+            grant_type = "refresh_token",
+            refresh_token = refreshToken,
+            test_token = IsSandboxEnvironment()
+        };
+
+        using var response = await httpClient.PostAsJsonAsync(
+            "https://api.mercadopago.com/oauth/token",
+            request);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            throw new BadRequestException($"Mercado Pago OAuth refresh error: {error}");
+        }
+
+        return await response.Content.ReadFromJsonAsync<MercadoPagoOAuthCredentialDto>()
+            ?? throw new BadRequestException("Mercado Pago OAuth returned an empty refresh response.");
+    }
+
     private bool IsSandboxEnvironment()
     {
         return string.Equals(_settings.Environment, "Sandbox", StringComparison.OrdinalIgnoreCase);

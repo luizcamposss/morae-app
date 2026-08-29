@@ -93,6 +93,8 @@ builder.Services.AddScoped<INewsService, NewsService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IPkceService, PkceService>();
 builder.Services.AddScoped<IMercadoPagoOAuthClient, MercadoPagoOAuthClient>();
+builder.Services.AddScoped<IMercadoPagoPaymentClient, MercadoPagoPaymentClient>();
+builder.Services.AddScoped<IMercadoPagoWebhookValidator, MercadoPagoWebhookValidator>();
 builder.Services.AddScoped<IMercadoPagoService, MercadoPagoService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IFinancialAccountService, FinancialAccountService>();
