@@ -20,6 +20,7 @@ Thumbs.db
 # Secrets / configs locais
 .env
 .env.*
+!.env.example
 appsettings.Development.json
 appsettings.Production.json
 appsettings.Local.json

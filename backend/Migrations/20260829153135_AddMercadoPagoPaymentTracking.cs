@@ -12,9 +12,20 @@ namespace backend.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.CreateIndex(
+                name: "IX_Payments_ChargeId_Temp",
+                table: "Payments",
+                column: "ChargeId",
+                unique: true);
+
             migrationBuilder.DropIndex(
                 name: "IX_Payments_ChargeId",
                 table: "Payments");
+
+            migrationBuilder.RenameIndex(
+                name: "IX_Payments_ChargeId_Temp",
+                table: "Payments",
+                newName: "IX_Payments_ChargeId");
 
             migrationBuilder.CreateTable(
                 name: "MercadoPagoPayments",
@@ -68,12 +79,6 @@ namespace backend.Migrations
                 .Annotation("MySql:CharSet", "utf8mb4");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Payments_ChargeId",
-                table: "Payments",
-                column: "ChargeId",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
                 name: "IX_MercadoPagoPayments_ChargeId",
                 table: "MercadoPagoPayments",
                 column: "ChargeId",
@@ -115,14 +120,19 @@ namespace backend.Migrations
             migrationBuilder.DropTable(
                 name: "MercadoPagoPayments");
 
+            migrationBuilder.CreateIndex(
+                name: "IX_Payments_ChargeId_Temp",
+                table: "Payments",
+                column: "ChargeId");
+
             migrationBuilder.DropIndex(
                 name: "IX_Payments_ChargeId",
                 table: "Payments");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_Payments_ChargeId",
+            migrationBuilder.RenameIndex(
+                name: "IX_Payments_ChargeId_Temp",
                 table: "Payments",
-                column: "ChargeId");
+                newName: "IX_Payments_ChargeId");
         }
     }
 }
