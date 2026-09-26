@@ -10,13 +10,16 @@ public class MercadoPagoOAuthClient : IMercadoPagoOAuthClient
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly MercadoPagoSettings _settings;
+    private readonly ILogger<MercadoPagoOAuthClient> _logger;
 
     public MercadoPagoOAuthClient(
         IHttpClientFactory httpClientFactory,
-        IOptions<MercadoPagoSettings> options)
+        IOptions<MercadoPagoSettings> options,
+        ILogger<MercadoPagoOAuthClient> logger)
     {
         _httpClientFactory = httpClientFactory;
         _settings = options.Value;
+        _logger = logger;
     }
 
     public async Task<MercadoPagoOAuthCredentialDto> ExchangeCodeForTokenAsync(
@@ -42,7 +45,11 @@ public class MercadoPagoOAuthClient : IMercadoPagoOAuthClient
         if (!response.IsSuccessStatusCode)
         {
             var error = await response.Content.ReadAsStringAsync();
-            throw new BadRequestException($"Mercado Pago OAuth error: {error}");
+            _logger.LogError(
+                "Mercado Pago OAuth code exchange failed with {StatusCode}: {Error}",
+                (int)response.StatusCode,
+                error);
+            throw new BadRequestException("Could not connect the Mercado Pago account. Try again.");
         }
 
         return await response.Content.ReadFromJsonAsync<MercadoPagoOAuthCredentialDto>()
@@ -68,7 +75,11 @@ public class MercadoPagoOAuthClient : IMercadoPagoOAuthClient
         if (!response.IsSuccessStatusCode)
         {
             var error = await response.Content.ReadAsStringAsync();
-            throw new BadRequestException($"Mercado Pago OAuth refresh error: {error}");
+            _logger.LogError(
+                "Mercado Pago OAuth token refresh failed with {StatusCode}: {Error}",
+                (int)response.StatusCode,
+                error);
+            throw new BadRequestException("Mercado Pago connection expired. Connect the account again.");
         }
 
         return await response.Content.ReadFromJsonAsync<MercadoPagoOAuthCredentialDto>()

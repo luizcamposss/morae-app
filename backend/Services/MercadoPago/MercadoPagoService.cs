@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using AutoMapper;
 using backend.Constants;
 using backend.Data;
@@ -6,6 +7,7 @@ using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
 using backend.Services.Notifications;
+using backend.Services.Permissions;
 using backend.Settings;
 using MercadoPago.Client;
 using MercadoPago.Client.Preference;
@@ -18,13 +20,20 @@ namespace backend.Services.MercadoPago;
 
 public class MercadoPagoService : IMercadoPagoService
 {
+    private static readonly ConcurrentDictionary<int, SemaphoreSlim> TokenRefreshLocks = new();
+
+    private static readonly string[] ReversedPaymentStatuses = ["refunded", "charged_back", "cancelled"];
+
     private readonly AppDbContext _context;
     private readonly MercadoPagoSettings _settings;
+    private readonly AppSettings _appSettings;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IPermissionService _permissionService;
     private readonly IPkceService _pkceService;
     private readonly IMercadoPagoOAuthClient _oauthClient;
     private readonly IMercadoPagoPaymentClient _paymentClient;
     private readonly IMercadoPagoWebhookValidator _webhookValidator;
+    private readonly IMercadoPagoTokenProtector _tokenProtector;
     private readonly INotificationService _notificationService;
     private readonly IMapper _mapper;
     private readonly ILogger<MercadoPagoService> _logger;
@@ -32,31 +41,41 @@ public class MercadoPagoService : IMercadoPagoService
     public MercadoPagoService(
         AppDbContext context,
         IOptions<MercadoPagoSettings> options,
+        IOptions<AppSettings> appOptions,
         UserManager<ApplicationUser> userManager,
+        IPermissionService permissionService,
         IPkceService pkceService,
         IMercadoPagoOAuthClient oauthClient,
         IMercadoPagoPaymentClient paymentClient,
         IMercadoPagoWebhookValidator webhookValidator,
+        IMercadoPagoTokenProtector tokenProtector,
         INotificationService notificationService,
         IMapper mapper,
         ILogger<MercadoPagoService> logger)
     {
         _context = context;
         _settings = options.Value;
+        _appSettings = appOptions.Value;
         _userManager = userManager;
+        _permissionService = permissionService;
         _pkceService = pkceService;
         _oauthClient = oauthClient;
         _paymentClient = paymentClient;
         _webhookValidator = webhookValidator;
+        _tokenProtector = tokenProtector;
         _notificationService = notificationService;
         _mapper = mapper;
         _logger = logger;
     }
 
-    public async Task<MercadoPagoOAuthStartResponseDto> StartOAuthAsync(int userId)
+    public async Task<MercadoPagoOAuthStartResponseDto> StartOAuthAsync(int userId, int? condominiumId)
     {
         EnsureOAuthConfigured();
-        await EnsureCanConnectOAuthAsync(userId);
+        await EnsureCanManageConnectionAsync(userId, condominiumId);
+
+        await _context.MercadoPagoOAuthStates
+            .Where(item => item.ExpiresAt < DateTime.UtcNow.AddDays(-1))
+            .ExecuteDeleteAsync();
 
         var state = _pkceService.CreateState();
         var codeVerifier = _pkceService.CreateCodeVerifier();
@@ -67,6 +86,7 @@ public class MercadoPagoService : IMercadoPagoService
             State = state,
             CodeVerifier = codeVerifier,
             UserId = userId,
+            CondominiumId = condominiumId,
             ExpiresAt = expiresAt
         });
 
@@ -82,42 +102,78 @@ public class MercadoPagoService : IMercadoPagoService
         };
     }
 
-    public async Task<MercadoPagoConnectionStatusDto> CompleteOAuthAsync(string code, string state)
+    public async Task<MercadoPagoConnectionStatusDto> CompleteOAuthAsync(
+        int userId,
+        MercadoPagoOAuthCompleteDto dto)
     {
         EnsureOAuthConfigured();
 
-        if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(state))
+        if (string.IsNullOrWhiteSpace(dto.Code) || string.IsNullOrWhiteSpace(dto.State))
             throw new BadRequestException("OAuth code and state are required.");
 
         var oauthState = await _context.MercadoPagoOAuthStates
-            .FirstOrDefaultAsync(item => item.State == state);
+            .FirstOrDefaultAsync(item => item.State == dto.State);
 
-        if (oauthState is null || oauthState.UsedAt is not null || oauthState.ExpiresAt < DateTime.UtcNow)
+        // The state must belong to the logged-in user, so an authorization link started by
+        // someone else cannot attach the current user's Mercado Pago account to another account.
+        if (oauthState is null ||
+            oauthState.UserId != userId ||
+            oauthState.UsedAt is not null ||
+            oauthState.ExpiresAt < DateTime.UtcNow)
+        {
             throw new BadRequestException("Invalid or expired Mercado Pago OAuth state.");
+        }
+
+        await EnsureCanManageConnectionAsync(userId, oauthState.CondominiumId);
+
+        oauthState.UsedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
 
         var credential = await _oauthClient.ExchangeCodeForTokenAsync(
-            code,
+            dto.Code,
             oauthState.CodeVerifier);
 
-        var account = await UpsertMercadoPagoAccountAsync(oauthState.UserId, credential);
-        oauthState.UsedAt = DateTime.UtcNow;
+        var account = await UpsertMercadoPagoAccountAsync(
+            userId,
+            oauthState.CondominiumId,
+            credential);
 
         await _context.SaveChangesAsync();
 
         return _mapper.Map<MercadoPagoConnectionStatusDto>(account);
     }
 
-    public async Task<MercadoPagoConnectionStatusDto> GetConnectionStatusAsync(int userId)
+    public async Task<MercadoPagoConnectionStatusDto> GetConnectionStatusAsync(int userId, int? condominiumId)
     {
-        await EnsureCanConnectOAuthAsync(userId);
+        await EnsureCanManageConnectionAsync(userId, condominiumId);
 
         var account = await _context.MercadoPagoAccounts
             .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.UserId == userId);
+            .FirstOrDefaultAsync(item => item.CondominiumId == condominiumId);
 
         return account is null
             ? new MercadoPagoConnectionStatusDto()
             : _mapper.Map<MercadoPagoConnectionStatusDto>(account);
+    }
+
+    public async Task DisconnectAsync(int userId, int? condominiumId)
+    {
+        await EnsureCanManageConnectionAsync(userId, condominiumId);
+
+        var account = await _context.MercadoPagoAccounts
+            .FirstOrDefaultAsync(item => item.CondominiumId == condominiumId);
+
+        if (account is null)
+            return;
+
+        // The row is kept because tracked checkouts reference it; clearing the tokens
+        // is what disconnects it.
+        account.AccessToken = string.Empty;
+        account.RefreshToken = string.Empty;
+        account.ExpiresAt = DateTime.UtcNow;
+        account.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
     }
 
     public async Task<MercadoPagoCheckoutResponseDto> CreateCheckoutAsync(int userId, int chargeId)
@@ -134,15 +190,14 @@ public class MercadoPagoService : IMercadoPagoService
         await EnsureCanCreateCheckoutAsync(userId, charge);
         EnsureChargeCanBePaid(charge);
 
-        var receiverUserId = GetReceiverUserId(charge);
-        var account = await GetConnectedAccountOrThrowAsync(receiverUserId);
-        await EnsureValidAccessTokenAsync(account);
+        var account = await GetReceiverAccountOrThrowAsync(charge);
+        var accessToken = await GetValidAccessTokenAsync(account);
 
         var externalReference = BuildExternalReference(charge.Id);
         var request = BuildCheckoutPreferenceRequest(charge, externalReference);
         var requestOptions = new RequestOptions
         {
-            AccessToken = account.AccessToken
+            AccessToken = accessToken
         };
 
         try
@@ -171,13 +226,10 @@ public class MercadoPagoService : IMercadoPagoService
                 ExternalReference = externalReference
             };
         }
-        catch (MercadoPagoApiException exception)
-        {
-            throw new BadRequestException($"Mercado Pago checkout error: {exception.Message}");
-        }
         catch (MercadoPagoException exception)
         {
-            throw new BadRequestException($"Mercado Pago checkout error: {exception.Message}");
+            _logger.LogError(exception, "Mercado Pago checkout failed for charge {ChargeId}.", charge.Id);
+            throw new BadRequestException("Could not create the Mercado Pago checkout. Try again later.");
         }
     }
 
@@ -190,6 +242,8 @@ public class MercadoPagoService : IMercadoPagoService
     {
         _webhookValidator.Validate(signature, requestId, queryDataId);
 
+        // From here on every early exit returns normally (HTTP 200): Mercado Pago retries
+        // any other status indefinitely, and none of these cases get better on retry.
         var eventType = string.IsNullOrWhiteSpace(queryType)
             ? notification.Type
             : queryType;
@@ -201,14 +255,20 @@ public class MercadoPagoService : IMercadoPagoService
             ? notification.Data?.GetId()
             : queryDataId;
 
-        if (!long.TryParse(dataId, out var mercadoPagoPaymentId))
-            throw new BadRequestException("Mercado Pago payment ID is invalid.");
-
-        if (!notification.UserId.HasValue)
-            throw new BadRequestException("Mercado Pago webhook user ID is required.");
+        if (!long.TryParse(dataId, out var mercadoPagoPaymentId) || !notification.UserId.HasValue)
+        {
+            _logger.LogWarning(
+                "Ignoring Mercado Pago webhook {RequestId}: invalid payment ID or missing user ID.",
+                requestId);
+            return;
+        }
 
         var account = await _context.MercadoPagoAccounts
-            .FirstOrDefaultAsync(item => item.MercadoPagoUserId == notification.UserId.Value);
+            .Where(item =>
+                item.MercadoPagoUserId == notification.UserId.Value &&
+                item.AccessToken != string.Empty)
+            .OrderBy(item => item.Id)
+            .FirstOrDefaultAsync();
 
         if (account is null)
         {
@@ -219,20 +279,15 @@ public class MercadoPagoService : IMercadoPagoService
             return;
         }
 
-        await EnsureValidAccessTokenAsync(account);
-
         var mercadoPagoPayment = await _paymentClient.GetAsync(
             mercadoPagoPaymentId,
-            account.AccessToken);
-
-        if (mercadoPagoPayment.CollectorId != account.MercadoPagoUserId)
-            throw new ForbiddenException("Mercado Pago payment receiver does not match the connected account.");
+            await GetValidAccessTokenAsync(account));
 
         var trackedPayment = await _context.MercadoPagoPayments
             .Include(item => item.Charge)
-            .FirstOrDefaultAsync(item =>
-                item.ExternalReference == mercadoPagoPayment.ExternalReference &&
-                item.MercadoPagoAccountId == account.Id);
+            .Include(item => item.MercadoPagoAccount)
+            .Include(item => item.Payment)
+            .FirstOrDefaultAsync(item => item.ExternalReference == mercadoPagoPayment.ExternalReference);
 
         if (trackedPayment is null)
         {
@@ -243,12 +298,25 @@ public class MercadoPagoService : IMercadoPagoService
             return;
         }
 
-        if (trackedPayment.PaymentId.HasValue)
+        if (mercadoPagoPayment.CollectorId != trackedPayment.MercadoPagoAccount.MercadoPagoUserId)
+        {
+            _logger.LogError(
+                "Ignoring Mercado Pago payment {PaymentId}: collector {CollectorId} does not match the receiver of charge {ChargeId}.",
+                mercadoPagoPayment.Id,
+                mercadoPagoPayment.CollectorId,
+                trackedPayment.ChargeId);
             return;
+        }
+
+        if (trackedPayment.PaymentId.HasValue)
+        {
+            await HandleUpdateForPaidChargeAsync(trackedPayment, mercadoPagoPayment);
+            return;
+        }
 
         ApplyPaymentStatus(trackedPayment, mercadoPagoPayment);
 
-        if (!string.Equals(mercadoPagoPayment.Status, "approved", StringComparison.OrdinalIgnoreCase))
+        if (!IsApproved(mercadoPagoPayment))
         {
             await _context.SaveChangesAsync();
             return;
@@ -257,32 +325,28 @@ public class MercadoPagoService : IMercadoPagoService
         if (!string.Equals(mercadoPagoPayment.CurrencyId, "BRL", StringComparison.OrdinalIgnoreCase) ||
             mercadoPagoPayment.TransactionAmount != trackedPayment.Charge.Value)
         {
-            trackedPayment.Status = "review_required";
-            trackedPayment.StatusDetail = "Payment currency or amount does not match the charge.";
-            await _context.SaveChangesAsync();
-
-            _logger.LogError(
-                "Mercado Pago payment {PaymentId} does not match charge {ChargeId}. Amount {Amount} {Currency}.",
-                mercadoPagoPayment.Id,
-                trackedPayment.ChargeId,
-                mercadoPagoPayment.TransactionAmount,
-                mercadoPagoPayment.CurrencyId);
+            await MarkForReviewAsync(
+                trackedPayment,
+                "review_required",
+                "Payment currency or amount does not match the charge.");
             return;
         }
 
         if (trackedPayment.Charge.Status == ChargeStatus.Canceled)
         {
-            trackedPayment.Status = "review_required";
-            trackedPayment.StatusDetail = "Payment was approved for a canceled charge.";
-            await _context.SaveChangesAsync();
+            await MarkForReviewAsync(
+                trackedPayment,
+                "review_required",
+                "Payment was approved for a canceled charge.");
             return;
         }
 
         if (trackedPayment.Charge.Status == ChargeStatus.Paid)
         {
-            trackedPayment.Status = "approved_charge_already_paid";
-            trackedPayment.StatusDetail = "Charge was already paid by another payment record.";
-            await _context.SaveChangesAsync();
+            await MarkForReviewAsync(
+                trackedPayment,
+                "approved_charge_already_paid",
+                "Charge was already paid by another payment record.");
             return;
         }
 
@@ -292,7 +356,7 @@ public class MercadoPagoService : IMercadoPagoService
             AmountPaid = mercadoPagoPayment.TransactionAmount,
             PaymentMethod = MapPaymentMethod(mercadoPagoPayment),
             Source = PaymentSource.MercadoPago,
-            RegisteredByUserId = account.UserId,
+            RegisteredByUserId = trackedPayment.MercadoPagoAccount.UserId,
             Notes = $"Mercado Pago payment {mercadoPagoPayment.Id}",
             PaidAt = mercadoPagoPayment.DateApproved ?? DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow
@@ -322,7 +386,91 @@ public class MercadoPagoService : IMercadoPagoService
             return;
         }
 
-        await CreatePaymentNotificationsAsync(trackedPayment.Charge);
+        await NotifyPayersAsync(
+            trackedPayment.Charge,
+            "Pagamento confirmado",
+            "O pagamento pelo Mercado Pago foi confirmado.");
+    }
+
+    private async Task HandleUpdateForPaidChargeAsync(
+        MercadoPagoPayment trackedPayment,
+        MercadoPagoPaymentDetailsDto mercadoPagoPayment)
+    {
+        if (trackedPayment.MercadoPagoPaymentId != mercadoPagoPayment.Id)
+        {
+            // A second Mercado Pago payment for a charge that is already paid (e.g. the payer
+            // opened the checkout twice). It must be refunded manually in Mercado Pago.
+            if (IsApproved(mercadoPagoPayment))
+            {
+                _logger.LogWarning(
+                    "Duplicate Mercado Pago payment {PaymentId} for already paid charge {ChargeId}.",
+                    mercadoPagoPayment.Id,
+                    trackedPayment.ChargeId);
+
+                await NotifyReceiversAsync(
+                    trackedPayment,
+                    "Pagamento em duplicidade",
+                    $"A cobrança \"{trackedPayment.Charge.Description}\" recebeu um segundo pagamento no Mercado Pago " +
+                    $"(ID {mercadoPagoPayment.Id}). Estorne-o pelo painel do Mercado Pago.");
+            }
+
+            return;
+        }
+
+        ApplyPaymentStatus(trackedPayment, mercadoPagoPayment);
+
+        if (!ReversedPaymentStatuses.Contains(mercadoPagoPayment.Status, StringComparer.OrdinalIgnoreCase))
+        {
+            await _context.SaveChangesAsync();
+            return;
+        }
+
+        // Refund or chargeback of the payment that settled the charge: reopen the charge.
+        if (trackedPayment.Payment is not null)
+            _context.Payments.Remove(trackedPayment.Payment);
+
+        trackedPayment.Payment = null;
+        trackedPayment.PaymentId = null;
+        trackedPayment.PaidAt = null;
+
+        if (trackedPayment.Charge.Status == ChargeStatus.Paid)
+        {
+            trackedPayment.Charge.Status = trackedPayment.Charge.DueDate.Date < DateTime.UtcNow.Date
+                ? ChargeStatus.Overdue
+                : ChargeStatus.Pending;
+        }
+
+        await _context.SaveChangesAsync();
+
+        const string title = "Pagamento estornado";
+        var message = $"O pagamento da cobrança \"{trackedPayment.Charge.Description}\" foi estornado no Mercado Pago " +
+                      "e a cobrança voltou a ficar em aberto.";
+
+        await NotifyPayersAsync(trackedPayment.Charge, title, message);
+        await NotifyReceiversAsync(trackedPayment, title, message);
+    }
+
+    private async Task MarkForReviewAsync(
+        MercadoPagoPayment trackedPayment,
+        string status,
+        string statusDetail)
+    {
+        trackedPayment.Status = status;
+        trackedPayment.StatusDetail = statusDetail;
+        await _context.SaveChangesAsync();
+
+        _logger.LogError(
+            "Mercado Pago payment {PaymentId} for charge {ChargeId} requires review: {StatusDetail}",
+            trackedPayment.MercadoPagoPaymentId,
+            trackedPayment.ChargeId,
+            statusDetail);
+
+        await NotifyReceiversAsync(
+            trackedPayment,
+            "Pagamento precisa de revisão",
+            $"Um pagamento do Mercado Pago (ID {trackedPayment.MercadoPagoPaymentId}) para a cobrança " +
+            $"\"{trackedPayment.Charge.Description}\" não pôde ser aplicado automaticamente. " +
+            "Verifique e, se necessário, estorne pelo painel do Mercado Pago.");
     }
 
     private async Task SaveCheckoutAsync(
@@ -373,6 +521,11 @@ public class MercadoPagoService : IMercadoPagoService
         trackedPayment.UpdatedAt = DateTime.UtcNow;
     }
 
+    private static bool IsApproved(MercadoPagoPaymentDetailsDto payment)
+    {
+        return string.Equals(payment.Status, "approved", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static PaymentMethod MapPaymentMethod(MercadoPagoPaymentDetailsDto payment)
     {
         if (string.Equals(payment.PaymentMethodId, "pix", StringComparison.OrdinalIgnoreCase))
@@ -391,25 +544,15 @@ public class MercadoPagoService : IMercadoPagoService
         };
     }
 
-    private async Task CreatePaymentNotificationsAsync(Charge charge)
+    private async Task NotifyPayersAsync(Charge charge, string title, string message)
     {
         if (charge.Scope == ChargeScope.Platform)
         {
-            var adminUserIds = await _context.UserCondominiums
-                .AsNoTracking()
-                .Where(item =>
-                    item.CondominiumId == charge.CondominiumId &&
-                    item.Role == AppRoles.Admin &&
-                    item.Status == UserCondominiumStatus.Active)
-                .Select(item => item.UserId)
-                .Distinct()
-                .ToListAsync();
-
             await _notificationService.CreateManyAsync(
-                adminUserIds,
+                await GetActiveCondominiumAdminIdsAsync(charge.CondominiumId),
                 NotificationType.Payment,
-                "Pagamento MORAE confirmado",
-                "O pagamento pelo Mercado Pago foi confirmado.",
+                title,
+                message,
                 "/admin/payments",
                 charge.CondominiumId);
             return;
@@ -432,68 +575,138 @@ public class MercadoPagoService : IMercadoPagoService
         await _notificationService.CreateManyAsync(
             residentUserIds,
             NotificationType.Payment,
-            "Pagamento confirmado",
-            "O pagamento pelo Mercado Pago foi confirmado.",
+            title,
+            message,
             "/resident/bills",
             charge.CondominiumId);
     }
 
+    private async Task NotifyReceiversAsync(MercadoPagoPayment trackedPayment, string title, string message)
+    {
+        var charge = trackedPayment.Charge;
+
+        if (charge.Scope == ChargeScope.Platform)
+        {
+            await _notificationService.CreateManyAsync(
+                [trackedPayment.MercadoPagoAccount.UserId],
+                NotificationType.Payment,
+                title,
+                message,
+                "/master/payments");
+            return;
+        }
+
+        await _notificationService.CreateManyAsync(
+            await GetActiveCondominiumAdminIdsAsync(charge.CondominiumId),
+            NotificationType.Payment,
+            title,
+            message,
+            "/admin/payments",
+            charge.CondominiumId);
+    }
+
+    private async Task<List<int>> GetActiveCondominiumAdminIdsAsync(int condominiumId)
+    {
+        return await _context.UserCondominiums
+            .AsNoTracking()
+            .Where(item =>
+                item.CondominiumId == condominiumId &&
+                item.Role == AppRoles.Admin &&
+                item.Status == UserCondominiumStatus.Active)
+            .Select(item => item.UserId)
+            .Distinct()
+            .ToListAsync();
+    }
+
     private async Task<MercadoPagoAccount> UpsertMercadoPagoAccountAsync(
         int userId,
+        int? condominiumId,
         MercadoPagoOAuthCredentialDto credential)
     {
         var account = await _context.MercadoPagoAccounts
-            .FirstOrDefaultAsync(item => item.UserId == userId);
+            .FirstOrDefaultAsync(item => item.CondominiumId == condominiumId);
 
         if (account is null)
         {
             account = new MercadoPagoAccount
             {
-                UserId = userId,
-                ConnectedAt = DateTime.UtcNow
+                CondominiumId = condominiumId
             };
 
             _context.MercadoPagoAccounts.Add(account);
         }
 
+        account.UserId = userId;
+        account.ConnectedAt = DateTime.UtcNow;
         ApplyCredential(account, credential);
 
         return account;
     }
 
-    private async Task<MercadoPagoAccount> GetConnectedAccountOrThrowAsync(int userId)
+    private async Task<MercadoPagoAccount> GetReceiverAccountOrThrowAsync(Charge charge)
     {
+        int? condominiumId = charge.Scope == ChargeScope.Platform
+            ? null
+            : charge.CondominiumId;
+
         var account = await _context.MercadoPagoAccounts
-            .FirstOrDefaultAsync(item => item.UserId == userId);
+            .FirstOrDefaultAsync(item => item.CondominiumId == condominiumId);
 
         if (account is null || string.IsNullOrWhiteSpace(account.AccessToken))
-            throw new BadRequestException("Receiver does not have a connected Mercado Pago account.");
+        {
+            throw new BadRequestException(charge.Scope == ChargeScope.Platform
+                ? "The platform has not connected a Mercado Pago account yet."
+                : "This condominium has not connected a Mercado Pago account yet.");
+        }
 
         return account;
     }
 
-    private async Task EnsureValidAccessTokenAsync(MercadoPagoAccount account)
+    private async Task<string> GetValidAccessTokenAsync(MercadoPagoAccount account)
     {
         if (account.ExpiresAt > DateTime.UtcNow.AddMinutes(5))
-            return;
+            return _tokenProtector.Unprotect(account.AccessToken);
 
-        if (string.IsNullOrWhiteSpace(account.RefreshToken))
-            throw new BadRequestException("Mercado Pago refresh token is not available.");
+        // Mercado Pago invalidates a refresh token once it is used, so concurrent requests
+        // must not refresh the same account twice.
+        var refreshLock = TokenRefreshLocks.GetOrAdd(account.Id, _ => new SemaphoreSlim(1, 1));
+        await refreshLock.WaitAsync();
 
-        var credential = await _oauthClient.RefreshTokenAsync(account.RefreshToken);
-        ApplyCredential(account, credential);
+        try
+        {
+            await _context.Entry(account).ReloadAsync();
 
-        await _context.SaveChangesAsync();
+            if (account.ExpiresAt > DateTime.UtcNow.AddMinutes(5))
+                return _tokenProtector.Unprotect(account.AccessToken);
+
+            if (string.IsNullOrWhiteSpace(account.RefreshToken))
+                throw new BadRequestException("Mercado Pago account is disconnected. Connect it again.");
+
+            var credential = await _oauthClient.RefreshTokenAsync(
+                _tokenProtector.Unprotect(account.RefreshToken));
+
+            ApplyCredential(account, credential);
+            await _context.SaveChangesAsync();
+
+            return credential.AccessToken ?? string.Empty;
+        }
+        finally
+        {
+            refreshLock.Release();
+        }
     }
 
-    private static void ApplyCredential(
+    private void ApplyCredential(
         MercadoPagoAccount account,
         MercadoPagoOAuthCredentialDto credential)
     {
         account.MercadoPagoUserId = credential.UserId;
         account.PublicKey = credential.PublicKey ?? string.Empty;
-        account.AccessToken = credential.AccessToken ?? string.Empty;
-        account.RefreshToken = credential.RefreshToken ?? account.RefreshToken;
+        account.AccessToken = _tokenProtector.Protect(credential.AccessToken ?? string.Empty);
+
+        if (!string.IsNullOrEmpty(credential.RefreshToken))
+            account.RefreshToken = _tokenProtector.Protect(credential.RefreshToken);
+
         account.TokenType = credential.TokenType ?? string.Empty;
         account.Scope = credential.Scope ?? string.Empty;
         account.LiveMode = credential.LiveMode;
@@ -501,18 +714,15 @@ public class MercadoPagoService : IMercadoPagoService
         account.UpdatedAt = DateTime.UtcNow;
     }
 
-    private async Task EnsureCanConnectOAuthAsync(int userId)
+    private async Task EnsureCanManageConnectionAsync(int userId, int? condominiumId)
     {
-        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (condominiumId is null)
+        {
+            await _permissionService.EnsureMasterAsync(userId);
+            return;
+        }
 
-        if (user is null)
-            throw new NotFoundException("User not found.");
-
-        var isMaster = await _userManager.IsInRoleAsync(user, AppRoles.Master);
-        var isAdmin = await _userManager.IsInRoleAsync(user, AppRoles.Admin);
-
-        if (!isMaster && !isAdmin)
-            throw new ForbiddenException("Only Master and Admin can connect Mercado Pago.");
+        await _permissionService.EnsureCondominiumAdminAsync(userId, condominiumId.Value);
     }
 
     private async Task EnsureCanCreateCheckoutAsync(int userId, Charge charge)
@@ -524,7 +734,7 @@ public class MercadoPagoService : IMercadoPagoService
 
         if (charge.Scope == ChargeScope.Platform)
         {
-            if (await IsCondominiumAdminAsync(userId, charge.CondominiumId))
+            if (await _permissionService.IsCondominiumAdminAsync(userId, charge.CondominiumId))
                 return;
 
             throw new ForbiddenException("User cannot pay this platform charge.");
@@ -532,7 +742,7 @@ public class MercadoPagoService : IMercadoPagoService
 
         if (charge.Scope == ChargeScope.Condominium)
         {
-            if (await IsCondominiumAdminAsync(userId, charge.CondominiumId) ||
+            if (await _permissionService.IsCondominiumAdminAsync(userId, charge.CondominiumId) ||
                 await IsSyndicForCondominiumAsync(user, userId, charge.CondominiumId) ||
                 await IsResidentChargeOwnerAsync(user, charge))
             {
@@ -552,24 +762,6 @@ public class MercadoPagoService : IMercadoPagoService
 
         if (charge.Status == ChargeStatus.Canceled)
             throw new BadRequestException("Canceled charges cannot be paid.");
-    }
-
-    private static int GetReceiverUserId(Charge charge)
-    {
-        return charge.Scope == ChargeScope.Platform
-            ? charge.Condominium.CreatedByUserId
-            : charge.CreatedByUserId;
-    }
-
-    private async Task<bool> IsCondominiumAdminAsync(int userId, int condominiumId)
-    {
-        return await _context.UserCondominiums
-            .AsNoTracking()
-            .AnyAsync(userCondominium =>
-                userCondominium.UserId == userId &&
-                userCondominium.CondominiumId == condominiumId &&
-                userCondominium.Role == AppRoles.Admin &&
-                userCondominium.Status == UserCondominiumStatus.Active);
     }
 
     private async Task<bool> IsSyndicForCondominiumAsync(
@@ -617,13 +809,6 @@ public class MercadoPagoService : IMercadoPagoService
     {
         if (string.IsNullOrWhiteSpace(_settings.WebhookUrl))
             throw new BadRequestException("Mercado Pago Webhook URL is not configured.");
-
-        if (string.IsNullOrWhiteSpace(_settings.CheckoutSuccessUrl) ||
-            string.IsNullOrWhiteSpace(_settings.CheckoutFailureUrl) ||
-            string.IsNullOrWhiteSpace(_settings.CheckoutPendingUrl))
-        {
-            throw new BadRequestException("Mercado Pago checkout return URLs are not configured.");
-        }
     }
 
     private string BuildAuthorizationUrl(string state, string codeChallenge)
@@ -642,6 +827,8 @@ public class MercadoPagoService : IMercadoPagoService
         Charge charge,
         string externalReference)
     {
+        var returnUrl = _appSettings.BuildFrontendUrl($"payments/return?chargeId={charge.Id}");
+
         return new PreferenceRequest
         {
             Items =
@@ -660,11 +847,14 @@ public class MercadoPagoService : IMercadoPagoService
             ],
             BackUrls = new PreferenceBackUrlsRequest
             {
-                Success = _settings.CheckoutSuccessUrl,
-                Failure = _settings.CheckoutFailureUrl,
-                Pending = _settings.CheckoutPendingUrl
+                Success = $"{returnUrl}&result=success",
+                Failure = $"{returnUrl}&result=failure",
+                Pending = $"{returnUrl}&result=pending"
             },
-            AutoReturn = "approved",
+            // Mercado Pago only accepts auto_return with public HTTPS back URLs.
+            AutoReturn = returnUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+                ? "approved"
+                : null,
             NotificationUrl = _settings.WebhookUrl,
             ExternalReference = externalReference,
             StatementDescriptor = "MORAE",

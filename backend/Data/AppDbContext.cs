@@ -261,8 +261,17 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.Entity<MercadoPagoAccount>()
-            .HasIndex(account => account.UserId)
+            .HasIndex(account => account.UserId);
+
+        builder.Entity<MercadoPagoAccount>()
+            .HasIndex(account => account.CondominiumId)
             .IsUnique();
+
+        builder.Entity<MercadoPagoAccount>()
+            .HasOne(account => account.Condominium)
+            .WithMany()
+            .HasForeignKey(account => account.CondominiumId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.Entity<MercadoPagoAccount>()
             .HasIndex(account => account.MercadoPagoUserId);

@@ -9,6 +9,6 @@ public class MercadoPagoProfile : Profile
     public MercadoPagoProfile() 
     {
         CreateMap<MercadoPagoAccount, MercadoPagoConnectionStatusDto>()
-            .ForMember(dest => dest.IsConnected, opt => opt.MapFrom(_ => true));
+            .ForMember(dest => dest.IsConnected, opt => opt.MapFrom(src => src.AccessToken != string.Empty));
     }
 }

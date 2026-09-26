@@ -4,6 +4,7 @@ using backend.Services.MercadoPago;
 using backend.Settings;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
 
 namespace backend.Controllers;
@@ -13,63 +14,83 @@ namespace backend.Controllers;
 public class MercadoPagoController : ControllerBase
 {
     private readonly IMercadoPagoService _mercadoPagoService;
-    private readonly MercadoPagoSettings _settings;
-    private readonly ILogger<MercadoPagoController> _logger;
+    private readonly AppSettings _appSettings;
 
     public MercadoPagoController(
         IMercadoPagoService mercadoPagoService,
-        IOptions<MercadoPagoSettings> options,
-        ILogger<MercadoPagoController> logger)
+        IOptions<AppSettings> appOptions)
     {
         _mercadoPagoService = mercadoPagoService;
-        _settings = options.Value;
-        _logger = logger;
+        _appSettings = appOptions.Value;
     }
 
     [Authorize]
     [HttpPost("oauth/connect")]
-    public async Task<IActionResult> StartOAuth()
+    public async Task<IActionResult> StartOAuth([FromBody] MercadoPagoOAuthStartRequestDto? dto)
     {
-        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _mercadoPagoService.StartOAuthAsync(userId);
+        var result = await _mercadoPagoService.StartOAuthAsync(GetUserId(), dto?.CondominiumId);
 
         return Ok(result);
     }
 
+    // Mercado Pago redirects the browser here. The callback carries no session, so it only
+    // forwards the result to the frontend, which completes the connection as the logged-in user.
+    [AllowAnonymous]
     [HttpGet("oauth/callback")]
-    public async Task<IActionResult> OAuthCallback(
-        [FromQuery] string code,
-        [FromQuery] string state)
+    public IActionResult OAuthCallback(
+        [FromQuery] string? code,
+        [FromQuery] string? state,
+        [FromQuery] string? error)
     {
-        try
-        {
-            await _mercadoPagoService.CompleteOAuthAsync(code, state);
+        var query = new Dictionary<string, string?>();
 
-            return Redirect(GetOAuthSuccessRedirectUrl());
-        }
-        catch (Exception exception)
+        if (!string.IsNullOrWhiteSpace(code) && !string.IsNullOrWhiteSpace(state))
         {
-            _logger.LogError(exception, "Mercado Pago OAuth callback failed.");
-            return Redirect(GetOAuthFailureRedirectUrl());
+            query["code"] = code;
+            query["state"] = state;
         }
+        else
+        {
+            query["error"] = string.IsNullOrWhiteSpace(error) ? "invalid_callback" : error;
+        }
+
+        return Redirect(QueryHelpers.AddQueryString(
+            _appSettings.BuildFrontendUrl("mercadopago/return"),
+            query));
+    }
+
+    [Authorize]
+    [HttpPost("oauth/complete")]
+    public async Task<IActionResult> CompleteOAuth([FromBody] MercadoPagoOAuthCompleteDto dto)
+    {
+        var result = await _mercadoPagoService.CompleteOAuthAsync(GetUserId(), dto);
+
+        return Ok(result);
     }
 
     [Authorize]
     [HttpGet("oauth/status")]
-    public async Task<IActionResult> GetOAuthStatus()
+    public async Task<IActionResult> GetOAuthStatus([FromQuery] int? condominiumId)
     {
-        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _mercadoPagoService.GetConnectionStatusAsync(userId);
+        var result = await _mercadoPagoService.GetConnectionStatusAsync(GetUserId(), condominiumId);
 
         return Ok(result);
+    }
+
+    [Authorize]
+    [HttpDelete("oauth/connection")]
+    public async Task<IActionResult> Disconnect([FromQuery] int? condominiumId)
+    {
+        await _mercadoPagoService.DisconnectAsync(GetUserId(), condominiumId);
+
+        return NoContent();
     }
 
     [Authorize]
     [HttpPost("/api/charges/{chargeId}/mercadopago/checkout")]
     public async Task<IActionResult> CreateCheckout([FromRoute] int chargeId)
     {
-        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var result = await _mercadoPagoService.CreateCheckoutAsync(userId, chargeId);
+        var result = await _mercadoPagoService.CreateCheckoutAsync(GetUserId(), chargeId);
 
         return Ok(result);
     }
@@ -91,17 +112,8 @@ public class MercadoPagoController : ControllerBase
         return Ok();
     }
 
-    private string GetOAuthSuccessRedirectUrl()
+    private int GetUserId()
     {
-        return string.IsNullOrWhiteSpace(_settings.OAuthSuccessRedirectUrl)
-            ? "http://localhost:5173/admin/settings"
-            : _settings.OAuthSuccessRedirectUrl;
-    }
-
-    private string GetOAuthFailureRedirectUrl()
-    {
-        return string.IsNullOrWhiteSpace(_settings.OAuthFailureRedirectUrl)
-            ? "http://localhost:5173/admin/settings"
-            : _settings.OAuthFailureRedirectUrl;
+        return int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
     }
 }

@@ -20,6 +20,9 @@ public class MercadoPagoOAuthState
 
     public ApplicationUser User { get; set; } = null!;
 
+    // Null when connecting the platform account.
+    public int? CondominiumId { get; set; }
+
     public DateTime ExpiresAt { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

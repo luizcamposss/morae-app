@@ -7,6 +7,13 @@ public class MercadoPagoAccount
     [Key]
     public int Id { get; set; }
 
+    // Null for the platform account (receives platform charges, connected by the Master).
+    // Set for a condominium account (receives that condominium's charges, connected by an Admin).
+    public int? CondominiumId { get; set; }
+
+    public Condominium? Condominium { get; set; }
+
+    // User who connected the account.
     [Required]
     public int UserId { get; set; }
 
@@ -18,9 +25,11 @@ public class MercadoPagoAccount
     [StringLength(200)]
     public string PublicKey { get; set; } = string.Empty;
 
+    // Encrypted with ASP.NET Data Protection (see MercadoPagoTokenProtector).
     [Required]
     public string AccessToken { get; set; } = string.Empty;
 
+    // Encrypted with ASP.NET Data Protection (see MercadoPagoTokenProtector).
     [Required]
     public string RefreshToken { get; set; } = string.Empty;
 

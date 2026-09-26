@@ -2,6 +2,7 @@ using backend.Data;
 using backend.Models;
 using backend.Seeders;
 using backend.Settings;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -53,6 +54,21 @@ builder.Services.Configure<MercadoPagoSettings>(
     builder.Configuration.GetSection("MercadoPago")
 );
 
+builder.Services.Configure<AppSettings>(
+    builder.Configuration.GetSection("App")
+);
+
+var dataProtection = builder.Services
+    .AddDataProtection()
+    .SetApplicationName("morae");
+
+var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+
+if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+{
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+}
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Configuration.AddEnvironmentVariables();
@@ -95,6 +111,7 @@ builder.Services.AddScoped<IPkceService, PkceService>();
 builder.Services.AddScoped<IMercadoPagoOAuthClient, MercadoPagoOAuthClient>();
 builder.Services.AddScoped<IMercadoPagoPaymentClient, MercadoPagoPaymentClient>();
 builder.Services.AddScoped<IMercadoPagoWebhookValidator, MercadoPagoWebhookValidator>();
+builder.Services.AddSingleton<IMercadoPagoTokenProtector, MercadoPagoTokenProtector>();
 builder.Services.AddScoped<IMercadoPagoService, MercadoPagoService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IFinancialAccountService, FinancialAccountService>();
