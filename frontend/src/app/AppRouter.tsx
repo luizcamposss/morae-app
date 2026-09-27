@@ -31,6 +31,8 @@ import { ResidentUnitPage } from "../features/residentUnit/ResidentUnitPage";
 import { ResidentBillsPage } from "../features/residentBills/ResidentBillsPage";
 import { ResidentNoticesPage } from "../features/residentNotices/ResidentNoticesPage";
 import { ResidentInspectionsPage } from "../features/residentInspections/ResidentInspectionsPage";
+import { MercadoPagoOAuthReturnPage } from "../features/mercadoPago/MercadoPagoOAuthReturnPage";
+import { PaymentReturnPage } from "../features/mercadoPago/PaymentReturnPage";
 
 export function AppRouter() {
     return (
@@ -44,6 +46,8 @@ export function AppRouter() {
 
                 <Route element={<ProtectedRoute />}>
                     <Route path="/suspended" element={<SuspendedAccessPage />} />
+                    <Route path="/mercadopago/return" element={<MercadoPagoOAuthReturnPage />} />
+                    <Route path="/payments/return" element={<PaymentReturnPage />} />
 
                     <Route element={<RoleRoute allowedRoles={["Master"]} />}>
                         <Route path="/master" element={<AppLayout />}>

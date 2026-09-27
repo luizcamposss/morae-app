@@ -5,6 +5,7 @@ import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
 import { getBuildingsByCondominium } from "../buildings/buildingService";
 import { cancelCharge, createCharge, getChargesByCondominium, getPlatformCharges } from "../charges/chargeService";
+import { PayWithMercadoPagoButton } from "../mercadoPago/PayWithMercadoPagoButton";
 import type { ChargeResponse } from "../charges/types";
 import { getPlatformFinancialAccount } from "../financialAccounts/financialAccountService";
 import type { FinancialAccountResponse } from "../financialAccounts/types";
@@ -437,13 +438,18 @@ export function AdminPaymentsPage() {
                           </td>
                           <td className="px-4 py-4">
                             {activeTab === "platform" ? (
-                              <button
-                                type="button"
-                                onClick={() => setPaymentInfoCharge(charge)}
-                                className="h-9 cursor-pointer rounded-xl border border-[#BBF7D0] bg-white px-3 text-xs font-extrabold text-[#16A34A] transition hover:bg-[#F0FDF4] hover:text-[#0B3D2E]"
-                              >
-                                Ver pagamento
-                              </button>
+                              <div className="flex flex-wrap items-start gap-2">
+                                {(charge.status === 1 || charge.status === 3) && (
+                                  <PayWithMercadoPagoButton chargeId={charge.id} />
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => setPaymentInfoCharge(charge)}
+                                  className="h-9 cursor-pointer rounded-xl border border-[#BBF7D0] bg-white px-3 text-xs font-extrabold text-[#16A34A] transition hover:bg-[#F0FDF4] hover:text-[#0B3D2E]"
+                                >
+                                  Ver pagamento
+                                </button>
+                              </div>
                             ) : (
                               <div className="flex flex-wrap gap-2">
                                 <button

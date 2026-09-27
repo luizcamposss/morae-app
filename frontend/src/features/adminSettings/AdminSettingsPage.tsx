@@ -774,10 +774,17 @@ function FinancialAccountModal({
   if (selectedMethod === "mercadoPago") {
     return (
       <ModalShell title="Mercado Pago" onClose={onClose}>
-        <MercadoPagoConnectionPanel
-          contextLabel={condominiumName}
-          onBack={() => setSelectedMethod("choice")}
-        />
+        {condominiumId ? (
+          <MercadoPagoConnectionPanel
+            contextLabel={condominiumName}
+            condominiumId={condominiumId}
+            onBack={() => setSelectedMethod("choice")}
+          />
+        ) : (
+          <p className="rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-sm font-bold text-[#92400E]">
+            Selecione um condomínio para configurar o Mercado Pago.
+          </p>
+        )}
       </ModalShell>
     );
   }

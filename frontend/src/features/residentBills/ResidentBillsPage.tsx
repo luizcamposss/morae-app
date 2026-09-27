@@ -3,6 +3,7 @@ import { svgIcone } from "@edusites/icons/core";
 import { StatusBadge } from "../../shared/components/StatusBadge";
 import { getMyCharges } from "../charges/chargeService";
 import type { ChargeResponse } from "../charges/types";
+import { PayWithMercadoPagoButton } from "../mercadoPago/PayWithMercadoPagoButton";
 
 export function ResidentBillsPage() {
   const [charges, setCharges] = useState<ChargeResponse[]>([]);
@@ -173,6 +174,9 @@ function NextChargeCard({ charge, isLoading }: NextChargeCardProps) {
             <p className="mt-3 text-sm font-semibold leading-6 text-[#4B5563]">
               Vence em {formatDate(charge.dueDate)} · {charge.description}
             </p>
+            <div className="mt-5">
+              <PayWithMercadoPagoButton chargeId={charge.id} className="h-11 px-6 text-sm" />
+            </div>
           </>
         ) : (
           <>
@@ -240,11 +244,12 @@ function ChargeRow({ charge }: ChargeRowProps) {
       <InfoColumn label="Valor" value={formatCurrency(charge.value)} />
       <InfoColumn label="Vencimento" value={formatDate(charge.dueDate)} />
 
-      <div className="lg:justify-self-end">
+      <div className="flex flex-wrap items-start gap-3 lg:justify-self-end">
         <StatusBadge
           label={getChargeStatusLabel(charge.status)}
           variant={getChargeStatusVariant(charge.status)}
         />
+        {isPayable(charge) && <PayWithMercadoPagoButton chargeId={charge.id} />}
       </div>
     </article>
   );
@@ -346,6 +351,10 @@ function EduIcon({ nome }: { nome: string }) {
       dangerouslySetInnerHTML={{ __html: svg }}
     />
   );
+}
+
+function isPayable(charge: ChargeResponse) {
+  return charge.status === 1 || charge.status === 3;
 }
 
 function sumCharges(charges: ChargeResponse[]) {

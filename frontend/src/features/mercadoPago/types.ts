@@ -14,3 +14,11 @@ export type MercadoPagoOAuthStartResponse = {
   state: string;
   expiresAt: string;
 };
+
+export type MercadoPagoCheckoutResponse = {
+  preferenceId: string;
+  checkoutUrl: string;
+  initPoint: string;
+  sandboxInitPoint: string;
+  externalReference: string;
+};
