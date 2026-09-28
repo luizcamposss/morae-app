@@ -440,7 +440,7 @@ export function AdminPaymentsPage() {
                             {activeTab === "platform" ? (
                               <div className="flex flex-wrap items-start gap-2">
                                 {(charge.status === 1 || charge.status === 3) && (
-                                  <PayWithMercadoPagoButton chargeId={charge.id} />
+                                  <PayWithMercadoPagoButton chargeId={charge.id} onPaid={() => void loadPage()} />
                                 )}
                                 <button
                                   type="button"

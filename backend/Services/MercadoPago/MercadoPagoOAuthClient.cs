@@ -49,11 +49,11 @@ public class MercadoPagoOAuthClient : IMercadoPagoOAuthClient
                 "Mercado Pago OAuth code exchange failed with {StatusCode}: {Error}",
                 (int)response.StatusCode,
                 error);
-            throw new BadRequestException("Could not connect the Mercado Pago account. Try again.");
+            throw new BadRequestException("Não foi possível conectar a conta Mercado Pago. Tente novamente.");
         }
 
         return await response.Content.ReadFromJsonAsync<MercadoPagoOAuthCredentialDto>()
-            ?? throw new BadRequestException("Mercado Pago OAuth returned an empty response.");
+            ?? throw new BadRequestException("O Mercado Pago não retornou os dados da conexão. Tente novamente.");
     }
 
     public async Task<MercadoPagoOAuthCredentialDto> RefreshTokenAsync(string refreshToken)
@@ -79,11 +79,11 @@ public class MercadoPagoOAuthClient : IMercadoPagoOAuthClient
                 "Mercado Pago OAuth token refresh failed with {StatusCode}: {Error}",
                 (int)response.StatusCode,
                 error);
-            throw new BadRequestException("Mercado Pago connection expired. Connect the account again.");
+            throw new BadRequestException("A conexão com o Mercado Pago expirou. Conecte a conta novamente.");
         }
 
         return await response.Content.ReadFromJsonAsync<MercadoPagoOAuthCredentialDto>()
-            ?? throw new BadRequestException("Mercado Pago OAuth returned an empty refresh response.");
+            ?? throw new BadRequestException("A conexão com o Mercado Pago expirou. Conecte a conta novamente.");
     }
 
     private bool IsSandboxEnvironment()

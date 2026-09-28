@@ -9,6 +9,7 @@ using backend.DTOs.Charge;
 using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
+using backend.Services.MercadoPago;
 using backend.Services.Notifications;
 using backend.Services.Permissions;
 using Microsoft.AspNetCore.Identity;
@@ -23,19 +24,22 @@ public class ChargeService : IChargeService
     private readonly IPermissionService _permissionService;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly INotificationService _notificationService;
+    private readonly IMercadoPagoService _mercadoPagoService;
 
     public ChargeService(
         AppDbContext context,
         IMapper mapper,
         IPermissionService permissionService,
         UserManager<ApplicationUser> userManager,
-        INotificationService notificationService)
+        INotificationService notificationService,
+        IMercadoPagoService mercadoPagoService)
     {
         _context = context;
         _mapper = mapper;
         _permissionService = permissionService;
         _userManager = userManager;
         _notificationService = notificationService;
+        _mercadoPagoService = mercadoPagoService;
     }
 
     public async Task<ChargeResponseDto> CreateAsync(int userId, CreateChargeDto dto)
@@ -187,6 +191,9 @@ public class ChargeService : IChargeService
 
         await _context.SaveChangesAsync();
 
+        // A Pix/boleto generated for this charge must not stay payable after it is cancelled.
+        await _mercadoPagoService.CancelOpenPaymentAsync(charge.Id);
+
         return true;
     }
     private async Task ValidateCreateAsync(int userId, CreateChargeDto dto)
@@ -231,7 +238,7 @@ public class ChargeService : IChargeService
         if (!ownsCondominium)
             throw new ForbiddenException("Master can only create platform charges for condominiums created by them.");
 
-        await EnsurePixKeyConfiguredAsync(FinancialAccountScope.Platform, null);
+        await EnsurePaymentMethodConfiguredAsync(FinancialAccountScope.Platform, null);
     }
 
     private async Task ValidateCondominiumChargeCreateAsync(int userId, CreateChargeDto dto)
@@ -262,10 +269,12 @@ public class ChargeService : IChargeService
         if (!unitBelongsToCondominium)
             throw new BadRequestException("Unit does not belong to this condominium.");
 
-        await EnsurePixKeyConfiguredAsync(FinancialAccountScope.Condominium, dto.CondominiumId);
+        await EnsurePaymentMethodConfiguredAsync(FinancialAccountScope.Condominium, dto.CondominiumId);
     }
 
-    private async Task EnsurePixKeyConfiguredAsync(
+    // A charge needs a way to be paid: a Pix key for manual transfer or a connected
+    // Mercado Pago account (platform account for platform charges, the condominium's own otherwise).
+    private async Task EnsurePaymentMethodConfiguredAsync(
         FinancialAccountScope scope,
         int? condominiumId)
     {
@@ -279,9 +288,20 @@ public class ChargeService : IChargeService
         if (hasPixKey)
             return;
 
+        int? mercadoPagoCondominiumId = scope == FinancialAccountScope.Platform ? null : condominiumId;
+
+        var hasMercadoPago = await _context.MercadoPagoAccounts
+            .AsNoTracking()
+            .AnyAsync(account =>
+                account.CondominiumId == mercadoPagoCondominiumId &&
+                account.AccessToken != string.Empty);
+
+        if (hasMercadoPago)
+            return;
+
         var message = scope == FinancialAccountScope.Platform
-            ? "Configure a chave Pix da plataforma antes de criar cobranças MORAÊ."
-            : "Configure a chave Pix do condomínio antes de criar cobranças internas.";
+            ? "Configure uma chave Pix ou conecte o Mercado Pago da plataforma antes de criar cobranças MORAÊ."
+            : "Configure uma chave Pix ou conecte o Mercado Pago do condomínio antes de criar cobranças internas.";
 
         throw new BadRequestException(message);
     }

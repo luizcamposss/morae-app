@@ -1,49 +1,48 @@
 import { useState } from "react";
-import { createMercadoPagoCheckout } from "./mercadoPagoService";
-import { saveCheckoutReturnPath } from "./returnPath";
+import { MercadoPagoPaymentModal } from "./MercadoPagoPaymentModal";
 
 type PayWithMercadoPagoButtonProps = {
   chargeId: number;
+  onPaid: () => void;
   className?: string;
 };
 
-export function PayWithMercadoPagoButton({ chargeId, className = "" }: PayWithMercadoPagoButtonProps) {
-  const [isRedirecting, setIsRedirecting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+export function PayWithMercadoPagoButton({
+  chargeId,
+  onPaid,
+  className = "",
+}: PayWithMercadoPagoButtonProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [hasPaid, setHasPaid] = useState(false);
 
-  async function handlePay() {
-    try {
-      setIsRedirecting(true);
-      setErrorMessage("");
+  // The page reloads its list only after the modal closes: reloading while it is open would
+  // unmount this row (and the modal with it) before the payer sees the confirmation.
+  function handleClose() {
+    setIsOpen(false);
 
-      const checkout = await createMercadoPagoCheckout(chargeId);
-      saveCheckoutReturnPath();
-      window.location.assign(checkout.checkoutUrl);
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível abrir o pagamento no Mercado Pago.",
-      );
-      setIsRedirecting(false);
+    if (hasPaid) {
+      setHasPaid(false);
+      onPaid();
     }
   }
 
   return (
-    <div className="flex flex-col gap-1">
+    <>
       <button
         type="button"
-        onClick={() => void handlePay()}
-        disabled={isRedirecting}
-        className={`h-9 cursor-pointer rounded-xl bg-[#0284C7] px-3 text-xs font-extrabold text-white shadow-sm shadow-[#0284C7]/25 transition hover:bg-[#075985] disabled:cursor-not-allowed disabled:bg-[#9CA3AF] ${className}`}
+        onClick={() => setIsOpen(true)}
+        className={`h-9 cursor-pointer rounded-xl bg-[#0284C7] px-3 text-xs font-extrabold text-white shadow-sm shadow-[#0284C7]/25 transition hover:bg-[#075985] ${className}`}
       >
-        {isRedirecting ? "Abrindo..." : "Pagar"}
+        Pagar
       </button>
-      {errorMessage && (
-        <p role="alert" className="max-w-56 text-xs font-bold leading-5 text-[#B42318]">
-          {errorMessage}
-        </p>
+
+      {isOpen && (
+        <MercadoPagoPaymentModal
+          chargeId={chargeId}
+          onClose={handleClose}
+          onPaid={() => setHasPaid(true)}
+        />
       )}
-    </div>
+    </>
   );
 }

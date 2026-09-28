@@ -10,6 +10,8 @@ export function ResidentBillsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+  const reloadCharges = () => setReloadKey((key) => key + 1);
 
   useEffect(() => {
     async function loadCharges() {
@@ -30,7 +32,7 @@ export function ResidentBillsPage() {
     }
 
     void loadCharges();
-  }, []);
+  }, [reloadKey]);
 
   const filteredCharges = useMemo(
     () =>
@@ -86,7 +88,7 @@ export function ResidentBillsPage() {
       )}
 
       <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-[1.1fr_1.9fr]">
-        <NextChargeCard charge={nextCharge} isLoading={isLoading} />
+        <NextChargeCard charge={nextCharge} isLoading={isLoading} onPaid={reloadCharges} />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <FinanceCard
@@ -128,7 +130,7 @@ export function ResidentBillsPage() {
         ) : (
           <div className="space-y-3">
             {filteredCharges.map((charge) => (
-              <ChargeRow key={charge.id} charge={charge} />
+              <ChargeRow key={charge.id} charge={charge} onPaid={reloadCharges} />
             ))}
           </div>
         )}
@@ -140,9 +142,10 @@ export function ResidentBillsPage() {
 type NextChargeCardProps = {
   charge?: ChargeResponse;
   isLoading: boolean;
+  onPaid: () => void;
 };
 
-function NextChargeCard({ charge, isLoading }: NextChargeCardProps) {
+function NextChargeCard({ charge, isLoading, onPaid }: NextChargeCardProps) {
   if (isLoading) {
     return (
       <div className="min-h-52 animate-pulse rounded-[1.8rem] bg-[#F3F4F6]" />
@@ -175,7 +178,7 @@ function NextChargeCard({ charge, isLoading }: NextChargeCardProps) {
               Vence em {formatDate(charge.dueDate)} · {charge.description}
             </p>
             <div className="mt-5">
-              <PayWithMercadoPagoButton chargeId={charge.id} className="h-11 px-6 text-sm" />
+              <PayWithMercadoPagoButton chargeId={charge.id} onPaid={onPaid} className="h-11 px-6 text-sm" />
             </div>
           </>
         ) : (
@@ -220,9 +223,10 @@ function FinanceCard({ label, value, helper, icon, danger = false }: FinanceCard
 
 type ChargeRowProps = {
   charge: ChargeResponse;
+  onPaid: () => void;
 };
 
-function ChargeRow({ charge }: ChargeRowProps) {
+function ChargeRow({ charge, onPaid }: ChargeRowProps) {
   const unitLabel = [charge.buildingName, charge.unitNumber && `Unidade ${charge.unitNumber}`]
     .filter(Boolean)
     .join(" · ");
@@ -249,7 +253,7 @@ function ChargeRow({ charge }: ChargeRowProps) {
           label={getChargeStatusLabel(charge.status)}
           variant={getChargeStatusVariant(charge.status)}
         />
-        {isPayable(charge) && <PayWithMercadoPagoButton chargeId={charge.id} />}
+        {isPayable(charge) && <PayWithMercadoPagoButton chargeId={charge.id} onPaid={onPaid} />}
       </div>
     </article>
   );

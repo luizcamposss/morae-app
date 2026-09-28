@@ -8,7 +8,10 @@ public interface IMercadoPagoService
     Task<MercadoPagoConnectionStatusDto> CompleteOAuthAsync(int userId, MercadoPagoOAuthCompleteDto dto);
     Task<MercadoPagoConnectionStatusDto> GetConnectionStatusAsync(int userId, int? condominiumId);
     Task DisconnectAsync(int userId, int? condominiumId);
-    Task<MercadoPagoCheckoutResponseDto> CreateCheckoutAsync(int userId, int chargeId);
+    Task<MercadoPagoPaymentSetupDto> GetPaymentSetupAsync(int userId, int chargeId);
+    Task<MercadoPagoPaymentResultDto> CreatePaymentAsync(int userId, int chargeId, MercadoPagoCreatePaymentDto dto);
+    Task<MercadoPagoPaymentStatusDto> GetPaymentStatusAsync(int userId, int chargeId);
+    Task CancelOpenPaymentAsync(int chargeId);
     Task HandleWebhookAsync(
         MercadoPagoWebhookDto notification,
         string? queryType,

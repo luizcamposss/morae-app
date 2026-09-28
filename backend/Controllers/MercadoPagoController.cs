@@ -87,10 +87,30 @@ public class MercadoPagoController : ControllerBase
     }
 
     [Authorize]
-    [HttpPost("/api/charges/{chargeId}/mercadopago/checkout")]
-    public async Task<IActionResult> CreateCheckout([FromRoute] int chargeId)
+    [HttpGet("/api/charges/{chargeId}/mercadopago/payment-setup")]
+    public async Task<IActionResult> GetPaymentSetup([FromRoute] int chargeId)
     {
-        var result = await _mercadoPagoService.CreateCheckoutAsync(GetUserId(), chargeId);
+        var result = await _mercadoPagoService.GetPaymentSetupAsync(GetUserId(), chargeId);
+
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPost("/api/charges/{chargeId}/mercadopago/payments")]
+    public async Task<IActionResult> CreatePayment(
+        [FromRoute] int chargeId,
+        [FromBody] MercadoPagoCreatePaymentDto dto)
+    {
+        var result = await _mercadoPagoService.CreatePaymentAsync(GetUserId(), chargeId, dto);
+
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpGet("/api/charges/{chargeId}/mercadopago/payment-status")]
+    public async Task<IActionResult> GetPaymentStatus([FromRoute] int chargeId)
+    {
+        var result = await _mercadoPagoService.GetPaymentStatusAsync(GetUserId(), chargeId);
 
         return Ok(result);
     }

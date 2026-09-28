@@ -18,9 +18,9 @@ public class MercadoPagoPayment
     public int? PaymentId { get; set; }
     public Payment? Payment { get; set; }
 
-    [Required]
+    // Only set for Checkout Pro payments; transparent checkout creates payments directly.
     [StringLength(120)]
-    public string PreferenceId { get; set; } = string.Empty;
+    public string? PreferenceId { get; set; }
 
     [Required]
     [StringLength(120)]

@@ -12,4 +12,10 @@ public class MercadoPagoPaymentDetailsDto
     public string PaymentMethodId { get; set; } = string.Empty;
     public string PaymentTypeId { get; set; } = string.Empty;
     public DateTime? DateApproved { get; set; }
+    public DateTime? DateOfExpiration { get; set; }
+    public string PixQrCode { get; set; } = string.Empty;
+    public string PixQrCodeBase64 { get; set; } = string.Empty;
+    public string PixTicketUrl { get; set; } = string.Empty;
+    public string BoletoUrl { get; set; } = string.Empty;
+    public string BoletoDigitableLine { get; set; } = string.Empty;
 }

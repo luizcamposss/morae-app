@@ -1,8 +1,10 @@
 import { apiRequest } from "../../shared/lib/api/apiClient";
 import type {
-  MercadoPagoCheckoutResponse,
   MercadoPagoConnectionStatus,
   MercadoPagoOAuthStartResponse,
+  MercadoPagoPaymentResult,
+  MercadoPagoPaymentSetup,
+  MercadoPagoPaymentStatus,
 } from "./types";
 
 const mercadoPagoBasePath = "/api/mercadopago";
@@ -49,11 +51,31 @@ export async function disconnectMercadoPago(condominiumId?: number | null): Prom
   );
 }
 
-export async function createMercadoPagoCheckout(
+export async function getMercadoPagoPaymentSetup(
   chargeId: number,
-): Promise<MercadoPagoCheckoutResponse> {
-  return apiRequest<MercadoPagoCheckoutResponse>(
-    `/api/charges/${chargeId}/mercadopago/checkout`,
-    { method: "POST", auth: true },
-  );
+): Promise<MercadoPagoPaymentSetup> {
+  return apiRequest<MercadoPagoPaymentSetup>(`/api/charges/${chargeId}/mercadopago/payment-setup`, {
+    auth: true,
+  });
+}
+
+// formData is forwarded as the Payment Brick produced it; the backend ignores any amount
+// in it and charges the value stored for the charge.
+export async function createMercadoPagoPayment(
+  chargeId: number,
+  formData: unknown,
+): Promise<MercadoPagoPaymentResult> {
+  return apiRequest<MercadoPagoPaymentResult>(`/api/charges/${chargeId}/mercadopago/payments`, {
+    method: "POST",
+    body: formData,
+    auth: true,
+  });
+}
+
+export async function getMercadoPagoPaymentStatus(
+  chargeId: number,
+): Promise<MercadoPagoPaymentStatus> {
+  return apiRequest<MercadoPagoPaymentStatus>(`/api/charges/${chargeId}/mercadopago/payment-status`, {
+    auth: true,
+  });
 }

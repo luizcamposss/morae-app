@@ -1,6 +1,5 @@
-// Remembers the page the user was on before leaving for Mercado Pago, so the return
-// pages can send them back there. sessionStorage survives the round trip in the same tab.
-const CHECKOUT_RETURN_PATH_KEY = "morae.mercadopago.checkoutReturnPath";
+// Remembers the page the user was on before leaving for the Mercado Pago authorization,
+// so the OAuth return page can send them back there. sessionStorage survives the round trip in the same tab.
 const OAUTH_RETURN_PATH_KEY = "morae.mercadopago.oauthReturnPath";
 
 function save(key: string) {
@@ -22,7 +21,5 @@ function read(key: string) {
   }
 }
 
-export const saveCheckoutReturnPath = () => save(CHECKOUT_RETURN_PATH_KEY);
-export const getCheckoutReturnPath = () => read(CHECKOUT_RETURN_PATH_KEY);
 export const saveOAuthReturnPath = () => save(OAUTH_RETURN_PATH_KEY);
 export const getOAuthReturnPath = () => read(OAUTH_RETURN_PATH_KEY);

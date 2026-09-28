@@ -18,6 +18,7 @@ import type {
 } from "../financialAccounts/types";
 import { ProfilePhotoBlock } from "../profile/ProfilePhotoBlock";
 import { MercadoPagoConnectionPanel } from "../mercadoPago/MercadoPagoConnectionPanel";
+import { describePaymentMethods, useMercadoPagoConnected } from "../mercadoPago/useMercadoPagoConnected";
 
 type ModalType = "profile" | "notifications" | "financial" | null;
 
@@ -423,6 +424,8 @@ function FinancialAccountModal({
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [selectedMethod, setSelectedMethod] = useState<"choice" | "pix" | "mercadoPago">("choice");
+  const isMercadoPagoConnected = useMercadoPagoConnected(null, { refreshKey: selectedMethod });
+  const paymentMethodSummary = describePaymentMethods(Boolean(account?.pixKey), isMercadoPagoConnected, `cobranças institucionais`);
 
   async function handleSubmit(data: UpsertFinancialAccountRequest) {
     try {
@@ -450,19 +453,16 @@ function FinancialAccountModal({
         <div className="space-y-5">
           <PaymentMethodStatus
             label="Método em uso"
-            value={account?.pixKey ? "Pix normal" : "Nenhum método configurado"}
-            description={
-              account?.pixKey
-                ? "As cobranças institucionais usam a chave Pix cadastrada."
-                : "Cadastre uma chave Pix para liberar a criação de cobranças."
-            }
-            tone={account?.pixKey ? "success" : "warning"}
+            value={paymentMethodSummary.value}
+            description={paymentMethodSummary.description}
+            tone={paymentMethodSummary.tone}
           />
 
           <PaymentMethodChoice
             pixConfigured={Boolean(account?.pixKey)}
             onSelectPix={() => setSelectedMethod("pix")}
             onSelectMercadoPago={() => setSelectedMethod("mercadoPago")}
+            mercadoPagoConnected={isMercadoPagoConnected}
           />
         </div>
       </ModalShell>
@@ -564,10 +564,12 @@ function PaymentMethodChoice({
   pixConfigured,
   onSelectPix,
   onSelectMercadoPago,
+  mercadoPagoConnected,
 }: {
   pixConfigured: boolean;
   onSelectPix: () => void;
   onSelectMercadoPago: () => void;
+  mercadoPagoConnected: boolean;
 }) {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -598,10 +600,10 @@ function PaymentMethodChoice({
         </div>
         <h3 className="mt-5 text-xl font-black text-[#111827]">Mercado Pago</h3>
         <p className="mt-2 text-sm font-semibold leading-6 text-[#6B7280]">
-          Conecte a conta Mercado Pago para ativar checkout e recebimentos automaticos.
+          Receba pagamentos online com Pix, cartão e boleto direto na conta Mercado Pago.
         </p>
         <span className="mt-5 inline-flex text-sm font-black text-[#0284C7]">
-          Conectar conta →
+          {mercadoPagoConnected ? "Conta conectada · gerenciar" : "Conectar conta"} →
         </span>
       </button>
     </div>
