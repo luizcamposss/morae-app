@@ -6,6 +6,7 @@ import {
 } from "./mercadoPagoService";
 import { saveOAuthReturnPath } from "./returnPath";
 import type { MercadoPagoConnectionStatus } from "./types";
+import { formatDateTime } from "../../shared/lib/date";
 
 type MercadoPagoConnectionPanelProps = {
   contextLabel: string;
@@ -220,13 +221,3 @@ function InfoItem({ label, value }: { label: string; value: string }) {
   );
 }
 
-function formatDateTime(value?: string | null) {
-  if (!value) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  }).format(new Date(value));
-}

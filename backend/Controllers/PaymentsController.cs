@@ -37,6 +37,16 @@ public class PaymentsController : ControllerBase
             payment);
     }
 
+    [HttpGet("/api/charges/{chargeId}/receipt")]
+    public async Task<IActionResult> GetReceipt([FromRoute] int chargeId)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var receipt = await _paymentService.GetReceiptAsync(userId, chargeId);
+
+        return Ok(receipt);
+    }
+
     [HttpGet]
     public async Task<IActionResult> GetByCharge([FromRoute] int chargeId)
     {

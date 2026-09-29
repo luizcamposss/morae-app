@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { PaymentReceiptButton } from "../payments/PaymentReceiptButton";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { DatePickerField } from "../../shared/components/DatePickerField";
 import { MetricCard } from "../../shared/components/MetricCard";
@@ -13,6 +14,7 @@ import { createManualPayment } from "../payments/paymentService";
 import type { PaymentMethod } from "../payments/types";
 import { getUnitsByBuilding } from "../units/unitService";
 import type { UnitResponse } from "../units/types";
+import { formatCalendarDate, todayInputDate } from "../../shared/lib/date";
 
 type PaymentsTab = "platform" | "condominium";
 type StatusFilter = "all" | "1" | "2" | "3" | "4";
@@ -428,7 +430,7 @@ export function AdminPaymentsPage() {
                             {formatCurrency(charge.value)}
                           </td>
                           <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                            {formatDate(charge.dueDate)}
+                            {formatCalendarDate(charge.dueDate)}
                           </td>
                           <td className="px-4 py-4">
                             <StatusBadge
@@ -442,6 +444,7 @@ export function AdminPaymentsPage() {
                                 {(charge.status === 1 || charge.status === 3) && (
                                   <PayWithMercadoPagoButton chargeId={charge.id} onPaid={() => void loadPage()} />
                                 )}
+                                {charge.status === 2 && <PaymentReceiptButton chargeId={charge.id} />}
                                 <button
                                   type="button"
                                   onClick={() => setPaymentInfoCharge(charge)}
@@ -452,6 +455,9 @@ export function AdminPaymentsPage() {
                               </div>
                             ) : (
                               <div className="flex flex-wrap gap-2">
+                                {charge.status === 2 && (
+                                  <PaymentReceiptButton chargeId={charge.id} onRefunded={() => void loadPage()} />
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -459,7 +465,7 @@ export function AdminPaymentsPage() {
                                       chargeId: charge.id,
                                       amountPaid: formatCurrencyInput(charge.value),
                                       paymentMethod: 1,
-                                      paidAt: getTodayInputDate(),
+                                      paidAt: todayInputDate(),
                                       notes: "",
                                     });
                                     setErrorMessage("");
@@ -580,7 +586,7 @@ export function AdminPaymentsPage() {
                 <FormInput
                   label="Vencimento"
                   type="date"
-                  min={getTodayInputDate()}
+                  min={todayInputDate()}
                   placeholder="dd/mm/aaaa"
                   value={form.dueDate}
                   onChange={(value) => setForm((current) => ({ ...current, dueDate: value }))}
@@ -668,7 +674,7 @@ export function AdminPaymentsPage() {
               <FormInput
                 label="Data do pagamento"
                 type="date"
-                max={getTodayInputDate()}
+                max={todayInputDate()}
                 placeholder="dd/mm/aaaa"
                 value={paymentForm.paidAt}
                 onChange={(value) =>
@@ -732,7 +738,7 @@ export function AdminPaymentsPage() {
               <div className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] px-5 py-4">
                 <p className="text-sm font-black text-[#111827]">{cancelTarget.description}</p>
                 <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-                  {formatCurrency(cancelTarget.value)} • vencimento {formatDate(cancelTarget.dueDate)}
+                  {formatCurrency(cancelTarget.value)} • vencimento {formatCalendarDate(cancelTarget.dueDate)}
                 </p>
               </div>
 
@@ -860,7 +866,7 @@ function PaymentInfoModal({ charge, account, onClose }: PaymentInfoModalProps) {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <InfoItem label="Cobrança" value={charge.description} />
             <InfoItem label="Valor" value={formatCurrency(charge.value)} />
-            <InfoItem label="Vencimento" value={formatDate(charge.dueDate)} />
+            <InfoItem label="Vencimento" value={formatCalendarDate(charge.dueDate)} />
             <InfoItem label="Status" value={getChargeStatusLabel(charge.status)} />
           </div>
 
@@ -1077,7 +1083,7 @@ function validateCreateForm(form: FormState, units: UnitResponse[]) {
     return "Informe uma data de vencimento válida.";
   }
 
-  if (form.dueDate < getTodayInputDate()) {
+  if (form.dueDate < todayInputDate()) {
     return "O vencimento não pode ser anterior a hoje.";
   }
 
@@ -1127,7 +1133,7 @@ function validatePaymentForm(form: PaymentFormState, charge?: ChargeResponse) {
     return "Informe uma data de pagamento válida.";
   }
 
-  if (form.paidAt > getTodayInputDate()) {
+  if (form.paidAt > todayInputDate()) {
     return "A data do pagamento não pode ser futura.";
   }
 
@@ -1148,15 +1154,6 @@ function formatCurrencyInput(value: number) {
 
 function toCents(value: number) {
   return Math.round(value * 100);
-}
-
-function getTodayInputDate() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
 }
 
 function isValidInputDate(value: string) {
@@ -1186,10 +1183,6 @@ function getChargeStatusVariant(status: ChargeResponse["status"]) {
   if (status === 1) return "warning";
   if (status === 3) return "danger";
   return "neutral";
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR").format(new Date(value));
 }
 
 function formatCurrency(value: number) {

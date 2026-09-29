@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Collections.Concurrent;
 using AutoMapper;
 using backend.Constants;
@@ -24,6 +25,8 @@ public class MercadoPagoService : IMercadoPagoService
     private static readonly string[] ReversedPaymentStatuses = ["refunded", "charged_back", "cancelled"];
 
     private static readonly string[] OpenPaymentStatuses = ["pending", "in_process"];
+
+    private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
     // Pix (bank_transfer) and boleto (ticket) stay payable for hours or days, so they can and
     // must be cancelled when the charge is settled another way. Cards cannot be cancelled here.
@@ -231,8 +234,14 @@ public class MercadoPagoService : IMercadoPagoService
                 "O pagamento anterior desta cobrança acabou de ser confirmado ou ainda está em análise. Atualize a página antes de pagar novamente.");
         }
 
+        var payerName = await _context.Persons
+            .AsNoTracking()
+            .Where(person => person.Id == user.PersonId)
+            .Select(person => person.Name)
+            .FirstOrDefaultAsync();
+
         var details = await _paymentClient.CreateAsync(
-            BuildPaymentRequest(charge, user, dto),
+            BuildPaymentRequest(charge, user, payerName, dto),
             accessToken,
             Guid.NewGuid().ToString());
 
@@ -305,6 +314,49 @@ public class MercadoPagoService : IMercadoPagoService
             // If the open Pix/boleto is paid anyway, the webhook flags it for review.
             _logger.LogError(exception, "Could not cancel the open Mercado Pago payment of charge {ChargeId}.", chargeId);
         }
+    }
+
+    public async Task RefundPaymentAsync(int userId, int chargeId)
+    {
+        var trackedPayment = await _context.MercadoPagoPayments
+            .Include(item => item.Charge)
+                .ThenInclude(charge => charge.Condominium)
+            .Include(item => item.MercadoPagoAccount)
+            .Include(item => item.Payment)
+            .FirstOrDefaultAsync(item => item.ChargeId == chargeId);
+
+        if (trackedPayment?.Payment is null ||
+            trackedPayment.Payment.Source != PaymentSource.MercadoPago ||
+            !trackedPayment.MercadoPagoPaymentId.HasValue)
+        {
+            throw new BadRequestException("Esta cobrança não tem um pagamento do Mercado Pago para estornar.");
+        }
+
+        // Only the side that received the money can give it back.
+        if (trackedPayment.Charge.Scope == ChargeScope.Platform)
+        {
+            await _permissionService.EnsureMasterAsync(userId);
+
+            if (trackedPayment.Charge.Condominium.CreatedByUserId != userId)
+                throw new ForbiddenException("Você não pode estornar esta cobrança.");
+        }
+        else
+        {
+            await _permissionService.EnsureCondominiumAdminAsync(userId, trackedPayment.Charge.CondominiumId);
+        }
+
+        if (string.IsNullOrEmpty(trackedPayment.MercadoPagoAccount.AccessToken))
+            throw new BadRequestException("A conta Mercado Pago que recebeu este pagamento foi desconectada. Conecte-a novamente para estornar.");
+
+        var accessToken = await GetValidAccessTokenAsync(trackedPayment.MercadoPagoAccount);
+        var paymentId = trackedPayment.MercadoPagoPaymentId.Value;
+
+        await _paymentClient.RefundAsync(paymentId, accessToken, $"refund:{paymentId}");
+
+        // The refund webhook would reverse the charge too; doing it now gives immediate feedback,
+        // and the webhook then finds the charge already reopened.
+        var details = await _paymentClient.GetAsync(paymentId, accessToken);
+        await ApplyMercadoPagoPaymentAsync(trackedPayment, details);
     }
 
     public async Task HandleWebhookAsync(
@@ -485,6 +537,12 @@ public class MercadoPagoService : IMercadoPagoService
             trackedPayment.Charge,
             "Pagamento confirmado",
             "O pagamento pelo Mercado Pago foi confirmado.");
+
+        await NotifyReceiversAsync(
+            trackedPayment,
+            "Pagamento recebido",
+            $"Recebido pelo Mercado Pago o pagamento de {trackedPayment.Charge.Value.ToString("C", PtBr)} " +
+            $"da cobrança \"{trackedPayment.Charge.Description}\".");
     }
 
     private async Task HandleUpdateForPaidChargeAsync(
@@ -530,7 +588,7 @@ public class MercadoPagoService : IMercadoPagoService
 
         if (trackedPayment.Charge.Status == ChargeStatus.Paid)
         {
-            trackedPayment.Charge.Status = trackedPayment.Charge.DueDate.Date < DateTime.UtcNow.Date
+            trackedPayment.Charge.Status = trackedPayment.Charge.DueDate.Date < AppTimeZone.Today
                 ? ChargeStatus.Overdue
                 : ChargeStatus.Pending;
         }
@@ -1002,11 +1060,18 @@ public class MercadoPagoService : IMercadoPagoService
     private PaymentCreateRequest BuildPaymentRequest(
         Charge charge,
         ApplicationUser user,
+        string? payerName,
         MercadoPagoCreatePaymentDto dto)
     {
         var payer = dto.Payer;
         var address = payer?.Address;
         var isCard = !string.IsNullOrWhiteSpace(dto.Token);
+        var (registeredFirstName, registeredLastName) = SplitName(payerName);
+        var firstName = string.IsNullOrWhiteSpace(payer?.FirstName) ? registeredFirstName : payer.FirstName;
+        var lastName = string.IsNullOrWhiteSpace(payer?.LastName) ? registeredLastName : payer.LastName;
+        var itemDescription = charge.Scope == ChargeScope.Platform
+            ? "Cobrança da plataforma MORAÊ"
+            : "Cobrança condominial";
 
         return new PaymentCreateRequest
         {
@@ -1023,8 +1088,8 @@ public class MercadoPagoService : IMercadoPagoService
             Payer = new PaymentPayerRequest
             {
                 Email = string.IsNullOrWhiteSpace(payer?.Email) ? user.Email : payer.Email,
-                FirstName = payer?.FirstName,
-                LastName = payer?.LastName,
+                FirstName = firstName,
+                LastName = lastName,
                 Identification = payer?.Identification is null
                     ? null
                     : new IdentificationRequest
@@ -1045,12 +1110,46 @@ public class MercadoPagoService : IMercadoPagoService
                         FederalUnit = address.FederalUnit
                     }
             },
+            // Item and payer details feed Mercado Pago's fraud analysis: without them more
+            // legitimate cards are declined in production.
+            AdditionalInfo = new PaymentAdditionalInfoRequest
+            {
+                Items =
+                [
+                    new PaymentItemRequest
+                    {
+                        Id = charge.Id.ToString(),
+                        Title = charge.Description,
+                        Description = itemDescription,
+                        CategoryId = "services",
+                        Quantity = 1,
+                        UnitPrice = charge.Value
+                    }
+                ],
+                Payer = new PaymentAdditionalInfoPayerRequest
+                {
+                    FirstName = firstName,
+                    LastName = lastName
+                }
+            },
             Metadata = new Dictionary<string, object>
             {
                 ["charge_id"] = charge.Id,
                 ["charge_scope"] = charge.Scope.ToString(),
                 ["condominium_id"] = charge.CondominiumId
             }
+        };
+    }
+
+    private static (string? FirstName, string? LastName) SplitName(string? fullName)
+    {
+        var parts = (fullName ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        return parts.Length switch
+        {
+            0 => (null, null),
+            1 => (parts[0], null),
+            _ => (parts[0], string.Join(' ', parts[1..]))
         };
     }
 

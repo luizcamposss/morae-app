@@ -4,6 +4,7 @@ import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
 import { cancelInvitation, getInvitationsByCondominium, renewInvitation } from "./invitationService";
 import type { InvitationResponse, InvitationStatus } from "./types";
+import { formatDateTime } from "../../shared/lib/date";
 
 const ADMIN_ROLE = 2;
 const PENDING_STATUS = 1;
@@ -528,26 +529,6 @@ function getInvitationDisplayDate(invitation: InvitationResponse, status: Invita
   }
 
   return invitation.expiresAt;
-}
-
-function formatDateTime(value?: string | null) {
-  if (!value) {
-    return "-";
-  }
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
 }
 
 function getFriendlyErrorMessage(error: unknown, fallback: string) {

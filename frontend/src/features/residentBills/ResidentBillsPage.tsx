@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { PaymentReceiptButton } from "../payments/PaymentReceiptButton";
 import { svgIcone } from "@edusites/icons/core";
 import { StatusBadge } from "../../shared/components/StatusBadge";
 import { getMyCharges } from "../charges/chargeService";
 import type { ChargeResponse } from "../charges/types";
 import { PayWithMercadoPagoButton } from "../mercadoPago/PayWithMercadoPagoButton";
+import { formatCalendarDate, parseCalendarDate } from "../../shared/lib/date";
 
 export function ResidentBillsPage() {
   const [charges, setCharges] = useState<ChargeResponse[]>([]);
@@ -47,7 +49,7 @@ export function ResidentBillsPage() {
   const overdueCharges = charges.filter((charge) => charge.status === 3);
   const nextCharge = [...pendingCharges, ...overdueCharges].sort(
     (left, right) =>
-      new Date(left.dueDate).getTime() - new Date(right.dueDate).getTime(),
+      parseCalendarDate(left.dueDate).getTime() - parseCalendarDate(right.dueDate).getTime(),
   )[0];
 
   return (
@@ -175,7 +177,7 @@ function NextChargeCard({ charge, isLoading, onPaid }: NextChargeCardProps) {
               {formatCurrency(charge.value)}
             </h2>
             <p className="mt-3 text-sm font-semibold leading-6 text-[#4B5563]">
-              Vence em {formatDate(charge.dueDate)} · {charge.description}
+              Vence em {formatCalendarDate(charge.dueDate)} · {charge.description}
             </p>
             <div className="mt-5">
               <PayWithMercadoPagoButton chargeId={charge.id} onPaid={onPaid} className="h-11 px-6 text-sm" />
@@ -246,7 +248,7 @@ function ChargeRow({ charge, onPaid }: ChargeRowProps) {
       </div>
 
       <InfoColumn label="Valor" value={formatCurrency(charge.value)} />
-      <InfoColumn label="Vencimento" value={formatDate(charge.dueDate)} />
+      <InfoColumn label="Vencimento" value={formatCalendarDate(charge.dueDate)} />
 
       <div className="flex flex-wrap items-start gap-3 lg:justify-self-end">
         <StatusBadge
@@ -254,6 +256,7 @@ function ChargeRow({ charge, onPaid }: ChargeRowProps) {
           variant={getChargeStatusVariant(charge.status)}
         />
         {isPayable(charge) && <PayWithMercadoPagoButton chargeId={charge.id} onPaid={onPaid} />}
+        {charge.status === 2 && <PaymentReceiptButton chargeId={charge.id} />}
       </div>
     </article>
   );
@@ -378,10 +381,6 @@ function getChargeStatusVariant(status: ChargeResponse["status"]) {
   if (status === 1) return "warning";
   if (status === 3) return "danger";
   return "neutral";
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR").format(new Date(value));
 }
 
 function formatCurrency(value: number) {

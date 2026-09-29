@@ -12,6 +12,7 @@ public interface IMercadoPagoService
     Task<MercadoPagoPaymentResultDto> CreatePaymentAsync(int userId, int chargeId, MercadoPagoCreatePaymentDto dto);
     Task<MercadoPagoPaymentStatusDto> GetPaymentStatusAsync(int userId, int chargeId);
     Task CancelOpenPaymentAsync(int chargeId);
+    Task RefundPaymentAsync(int userId, int chargeId);
     Task HandleWebhookAsync(
         MercadoPagoWebhookDto notification,
         string? queryType,

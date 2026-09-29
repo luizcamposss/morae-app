@@ -1,4 +1,5 @@
 import { useAuth } from "../../app/providers/useAuth";
+import { formatDateTime } from "../../shared/lib/date";
 
 export function SuspendedAccessPage() {
   const { user, logout } = useAuth();
@@ -42,7 +43,7 @@ export function SuspendedAccessPage() {
               />
               <InfoBlock
                 label="Suspenso em"
-                value={user?.suspendedAt ? formatDate(user.suspendedAt) : "Data não informada"}
+                value={user?.suspendedAt ? formatDateTime(user.suspendedAt) : "Data não informada"}
               />
             </div>
 
@@ -81,12 +82,3 @@ function InfoBlock({ label, value }: { label: string; value: string }) {
   );
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}

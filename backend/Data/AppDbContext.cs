@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -344,5 +345,38 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .WithOne()
             .HasForeignKey<MercadoPagoPayment>(payment => payment.PaymentId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        ApplyUtcDateTimeConvention(builder);
+    }
+
+    // Every DateTime column holds a UTC instant, but MySQL returns it without a kind, so the
+    // API would send it without an offset and browsers would read it as local time. Marking it
+    // as UTC on read (and normalizing on write) makes the JSON carry "Z".
+    // Charge.DueDate is a calendar day, not an instant, and is left untouched.
+    private static void ApplyUtcDateTimeConvention(ModelBuilder builder)
+    {
+        var utcConverter = new ValueConverter<DateTime, DateTime>(
+            value => value.Kind == DateTimeKind.Local ? value.ToUniversalTime() : DateTime.SpecifyKind(value, DateTimeKind.Utc),
+            value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
+
+        var nullableUtcConverter = new ValueConverter<DateTime?, DateTime?>(
+            value => value.HasValue
+                ? value.Value.Kind == DateTimeKind.Local ? value.Value.ToUniversalTime() : DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)
+                : value,
+            value => value.HasValue ? DateTime.SpecifyKind(value.Value, DateTimeKind.Utc) : value);
+
+        foreach (var entityType in builder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (entityType.ClrType == typeof(Charge) && property.Name == nameof(Charge.DueDate))
+                    continue;
+
+                if (property.ClrType == typeof(DateTime))
+                    property.SetValueConverter(utcConverter);
+                else if (property.ClrType == typeof(DateTime?))
+                    property.SetValueConverter(nullableUtcConverter);
+            }
+        }
     }
 }

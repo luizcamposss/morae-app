@@ -13,4 +13,6 @@ public interface IMercadoPagoPaymentClient
         string idempotencyKey);
 
     Task<MercadoPagoPaymentDetailsDto> CancelAsync(long paymentId, string accessToken);
+
+    Task RefundAsync(long paymentId, string accessToken, string idempotencyKey);
 }

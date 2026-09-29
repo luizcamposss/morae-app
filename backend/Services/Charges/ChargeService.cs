@@ -48,6 +48,9 @@ public class ChargeService : IChargeService
 
         var charge = _mapper.Map<Charge>(dto);
 
+        // The due date is a calendar day, not an instant: keep only the date, without a time zone.
+        charge.DueDate = DateTime.SpecifyKind(dto.DueDate.Date, DateTimeKind.Unspecified);
+
         charge.CreatedByUserId = userId;
         charge.Status = ChargeStatus.Pending;
         charge.CreatedAt = DateTime.UtcNow;
@@ -198,8 +201,8 @@ public class ChargeService : IChargeService
     }
     private async Task ValidateCreateAsync(int userId, CreateChargeDto dto)
     {
-        if (dto.DueDate.Date < DateTime.UtcNow.Date)
-            throw new BadRequestException("Due date cannot be in the past.");
+        if (dto.DueDate.Date < AppTimeZone.Today)
+            throw new BadRequestException("O vencimento não pode ser uma data passada.");
 
         var condominiumExists = await _context.Condominiums
             .AsNoTracking()

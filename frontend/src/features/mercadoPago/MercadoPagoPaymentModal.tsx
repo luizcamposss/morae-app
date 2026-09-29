@@ -6,6 +6,7 @@ import {
   getMercadoPagoPaymentStatus,
 } from "./mercadoPagoService";
 import type { MercadoPagoPaymentResult, MercadoPagoPaymentSetup } from "./types";
+import { formatDate, formatDateTime } from "../../shared/lib/date";
 
 type MercadoPagoPaymentModalProps = {
   chargeId: number;
@@ -395,12 +396,3 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR").format(new Date(value));
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
-    new Date(value),
-  );
-}

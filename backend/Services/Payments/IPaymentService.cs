@@ -10,4 +10,5 @@ public interface IPaymentService
 {
     Task<PaymentResponseDto> CreateManualAsync(int userId, int chargeId, CreateManualPaymentDto dto);
     Task<IEnumerable<PaymentResponseDto>> GetByChargeAsync(int userId, int chargeId);
+    Task<PaymentReceiptDto> GetReceiptAsync(int userId, int chargeId);
 }

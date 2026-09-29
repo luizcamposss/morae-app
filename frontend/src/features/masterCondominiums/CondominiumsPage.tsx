@@ -23,6 +23,7 @@ import type { InvitationResponse } from "../invitations/types";
 import { getMasterUsers } from "../masterUsers/masterUserService";
 import type { MasterUserResponse } from "../masterUsers/types";
 import { createPerson } from "../persons/personService";
+import { formatDate } from "../../shared/lib/date";
 
 const ACTIVE_STATUS = 1;
 const INACTIVE_STATUS = 2;
@@ -1823,14 +1824,6 @@ function formatLocation(condominium: CondominiumResponse) {
     }
 
     return cityState || condominium.address || "Sem localização";
-}
-
-function formatDate(value: string) {
-    return new Intl.DateTimeFormat("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-    }).format(new Date(value));
 }
 
 function formatCnpj(value: string) {

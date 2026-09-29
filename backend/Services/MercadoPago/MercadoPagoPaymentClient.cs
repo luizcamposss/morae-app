@@ -85,6 +85,33 @@ public class MercadoPagoPaymentClient : IMercadoPagoPaymentClient
         }
     }
 
+    public async Task RefundAsync(long paymentId, string accessToken, string idempotencyKey)
+    {
+        var requestOptions = new RequestOptions { AccessToken = accessToken };
+        requestOptions.CustomHeaders.Add("X-Idempotency-Key", idempotencyKey);
+
+        try
+        {
+            await new PaymentClient().RefundAsync(paymentId, requestOptions);
+        }
+        catch (MercadoPagoApiException exception)
+        {
+            _logger.LogError(
+                exception,
+                "Mercado Pago refund of payment {PaymentId} failed: {StatusCode} {Content}",
+                paymentId,
+                exception.StatusCode,
+                exception.ApiResponse?.Content);
+            throw new BadRequestException(
+                "O Mercado Pago recusou o estorno. Verifique o saldo da conta ou o prazo para estorno e tente novamente.");
+        }
+        catch (MercadoPagoException exception)
+        {
+            _logger.LogError(exception, "Mercado Pago refund of payment {PaymentId} failed.", paymentId);
+            throw new BadRequestException("Não foi possível estornar o pagamento no Mercado Pago. Tente novamente.");
+        }
+    }
+
     private static MercadoPagoPaymentDetailsDto Map(Payment payment)
     {
         var transactionData = payment.PointOfInteraction?.TransactionData;

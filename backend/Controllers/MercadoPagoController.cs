@@ -115,6 +115,15 @@ public class MercadoPagoController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
+    [HttpPost("/api/charges/{chargeId}/mercadopago/refund")]
+    public async Task<IActionResult> RefundPayment([FromRoute] int chargeId)
+    {
+        await _mercadoPagoService.RefundPaymentAsync(GetUserId(), chargeId);
+
+        return NoContent();
+    }
+
     [AllowAnonymous]
     [HttpPost("webhooks")]
     public async Task<IActionResult> ReceiveWebhook(

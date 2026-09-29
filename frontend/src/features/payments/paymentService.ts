@@ -1,5 +1,5 @@
 import { apiRequest } from "../../shared/lib/api/apiClient";
-import type { CreateManualPaymentRequest, PaymentResponse } from "./types";
+import type { CreateManualPaymentRequest, PaymentReceipt, PaymentResponse } from "./types";
 
 export async function createManualPayment(
   chargeId: number,
@@ -14,6 +14,12 @@ export async function createManualPayment(
 
 export async function getPaymentsByCharge(chargeId: number): Promise<PaymentResponse[]> {
   return apiRequest<PaymentResponse[]>(`/api/charges/${chargeId}/payments`, {
+    auth: true,
+  });
+}
+
+export async function getPaymentReceipt(chargeId: number): Promise<PaymentReceipt> {
+  return apiRequest<PaymentReceipt>(`/api/charges/${chargeId}/receipt`, {
     auth: true,
   });
 }

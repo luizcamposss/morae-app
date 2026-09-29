@@ -79,3 +79,10 @@ export async function getMercadoPagoPaymentStatus(
     auth: true,
   });
 }
+
+export async function refundMercadoPagoPayment(chargeId: number): Promise<void> {
+  return apiRequest<void>(`/api/charges/${chargeId}/mercadopago/refund`, {
+    method: "POST",
+    auth: true,
+  });
+}

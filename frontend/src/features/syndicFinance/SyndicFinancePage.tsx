@@ -4,6 +4,7 @@ import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
 import { getChargesByCondominium } from "../charges/chargeService";
 import type { ChargeResponse, ChargeStatus } from "../charges/types";
+import { formatCalendarDate } from "../../shared/lib/date";
 
 type StatusFilter = "all" | ChargeStatus;
 
@@ -179,7 +180,7 @@ export function SyndicFinancePage() {
                         {formatCurrency(charge.value)}
                       </td>
                       <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                        {formatDate(charge.dueDate)}
+                        {formatCalendarDate(charge.dueDate)}
                       </td>
                       <td className="px-4 py-4">
                         <StatusBadge
@@ -227,6 +228,3 @@ function formatCurrency(value: number) {
   }).format(value);
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR").format(new Date(value));
-}

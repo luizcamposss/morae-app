@@ -20,6 +20,7 @@ import { getCondominiums } from "../condominiums/condominiumService";
 import type { CondominiumResponse } from "../condominiums/types";
 import { getInvitationsByCondominium } from "../invitations/invitationService";
 import type { InvitationResponse } from "../invitations/types";
+import { formatCalendarDate, formatDate, formatTodayHeading, getGreeting, parseCalendarDate, toAppDateString, todayCalendarDate } from "../../shared/lib/date";
 
 const ACTIVE_STATUS = 1;
 const PENDING_INVITATION_STATUS = 1;
@@ -213,7 +214,7 @@ export function MasterDashboardPage() {
         ...platformCharges.map((charge) => ({
           id: `charge-${charge.id}`,
           title: `Cobrança MORAÊ para ${charge.condominiumName}`,
-          description: `${formatCurrency(charge.value)} · vencimento ${formatDate(charge.dueDate)}`,
+          description: `${formatCurrency(charge.value)} · vencimento ${formatCalendarDate(charge.dueDate)}`,
           date: charge.dueDate,
           badge: getChargeStatusLabel(charge.status),
           variant: getChargeStatusVariant(charge.status),
@@ -277,8 +278,8 @@ export function MasterDashboardPage() {
           </h1>
         </div>
 
-        <div className="rounded-full bg-white px-4 py-2 text-sm font-extrabold capitalize text-[#6B7280] shadow-sm">
-          <time>{formatToday()}</time>
+        <div className="rounded-full bg-white px-4 py-2 text-sm font-extrabold text-[#6B7280] shadow-sm">
+          <time>{formatTodayHeading()}</time>
           {temperature !== null && <span>, {temperature}°</span>}
         </div>
       </header>
@@ -545,7 +546,7 @@ function buildCondominiumChart(
   condominiums: CondominiumResponse[],
   amount: number,
 ) {
-  const months = getLastMonths(amount);
+  const months = getChartMonths(amount);
   const sortedCondominiums = [...condominiums].sort(
     (first, second) =>
       new Date(first.createdAt).getTime() - new Date(second.createdAt).getTime(),
@@ -554,7 +555,7 @@ function buildCondominiumChart(
   return months.map((month) => {
     const monthEnd = new Date(month.year, month.month + 1, 0, 23, 59, 59);
     const novos = sortedCondominiums.filter(
-      (condominium) => getMonthKey(new Date(condominium.createdAt)) === month.key,
+      (condominium) => toAppDateString(condominium.createdAt).slice(0, 7) === month.key,
     ).length;
     const acumulado = sortedCondominiums.filter(
       (condominium) => new Date(condominium.createdAt) <= monthEnd,
@@ -569,11 +570,12 @@ function buildCondominiumChart(
 }
 
 function buildRevenueChart(charges: ChargeResponse[], amount: number) {
-  const months = getLastMonths(amount);
+  // Includes next month: platform charges usually fall due there.
+  const months = getChartMonths(amount, 1);
 
   return months.map((month) => {
     const monthCharges = charges.filter(
-      (charge) => getMonthKey(new Date(charge.dueDate)) === month.key,
+      (charge) => getMonthKey(parseCalendarDate(charge.dueDate)) === month.key,
     );
 
     return {
@@ -593,11 +595,11 @@ function sumChargesByStatus(charges: ChargeResponse[], statuses: number[]) {
     .reduce((total, charge) => total + charge.value, 0);
 }
 
-function getLastMonths(amount: number) {
-  const today = new Date();
+function getChartMonths(amount: number, monthsAhead = 0) {
+  const today = todayCalendarDate();
 
   return Array.from({ length: amount }, (_, index) => {
-    const date = new Date(today.getFullYear(), today.getMonth() - (amount - 1 - index), 1);
+    const date = new Date(today.getFullYear(), today.getMonth() - (amount - 1 - index) + monthsAhead, 1);
 
     return {
       key: getMonthKey(date),
@@ -612,30 +614,6 @@ function getLastMonths(amount: number) {
 
 function getMonthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function getGreeting() {
-  const hour = new Date().getHours();
-
-  if (hour < 12) return "Bom dia";
-  if (hour < 18) return "Boa tarde";
-  return "Boa noite";
-}
-
-function formatToday() {
-  return new Intl.DateTimeFormat("pt-BR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-  }).format(new Date());
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(value));
 }
 
 function formatCurrency(value: number) {

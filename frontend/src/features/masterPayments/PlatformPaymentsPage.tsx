@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { PaymentReceiptButton } from "../payments/PaymentReceiptButton";
 import { DatePickerField } from "../../shared/components/DatePickerField";
 import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
@@ -8,6 +9,7 @@ import { getCondominiums } from "../condominiums/condominiumService";
 import type { CondominiumResponse } from "../condominiums/types";
 import { createManualPayment } from "../payments/paymentService";
 import type { PaymentMethod } from "../payments/types";
+import { formatCalendarDate, todayInputDate } from "../../shared/lib/date";
 
 type CreateFormState = {
   condominiumId: string;
@@ -358,7 +360,7 @@ export function PlatformPaymentsPage() {
                           {formatCurrency(charge.value)}
                         </td>
                         <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                          {formatDate(charge.dueDate)}
+                          {formatCalendarDate(charge.dueDate)}
                         </td>
                         <td className="px-4 py-4">
                           <StatusBadge
@@ -368,6 +370,9 @@ export function PlatformPaymentsPage() {
                         </td>
                         <td className="px-4 py-4">
                           <div className="flex flex-wrap gap-2">
+                            {charge.status === 2 && (
+                              <PaymentReceiptButton chargeId={charge.id} onRefunded={() => void loadPage()} />
+                            )}
                             <button
                               type="button"
                               onClick={() => openPaymentModal(charge, setPaymentForm, setModalError)}
@@ -435,7 +440,7 @@ export function PlatformPaymentsPage() {
               <FormInput
                 label="Vencimento"
                 type="date"
-                min={getTodayInputDate()}
+                min={todayInputDate()}
                 placeholder="dd/mm/aaaa"
                 value={createForm.dueDate}
                 onChange={(value) => setCreateForm((current) => ({ ...current, dueDate: value }))}
@@ -496,7 +501,7 @@ export function PlatformPaymentsPage() {
               <FormInput
                 label="Data do pagamento"
                 type="date"
-                max={getTodayInputDate()}
+                max={todayInputDate()}
                 placeholder="dd/mm/aaaa"
                 value={paymentForm.paidAt}
                 onChange={(value) =>
@@ -821,7 +826,7 @@ function validateCreateForm(
     return "Informe uma data de vencimento válida.";
   }
 
-  if (form.dueDate < getTodayInputDate()) {
+  if (form.dueDate < todayInputDate()) {
     return "O vencimento não pode ser anterior a hoje.";
   }
 
@@ -859,7 +864,7 @@ function validatePaymentForm(form: PaymentFormState, charge?: ChargeResponse) {
     return "Informe uma data de pagamento válida.";
   }
 
-  if (form.paidAt > getTodayInputDate()) {
+  if (form.paidAt > todayInputDate()) {
     return "A data do pagamento não pode ser futura.";
   }
 
@@ -898,7 +903,7 @@ function openPaymentModal(
     chargeId: charge.id,
     amountPaid: charge.value.toString(),
     paymentMethod: 1,
-    paidAt: new Date().toISOString().slice(0, 10),
+    paidAt: todayInputDate(),
     notes: "",
   });
 }
@@ -922,10 +927,6 @@ function getChargeStatusVariant(status: ChargeResponse["status"]) {
   return "neutral";
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR").format(new Date(value));
-}
-
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -939,15 +940,6 @@ function toCents(value: number) {
 
 function parseCurrencyInput(value: string) {
   return Number(value.trim().replace(/\./g, "").replace(",", "."));
-}
-
-function getTodayInputDate() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
 }
 
 function isValidInputDate(value: string) {

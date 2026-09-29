@@ -68,7 +68,7 @@ public class PaymentService : IPaymentService
         payment.ChargeId = charge.Id;
         payment.RegisteredByUserId = userId;
         payment.Source = PaymentSource.Manual;
-        payment.PaidAt = dto.PaidAt ?? DateTime.UtcNow;
+        payment.PaidAt = ResolveManualPaidAt(dto.PaidAt);
         payment.CreatedAt = DateTime.UtcNow;
 
         _context.Payments.Add(payment);
@@ -102,6 +102,84 @@ public class PaymentService : IPaymentService
             .ToListAsync();
 
         return _mapper.Map<IEnumerable<PaymentResponseDto>>(payments);
+    }
+
+    // The form sends only a date (São Paulo calendar). Today means "now"; an earlier day is
+    // stored as the start of that day in São Paulo.
+    private static DateTime ResolveManualPaidAt(DateTime? paidAt)
+    {
+        if (!paidAt.HasValue)
+            return DateTime.UtcNow;
+
+        if (paidAt.Value.Kind == DateTimeKind.Utc)
+        {
+            if (paidAt.Value > DateTime.UtcNow)
+                throw new BadRequestException("A data de pagamento não pode ser futura.");
+
+            return paidAt.Value;
+        }
+
+        var paidDate = paidAt.Value.Date;
+
+        if (paidDate > AppTimeZone.Today)
+            throw new BadRequestException("A data de pagamento não pode ser futura.");
+
+        return paidDate == AppTimeZone.Today
+            ? DateTime.UtcNow
+            : AppTimeZone.StartOfDayToUtc(paidDate);
+    }
+
+    public async Task<PaymentReceiptDto> GetReceiptAsync(int userId, int chargeId)
+    {
+        var charge = await _context.Charges
+            .AsNoTracking()
+            .Include(c => c.Condominium)
+            .Include(c => c.Unit)
+                .ThenInclude(unit => unit!.Building)
+            .FirstOrDefaultAsync(c => c.Id == chargeId);
+
+        if (charge is null)
+            throw new NotFoundException("Cobrança não encontrada.");
+
+        await EnsureCanReadPaymentsAsync(userId, charge);
+
+        var payment = await _context.Payments
+            .AsNoTracking()
+            .Include(p => p.RegisteredByUser)
+                .ThenInclude(user => user.Person)
+            .FirstOrDefaultAsync(p => p.ChargeId == chargeId);
+
+        if (payment is null)
+            throw new NotFoundException("Esta cobrança ainda não foi paga.");
+
+        var mercadoPagoPaymentId = await _context.MercadoPagoPayments
+            .AsNoTracking()
+            .Where(item => item.PaymentId == payment.Id)
+            .Select(item => item.MercadoPagoPaymentId)
+            .FirstOrDefaultAsync();
+
+        var isReceiver = charge.Scope == ChargeScope.Platform
+            ? await IsMasterCondominiumOwnerAsync(userId, charge.CondominiumId)
+            : await _permissionService.IsCondominiumAdminAsync(userId, charge.CondominiumId);
+
+        return new PaymentReceiptDto
+        {
+            ChargeId = charge.Id,
+            Description = charge.Description,
+            Scope = charge.Scope,
+            CondominiumName = charge.Condominium.Name,
+            UnitLabel = charge.Unit is null ? null : $"{charge.Unit.Building.Name} · Unidade {charge.Unit.Number}",
+            ReceiverName = charge.Scope == ChargeScope.Platform ? "MORAÊ" : charge.Condominium.Name,
+            AmountPaid = payment.AmountPaid,
+            PaidAt = payment.PaidAt,
+            PaymentMethod = payment.PaymentMethod,
+            Source = payment.Source,
+            MercadoPagoPaymentId = mercadoPagoPaymentId,
+            RegisteredByName = payment.Source == PaymentSource.MercadoPago
+                ? "Mercado Pago"
+                : payment.RegisteredByUser.Person?.Name ?? payment.RegisteredByUser.Email ?? string.Empty,
+            CanRefund = isReceiver && payment.Source == PaymentSource.MercadoPago && mercadoPagoPaymentId.HasValue
+        };
     }
 
     private async Task EnsureCanRegisterPaymentAsync(int userId, Charge charge)

@@ -10,6 +10,7 @@ import {
 } from "../../features/notifications/notificationService";
 import type { NotificationResponse, NotificationType } from "../../features/notifications/types";
 import logoMorae from "../../assets/logo-morae.svg";
+import { formatDateTime } from "../lib/date";
 
 type NotificationTab = "all" | "unread";
 
@@ -449,17 +450,5 @@ function getNotificationMeta(type: NotificationType) {
 }
 
 function formatNotificationDate(value: string) {
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return "";
-  }
-
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date).replace(",", " às");
+  return formatDateTime(value, "").replace(",", " às");
 }

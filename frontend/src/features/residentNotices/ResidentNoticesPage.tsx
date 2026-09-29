@@ -4,6 +4,7 @@ import { useCondominium } from "../../app/providers/useCondominium";
 import { StatusBadge } from "../../shared/components/StatusBadge";
 import { getNewsByCondominium } from "../news/newsService";
 import type { NewsPriority, NewsResponse } from "../news/types";
+import { formatLongDate } from "../../shared/lib/date";
 
 export function ResidentNoticesPage() {
   const { activeCondominium, activeCondominiumId } = useCondominium();
@@ -175,7 +176,7 @@ function FeaturedNotice({ notice, isLoading }: FeaturedNoticeProps) {
               {notice.description}
             </p>
             <p className="mt-5 text-xs font-black uppercase tracking-[0.18em] text-[#9CA3AF]">
-              Publicado em {formatDate(notice.createdAt)}
+              Publicado em {formatLongDate(notice.createdAt)}
             </p>
           </>
         ) : (
@@ -240,7 +241,7 @@ function NoticeCard({ notice }: NoticeCardProps) {
           <div>
             <h3 className="font-black leading-6 text-[#111827]">{notice.title}</h3>
             <p className="mt-1 text-xs font-black uppercase tracking-[0.16em] text-[#9CA3AF]">
-              {formatDate(notice.createdAt)} · {getAudienceLabel(notice.targetAudience)}
+              {formatLongDate(notice.createdAt)} · {getAudienceLabel(notice.targetAudience)}
             </p>
           </div>
         </div>
@@ -353,10 +354,3 @@ function getAudienceLabel(targetAudience: number) {
   return "Público definido";
 }
 
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  }).format(new Date(value));
-}
