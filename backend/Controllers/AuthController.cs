@@ -1,5 +1,8 @@
+using System.Security.Claims;
 using backend.DTOs;
+using backend.DTOs.Auth;
 using backend.Services.Auth;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.Controllers;
@@ -65,6 +68,17 @@ public class AuthController : ControllerBase
             await _authService.RevokeAsync(refreshToken);
 
         DeleteRefreshTokenCookie();
+
+        return NoContent();
+    }
+
+    [Authorize]
+    [HttpPost("change-password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        await _authService.ChangePasswordAsync(userId, dto, Request.Cookies[RefreshTokenCookie]);
 
         return NoContent();
     }

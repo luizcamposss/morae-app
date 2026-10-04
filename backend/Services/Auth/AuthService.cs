@@ -4,6 +4,7 @@ using System.Security.Claims;
 using System.Text;
 using backend.DTOs;
 using backend.Data;
+using backend.Exceptions;
 using backend.DTOs.Auth;
 using backend.Models;
 using Microsoft.AspNetCore.Identity;
@@ -151,6 +152,38 @@ public class AuthService : IAuthService
     {
         await _context.RefreshTokens
             .Where(token => token.UserId == userId && token.RevokedAt == null)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(token => token.RevokedAt, DateTime.UtcNow));
+    }
+
+    public async Task ChangePasswordAsync(int userId, ChangePasswordDto dto, string? currentRefreshToken)
+    {
+        if (string.IsNullOrEmpty(dto.CurrentPassword) || string.IsNullOrEmpty(dto.NewPassword))
+            throw new BadRequestException("Informe a senha atual e a nova senha.");
+
+        if (dto.CurrentPassword == dto.NewPassword)
+            throw new BadRequestException("A nova senha precisa ser diferente da atual.");
+
+        var user = await _userManager.FindByIdAsync(userId.ToString())
+            ?? throw new NotFoundException("Usuário não encontrado.");
+
+        // Also enforces the password rules (length, letter, digit).
+        var result = await _userManager.ChangePasswordAsync(user, dto.CurrentPassword, dto.NewPassword);
+
+        if (!result.Succeeded)
+        {
+            var message = result.Errors.Any(error => error.Code == nameof(IdentityErrorDescriber.PasswordMismatch))
+                ? "A senha atual está incorreta."
+                : string.Join(" ", result.Errors.Select(error => error.Description));
+
+            throw new BadRequestException(message);
+        }
+
+        // Someone who changes the password may suspect the account was used elsewhere:
+        // end every other session and keep only this device signed in.
+        var keepHash = string.IsNullOrEmpty(currentRefreshToken) ? null : HashToken(currentRefreshToken);
+
+        await _context.RefreshTokens
+            .Where(token => token.UserId == userId && token.RevokedAt == null && token.TokenHash != keepHash)
             .ExecuteUpdateAsync(setters => setters.SetProperty(token => token.RevokedAt, DateTime.UtcNow));
     }
 

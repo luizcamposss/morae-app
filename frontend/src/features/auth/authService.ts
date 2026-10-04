@@ -17,3 +17,14 @@ export async function logout(): Promise<void> {
     withCredentials: true,
   });
 }
+
+// Changes the password; the server keeps this session and ends the ones on other devices
+// (the refresh-token cookie identifies this session, hence withCredentials).
+export async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  return apiRequest<void>("/api/auth/change-password", {
+    method: "POST",
+    body: { currentPassword, newPassword },
+    auth: true,
+    withCredentials: true,
+  });
+}

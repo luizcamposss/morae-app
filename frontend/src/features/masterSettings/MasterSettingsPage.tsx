@@ -19,8 +19,9 @@ import type {
 import { ProfilePhotoBlock } from "../profile/ProfilePhotoBlock";
 import { MercadoPagoConnectionPanel } from "../mercadoPago/MercadoPagoConnectionPanel";
 import { describePaymentMethods, useMercadoPagoConnected } from "../mercadoPago/useMercadoPagoConnected";
+import { ChangePasswordModal } from "../auth/ChangePasswordModal";
 
-type ModalType = "profile" | "notifications" | "financial" | null;
+type ModalType = "profile" | "notifications" | "financial" | "password" | null;
 
 const defaultNotificationPreferences: NotificationPreferences = {
   noticesEnabled: true,
@@ -92,6 +93,14 @@ export function MasterSettingsPage() {
           />
 
           <SettingsBlock
+            icon="cadeado"
+            title="Senha e segurança"
+            description="Troque sua senha; os outros aparelhos conectados são desconectados."
+            action="Alterar senha"
+            onClick={() => setModal("password")}
+          />
+
+          <SettingsBlock
             icon="carteira"
             title="Método de pagamento"
             description={getFinancialCardDescription(isLoadingAccount, hasPixKey)}
@@ -114,6 +123,9 @@ export function MasterSettingsPage() {
       )}
 
       {modal === "notifications" && <NotificationsModal onClose={() => setModal(null)} />}
+
+
+      {modal === "password" && <ChangePasswordModal onClose={() => setModal(null)} />}
 
       {modal === "financial" && (
         <FinancialAccountModal

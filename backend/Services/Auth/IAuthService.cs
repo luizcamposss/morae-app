@@ -10,6 +10,7 @@ public interface IAuthService
     Task<RefreshResultDto?> RefreshAsync(string refreshToken);
     Task RevokeAsync(string refreshToken);
     Task RevokeAllAsync(int userId);
+    Task ChangePasswordAsync(int userId, ChangePasswordDto dto, string? currentRefreshToken);
     int GetRefreshTokenDays();
     Task<string> GenerateJwtToken(ApplicationUser user);
 }
