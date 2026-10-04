@@ -23,6 +23,7 @@ import { getNewsByCondominium } from "../news/newsService";
 import type { NewsResponse } from "../news/types";
 import { getMyOccurrences } from "../occurrences/occurrenceService";
 import type { OccurrenceResponse } from "../occurrences/types";
+import { formatCalendarDate, formatDateTime, formatTodayHeading, getGreeting, parseCalendarDate, todayCalendarDate } from "../../shared/lib/date";
 
 const CHARGE_STATUS_PENDING = 1;
 const CHARGE_STATUS_PAID = 2;
@@ -172,7 +173,7 @@ export function ResidentDashboardPage() {
   );
   const nextCharge = [...pendingCharges].sort(
     (first, second) =>
-      new Date(first.dueDate).getTime() - new Date(second.dueDate).getTime(),
+      parseCalendarDate(first.dueDate).getTime() - parseCalendarDate(second.dueDate).getTime(),
   )[0];
 
   const billsChartData = useMemo(
@@ -224,8 +225,8 @@ export function ResidentDashboardPage() {
           </h1>
         </div>
 
-        <div className="rounded-full bg-white px-4 py-2 text-sm font-extrabold capitalize text-[#6B7280] shadow-sm">
-          <time>{formatToday()}</time>
+        <div className="rounded-full bg-white px-4 py-2 text-sm font-extrabold text-[#6B7280] shadow-sm">
+          <time>{formatTodayHeading()}</time>
           {temperature !== null && <span>, {temperature}°</span>}
         </div>
       </header>
@@ -290,7 +291,7 @@ export function ResidentDashboardPage() {
                           {nextCharge.description}
                         </p>
                         <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-                          Vencimento em {formatDate(nextCharge.dueDate)}
+                          Vencimento em {formatCalendarDate(nextCharge.dueDate)}
                         </p>
                       </div>
 
@@ -579,7 +580,7 @@ function buildActivities(dashboard: DashboardState): Activity[] {
     ...dashboard.charges.map((charge) => ({
       id: `charge-${charge.id}`,
       title: charge.description,
-      description: `${formatCurrency(charge.value)} · vencimento ${formatDate(charge.dueDate)}`,
+      description: `${formatCurrency(charge.value)} · vencimento ${formatCalendarDate(charge.dueDate)}`,
       badge: getChargeStatusLabel(charge.status),
       variant: getChargeStatusVariant(charge.status),
       date: charge.createdAt,
@@ -604,7 +605,8 @@ function buildActivities(dashboard: DashboardState): Activity[] {
 }
 
 function buildBillsChart(charges: ChargeResponse[]): BillsChartItem[] {
-  const months = getLastMonths(6);
+  // Includes next month: the open bill of the current cycle usually falls due there.
+  const months = getChartMonths(6, 1);
   const data = new Map(
     months.map((month) => [
       month.key,
@@ -619,7 +621,7 @@ function buildBillsChart(charges: ChargeResponse[]): BillsChartItem[] {
   charges
     .filter((charge) => charge.status !== CHARGE_STATUS_CANCELED)
     .forEach((charge) => {
-      const item = data.get(getMonthKey(new Date(charge.dueDate)));
+      const item = data.get(getMonthKey(parseCalendarDate(charge.dueDate)));
 
       if (!item) {
         return;
@@ -655,13 +657,13 @@ function buildRequestsChart(occurrences: OccurrenceResponse[]): RequestsChartIte
   ];
 }
 
-function getLastMonths(amount: number) {
-  const today = new Date();
+function getChartMonths(amount: number, monthsAhead = 0) {
+  const today = todayCalendarDate();
 
   return Array.from({ length: amount }, (_, index) => {
     const date = new Date(
       today.getFullYear(),
-      today.getMonth() - (amount - 1 - index),
+      today.getMonth() - (amount - 1 - index) + monthsAhead,
       1,
     );
 
@@ -695,40 +697,6 @@ function getChargeStatusVariant(status: ChargeResponse["status"]): Activity["var
   if (status === CHARGE_STATUS_PENDING) return "warning";
   if (status === CHARGE_STATUS_OVERDUE) return "danger";
   return "neutral";
-}
-
-function getGreeting() {
-  const hour = new Date().getHours();
-
-  if (hour < 12) return "Bom dia";
-  if (hour < 18) return "Boa tarde";
-  return "Boa noite";
-}
-
-function formatToday() {
-  return new Intl.DateTimeFormat("pt-BR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-  }).format(new Date());
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
 }
 
 function formatCurrency(value: number) {

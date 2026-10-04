@@ -30,7 +30,7 @@ public class DelinquencyService : IDelinquencyService
     {
         await _permissionService.EnsureMasterAsync(userId);
 
-        var today = DateTime.UtcNow.Date;
+        var today = AppTimeZone.Today;
 
         var charges = await _context.Charges
             .AsNoTracking()
@@ -50,7 +50,7 @@ public class DelinquencyService : IDelinquencyService
     {
         await EnsureCanViewCondominiumDelinquencyAsync(userId, condominiumId);
 
-        var today = DateTime.UtcNow.Date;
+        var today = AppTimeZone.Today;
 
         var charges = await _context.Charges
             .AsNoTracking()

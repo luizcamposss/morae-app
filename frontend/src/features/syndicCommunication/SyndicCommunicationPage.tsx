@@ -4,6 +4,7 @@ import { MetricCard } from "../../shared/components/MetricCard";
 import { StatusBadge } from "../../shared/components/StatusBadge";
 import { createNews, deleteNews, getNewsByCondominium } from "../news/newsService";
 import type { NewsPriority, NewsResponse } from "../news/types";
+import { formatDateTime } from "../../shared/lib/date";
 
 export function SyndicCommunicationPage() {
   const { activeCondominium, activeCondominiumId } = useCondominium();
@@ -512,12 +513,3 @@ function getPriorityVariant(priority: NewsPriority) {
   return "success";
 }
 
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}

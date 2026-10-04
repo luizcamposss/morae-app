@@ -8,6 +8,7 @@ import { getPersonsByCondominium } from "../persons/personService";
 import type { PersonResponse } from "../persons/types";
 import { cancelInvitation, createInvitation, getInvitationsByCondominium } from "./invitationService";
 import type { CreateInvitationRequest, InvitationResponse, InvitationRole } from "./types";
+import { formatDateTime } from "../../shared/lib/date";
 
 const roleOptions: Array<{ value: InvitationRole; label: string }> = [
   { value: 4, label: "Morador" },
@@ -627,7 +628,7 @@ function InvitationDetailsModal({
           <ReadOnlyField label="Status" value={getTranslatedStatusLabel(invitation)} />
           <ReadOnlyField
             label={dateLabel}
-            value={new Date(dateValue).toLocaleString("pt-BR")}
+            value={formatDateTime(dateValue)}
           />
         </div>
 

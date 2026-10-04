@@ -11,6 +11,7 @@ import type {
 } from "../occurrences/types";
 import { getMyUnits } from "../me/meService";
 import type { MeUnitResponse } from "../me/types";
+import { formatDateTime } from "../../shared/lib/date";
 
 const OCCURRENCE_STATUS_OPEN = 1;
 const OCCURRENCE_STATUS_IN_PROGRESS = 2;
@@ -601,12 +602,3 @@ function getPriorityVariant(priority: OccurrencePriority) {
   return "success";
 }
 
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
-}

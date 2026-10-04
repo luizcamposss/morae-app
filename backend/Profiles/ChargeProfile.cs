@@ -1,3 +1,4 @@
+using backend.Constants;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -27,7 +28,7 @@ public class ChargeProfile : Profile
             .ForMember(
                 dest => dest.Status,
                 opt => opt.MapFrom(src =>
-                    src.Status == ChargeStatus.Pending && src.DueDate.Date < DateTime.UtcNow.Date
+                    src.Status == ChargeStatus.Pending && src.DueDate.Date < AppTimeZone.Today
                         ? ChargeStatus.Overdue
                         : src.Status));
     }

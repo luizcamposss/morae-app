@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { capitalizeFirst, todayCalendarDate } from "../lib/date";
 
 type DatePickerFieldProps = {
   label: string;
@@ -33,7 +34,7 @@ export function DatePickerField({
   const minDate = parseInputDate(min);
   const maxDate = parseInputDate(max);
   const [visibleMonth, setVisibleMonth] = useState(() => {
-    const baseDate = selectedDate ?? minDate ?? new Date();
+    const baseDate = selectedDate ?? minDate ?? todayCalendarDate();
 
     return startOfMonth(baseDate);
   });
@@ -154,8 +155,8 @@ export function DatePickerField({
             >
               ‹
             </button>
-            <p className="text-sm font-black capitalize text-[#111827]">
-              {monthFormatter.format(visibleMonth)}
+            <p className="text-sm font-black text-[#111827]">
+              {capitalizeFirst(monthFormatter.format(visibleMonth))}
             </p>
             <button
               type="button"
@@ -180,7 +181,7 @@ export function DatePickerField({
             {days.map((date) => {
               const isCurrentMonth = date.getMonth() === visibleMonth.getMonth();
               const isSelected = selectedDate && isSameDate(date, selectedDate);
-              const isToday = isSameDate(date, new Date());
+              const isToday = isSameDate(date, todayCalendarDate());
               const isDisabled = isDateDisabled(date, minDate, maxDate);
 
               return (
@@ -219,11 +220,11 @@ export function DatePickerField({
               type="button"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
-                const today = new Date();
+                const today = todayCalendarDate();
                 setVisibleMonth(startOfMonth(today));
                 handleSelect(today);
               }}
-              disabled={isDateDisabled(new Date(), minDate, maxDate)}
+              disabled={isDateDisabled(todayCalendarDate(), minDate, maxDate)}
               className="cursor-pointer text-xs font-black text-[#16A34A] transition hover:text-[#0B3D2E] disabled:cursor-not-allowed disabled:text-[#D1D5DB]"
             >
               Hoje

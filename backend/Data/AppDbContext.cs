@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -27,8 +28,11 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<Charge> Charges { get; set; }
     public DbSet<Payment> Payments { get; set; }
     public DbSet<FinancialAccount> FinancialAccounts { get; set; }
-    public DbSet<UserNotificationPreference> UserNotificationPreferences { get; set; }
+    public DbSet<MercadoPagoAccount> MercadoPagoAccounts { get; set; }
+    public DbSet<MercadoPagoOAuthState> MercadoPagoOAuthStates { get; set; }
+    public DbSet<MercadoPagoPayment> MercadoPagoPayments { get; set; }
     public DbSet<Notification> Notifications { get; set; }
+    public DbSet<UserNotificationPreference> UserNotificationPreferences { get; set; }
     public DbSet<UserCondominium> UserCondominiums { get; set; }
     public DbSet<UserCondominiumPermission> UserCondominiumPermissions { get; set; }
     public DbSet<Occurrence> Occurrences { get; set; }
@@ -185,6 +189,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .Property(p => p.AmountPaid)
             .HasPrecision(10, 2);
 
+        builder.Entity<Payment>()
+            .HasIndex(payment => payment.ChargeId)
+            .IsUnique();
+
         builder.Entity<FinancialAccount>()
             .HasIndex(account => new { account.Scope, account.CondominiumId })
             .IsUnique();
@@ -252,5 +260,123 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .WithMany()
             .HasForeignKey(o => o.CreatedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MercadoPagoAccount>()
+            .HasIndex(account => account.UserId);
+
+        builder.Entity<MercadoPagoAccount>()
+            .HasIndex(account => account.CondominiumId)
+            .IsUnique();
+
+        builder.Entity<MercadoPagoAccount>()
+            .HasOne(account => account.Condominium)
+            .WithMany()
+            .HasForeignKey(account => account.CondominiumId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<MercadoPagoAccount>()
+            .HasIndex(account => account.MercadoPagoUserId);
+
+        builder.Entity<MercadoPagoAccount>()
+            .Property(account => account.AccessToken)
+            .HasColumnType("longtext");
+
+        builder.Entity<MercadoPagoAccount>()
+            .Property(account => account.RefreshToken)
+            .HasColumnType("longtext");
+
+        builder.Entity<MercadoPagoAccount>()
+            .Property(account => account.Scope)
+            .HasColumnType("longtext");
+
+        builder.Entity<MercadoPagoAccount>()
+            .HasOne(account => account.User)
+            .WithMany()
+            .HasForeignKey(account => account.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<MercadoPagoOAuthState>()
+            .HasIndex(state => state.State)
+            .IsUnique();
+
+        builder.Entity<MercadoPagoOAuthState>()
+            .HasIndex(state => new { state.UserId, state.UsedAt, state.ExpiresAt });
+
+        builder.Entity<MercadoPagoOAuthState>()
+            .HasOne(state => state.User)
+            .WithMany()
+            .HasForeignKey(state => state.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasIndex(payment => payment.ChargeId)
+            .IsUnique();
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasIndex(payment => payment.PreferenceId)
+            .IsUnique();
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasIndex(payment => payment.ExternalReference)
+            .IsUnique();
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasIndex(payment => payment.MercadoPagoPaymentId)
+            .IsUnique();
+
+        builder.Entity<MercadoPagoPayment>()
+            .Property(payment => payment.Amount)
+            .HasPrecision(10, 2);
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasOne(payment => payment.Charge)
+            .WithMany()
+            .HasForeignKey(payment => payment.ChargeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasOne(payment => payment.MercadoPagoAccount)
+            .WithMany()
+            .HasForeignKey(payment => payment.MercadoPagoAccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasOne(payment => payment.Payment)
+            .WithOne()
+            .HasForeignKey<MercadoPagoPayment>(payment => payment.PaymentId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        ApplyUtcDateTimeConvention(builder);
+    }
+
+    // Every DateTime column holds a UTC instant, but MySQL returns it without a kind, so the
+    // API would send it without an offset and browsers would read it as local time. Marking it
+    // as UTC on read (and normalizing on write) makes the JSON carry "Z".
+    // Charge.DueDate is a calendar day, not an instant, and is left untouched.
+    private static void ApplyUtcDateTimeConvention(ModelBuilder builder)
+    {
+        var utcConverter = new ValueConverter<DateTime, DateTime>(
+            value => value.Kind == DateTimeKind.Local ? value.ToUniversalTime() : DateTime.SpecifyKind(value, DateTimeKind.Utc),
+            value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
+
+        var nullableUtcConverter = new ValueConverter<DateTime?, DateTime?>(
+            value => value.HasValue
+                ? value.Value.Kind == DateTimeKind.Local ? value.Value.ToUniversalTime() : DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)
+                : value,
+            value => value.HasValue ? DateTime.SpecifyKind(value.Value, DateTimeKind.Utc) : value);
+
+        foreach (var entityType in builder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (entityType.ClrType == typeof(Charge) && property.Name == nameof(Charge.DueDate))
+                    continue;
+
+                if (property.ClrType == typeof(DateTime))
+                    property.SetValueConverter(utcConverter);
+                else if (property.ClrType == typeof(DateTime?))
+                    property.SetValueConverter(nullableUtcConverter);
+            }
+        }
     }
 }

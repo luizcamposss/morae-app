@@ -1,14 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
+import { PaymentReceiptButton } from "../payments/PaymentReceiptButton";
 import { svgIcone } from "@edusites/icons/core";
 import { StatusBadge } from "../../shared/components/StatusBadge";
 import { getMyCharges } from "../charges/chargeService";
 import type { ChargeResponse } from "../charges/types";
+import { PayWithMercadoPagoButton } from "../mercadoPago/PayWithMercadoPagoButton";
+import { formatCalendarDate, parseCalendarDate } from "../../shared/lib/date";
 
 export function ResidentBillsPage() {
   const [charges, setCharges] = useState<ChargeResponse[]>([]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+  const reloadCharges = () => setReloadKey((key) => key + 1);
 
   useEffect(() => {
     async function loadCharges() {
@@ -29,7 +34,7 @@ export function ResidentBillsPage() {
     }
 
     void loadCharges();
-  }, []);
+  }, [reloadKey]);
 
   const filteredCharges = useMemo(
     () =>
@@ -44,7 +49,7 @@ export function ResidentBillsPage() {
   const overdueCharges = charges.filter((charge) => charge.status === 3);
   const nextCharge = [...pendingCharges, ...overdueCharges].sort(
     (left, right) =>
-      new Date(left.dueDate).getTime() - new Date(right.dueDate).getTime(),
+      parseCalendarDate(left.dueDate).getTime() - parseCalendarDate(right.dueDate).getTime(),
   )[0];
 
   return (
@@ -85,7 +90,7 @@ export function ResidentBillsPage() {
       )}
 
       <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-[1.1fr_1.9fr]">
-        <NextChargeCard charge={nextCharge} isLoading={isLoading} />
+        <NextChargeCard charge={nextCharge} isLoading={isLoading} onPaid={reloadCharges} />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <FinanceCard
@@ -127,7 +132,7 @@ export function ResidentBillsPage() {
         ) : (
           <div className="space-y-3">
             {filteredCharges.map((charge) => (
-              <ChargeRow key={charge.id} charge={charge} />
+              <ChargeRow key={charge.id} charge={charge} onPaid={reloadCharges} />
             ))}
           </div>
         )}
@@ -139,9 +144,10 @@ export function ResidentBillsPage() {
 type NextChargeCardProps = {
   charge?: ChargeResponse;
   isLoading: boolean;
+  onPaid: () => void;
 };
 
-function NextChargeCard({ charge, isLoading }: NextChargeCardProps) {
+function NextChargeCard({ charge, isLoading, onPaid }: NextChargeCardProps) {
   if (isLoading) {
     return (
       <div className="min-h-52 animate-pulse rounded-[1.8rem] bg-[#F3F4F6]" />
@@ -171,8 +177,11 @@ function NextChargeCard({ charge, isLoading }: NextChargeCardProps) {
               {formatCurrency(charge.value)}
             </h2>
             <p className="mt-3 text-sm font-semibold leading-6 text-[#4B5563]">
-              Vence em {formatDate(charge.dueDate)} · {charge.description}
+              Vence em {formatCalendarDate(charge.dueDate)} · {charge.description}
             </p>
+            <div className="mt-5">
+              <PayWithMercadoPagoButton chargeId={charge.id} onPaid={onPaid} className="h-11 px-6 text-sm" />
+            </div>
           </>
         ) : (
           <>
@@ -216,9 +225,10 @@ function FinanceCard({ label, value, helper, icon, danger = false }: FinanceCard
 
 type ChargeRowProps = {
   charge: ChargeResponse;
+  onPaid: () => void;
 };
 
-function ChargeRow({ charge }: ChargeRowProps) {
+function ChargeRow({ charge, onPaid }: ChargeRowProps) {
   const unitLabel = [charge.buildingName, charge.unitNumber && `Unidade ${charge.unitNumber}`]
     .filter(Boolean)
     .join(" · ");
@@ -238,13 +248,15 @@ function ChargeRow({ charge }: ChargeRowProps) {
       </div>
 
       <InfoColumn label="Valor" value={formatCurrency(charge.value)} />
-      <InfoColumn label="Vencimento" value={formatDate(charge.dueDate)} />
+      <InfoColumn label="Vencimento" value={formatCalendarDate(charge.dueDate)} />
 
-      <div className="lg:justify-self-end">
+      <div className="flex flex-wrap items-start gap-3 lg:justify-self-end">
         <StatusBadge
           label={getChargeStatusLabel(charge.status)}
           variant={getChargeStatusVariant(charge.status)}
         />
+        {isPayable(charge) && <PayWithMercadoPagoButton chargeId={charge.id} onPaid={onPaid} />}
+        {charge.status === 2 && <PaymentReceiptButton chargeId={charge.id} />}
       </div>
     </article>
   );
@@ -348,6 +360,10 @@ function EduIcon({ nome }: { nome: string }) {
   );
 }
 
+function isPayable(charge: ChargeResponse) {
+  return charge.status === 1 || charge.status === 3;
+}
+
 function sumCharges(charges: ChargeResponse[]) {
   return charges.reduce((total, charge) => total + charge.value, 0);
 }
@@ -365,10 +381,6 @@ function getChargeStatusVariant(status: ChargeResponse["status"]) {
   if (status === 1) return "warning";
   if (status === 3) return "danger";
   return "neutral";
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR").format(new Date(value));
 }
 
 function formatCurrency(value: number) {

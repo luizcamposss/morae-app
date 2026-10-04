@@ -26,6 +26,7 @@ import { getPeopleByUnit } from "../personUnits/personUnitService";
 import type { PersonUnitResponse } from "../personUnits/types";
 import { getUnitsByBuilding } from "../units/unitService";
 import type { UnitResponse } from "../units/types";
+import { formatCalendarDate, formatDateTime, formatTodayHeading, getGreeting } from "../../shared/lib/date";
 
 const CHARGE_STATUS_PENDING = 1;
 const CHARGE_STATUS_OVERDUE = 3;
@@ -265,8 +266,8 @@ export function SyndicDashboardPage() {
           </h1>
         </div>
 
-        <div className="rounded-full bg-white px-4 py-2 text-sm font-extrabold capitalize text-[#6B7280] shadow-sm">
-          <time>{formatToday()}</time>
+        <div className="rounded-full bg-white px-4 py-2 text-sm font-extrabold text-[#6B7280] shadow-sm">
+          <time>{formatTodayHeading()}</time>
           {temperature !== null && <span>, {temperature}°</span>}
         </div>
       </header>
@@ -563,7 +564,7 @@ function buildActivities(dashboard: DashboardState): Activity[] {
     ...dashboard.charges.map((charge) => ({
       id: `charge-${charge.id}`,
       title: charge.description,
-      description: `${formatCurrency(charge.value)} · vencimento ${formatDate(charge.dueDate)}`,
+      description: `${formatCurrency(charge.value)} · vencimento ${formatCalendarDate(charge.dueDate)}`,
       badge: getChargeStatusLabel(charge.status),
       variant: getChargeStatusVariant(charge.status),
       date: charge.createdAt,
@@ -614,40 +615,6 @@ function getChargeStatusVariant(status: ChargeResponse["status"]): Activity["var
   if (status === 1) return "warning";
   if (status === 3) return "danger";
   return "neutral";
-}
-
-function getGreeting() {
-  const hour = new Date().getHours();
-
-  if (hour < 12) return "Bom dia";
-  if (hour < 18) return "Boa tarde";
-  return "Boa noite";
-}
-
-function formatToday() {
-  return new Intl.DateTimeFormat("pt-BR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-  }).format(new Date());
-}
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
 }
 
 function formatCurrency(value: number) {

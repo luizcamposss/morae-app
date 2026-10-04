@@ -16,6 +16,7 @@ import type {
     MasterUserResponse,
     UserCondominiumStatus,
 } from "./types";
+import { formatDate } from "../../shared/lib/date";
 
 const ACTIVE_STATUS = 1;
 const SUSPENDED_STATUS = 2;
@@ -992,14 +993,6 @@ function getStatusLabel(status: UserCondominiumStatus) {
 
 function getStatusVariant(status: UserCondominiumStatus) {
     return status === ACTIVE_STATUS ? ("success" as const) : ("danger" as const);
-}
-
-function formatDate(value: string) {
-    return new Intl.DateTimeFormat("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-    }).format(new Date(value));
 }
 
 function onlyDigits(value: string) {

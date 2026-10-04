@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { acceptInvitation, getInvitationByToken } from "./invitationService";
 import type { InvitationResponse } from "./types";
 import logoMorae from "../../assets/logo-morae.svg";
+import { formatDateTime } from "../../shared/lib/date";
 
 function getRoleLabel(invitation: InvitationResponse) {
   if (invitation.roleName) {
@@ -183,7 +184,7 @@ export function AcceptInvitationPage() {
                   <ReadOnlyField label="Vínculo" value={getRoleLabel(invitation)} placeholder="Perfil de acesso" />
                   <ReadOnlyField
                     label="Expira em"
-                    value={new Date(invitation.expiresAt).toLocaleString("pt-BR")}
+                    value={formatDateTime(invitation.expiresAt)}
                     placeholder="Data de expiração"
                   />
                 </div>
