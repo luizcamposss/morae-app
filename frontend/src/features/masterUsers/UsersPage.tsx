@@ -1080,7 +1080,7 @@ function getFriendlyErrorMessage(error: unknown, fallback: string) {
     }
 
     if (normalizedMessage.includes("password")) {
-        return "A senha precisa ter pelo menos 6 caracteres.";
+        return "A senha precisa ter pelo menos 8 caracteres, com letras e números.";
     }
 
     if (normalizedMessage.includes("already suspended")) {

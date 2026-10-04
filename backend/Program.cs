@@ -75,8 +75,10 @@ builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
 {
-    options.Password.RequiredLength = 6;
-    options.Password.RequireDigit = false;
+    // New passwords: at least 8 characters with a digit and a letter (LetterPasswordValidator).
+    // Existing passwords keep working; the rule only applies when a password is set.
+    options.Password.RequiredLength = 8;
+    options.Password.RequireDigit = true;
     options.Password.RequireLowercase = false;
     options.Password.RequireUppercase = false;
     options.Password.RequireNonAlphanumeric = false;
@@ -87,7 +89,9 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
 })
     .AddEntityFrameworkStores<AppDbContext>()
-    .AddDefaultTokenProviders();
+    .AddDefaultTokenProviders()
+    .AddPasswordValidator<LetterPasswordValidator>()
+    .AddErrorDescriber<PortugueseIdentityErrorDescriber>();
 
 builder.Services.AddAutoMapper(
     typeof(ChargeProfile),
