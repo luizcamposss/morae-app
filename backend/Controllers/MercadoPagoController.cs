@@ -4,6 +4,8 @@ using backend.Services.MercadoPago;
 using backend.Settings;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using backend.Constants;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
 
@@ -125,6 +127,7 @@ public class MercadoPagoController : ControllerBase
     }
 
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitPolicies.Webhook)]
     [HttpPost("webhooks")]
     public async Task<IActionResult> ReceiveWebhook(
         [FromBody] MercadoPagoWebhookDto notification,
