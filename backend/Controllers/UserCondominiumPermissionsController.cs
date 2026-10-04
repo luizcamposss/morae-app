@@ -49,4 +49,23 @@ public class UserCondominiumPermissionsController : ControllerBase
 
         return Ok(permissions);
     }
+
+    [HttpGet("api/condominiums/{condominiumId}/syndics/{userId}/buildings")]
+    public async Task<IActionResult> GetBuildings([FromRoute] int condominiumId, [FromRoute] int userId)
+    {
+        var requesterUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        return Ok(await _permissionService.GetBuildingsAsync(requesterUserId, condominiumId, userId));
+    }
+
+    [HttpPut("api/condominiums/{condominiumId}/syndics/{userId}/buildings")]
+    public async Task<IActionResult> UpdateBuildings(
+        [FromRoute] int condominiumId,
+        [FromRoute] int userId,
+        [FromBody] UpdateSyndicBuildingsDto dto)
+    {
+        var requesterUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        return Ok(await _permissionService.UpdateBuildingsAsync(requesterUserId, condominiumId, userId, dto));
+    }
 }

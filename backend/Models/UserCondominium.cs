@@ -15,6 +15,11 @@ public class UserCondominium
     public Condominium Condominium { get; set; } = null!;
     public string Role { get; set; } = string.Empty;
     public ICollection<UserCondominiumPermission> Permissions { get; set; } = [];
+
+    // Syndics only: true = manages every building of the condominium; false = only the
+    // buildings listed in Buildings (chosen by the Admin).
+    public bool ManagesAllBuildings { get; set; }
+    public ICollection<UserCondominiumBuilding> Buildings { get; set; } = [];
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public UserCondominiumStatus Status { get; set; } = UserCondominiumStatus.Active;
     public DateTime? SuspendedAt { get; set; }

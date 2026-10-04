@@ -51,14 +51,25 @@ public class DelinquencyService : IDelinquencyService
         await EnsureCanViewCondominiumDelinquencyAsync(userId, condominiumId);
 
         var today = AppTimeZone.Today;
+        var managedBuildingIds = await _permissionService.GetManagedBuildingIdsAsync(userId, condominiumId);
 
-        var charges = await _context.Charges
+        var query = _context.Charges
             .AsNoTracking()
             .Where(c =>
                 c.Scope == ChargeScope.Condominium &&
                 c.CondominiumId == condominiumId &&
                 c.DueDate.Date < today &&
-                (c.Status == ChargeStatus.Pending || c.Status == ChargeStatus.Overdue))
+                (c.Status == ChargeStatus.Pending || c.Status == ChargeStatus.Overdue));
+
+        // A syndic sees only the buildings they manage.
+        if (managedBuildingIds is not null)
+        {
+            query = query.Where(c =>
+                c.UnitId.HasValue &&
+                managedBuildingIds.Contains(c.Unit!.BuildingId));
+        }
+
+        var charges = await query
             .OrderBy(c => c.DueDate)
             .ToListAsync();
 
@@ -72,23 +83,16 @@ public class DelinquencyService : IDelinquencyService
         if (user is null)
             throw new NotFoundException("User not found.");
 
-        if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
-        {
-            await _permissionService.EnsureCondominiumAdminAsync(userId, condominiumId);
-            return;
-        }
+        // Role in this condominium; HasCondominiumPermission lets Admins through.
+        var role = await _permissionService.GetCondominiumRoleAsync(userId, condominiumId);
 
-        if (await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
-        {
-            await _permissionService.EnsureCondominiumPermissionAsync(
-                userId,
-                condominiumId,
-                AppPermissions.DelinquencyView);
+        if (role != AppRoles.Admin && role != AppRoles.Syndic)
+            throw new ForbiddenException("User cannot view condominium delinquency.");
 
-            return;
-        }
-
-        throw new ForbiddenException("User cannot view condominium delinquency.");
+        await _permissionService.EnsureCondominiumPermissionAsync(
+            userId,
+            condominiumId,
+            AppPermissions.DelinquencyView);
     }
 
     private static DelinquencyResponseDto MapResponse(Charge charge, DateTime today)

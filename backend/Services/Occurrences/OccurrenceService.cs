@@ -61,24 +61,12 @@ public class OccurrenceService : IOccurrenceService
             .Where(o => o.CondominiumId == condominiumId)
             .AsQueryable();
 
-        if (await _permissionService.IsSyndicAsync(userId))
+        var managedBuildingIds = await _permissionService.GetManagedBuildingIdsAsync(userId, condominiumId);
+
+        if (managedBuildingIds is not null)
         {
-            var user = await _userManager.FindByIdAsync(userId.ToString());
-
-            if (user is null)
-                throw new NotFoundException("User not found.");
-
-            var linkedBuildingIds = await _context.PersonUnits
-                .AsNoTracking()
-                .Where(personUnit =>
-                    personUnit.PersonId == user.PersonId &&
-                    personUnit.Unit.Building.CondominiumId == condominiumId)
-                .Select(personUnit => personUnit.Unit.BuildingId)
-                .Distinct()
-                .ToListAsync();
-
             query = query.Where(occurrence =>
-                linkedBuildingIds.Contains(occurrence.Unit.BuildingId));
+                managedBuildingIds.Contains(occurrence.Unit.BuildingId));
         }
 
         var occurrences = await query

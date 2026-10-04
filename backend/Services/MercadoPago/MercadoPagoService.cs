@@ -956,8 +956,8 @@ public class MercadoPagoService : IMercadoPagoService
 
         if (charge.Scope == ChargeScope.Condominium)
         {
+            // A syndic pays only their own unit's charges, like any resident.
             if (await _permissionService.IsCondominiumAdminAsync(userId, charge.CondominiumId) ||
-                await IsSyndicForCondominiumAsync(user, userId, charge.CondominiumId) ||
                 await IsResidentChargeOwnerAsync(user, charge))
             {
                 return;
@@ -976,23 +976,6 @@ public class MercadoPagoService : IMercadoPagoService
 
         if (charge.Status == ChargeStatus.Canceled)
             throw new BadRequestException("Cobranças canceladas não podem ser pagas.");
-    }
-
-    private async Task<bool> IsSyndicForCondominiumAsync(
-        ApplicationUser user,
-        int userId,
-        int condominiumId)
-    {
-        if (!await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
-            return false;
-
-        return await _context.UserCondominiums
-            .AsNoTracking()
-            .AnyAsync(item =>
-                item.UserId == userId &&
-                item.CondominiumId == condominiumId &&
-                item.Role == AppRoles.Syndic &&
-                item.Status == UserCondominiumStatus.Active);
     }
 
     private async Task<bool> IsResidentChargeOwnerAsync(ApplicationUser user, Charge charge)
