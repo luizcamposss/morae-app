@@ -80,7 +80,7 @@ public class OccurrenceService : IOccurrenceService
     {
         var occurrences = await _context.Occurrences
             .AsNoTracking()
-            .Where(o => o.CreatedByUserId == userId)
+            .Where(o => o.CreatedByUserId == userId && o.Condominium.Status == Status.Active)
             .OrderByDescending(o => o.CreatedAt)
             .ToListAsync();
 

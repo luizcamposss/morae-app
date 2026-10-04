@@ -948,11 +948,14 @@ public class MercadoPagoService : IMercadoPagoService
 
         if (charge.Scope == ChargeScope.Platform)
         {
-            if (await _permissionService.IsCondominiumAdminAsync(userId, charge.CondominiumId))
+            if (await _permissionService.IsPlatformBillingAdminAsync(userId, charge.CondominiumId))
                 return;
 
             throw new ForbiddenException("Você não pode pagar esta cobrança.");
         }
+
+        if (charge.Condominium.Status != Status.Active)
+            throw new ForbiddenException("Este condomínio está inativo.");
 
         if (charge.Scope == ChargeScope.Condominium)
         {

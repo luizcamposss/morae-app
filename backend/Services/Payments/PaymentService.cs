@@ -239,7 +239,7 @@ public class PaymentService : IPaymentService
                 return;
             }
 
-            if (await _permissionService.IsCondominiumAdminAsync(userId, charge.CondominiumId))
+            if (await _permissionService.IsPlatformBillingAdminAsync(userId, charge.CondominiumId))
                 return;
 
             throw new ForbiddenException("User cannot access this payment.");

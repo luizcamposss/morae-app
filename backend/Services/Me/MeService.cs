@@ -32,6 +32,7 @@ public class MeService : IMeService
         var roles = await _userManager.GetRolesAsync(user);
         var accessLinks = await _context.UserCondominiums
             .AsNoTracking()
+            .Include(uc => uc.Condominium)
             .Where(uc => uc.UserId == user.Id)
             .ToListAsync();
 
@@ -42,6 +43,9 @@ public class MeService : IMeService
             .OrderByDescending(uc => uc.SuspendedAt ?? uc.CreatedAt)
             .FirstOrDefault();
         var isSuspended = !isMaster && !hasActiveAccess && latestSuspension is not null;
+        var isCondominiumInactive = !isMaster && hasActiveAccess && accessLinks
+            .Where(uc => uc.Status == UserCondominiumStatus.Active)
+            .All(uc => uc.Condominium.Status != Status.Active);
 
         return new MeResponseDto
         {
@@ -53,6 +57,7 @@ public class MeService : IMeService
             PhoneNumber = user.Person.PhoneNumber,
             ProfilePhotoUrl = user.Person.ProfilePhotoUrl,
             IsSuspended = isSuspended,
+            IsCondominiumInactive = isCondominiumInactive,
             SuspensionReason = isSuspended ? latestSuspension?.SuspensionReason : null,
             SuspendedAt = isSuspended ? latestSuspension?.SuspendedAt : null,
             Roles = roles

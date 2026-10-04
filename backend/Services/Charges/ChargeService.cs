@@ -149,7 +149,8 @@ public class ChargeService : IChargeService
             .Where(c =>
                 c.Scope == ChargeScope.Condominium &&
                 c.UnitId.HasValue &&
-                unitIds.Contains(c.UnitId.Value))
+                unitIds.Contains(c.UnitId.Value) &&
+                c.Condominium.Status == Status.Active)
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
 
@@ -316,7 +317,7 @@ public class ChargeService : IChargeService
                 return;
             }
 
-            if (await _permissionService.IsCondominiumAdminAsync(userId, charge.CondominiumId))
+            if (await _permissionService.IsPlatformBillingAdminAsync(userId, charge.CondominiumId))
                 return;
 
             throw new ForbiddenException("User cannot access this platform charge.");
