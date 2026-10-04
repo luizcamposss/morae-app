@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { svgIcone } from "@edusites/icons/core";
 import { login } from "./authService";
 import { saveToken } from "./authStorage";
 import { useAuth } from "../../app/providers/useAuth";
 import { getDefaultRouteByRoles } from "./authRedirect";
 import logoMorae from "../../assets/logo-morae.svg";
+import { APP_TIME_ZONE } from "../../shared/lib/date";
 
 type RecoveryMessage = {
     text: string;
@@ -15,6 +16,8 @@ type RecoveryMessage = {
 export function LoginPage() {
     const navigate = useNavigate();
     const { refreshUser } = useAuth();
+    const [searchParams] = useSearchParams();
+    const isSessionExpired = searchParams.get("expired") === "1";
     
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -224,6 +227,15 @@ export function LoginPage() {
                                     </button>
                                 </div>
 
+                                {isSessionExpired && !errorMessage && (
+                                    <div
+                                        role="status"
+                                        className="rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-sm font-bold leading-5 text-[#92400E]"
+                                    >
+                                        Sua sessão expirou. Entre novamente para continuar.
+                                    </div>
+                                )}
+
                                 {errorMessage && (
                                     <div
                                         role="alert"
@@ -412,6 +424,7 @@ function EyeOffIcon() {
 
 function getCurrentTime() {
     return new Intl.DateTimeFormat("pt-BR", {
+        timeZone: APP_TIME_ZONE,
         hour: "2-digit",
         minute: "2-digit",
     }).format(new Date());

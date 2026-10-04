@@ -1,37 +1,115 @@
-import { getToken } from "../../../features/auth/authStorage";
+import { getToken, removeToken, saveToken } from "../../../features/auth/authStorage";
 import { API_BASE_URL } from "./config";
 
 type RequestOptions = {
     method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
     body?: unknown;
     auth?: boolean;
+    // Sends cookies (needed by /api/auth, where the refresh-token cookie lives).
+    withCredentials?: boolean;
 };
+
+// Thrown when the session cannot be renewed; the user has been sent to the login page.
+export class SessionExpiredError extends Error {
+    constructor() {
+        super("Sua sessão expirou. Entre novamente.");
+        this.name = "SessionExpiredError";
+    }
+}
+
+let refreshPromise: Promise<string | null> | null = null;
+
+// Gets a new access token with the refresh-token cookie. Parallel callers share one request,
+// because the server rotates the refresh token on every use.
+export function refreshAccessToken(): Promise<string | null> {
+    if (!refreshPromise) {
+        refreshPromise = fetch(`${API_BASE_URL}/api/auth/refresh`, {
+            method: "POST",
+            credentials: "include",
+        })
+            .then(async (response) => {
+                if (!response.ok) {
+                    return null;
+                }
+
+                const body = await response.json();
+                return typeof body?.token === "string" ? body.token : null;
+            })
+            .catch(() => null)
+            .then((token) => {
+                if (token) {
+                    saveToken(token);
+                }
+
+                return token;
+            })
+            .finally(() => {
+                refreshPromise = null;
+            });
+    }
+
+    return refreshPromise;
+}
+
+function expireSession(): never {
+    removeToken();
+
+    if (!window.location.pathname.startsWith("/login")) {
+        window.location.assign("/login?expired=1");
+    }
+
+    throw new SessionExpiredError();
+}
 
 export async function apiRequest<T>(
     path: string,
     options: RequestOptions = {},
 ): Promise<T> {
-    const { method = "GET", body, auth = false } = options;
+    const { method = "GET", body, auth = false, withCredentials = false } = options;
 
-    const headers = new Headers({
-        "Content-Type": "application/json",
-    });
+    async function send(token: string | null) {
+        const headers = new Headers({
+            "Content-Type": "application/json",
+        });
 
-    if (auth) {
-        const token = getToken();
-
-        if (!token) {
-            throw new Error("Usuario nao autenticado.");
+        if (token) {
+            headers.set("Authorization", `Bearer ${token}`);
         }
 
-        headers.set("Authorization", `Bearer ${token}`);
+        return fetch(`${API_BASE_URL}${path}`, {
+            method,
+            headers,
+            body: body ? JSON.stringify(body) : undefined,
+            credentials: withCredentials ? "include" : "same-origin",
+        });
     }
 
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : undefined,
-    });
+    let token: string | null = null;
+
+    if (auth) {
+        token = getToken() ?? (await refreshAccessToken());
+
+        if (!token) {
+            expireSession();
+        }
+    }
+
+    let response = await send(token);
+
+    // The access token is short-lived: renew it once and repeat the request.
+    if (response.status === 401 && auth) {
+        const renewedToken = await refreshAccessToken();
+
+        if (!renewedToken) {
+            expireSession();
+        }
+
+        response = await send(renewedToken);
+
+        if (response.status === 401) {
+            expireSession();
+        }
+    }
 
     const contentType = response.headers.get("Content-Type");
 

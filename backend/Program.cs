@@ -46,7 +46,9 @@ builder.Services.AddCors(options =>
         policy
             .WithOrigins("http://localhost:5173")
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            // The refresh-token cookie must travel with /api/auth requests.
+            .AllowCredentials();
     });
 });
 
@@ -179,7 +181,10 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtAudience,
         IssuerSigningKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(jwtSecret!)
-        )
+        ),
+
+        // Default tolerance is 5 minutes, too long for 15-minute access tokens.
+        ClockSkew = TimeSpan.FromSeconds(30)
     };
 });
 
