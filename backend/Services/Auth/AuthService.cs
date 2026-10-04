@@ -33,7 +33,16 @@ public class AuthService : IAuthService
             };
         }
 
-        var result = await _signInManager.CheckPasswordSignInAsync(user, dto.Password, false);
+        var result = await _signInManager.CheckPasswordSignInAsync(user, dto.Password, lockoutOnFailure: true);
+
+        if (result.IsLockedOut)
+        {
+            return new AuthResponseDto
+            {
+                Success = false,
+                Message = "Acesso bloqueado temporariamente por excesso de tentativas. Tente novamente em 15 minutos."
+            };
+        }
 
         if (!result.Succeeded)
         {
