@@ -10,6 +10,7 @@ using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
 using backend.Services.Condominium;
+using backend.Services.Email;
 using backend.Services.Permissions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -20,13 +21,20 @@ public class CondominiumService : ICondominiumService
     private readonly IMapper _mapper;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IPermissionService _permissionService;
+    private readonly IInvitationEmailNotifier _invitationEmailNotifier;
 
-    public CondominiumService(AppDbContext context, IMapper mapper, UserManager<ApplicationUser> userManager, IPermissionService permissionService)
+    public CondominiumService(
+        AppDbContext context,
+        IMapper mapper,
+        UserManager<ApplicationUser> userManager,
+        IPermissionService permissionService,
+        IInvitationEmailNotifier invitationEmailNotifier)
     {
         _context = context;
         _mapper = mapper;
         _userManager = userManager;
         _permissionService = permissionService;
+        _invitationEmailNotifier = invitationEmailNotifier;
     }
     public async Task<CondominiumResponseDto> OnboardAsync(int masterUserId, CreateCondominiumOnboardingDto dto)
     {
@@ -101,6 +109,10 @@ public class CondominiumService : ICondominiumService
 
         await transaction.CommitAsync();
 
+        // The new Admin gets the invitation by e-mail (after the commit, so it is never sent for
+        // an onboarding that was rolled back).
+        await _invitationEmailNotifier.QueueInvitationAsync(invitation);
+
         return await GetCondominiumResponseOrThrowAsync(condominium.Id);
     }
 
@@ -139,6 +151,7 @@ public class CondominiumService : ICondominiumService
                 Id = c.Id,
                 Name = c.Name,
                 CNPJ = c.CNPJ,
+                CEP = c.CEP,
                 Number = c.Number,
                 Address = c.Address,
                 City = c.City,
@@ -367,6 +380,7 @@ public class CondominiumService : ICondominiumService
                 Id = c.Id,
                 Name = c.Name,
                 CNPJ = c.CNPJ,
+                CEP = c.CEP,
                 Number = c.Number,
                 Address = c.Address,
                 City = c.City,

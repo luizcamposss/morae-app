@@ -8,10 +8,8 @@ using backend.Models;
 using backend.Services.Email;
 using backend.Services.Notifications;
 using backend.Services.Permissions;
-using backend.Settings;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 
 namespace backend.Services.Invitations;
 
@@ -22,8 +20,7 @@ public class InvitationService : IInvitationService
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IPermissionService _permissionService;
     private readonly INotificationService _notificationService;
-    private readonly IEmailQueue _emailQueue;
-    private readonly AppSettings _appSettings;
+    private readonly IInvitationEmailNotifier _invitationEmailNotifier;
 
     public InvitationService(
         AppDbContext context,
@@ -31,16 +28,14 @@ public class InvitationService : IInvitationService
         UserManager<ApplicationUser> userManager,
         IPermissionService permissionService,
         INotificationService notificationService,
-        IEmailQueue emailQueue,
-        IOptions<AppSettings> appSettings)
+        IInvitationEmailNotifier invitationEmailNotifier)
     {
         _context = context;
         _mapper = mapper;
         _userManager = userManager;
         _permissionService = permissionService;
         _notificationService = notificationService;
-        _emailQueue = emailQueue;
-        _appSettings = appSettings.Value;
+        _invitationEmailNotifier = invitationEmailNotifier;
     }
 
     public async Task<InvitationResponseDto> CreateAsync(int userId, CreateInvitationDto dto)
@@ -135,7 +130,7 @@ public class InvitationService : IInvitationService
             .Include(i => i.Condominium)
             .FirstAsync(i => i.Id == invitation.Id);
 
-        await QueueInvitationEmailAsync(result);
+        await _invitationEmailNotifier.QueueInvitationAsync(result);
 
         return _mapper.Map<InvitationResponseDto>(result);
     }
@@ -225,7 +220,7 @@ public class InvitationService : IInvitationService
             .Include(i => i.Condominium)
             .FirstAsync(i => i.Id == renewedInvitation.Id);
 
-        await QueueInvitationEmailAsync(result);
+        await _invitationEmailNotifier.QueueInvitationAsync(result);
 
         return _mapper.Map<InvitationResponseDto>(result);
     }
@@ -486,28 +481,6 @@ public class InvitationService : IInvitationService
             $"{acceptedInvitation.Person.Name} aceitou o convite de {GetRoleLabel(acceptedInvitation.Role)}.",
             acceptedInvitation.Role == UserRole.Admin ? "/master/invitations" : "/admin/invitations",
             acceptedInvitation.CondominiumId);
-    }
-
-    // The link stays available on screen to copy; the e-mail is a convenience on top of it,
-    // so a failed delivery never blocks the invitation.
-    private async Task QueueInvitationEmailAsync(Invitation invitation)
-    {
-        var inviterName = await _context.Users
-            .Where(user => user.Id == invitation.CreatedByUserId)
-            .Select(user => user.Person.Name)
-            .FirstOrDefaultAsync();
-
-        var acceptUrl = _appSettings.BuildFrontendUrl($"accept-invitation/{invitation.Token}");
-
-        var email = InvitationEmails.Invitation(
-            invitation.Person.Name,
-            string.IsNullOrWhiteSpace(inviterName) ? "A administração" : inviterName.Trim(),
-            invitation.Condominium.Name,
-            invitation.Role,
-            invitation.ExpiresAt,
-            acceptUrl);
-
-        _emailQueue.Enqueue(email.ToMessage(invitation.Email));
     }
 
     private static string GetDashboardLink(UserRole role)

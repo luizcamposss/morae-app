@@ -28,6 +28,7 @@ public class MercadoPagoService : IMercadoPagoService
     private static readonly string[] OpenPaymentStatuses = ["pending", "in_process"];
 
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
+    private const string DuplicatePaymentTitle = "Pagamento em duplicidade";
 
     // Pix (bank_transfer) and boleto (ticket) stay payable for hours or days, so they can and
     // must be cancelled when the charge is settled another way. Cards cannot be cancelled here.
@@ -559,7 +560,10 @@ public class MercadoPagoService : IMercadoPagoService
         {
             // A second Mercado Pago payment for a charge that is already paid (e.g. the payer
             // opened the checkout twice). It must be refunded manually in Mercado Pago.
-            if (IsApproved(mercadoPagoPayment))
+            // Mercado Pago sends several webhooks for the same payment (created, updated, retries):
+            // the receivers are warned only once per duplicate payment.
+            if (IsApproved(mercadoPagoPayment) &&
+                !await WasDuplicatePaymentNotifiedAsync(mercadoPagoPayment.Id))
             {
                 _logger.LogWarning(
                     "Duplicate Mercado Pago payment {PaymentId} for already paid charge {ChargeId}.",
@@ -568,9 +572,9 @@ public class MercadoPagoService : IMercadoPagoService
 
                 await NotifyReceiversAsync(
                     trackedPayment,
-                    "Pagamento em duplicidade",
+                    DuplicatePaymentTitle,
                     $"A cobrança \"{trackedPayment.Charge.Description}\" recebeu um segundo pagamento no Mercado Pago " +
-                    $"(ID {mercadoPagoPayment.Id}). Estorne-o pelo painel do Mercado Pago.");
+                    $"{DuplicatePaymentMarker(mercadoPagoPayment.Id)}. Estorne-o pelo painel do Mercado Pago.");
             }
 
             return;
@@ -608,6 +612,19 @@ public class MercadoPagoService : IMercadoPagoService
         await NotifyPayersAsync(trackedPayment.Charge, title, message);
         await NotifyReceiversAsync(trackedPayment, title, message);
     }
+
+    private async Task<bool> WasDuplicatePaymentNotifiedAsync(long mercadoPagoPaymentId)
+    {
+        var marker = DuplicatePaymentMarker(mercadoPagoPaymentId);
+
+        return await _context.Notifications
+            .AsNoTracking()
+            .AnyAsync(notification =>
+                notification.Title == DuplicatePaymentTitle &&
+                notification.Message.Contains(marker));
+    }
+
+    private static string DuplicatePaymentMarker(long mercadoPagoPaymentId) => $"(ID {mercadoPagoPaymentId})";
 
     private static bool IsOpen(MercadoPagoPayment trackedPayment)
     {
