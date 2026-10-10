@@ -1,6 +1,7 @@
 using backend.Data;
 using backend.Models;
 using backend.Seeders;
+using backend.Services.Email;
 using backend.Settings;
 using System.Net;
 using System.Threading.RateLimiting;
@@ -65,6 +66,17 @@ builder.Services.Configure<AppSettings>(
     builder.Configuration.GetSection("App")
 );
 
+builder.Services.Configure<ResendSettings>(
+    builder.Configuration.GetSection("Resend")
+);
+
+// E-mails go through an in-memory queue and are sent by a background worker,
+// so requests never wait for Resend and a Resend outage never breaks an action.
+builder.Services.AddSingleton<EmailQueue>();
+builder.Services.AddSingleton<IEmailQueue>(provider => provider.GetRequiredService<EmailQueue>());
+builder.Services.AddSingleton<IEmailSender, ResendEmailSender>();
+builder.Services.AddHostedService<EmailBackgroundService>();
+
 var dataProtection = builder.Services
     .AddDataProtection()
     .SetApplicationName("morae");
@@ -99,6 +111,10 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
     .AddDefaultTokenProviders()
     .AddPasswordValidator<LetterPasswordValidator>()
     .AddErrorDescriber<PortugueseIdentityErrorDescriber>();
+
+// Password-reset links ("Esqueci minha senha") expire after 1 hour.
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+    options.TokenLifespan = TimeSpan.FromHours(1));
 
 builder.Services.AddAutoMapper(
     typeof(ChargeProfile),
@@ -229,6 +245,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy(RateLimitPolicies.Refresh, context => PerIpPerMinute(context, 30));
     options.AddPolicy(RateLimitPolicies.Invitation, context => PerIpPerMinute(context, 10));
     options.AddPolicy(RateLimitPolicies.PasswordReset, context => PerIpPerMinute(context, 5));
+    options.AddPolicy(RateLimitPolicies.PasswordResetConfirm, context => PerIpPerMinute(context, 10));
     options.AddPolicy(RateLimitPolicies.Webhook, context => PerIpPerMinute(context, 120));
 
     options.OnRejected = async (rejection, cancellationToken) =>

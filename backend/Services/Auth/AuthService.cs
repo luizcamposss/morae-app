@@ -7,8 +7,12 @@ using backend.Data;
 using backend.Exceptions;
 using backend.DTOs.Auth;
 using backend.Models;
+using backend.Services.Email;
+using backend.Settings;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace backend.Services.Auth;
@@ -24,19 +28,25 @@ public class AuthService : IAuthService
     private readonly IConfiguration _configuration;
     private readonly AppDbContext _context;
     private readonly ILogger<AuthService> _logger;
+    private readonly IEmailQueue _emailQueue;
+    private readonly AppSettings _appSettings;
 
     public AuthService(
         UserManager<ApplicationUser> userManager,
         SignInManager<ApplicationUser> signInManager,
         IConfiguration configuration,
         AppDbContext context,
-        ILogger<AuthService> logger)
+        ILogger<AuthService> logger,
+        IEmailQueue emailQueue,
+        IOptions<AppSettings> appSettings)
     {
         _userManager = userManager;
         _signInManager = signInManager;
         _configuration = configuration;
         _context = context;
         _logger = logger;
+        _emailQueue = emailQueue;
+        _appSettings = appSettings.Value;
     }
 
     public async Task<(AuthResponseDto Response, string? RefreshToken)> LoginAsync(LoginDto dto)
@@ -185,6 +195,114 @@ public class AuthService : IAuthService
         await _context.RefreshTokens
             .Where(token => token.UserId == userId && token.RevokedAt == null && token.TokenHash != keepHash)
             .ExecuteUpdateAsync(setters => setters.SetProperty(token => token.RevokedAt, DateTime.UtcNow));
+
+        await QueuePasswordChangedEmailAsync(user);
+    }
+
+    public async Task ForgotPasswordAsync(ForgotPasswordDto dto)
+    {
+        var email = dto.Email?.Trim();
+
+        if (string.IsNullOrEmpty(email))
+            throw new BadRequestException("Informe o seu e-mail.");
+
+        // The caller always gets the same answer, so nobody can find out which e-mails have an account.
+        var user = await _userManager.FindByEmailAsync(email);
+
+        if (user is null || string.IsNullOrEmpty(user.Email))
+            return;
+
+        // Identity's token embeds the security stamp: it stops working once the password changes,
+        // so each link works only once. Lifetime: 1 hour (DataProtectionTokenProviderOptions).
+        var identityToken = await _userManager.GeneratePasswordResetTokenAsync(user);
+
+        // The link carries one opaque code (user id + token) instead of the e-mail address,
+        // so the address does not end up in browser history or server logs.
+        var code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes($"{user.Id}:{identityToken}"));
+        var resetUrl = _appSettings.BuildFrontendUrl($"reset-password?token={code}");
+
+        var name = await GetPersonNameAsync(user);
+
+        _emailQueue.Enqueue(AccountEmails.PasswordReset(name, resetUrl).ToMessage(user.Email));
+    }
+
+    public async Task ResetPasswordAsync(ResetPasswordDto dto)
+    {
+        const string invalidLink = "Este link é inválido ou expirou. Peça um novo em \"Esqueci minha senha\".";
+
+        if (string.IsNullOrEmpty(dto.NewPassword))
+            throw new BadRequestException("Informe a nova senha.");
+
+        if (!TryReadResetCode(dto.Token, out var userId, out var identityToken))
+            throw new BadRequestException(invalidLink);
+
+        var user = await _userManager.FindByIdAsync(userId.ToString())
+            ?? throw new BadRequestException(invalidLink);
+
+        // Also enforces the password rules (length, letter, digit).
+        var result = await _userManager.ResetPasswordAsync(user, identityToken, dto.NewPassword);
+
+        if (!result.Succeeded)
+        {
+            if (result.Errors.Any(error => error.Code == nameof(IdentityErrorDescriber.InvalidToken)))
+                throw new BadRequestException(invalidLink);
+
+            throw new BadRequestException(string.Join(" ", result.Errors.Select(error => error.Description)));
+        }
+
+        // Whoever knew the old password is signed out everywhere, and a lockout from
+        // wrong guesses no longer blocks the owner who just proved access to the e-mail.
+        await RevokeAllAsync(user.Id);
+        await _userManager.SetLockoutEndDateAsync(user, null);
+        await _userManager.ResetAccessFailedCountAsync(user);
+
+        await QueuePasswordChangedEmailAsync(user);
+    }
+
+    private static bool TryReadResetCode(string? code, out int userId, out string identityToken)
+    {
+        userId = 0;
+        identityToken = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(code))
+            return false;
+
+        try
+        {
+            var decoded = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code));
+            var separator = decoded.IndexOf(':');
+
+            if (separator <= 0 || !int.TryParse(decoded[..separator], out userId))
+                return false;
+
+            identityToken = decoded[(separator + 1)..];
+            return identityToken.Length > 0;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
+    }
+
+    private async Task QueuePasswordChangedEmailAsync(ApplicationUser user)
+    {
+        if (string.IsNullOrEmpty(user.Email))
+            return;
+
+        var name = await GetPersonNameAsync(user);
+
+        _emailQueue.Enqueue(AccountEmails.PasswordChanged(name).ToMessage(user.Email));
+    }
+
+    private async Task<string> GetPersonNameAsync(ApplicationUser user)
+    {
+        var name = await _context.Persons
+            .Where(person => person.Id == user.PersonId)
+            .Select(person => person.Name)
+            .FirstOrDefaultAsync();
+
+        // First name only: friendlier greeting.
+        return string.IsNullOrWhiteSpace(name) ? "morador(a)" : name.Trim().Split(' ')[0];
     }
 
     private async Task<string> IssueRefreshTokenAsync(int userId)
