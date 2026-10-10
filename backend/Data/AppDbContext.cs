@@ -42,6 +42,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<MaintenancePlan> MaintenancePlans { get; set; }
     public DbSet<MaintenanceRecord> MaintenanceRecords { get; set; }
     public DbSet<ExpectedVisit> ExpectedVisits { get; set; }
+    public DbSet<Assembly> Assemblies { get; set; }
+    public DbSet<AssemblyItem> AssemblyItems { get; set; }
+    public DbSet<AssemblyItemOption> AssemblyItemOptions { get; set; }
+    public DbSet<AssemblyVote> AssemblyVotes { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -454,6 +458,79 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .HasOne(visit => visit.CreatedByUser)
             .WithMany()
             .HasForeignKey(visit => visit.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Assembly>()
+            .HasIndex(assembly => new { assembly.CondominiumId, assembly.Status, assembly.VotingEndsAt });
+
+        builder.Entity<Assembly>()
+            .HasOne(assembly => assembly.Condominium)
+            .WithMany()
+            .HasForeignKey(assembly => assembly.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Assembly>()
+            .HasOne(assembly => assembly.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(assembly => assembly.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AssemblyItem>()
+            .HasOne(item => item.Assembly)
+            .WithMany(assembly => assembly.Items)
+            .HasForeignKey(item => item.AssemblyId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<AssemblyItemOption>()
+            .HasOne(option => option.AssemblyItem)
+            .WithMany(item => item.Options)
+            .HasForeignKey(option => option.AssemblyItemId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Deleting the minutes document only unlinks it.
+        builder.Entity<Assembly>()
+            .HasOne(assembly => assembly.MinutesDocument)
+            .WithMany()
+            .HasForeignKey(assembly => assembly.MinutesDocumentId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // One vote per unit per item.
+        builder.Entity<AssemblyVote>()
+            .HasIndex(vote => new { vote.AssemblyItemId, vote.UnitId })
+            .IsUnique();
+
+        builder.Entity<AssemblyVote>()
+            .HasIndex(vote => new { vote.AssemblyId, vote.UnitId });
+
+        builder.Entity<AssemblyVote>()
+            .HasOne(vote => vote.Assembly)
+            .WithMany()
+            .HasForeignKey(vote => vote.AssemblyId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Items and options are frozen after publication, so these never cascade in practice.
+        builder.Entity<AssemblyVote>()
+            .HasOne(vote => vote.AssemblyItem)
+            .WithMany()
+            .HasForeignKey(vote => vote.AssemblyItemId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AssemblyVote>()
+            .HasOne(vote => vote.Option)
+            .WithMany()
+            .HasForeignKey(vote => vote.AssemblyItemOptionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AssemblyVote>()
+            .HasOne(vote => vote.Unit)
+            .WithMany()
+            .HasForeignKey(vote => vote.UnitId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AssemblyVote>()
+            .HasOne(vote => vote.VotedByUser)
+            .WithMany()
+            .HasForeignKey(vote => vote.VotedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
         ApplyUtcDateTimeConvention(builder);

@@ -4,6 +4,7 @@ using backend.Data;
 using backend.Enums;
 using backend.Models;
 using backend.Services.Email;
+using backend.Services.Assemblies;
 using backend.Services.Maintenance;
 using backend.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
@@ -30,14 +31,17 @@ public class ScheduledTasks : IScheduledTasks
     private readonly INotificationService _notificationService;
     private readonly ILogger<ScheduledTasks> _logger;
     private readonly IMaintenanceReminderService _maintenanceReminderService;
+    private readonly IAssemblyService _assemblyService;
 
     public ScheduledTasks(
         AppDbContext context,
         IChargeEmailNotifier chargeEmailNotifier,
         INotificationService notificationService,
         ILogger<ScheduledTasks> logger,
-        IMaintenanceReminderService maintenanceReminderService)
+        IMaintenanceReminderService maintenanceReminderService,
+        IAssemblyService assemblyService)
     {
+        _assemblyService = assemblyService;
         _maintenanceReminderService = maintenanceReminderService;
         _context = context;
         _chargeEmailNotifier = chargeEmailNotifier;
@@ -51,6 +55,7 @@ public class ScheduledTasks : IScheduledTasks
         await RunSafelyAsync("mark overdue charges", MarkOverdueChargesAsync, cancellationToken);
         await RunSafelyAsync("expire invitations", ExpireInvitationsAsync, cancellationToken);
         await RunSafelyAsync("clean up old data", CleanUpAsync, cancellationToken);
+        await RunSafelyAsync("close assemblies", _assemblyService.CloseDueAssembliesAsync, cancellationToken);
 
         var saoPauloNow = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, AppTimeZone.SaoPaulo);
 
@@ -59,6 +64,7 @@ public class ScheduledTasks : IScheduledTasks
             await RunSafelyAsync("send due-soon reminders", SendDueSoonRemindersAsync, cancellationToken);
             await RunSafelyAsync("send overdue reminders", SendOverdueRemindersAsync, cancellationToken);
             await RunSafelyAsync("send maintenance reminders", _maintenanceReminderService.SendRemindersAsync, cancellationToken);
+            await RunSafelyAsync("send assembly closing reminders", _assemblyService.SendClosingRemindersAsync, cancellationToken);
         }
     }
 

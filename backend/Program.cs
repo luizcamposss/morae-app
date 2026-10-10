@@ -6,6 +6,7 @@ using backend.Services.Documents;
 using backend.Services.Email;
 using backend.Services.Maintenance;
 using backend.Services.Visits;
+using backend.Services.Assemblies;
 using backend.Services.Storage;
 using backend.Services.Jobs;
 using backend.Settings;
@@ -90,7 +91,7 @@ builder.Services.AddHostedService<EmailBackgroundService>();
 builder.Services.AddScoped<IChargeEmailNotifier, ChargeEmailNotifier>();
 builder.Services.AddScoped<IInvitationEmailNotifier, InvitationEmailNotifier>();
 
-// Hourly routine: overdue charges, expired invitations, cleanup and daily charge and maintenance reminders.
+// Hourly routine: overdue charges, expired invitations, cleanup, assembly closing and daily reminders.
 builder.Services.AddScoped<IScheduledTasks, ScheduledTasks>();
 builder.Services.AddHostedService<ScheduledJobsService>();
 
@@ -173,6 +174,7 @@ builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<IMaintenancePlanService, MaintenancePlanService>();
 builder.Services.AddScoped<IMaintenanceReminderService, MaintenanceReminderService>();
 builder.Services.AddScoped<IVisitService, VisitService>();
+builder.Services.AddScoped<IAssemblyService, AssemblyService>();
 builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
 builder.Services.AddScoped<IUserCondominiumPermissionService, UserCondominiumPermissionService>();
 builder.Services.AddScoped<IUserCondominiumAccessService, UserCondominiumAccessService>();

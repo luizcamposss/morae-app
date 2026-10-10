@@ -285,6 +285,206 @@ namespace backend.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("backend.Models.Assembly", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("ClosingReminderSentAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CondominiumId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<int?>("EligibleUnitsCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("MeetingAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("MeetingLocation")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int?>("MinutesDocumentId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("VoterRule")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("VotingEndsAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("VotingStartsAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("MinutesDocumentId");
+
+                    b.HasIndex("CondominiumId", "Status", "VotingEndsAt");
+
+                    b.ToTable("Assemblies");
+                });
+
+            modelBuilder.Entity("backend.Models.AssemblyItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AssemblyId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<bool>("IsSecret")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Quorum")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int>("VoteType")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssemblyId");
+
+                    b.ToTable("AssemblyItems");
+                });
+
+            modelBuilder.Entity("backend.Models.AssemblyItemOption", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AssemblyItemId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsAbstention")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsApproval")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssemblyItemId");
+
+                    b.ToTable("AssemblyItemOptions");
+                });
+
+            modelBuilder.Entity("backend.Models.AssemblyVote", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AssemblyId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AssemblyItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AssemblyItemOptionId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("UnitId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("VotedByUserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssemblyItemOptionId");
+
+                    b.HasIndex("UnitId");
+
+                    b.HasIndex("VotedByUserId");
+
+                    b.HasIndex("AssemblyId", "UnitId");
+
+                    b.HasIndex("AssemblyItemId", "UnitId")
+                        .IsUnique();
+
+                    b.ToTable("AssemblyVotes");
+                });
+
             modelBuilder.Entity("backend.Models.Building", b =>
                 {
                     b.Property<int>("Id")
@@ -1616,6 +1816,97 @@ namespace backend.Migrations
                     b.Navigation("Person");
                 });
 
+            modelBuilder.Entity("backend.Models.Assembly", b =>
+                {
+                    b.HasOne("backend.Models.Condominium", "Condominium")
+                        .WithMany()
+                        .HasForeignKey("CondominiumId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.ApplicationUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Document", "MinutesDocument")
+                        .WithMany()
+                        .HasForeignKey("MinutesDocumentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Condominium");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("MinutesDocument");
+                });
+
+            modelBuilder.Entity("backend.Models.AssemblyItem", b =>
+                {
+                    b.HasOne("backend.Models.Assembly", "Assembly")
+                        .WithMany("Items")
+                        .HasForeignKey("AssemblyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Assembly");
+                });
+
+            modelBuilder.Entity("backend.Models.AssemblyItemOption", b =>
+                {
+                    b.HasOne("backend.Models.AssemblyItem", "AssemblyItem")
+                        .WithMany("Options")
+                        .HasForeignKey("AssemblyItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AssemblyItem");
+                });
+
+            modelBuilder.Entity("backend.Models.AssemblyVote", b =>
+                {
+                    b.HasOne("backend.Models.Assembly", "Assembly")
+                        .WithMany()
+                        .HasForeignKey("AssemblyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.AssemblyItem", "AssemblyItem")
+                        .WithMany()
+                        .HasForeignKey("AssemblyItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.AssemblyItemOption", "Option")
+                        .WithMany()
+                        .HasForeignKey("AssemblyItemOptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.ApplicationUser", "VotedByUser")
+                        .WithMany()
+                        .HasForeignKey("VotedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Assembly");
+
+                    b.Navigation("AssemblyItem");
+
+                    b.Navigation("Option");
+
+                    b.Navigation("Unit");
+
+                    b.Navigation("VotedByUser");
+                });
+
             modelBuilder.Entity("backend.Models.Building", b =>
                 {
                     b.HasOne("backend.Models.Condominium", "Condominium")
@@ -2061,6 +2352,16 @@ namespace backend.Migrations
             modelBuilder.Entity("backend.Models.ApplicationUser", b =>
                 {
                     b.Navigation("UserCondominiums");
+                });
+
+            modelBuilder.Entity("backend.Models.Assembly", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("backend.Models.AssemblyItem", b =>
+                {
+                    b.Navigation("Options");
                 });
 
             modelBuilder.Entity("backend.Models.Building", b =>
