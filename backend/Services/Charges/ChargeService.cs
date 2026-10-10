@@ -1,3 +1,4 @@
+using System.Globalization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -440,7 +441,7 @@ public class ChargeService : IChargeService
                 residentUserIds,
                 NotificationType.Charge,
                 "Novo boleto disponível",
-                $"Uma cobrança de {charge.Value:C} foi gerada para sua unidade.",
+                $"Uma cobrança de {charge.Value.ToString("C", CultureInfo.GetCultureInfo("pt-BR"))} foi gerada para sua unidade.",
                 "/resident/bills",
                 charge.CondominiumId);
         }

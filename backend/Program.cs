@@ -2,6 +2,7 @@ using backend.Data;
 using backend.Models;
 using backend.Seeders;
 using backend.Services.Email;
+using backend.Services.Jobs;
 using backend.Settings;
 using System.Net;
 using System.Threading.RateLimiting;
@@ -77,6 +78,10 @@ builder.Services.AddSingleton<IEmailQueue>(provider => provider.GetRequiredServi
 builder.Services.AddSingleton<IEmailSender, ResendEmailSender>();
 builder.Services.AddHostedService<EmailBackgroundService>();
 builder.Services.AddScoped<IChargeEmailNotifier, ChargeEmailNotifier>();
+
+// Hourly routine: overdue charges, expired invitations, cleanup and daily charge reminders.
+builder.Services.AddScoped<IScheduledTasks, ScheduledTasks>();
+builder.Services.AddHostedService<ScheduledJobsService>();
 
 var dataProtection = builder.Services
     .AddDataProtection()

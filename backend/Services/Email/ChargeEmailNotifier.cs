@@ -66,36 +66,71 @@ public class ChargeEmailNotifier : IChargeEmailNotifier
         }
     }
 
+    public async Task QueueDueSoonReminderAsync(Charge charge, int daysLeft)
+    {
+        var recipients = await GetPayersAsync(charge);
+        var condominiumName = await GetCondominiumNameAsync(charge.CondominiumId);
+
+        foreach (var recipient in recipients.Where(recipient => recipient.BillsEnabled))
+        {
+            var email = ChargeEmails.DueSoonReminder(
+                recipient.FirstName, condominiumName, charge.Description, charge.Value, charge.DueDate, daysLeft,
+                GetChargesUrl(charge));
+
+            _emailQueue.Enqueue(email.ToMessage(recipient.Email));
+        }
+    }
+
+    public async Task QueueOverdueReminderAsync(Charge charge)
+    {
+        var recipients = await GetPayersAsync(charge);
+        var condominiumName = await GetCondominiumNameAsync(charge.CondominiumId);
+
+        foreach (var recipient in recipients.Where(recipient => recipient.BillsEnabled))
+        {
+            var email = ChargeEmails.OverdueReminder(
+                recipient.FirstName, condominiumName, charge.Description, charge.Value, charge.DueDate,
+                GetChargesUrl(charge));
+
+            _emailQueue.Enqueue(email.ToMessage(recipient.Email));
+        }
+    }
+
+    public async Task<List<int>> GetPayerUserIdsAsync(Charge charge)
+    {
+        return await PayerUsers(charge).Select(user => user.Id).ToListAsync();
+    }
+
     // Same people who see the charge in the app: the condominium's Admins for platform charges,
     // the unit's residents for condominium charges. Only users with an active link to the condominium.
-    private async Task<List<Recipient>> GetPayersAsync(Charge charge)
+    private IQueryable<ApplicationUser> PayerUsers(Charge charge)
     {
-        IQueryable<ApplicationUser> users;
-
         if (charge.Scope == ChargeScope.Platform)
         {
-            users = _context.Users.Where(user => user.UserCondominiums.Any(link =>
+            return _context.Users.Where(user => user.UserCondominiums.Any(link =>
                 link.CondominiumId == charge.CondominiumId &&
                 link.Role == AppRoles.Admin &&
                 link.Status == UserCondominiumStatus.Active));
         }
-        else if (charge.UnitId.HasValue)
+
+        if (charge.UnitId.HasValue)
         {
             var unitId = charge.UnitId.Value;
 
-            users = _context.Users.Where(user =>
+            return _context.Users.Where(user =>
                 _context.PersonUnits.Any(personUnit =>
                     personUnit.UnitId == unitId && personUnit.PersonId == user.PersonId) &&
                 user.UserCondominiums.Any(link =>
                     link.CondominiumId == charge.CondominiumId &&
                     link.Status == UserCondominiumStatus.Active));
         }
-        else
-        {
-            return [];
-        }
 
-        var rows = await users
+        return _context.Users.Where(_ => false);
+    }
+
+    private async Task<List<Recipient>> GetPayersAsync(Charge charge)
+    {
+        var rows = await PayerUsers(charge)
             .AsNoTracking()
             .Where(user => user.Email != null && user.Email != "")
             .Select(user => new
