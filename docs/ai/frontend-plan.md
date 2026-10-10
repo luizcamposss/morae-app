@@ -1,0 +1,86 @@
+# Moraê — plano da rodada de frontend
+
+O backend está completo (`docs/ai/api.md`). O Luiz quer **redesenhar a interface**: não basta ligar telas novas no visual atual. Esta rodada faz o redesenho e cria as telas que faltam, dividida em tarefas que podem rodar **em paralelo** em worktrees separadas (Orca).
+
+## Como dividir sem conflito
+
+- **Onda 0 (F0) vem antes e sozinha.** Ela define o visual, os componentes compartilhados e os "pontos de registro" de rotas e menus. As outras tarefas só começam depois do merge da F0 na `develop`.
+- **Cada tarefa é dona da sua pasta** em `frontend/src/features/<pasta>`. Não edite pastas de outra tarefa.
+- **Arquivos compartilhados** (`app/AppRouter.tsx`, `shared/layout/*`, `shared/lib/api/*`, `shared/components/*`) só mudam na F0. Depois dela, as tarefas apenas **acrescentam uma entrada** nos registros de rota e menu do papel (criados na F0). Se precisar de um componente compartilhado novo, crie dentro da sua pasta e avise o Luiz para promover depois.
+- Cada tarefa tem a sua branch, criada a partir da `develop` já com a F0. Siga as regras do `CLAUDE.md`: explicar → decidir → implementar → testar → parar a cada parte para o commit.
+- **Teste:** cada agente sobe a própria API temporária (5243, 5244…) e o próprio Vite (5174, 5175…) com `VITE_API_URL` apontando para a sua API. Confira no navegador com as contas de teste dos 4 papéis, e rode `npm run lint` e `npm run build`.
+
+---
+
+## Onda 0 — F0 Fundação do redesenho (bloqueia as outras)
+
+**Branch:** `feat/frontend-foundation`. **Comece conversando com o Luiz** sobre a direção visual (referências, cores, tipografia, claro/escuro). Não escolha sozinho.
+
+1. **Configuração:**
+   - `API_BASE_URL` vindo de `import.meta.env.VITE_API_URL` (hoje está fixo em `shared/lib/api/config.ts`), com `frontend/.env.example`.
+   - **Backend:** CORS lendo `Cors__Origins` (lista separada por vírgula; hoje está fixo em `http://localhost:5173` no `Program.cs`), para os agentes testarem em outras portas e para o deploy. Documentar em `backend/.env.example`.
+2. **Sistema visual:** tokens (cores, espaços, raios, sombras), tipografia, claro/escuro se o Luiz quiser.
+3. **Componentes base em `shared/components`:** Button, Input/Select/Textarea, DateField e TimeField (`"HH:mm"`), Modal, ConfirmDialog, Table/List com estado vazio e carregando, Badge de status, Tabs, Toast de sucesso/erro (mostrando a `message` da API), FileUpload (valida tipo e 20 MB **antes** de enviar), Pagination/Filters.
+4. **API:** helpers em `shared/lib/api` para upload `multipart/form-data` e download autenticado (blob + nome do arquivo do `Content-Disposition`).
+5. **Layout:** AppLayout/Sidebar/Topbar redesenhados. Menu por papel montado a partir de um **registro por papel** (ex.: `app/navigation/<papel>.ts`) e rotas a partir de `app/routes/<papel>.tsx`, para as tarefas acrescentarem itens sem editar o mesmo trecho.
+6. **Acesso:**
+   - `SyndicAccessProvider` + guarda de rota: síndico sem a permissão não abre a tela pela URL. Hoje `defaultSyndicAccess` é `true` (deixa passar): mudar para **negar por padrão**.
+   - Mapear as permissões novas (`documents.manage`, `maintenance.manage`, `visitors.manage`, `assemblies.manage`) em `features/syndicAccess`.
+   - Telas de bloqueio: **condomínio inativo** (`isCondominiumInactive` do `GET /api/me`) e conta suspensa (já existe `/suspended`, revisar).
+7. **Aplicar o novo visual nas telas que já existem**, sem mudar comportamento. Pode ser feito por papel em partes (Master, Admin, Síndico, Morador).
+8. Limpeza: apagar páginas mock órfãs (confirmar com grep que não são importadas: `features/{inspections,maintenance,communication,masterInvitations,adminUsers,people}`), remover o BOM do `Sidebar.tsx`, corrigir os warnings de `exhaustive-deps`.
+
+---
+
+## Onda 1 — em paralelo (depois da F0)
+
+### T1 — Senha e sessão · `feat/frontend-auth`
+- Telas `/forgot-password` e `/reset-password?token=` (rotas públicas). Ligar o link "Esqueci minha senha" do login.
+- `POST /api/auth/forgot-password` (sempre mostra a mensagem neutra), `POST /api/auth/reset-password` (`{ token, newPassword }`, regras com `PasswordRequirements`).
+- Mensagens: link inválido/expirado (pedir de novo), senha fraca, sucesso → ir para o login.
+
+### T2 — Síndico e permissões · `feat/frontend-syndic`
+- **Admin:** na tela de pessoas/usuários do condomínio, editar as **permissões do síndico** (todas, com rótulos em português) e os **prédios que ele administra** ("todos os prédios" ou lista).
+- **Síndico — Financeiro:** criar cobrança (só unidades dos prédios dele), dar baixa manual, comprovante. Ações visíveis conforme `charges.create` / `charges.mark_as_paid`. Reusar os formulários de cobrança/pagamento do Admin (`features/charges`, `features/payments`).
+- Menus e telas do síndico respeitando as permissões (usar a guarda da F0).
+
+### T3 — Documentos · `feat/frontend-documents`
+- **Gestão** (Admin e síndico com `documents.manage`): enviar (título, categoria, descrição, visibilidade, arquivo), editar detalhes, apagar, lista com filtro por categoria.
+- **Morador:** lista por categoria e download.
+- Rotas no front: `/admin/documents`, `/syndic/documents`, `/resident/documents` (são os links que as notificações usam).
+
+### T4 — Manutenção preventiva · `feat/frontend-maintenance`
+- Só gestão (Admin e síndico com `maintenance.manage`). Rotas: `/admin/preventive-maintenance`, `/syndic/preventive-maintenance` (links dos lembretes).
+- Lista com status colorido (em dia / vence em breve / atrasada), "faltam X dias", filtros por status e prédio, botão **"Adicionar manutenções comuns"**.
+- Formulário (nome, categoria, prédio ou condomínio inteiro, frequência em meses, próxima data, empresa, telefone, observações).
+- Detalhe com **histórico**: registrar execução (data, empresa, observações, anexo), baixar anexo, desfazer o último registro.
+- Não confundir com a tela "Manutenção" atual do síndico, que é de **ocorrências** (corretiva).
+
+### T5 — Visitantes · `feat/frontend-visitors`
+- **Morador:** "Minhas visitas" (próximas e histórico), cadastrar única ou recorrente (dias da semana, período, horário opcional, tipo, 4 últimos dígitos do documento, empresa), editar, cancelar.
+- **Gestão** (Admin e síndico com `visitors.manage`): agenda de **hoje** e dos próximos dias (até 31), filtros por prédio, unidade e tipo, "incluir canceladas". Cadastrar visita do condomínio (sem unidade).
+
+---
+
+## Onda 2 — depois da Onda 1
+
+### T6 — Assembleias e votações · `feat/frontend-assemblies`
+- **Gestão** (Admin e síndico com `assemblies.manage`): criar/editar rascunho (dados, período, quem vota, pautas Sim/Não ou múltipla escolha, quórum, secreto), publicar (confirmar: depois não muda mais), cancelar com motivo, ver a participação durante a votação, ver o resultado, **ligar a ata** (escolher um documento da categoria Atas, de T3).
+- **Morador:** lista (agendada/aberta/encerrada), detalhe com as pautas, **cédula** por unidade (`my-ballot`: mostrar `blockReason` quando não puder votar), votar e mudar o voto até fechar, resultado com o `summary` de cada pauta e a ata.
+- Rotas: `/admin/assemblies/:id`, `/syndic/assemblies/:id`, `/resident/assemblies/:id` (+ listas). São os links das notificações e e-mails.
+
+### T7 — Painéis, notificações e acabamento · `feat/frontend-polish`
+- Dashboards dos 4 papéis com dados reais (os cards de "Atrasados" agora funcionam, com a rotina do Módulo D). Corrigir a inconsistência do painel do morador.
+- Atalhos nos painéis para os módulos novos (próxima assembleia aberta, manutenções atrasadas, visitas de hoje, documentos recentes).
+- Sininho: abrir o link de cada notificação nas telas novas.
+- Responsividade (celular), estados vazios, mensagens de erro, acessibilidade básica.
+
+---
+
+## Depois do frontend — G Deploy
+
+Ver `docs/ai/decisions.md` (seção Deploy). Inclui Dockerfiles (backend multi-stage; frontend build Vite → nginx com fallback de SPA), `docker-compose.prod.yaml`, bloco no Caddy existente, volumes, backup, `ForwardedHeaders__KnownNetworks`, credenciais de produção.
+
+## Backlog (não fazer sem o Luiz pedir)
+
+"Reenviar e-mail" de convite ainda válido; papel de funcionário e registro de entrada/saída; QR code de visitante; ligar/desligar módulos por condomínio; voto por fração ideal; trocar a pasta de arquivos por S3/R2.
