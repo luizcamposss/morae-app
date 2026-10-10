@@ -87,6 +87,29 @@ public class AuthController : ControllerBase
         return NoContent();
     }
 
+    [EnableRateLimiting(RateLimitPolicies.PasswordReset)]
+    [HttpPost("forgot-password")]
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
+    {
+        await _authService.ForgotPasswordAsync(dto);
+
+        return Ok(new
+        {
+            message = "Se esse e-mail estiver cadastrado, você vai receber um link para criar uma nova senha."
+        });
+    }
+
+    [EnableRateLimiting(RateLimitPolicies.PasswordResetConfirm)]
+    [HttpPost("reset-password")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
+    {
+        await _authService.ResetPasswordAsync(dto);
+
+        DeleteRefreshTokenCookie();
+
+        return NoContent();
+    }
+
     private void SetRefreshTokenCookie(string refreshToken)
     {
         Response.Cookies.Append(RefreshTokenCookie, refreshToken, new CookieOptions

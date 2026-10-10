@@ -7,6 +7,7 @@ using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
 using backend.Services.MercadoPago;
+using backend.Services.Email;
 using backend.Services.Notifications;
 using backend.Services.Permissions;
 using Microsoft.AspNetCore.Identity;
@@ -21,6 +22,7 @@ public class PaymentService : IPaymentService
     private readonly IPermissionService _permissionService;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly INotificationService _notificationService;
+    private readonly IChargeEmailNotifier _chargeEmailNotifier;
     private readonly IMercadoPagoService _mercadoPagoService;
 
     public PaymentService(
@@ -29,6 +31,7 @@ public class PaymentService : IPaymentService
         UserManager<ApplicationUser> userManager,
         IMapper mapper,
         INotificationService notificationService,
+        IChargeEmailNotifier chargeEmailNotifier,
         IMercadoPagoService mercadoPagoService)
     {
         _context = context;
@@ -36,6 +39,7 @@ public class PaymentService : IPaymentService
         _userManager = userManager;
         _mapper = mapper;
         _notificationService = notificationService;
+        _chargeEmailNotifier = chargeEmailNotifier;
         _mercadoPagoService = mercadoPagoService;
     }
     public async Task<PaymentResponseDto> CreateManualAsync(
@@ -77,6 +81,7 @@ public class PaymentService : IPaymentService
 
         await _context.SaveChangesAsync();
         await CreatePaymentNotificationsAsync(charge);
+        await _chargeEmailNotifier.QueuePaymentConfirmedAsync(charge, payment);
 
         // A Pix/boleto generated earlier must not stay payable after the manual settlement.
         await _mercadoPagoService.CancelOpenPaymentAsync(charge.Id);

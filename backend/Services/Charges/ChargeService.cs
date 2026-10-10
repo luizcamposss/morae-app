@@ -10,6 +10,7 @@ using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
 using backend.Services.MercadoPago;
+using backend.Services.Email;
 using backend.Services.Notifications;
 using backend.Services.Permissions;
 using Microsoft.AspNetCore.Identity;
@@ -24,6 +25,7 @@ public class ChargeService : IChargeService
     private readonly IPermissionService _permissionService;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly INotificationService _notificationService;
+    private readonly IChargeEmailNotifier _chargeEmailNotifier;
     private readonly IMercadoPagoService _mercadoPagoService;
 
     public ChargeService(
@@ -32,6 +34,7 @@ public class ChargeService : IChargeService
         IPermissionService permissionService,
         UserManager<ApplicationUser> userManager,
         INotificationService notificationService,
+        IChargeEmailNotifier chargeEmailNotifier,
         IMercadoPagoService mercadoPagoService)
     {
         _context = context;
@@ -39,6 +42,7 @@ public class ChargeService : IChargeService
         _permissionService = permissionService;
         _userManager = userManager;
         _notificationService = notificationService;
+        _chargeEmailNotifier = chargeEmailNotifier;
         _mercadoPagoService = mercadoPagoService;
     }
 
@@ -64,6 +68,7 @@ public class ChargeService : IChargeService
         _context.Charges.Add(charge);
         await _context.SaveChangesAsync();
         await CreateChargeNotificationsAsync(charge);
+        await _chargeEmailNotifier.QueueNewChargeAsync(charge);
 
         return await GetChargeResponseOrThrowAsync(charge.Id);
     }

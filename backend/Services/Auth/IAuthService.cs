@@ -11,6 +11,8 @@ public interface IAuthService
     Task RevokeAsync(string refreshToken);
     Task RevokeAllAsync(int userId);
     Task ChangePasswordAsync(int userId, ChangePasswordDto dto, string? currentRefreshToken);
+    Task ForgotPasswordAsync(ForgotPasswordDto dto);
+    Task ResetPasswordAsync(ResetPasswordDto dto);
     int GetRefreshTokenDays();
     Task<string> GenerateJwtToken(ApplicationUser user);
 }
