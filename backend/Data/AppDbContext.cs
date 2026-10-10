@@ -39,6 +39,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<RefreshToken> RefreshTokens { get; set; }
     public DbSet<UserCondominiumBuilding> UserCondominiumBuildings { get; set; }
     public DbSet<Document> Documents { get; set; }
+    public DbSet<MaintenancePlan> MaintenancePlans { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -393,6 +394,27 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .HasOne(document => document.UploadedByUser)
             .WithMany()
             .HasForeignKey(document => document.UploadedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MaintenancePlan>()
+            .HasIndex(plan => new { plan.CondominiumId, plan.NextDueDate });
+
+        builder.Entity<MaintenancePlan>()
+            .HasOne(plan => plan.Condominium)
+            .WithMany()
+            .HasForeignKey(plan => plan.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MaintenancePlan>()
+            .HasOne(plan => plan.Building)
+            .WithMany()
+            .HasForeignKey(plan => plan.BuildingId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MaintenancePlan>()
+            .HasOne(plan => plan.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(plan => plan.CreatedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
         ApplyUtcDateTimeConvention(builder);
