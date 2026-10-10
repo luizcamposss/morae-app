@@ -30,8 +30,9 @@ import { getPersonsByCondominium } from "../persons/personService";
 import type { PersonResponse } from "../persons/types";
 import { MercadoPagoConnectionPanel } from "../mercadoPago/MercadoPagoConnectionPanel";
 import { describePaymentMethods, useMercadoPagoConnected } from "../mercadoPago/useMercadoPagoConnected";
+import { ChangePasswordModal } from "../auth/ChangePasswordModal";
 
-type ModalType = "profile" | "notifications" | "financial" | "syndicAccess" | null;
+type ModalType = "profile" | "notifications" | "financial" | "syndicAccess" | "password" | null;
 
 const defaultNotificationPreferences: NotificationPreferences = {
   noticesEnabled: true,
@@ -112,6 +113,14 @@ export function AdminSettingsPage() {
           />
 
           <SettingsBlock
+            icon="cadeado"
+            title="Senha e segurança"
+            description="Troque sua senha; os outros aparelhos conectados são desconectados."
+            action="Alterar senha"
+            onClick={() => setModal("password")}
+          />
+
+          <SettingsBlock
             icon="escudo"
             title="Acessos do síndico"
             description="Defina quais áreas do condomínio ficam disponíveis para o síndico."
@@ -142,6 +151,9 @@ export function AdminSettingsPage() {
       )}
 
       {modal === "notifications" && <NotificationsModal onClose={() => setModal(null)} />}
+
+
+      {modal === "password" && <ChangePasswordModal onClose={() => setModal(null)} />}
 
       {modal === "syndicAccess" && (
         <SyndicAccessModal

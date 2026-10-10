@@ -46,7 +46,9 @@ builder.Services.AddCors(options =>
         policy
             .WithOrigins("http://localhost:5173")
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            // The refresh-token cookie must travel with /api/auth requests.
+            .AllowCredentials();
     });
 });
 
@@ -75,14 +77,23 @@ builder.Configuration.AddEnvironmentVariables();
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole<int>>(options =>
 {
-    options.Password.RequiredLength = 6;
-    options.Password.RequireDigit = false;
+    // New passwords: at least 8 characters with a digit and a letter (LetterPasswordValidator).
+    // Existing passwords keep working; the rule only applies when a password is set.
+    options.Password.RequiredLength = 8;
+    options.Password.RequireDigit = true;
     options.Password.RequireLowercase = false;
     options.Password.RequireUppercase = false;
     options.Password.RequireNonAlphanumeric = false;
+
+    // 5 wrong passwords lock the account for 15 minutes (slows down password guessing).
+    options.Lockout.AllowedForNewUsers = true;
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
 })
     .AddEntityFrameworkStores<AppDbContext>()
-    .AddDefaultTokenProviders();
+    .AddDefaultTokenProviders()
+    .AddPasswordValidator<LetterPasswordValidator>()
+    .AddErrorDescriber<PortugueseIdentityErrorDescriber>();
 
 builder.Services.AddAutoMapper(
     typeof(ChargeProfile),
@@ -170,7 +181,10 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtAudience,
         IssuerSigningKey = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes(jwtSecret!)
-        )
+        ),
+
+        // Default tolerance is 5 minutes, too long for 15-minute access tokens.
+        ClockSkew = TimeSpan.FromSeconds(30)
     };
 });
 

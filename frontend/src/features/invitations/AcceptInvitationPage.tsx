@@ -4,6 +4,8 @@ import { acceptInvitation, getInvitationByToken } from "./invitationService";
 import type { InvitationResponse } from "./types";
 import logoMorae from "../../assets/logo-morae.svg";
 import { formatDateTime } from "../../shared/lib/date";
+import { isStrongPassword } from "../../shared/lib/password";
+import { PasswordRequirements } from "../../shared/components/PasswordRequirements";
 
 function getRoleLabel(invitation: InvitationResponse) {
   if (invitation.roleName) {
@@ -74,8 +76,8 @@ export function AcceptInvitationPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setErrorMessage("A senha precisa ter pelo menos 6 caracteres.");
+    if (!isStrongPassword(password)) {
+      setErrorMessage("A senha precisa ter pelo menos 8 caracteres, com letras e números.");
       return;
     }
 
@@ -205,9 +207,11 @@ export function AcceptInvitationPage() {
                 onToggleVisibility={() => setIsPasswordVisible((current) => !current)}
               />
 
+              <PasswordRequirements password={password} />
+
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !isStrongPassword(password)}
                 className="h-12 w-full cursor-pointer rounded-2xl bg-[#16A34A] text-sm font-black text-white shadow-lg shadow-[#16A34A]/25 transition hover:-translate-y-0.5 hover:bg-[#0B3D2E] focus:outline-none focus:ring-4 focus:ring-[#86EFAC]/40 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-70"
               >
                 {isSubmitting ? "Ativando acesso..." : "Ativar meu acesso"}

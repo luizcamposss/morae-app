@@ -9,8 +9,9 @@ import {
 } from "../me/meService";
 import type { NotificationPreferences } from "../me/types";
 import { ProfilePhotoBlock } from "../profile/ProfilePhotoBlock";
+import { ChangePasswordModal } from "../auth/ChangePasswordModal";
 
-type ModalType = "profile" | "notifications" | null;
+type ModalType = "profile" | "notifications" | "password" | null;
 
 const defaultNotificationPreferences: NotificationPreferences = {
   noticesEnabled: true,
@@ -54,6 +55,14 @@ export function SyndicSettingsPage() {
             action="Configurar"
             onClick={() => setModal("notifications")}
           />
+
+          <SettingsBlock
+            icon="cadeado"
+            title="Senha e segurança"
+            description="Troque sua senha; os outros aparelhos conectados são desconectados."
+            action="Alterar senha"
+            onClick={() => setModal("password")}
+          />
         </div>
       </section>
 
@@ -71,6 +80,9 @@ export function SyndicSettingsPage() {
       )}
 
       {modal === "notifications" && <NotificationsModal onClose={() => setModal(null)} />}
+
+
+      {modal === "password" && <ChangePasswordModal onClose={() => setModal(null)} />}
     </>
   );
 }
