@@ -42,6 +42,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<MaintenancePlan> MaintenancePlans { get; set; }
     public DbSet<MaintenanceRecord> MaintenanceRecords { get; set; }
     public DbSet<ExpectedVisit> ExpectedVisits { get; set; }
+    public DbSet<Assembly> Assemblies { get; set; }
+    public DbSet<AssemblyItem> AssemblyItems { get; set; }
+    public DbSet<AssemblyItemOption> AssemblyItemOptions { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -455,6 +458,33 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .WithMany()
             .HasForeignKey(visit => visit.CreatedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Assembly>()
+            .HasIndex(assembly => new { assembly.CondominiumId, assembly.Status, assembly.VotingEndsAt });
+
+        builder.Entity<Assembly>()
+            .HasOne(assembly => assembly.Condominium)
+            .WithMany()
+            .HasForeignKey(assembly => assembly.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Assembly>()
+            .HasOne(assembly => assembly.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(assembly => assembly.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AssemblyItem>()
+            .HasOne(item => item.Assembly)
+            .WithMany(assembly => assembly.Items)
+            .HasForeignKey(item => item.AssemblyId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<AssemblyItemOption>()
+            .HasOne(option => option.AssemblyItem)
+            .WithMany(item => item.Options)
+            .HasForeignKey(option => option.AssemblyItemId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         ApplyUtcDateTimeConvention(builder);
     }
