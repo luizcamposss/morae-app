@@ -1,7 +1,9 @@
 using backend.Data;
 using backend.Models;
 using backend.Seeders;
+using backend.Services.Documents;
 using backend.Services.Email;
+using backend.Services.Storage;
 using backend.Services.Jobs;
 using backend.Settings;
 using System.Net;
@@ -65,6 +67,10 @@ builder.Services.Configure<MercadoPagoSettings>(
 
 builder.Services.Configure<AppSettings>(
     builder.Configuration.GetSection("App")
+);
+
+builder.Services.Configure<StorageSettings>(
+    builder.Configuration.GetSection("Storage")
 );
 
 builder.Services.Configure<ResendSettings>(
@@ -159,6 +165,8 @@ builder.Services.AddScoped<IPersonUnitService, PersonUnitService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IOccurrenceService, OccurrenceService>();
 builder.Services.AddScoped<IUnitService, UnitService>();
+builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
 builder.Services.AddScoped<IUserCondominiumPermissionService, UserCondominiumPermissionService>();
 builder.Services.AddScoped<IUserCondominiumAccessService, UserCondominiumAccessService>();
 
