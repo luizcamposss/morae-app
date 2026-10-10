@@ -13,4 +13,10 @@ public interface IAssemblyService
     Task<AssemblyResponseDto> CancelAsync(int userId, int assemblyId, CancelAssemblyDto dto);
     Task<MyBallotDto> GetMyBallotAsync(int userId, int assemblyId);
     Task<MyBallotDto> CastVotesAsync(int userId, int assemblyId, CastVotesDto dto);
+    Task<AssemblyResultsDto> GetResultsAsync(int userId, int assemblyId);
+    Task<AssemblyResponseDto> SetMinutesAsync(int userId, int assemblyId, SetMinutesDto dto);
+
+    // Hourly job.
+    Task CloseDueAssembliesAsync(CancellationToken cancellationToken);
+    Task SendClosingRemindersAsync(CancellationToken cancellationToken);
 }

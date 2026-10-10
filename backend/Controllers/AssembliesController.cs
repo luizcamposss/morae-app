@@ -77,6 +77,20 @@ public class AssembliesController : ControllerBase
         return Ok(await _assemblyService.CastVotesAsync(GetUserId(), id, dto));
     }
 
+    // Final results after voting ends; while open, the management sees only participation.
+    [HttpGet("api/assemblies/{id}/results")]
+    public async Task<IActionResult> GetResults([FromRoute] int id)
+    {
+        return Ok(await _assemblyService.GetResultsAsync(GetUserId(), id));
+    }
+
+    // Links the signed minutes (a document already published in Documents).
+    [HttpPut("api/assemblies/{id}/minutes")]
+    public async Task<IActionResult> SetMinutes([FromRoute] int id, [FromBody] SetMinutesDto dto)
+    {
+        return Ok(await _assemblyService.SetMinutesAsync(GetUserId(), id, dto));
+    }
+
     private int GetUserId()
     {
         return int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);

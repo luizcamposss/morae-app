@@ -66,6 +66,23 @@ public static class AssemblyEmails
         };
     }
 
+    public static EmailTemplate ClosingReminder(string firstName, string condominiumName, string title, DateTime votingEndsAtUtc, string url)
+    {
+        return new EmailTemplate
+        {
+            Subject = $"Últimas horas para votar: {title}",
+            Title = "A votação está terminando",
+            Greeting = $"Olá, {firstName}!",
+            Paragraphs =
+            [
+                $"A votação da assembleia \"{title}\" do {condominiumName} termina em {Format(votingEndsAtUtc)}, e a sua unidade ainda não votou em todas as pautas.",
+                "Seu voto ajuda o condomínio a decidir com a participação de todos."
+            ],
+            ButtonText = "Votar agora",
+            ButtonUrl = url
+        };
+    }
+
     private static string Format(DateTime utc)
     {
         var local = TimeZoneInfo.ConvertTimeFromUtc(utc, AppTimeZone.SaoPaulo);

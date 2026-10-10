@@ -37,6 +37,15 @@ public class Assembly
     [StringLength(500)]
     public string? CancelReason { get; set; }
 
+    // Units able to vote when voting closed (frozen base for quorums over units).
+    public int? EligibleUnitsCount { get; set; }
+
+    public DateTime? ClosingReminderSentAt { get; set; }
+
+    // The signed minutes (ata), published in Documents.
+    public int? MinutesDocumentId { get; set; }
+    public Document? MinutesDocument { get; set; }
+
     public ICollection<AssemblyItem> Items { get; set; } = [];
 
     public int CreatedByUserId { get; set; }

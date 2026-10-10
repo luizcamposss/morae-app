@@ -303,6 +303,9 @@ namespace backend.Migrations
                     b.Property<DateTime?>("ClosedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<DateTime?>("ClosingReminderSentAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<int>("CondominiumId")
                         .HasColumnType("int");
 
@@ -316,12 +319,18 @@ namespace backend.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("varchar(2000)");
 
+                    b.Property<int?>("EligibleUnitsCount")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("MeetingAt")
                         .HasColumnType("datetime(6)");
 
                     b.Property<string>("MeetingLocation")
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
+
+                    b.Property<int?>("MinutesDocumentId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("PublishedAt")
                         .HasColumnType("datetime(6)");
@@ -352,6 +361,8 @@ namespace backend.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("MinutesDocumentId");
 
                     b.HasIndex("CondominiumId", "Status", "VotingEndsAt");
 
@@ -1819,9 +1830,16 @@ namespace backend.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("backend.Models.Document", "MinutesDocument")
+                        .WithMany()
+                        .HasForeignKey("MinutesDocumentId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Condominium");
 
                     b.Navigation("CreatedByUser");
+
+                    b.Navigation("MinutesDocument");
                 });
 
             modelBuilder.Entity("backend.Models.AssemblyItem", b =>

@@ -50,3 +50,12 @@ public enum AssemblyQuorum
     TwoThirdsOfUnits = 3,       // "Yes" from at least 2/3 of the units able to vote
     Unanimity = 4               // "Yes" from every unit able to vote
 }
+
+public enum AssemblyItemOutcome
+{
+    Undefined = 0,
+    Approved = 1,   // Yes/no reached the quorum
+    Rejected = 2,   // Yes/no did not reach the quorum
+    Decided = 3,    // Multiple choice: one option won and reached the quorum
+    Undecided = 4   // Multiple choice: tie, no votes or quorum not reached
+}

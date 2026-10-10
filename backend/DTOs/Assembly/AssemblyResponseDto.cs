@@ -21,6 +21,8 @@ public class AssemblyResponseDto
     public DateTime? CanceledAt { get; set; }
     public string? CancelReason { get; set; }
     public int ItemsCount { get; set; }
+    public int? EligibleUnitsCount { get; set; }
+    public int? MinutesDocumentId { get; set; }
     // Details only (null in lists).
     public List<AssemblyItemResponseDto>? Items { get; set; }
     public string CreatedByName { get; set; } = string.Empty;

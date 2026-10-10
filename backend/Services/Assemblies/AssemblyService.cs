@@ -265,6 +265,358 @@ public class AssemblyService : IAssemblyService
         return await BuildBallotAsync(userId, assembly);
     }
 
+    public async Task<AssemblyResultsDto> GetResultsAsync(int userId, int assemblyId)
+    {
+        var assembly = await FindVisibleAsync(userId, assemblyId);
+
+        if (assembly.Status == AssemblyStatus.Canceled)
+            throw new BadRequestException("Esta assembleia foi cancelada.");
+
+        var phase = GetPhase(assembly, DateTime.UtcNow);
+
+        // Past the end but not counted yet by the job: close it now, so results never wait.
+        if (assembly.Status == AssemblyStatus.Published && phase == AssemblyPhase.Closed)
+        {
+            await CloseIfDueAsync(assembly.Id);
+            assembly = await _context.Assemblies.AsNoTracking().FirstAsync(item => item.Id == assemblyId);
+        }
+
+        var votedUnits = await _context.AssemblyVotes
+            .Where(vote => vote.AssemblyId == assembly.Id)
+            .Select(vote => vote.UnitId)
+            .Distinct()
+            .CountAsync();
+
+        if (assembly.Status != AssemblyStatus.Closed)
+        {
+            // While voting, partial counts would influence who has not voted yet: the
+            // management sees only the participation.
+            if (!await CanManageAsync(userId, assembly.CondominiumId))
+                throw new BadRequestException("O resultado sai quando a votação terminar.");
+
+            return new AssemblyResultsDto
+            {
+                AssemblyId = assembly.Id,
+                Title = assembly.Title,
+                IsFinal = false,
+                VotingEndsAt = assembly.VotingEndsAt,
+                EligibleUnits = await CountEligibleUnitsAsync(assembly.CondominiumId),
+                VotedUnits = votedUnits
+            };
+        }
+
+        var eligible = assembly.EligibleUnitsCount ?? 0;
+
+        var items = await _context.AssemblyItems
+            .AsNoTracking()
+            .Where(item => item.AssemblyId == assembly.Id)
+            .Include(item => item.Options)
+            .OrderBy(item => item.Order)
+            .ToListAsync();
+
+        var votes = await _context.AssemblyVotes
+            .AsNoTracking()
+            .Where(vote => vote.AssemblyId == assembly.Id)
+            .Select(vote => new
+            {
+                vote.AssemblyItemId,
+                vote.AssemblyItemOptionId,
+                UnitLabel = vote.Unit.Building.Name + ", unidade " + vote.Unit.Number
+            })
+            .ToListAsync();
+
+        var minutesTitle = assembly.MinutesDocumentId is null
+            ? null
+            : await _context.Documents
+                .Where(document => document.Id == assembly.MinutesDocumentId)
+                .Select(document => document.Title)
+                .FirstOrDefaultAsync();
+
+        return new AssemblyResultsDto
+        {
+            AssemblyId = assembly.Id,
+            Title = assembly.Title,
+            IsFinal = true,
+            VotingEndsAt = assembly.VotingEndsAt,
+            ClosedAt = assembly.ClosedAt,
+            EligibleUnits = eligible,
+            VotedUnits = votedUnits,
+            MinutesDocumentId = assembly.MinutesDocumentId,
+            MinutesDocumentTitle = minutesTitle,
+            Items = items.Select(item =>
+            {
+                var options = item.Options
+                    .OrderBy(option => option.Order)
+                    .Select(option =>
+                    {
+                        var optionVotes = votes
+                            .Where(vote => vote.AssemblyItemId == item.Id && vote.AssemblyItemOptionId == option.Id)
+                            .ToList();
+
+                        return new AssemblyOptionResultDto
+                        {
+                            OptionId = option.Id,
+                            Text = option.Text,
+                            IsAbstention = option.IsAbstention,
+                            Votes = optionVotes.Count,
+                            Units = item.IsSecret ? null : optionVotes.Select(vote => vote.UnitLabel).OrderBy(label => label).ToList()
+                        };
+                    })
+                    .ToList();
+
+                var (outcome, winner, summary) = Evaluate(item, options, eligible);
+
+                return new AssemblyItemResultDto
+                {
+                    ItemId = item.Id,
+                    Order = item.Order,
+                    Title = item.Title,
+                    VoteType = item.VoteType,
+                    Quorum = item.Quorum,
+                    IsSecret = item.IsSecret,
+                    TotalVotes = options.Sum(option => option.Votes),
+                    Abstentions = options.Where(option => option.IsAbstention).Sum(option => option.Votes),
+                    Outcome = outcome,
+                    WinnerOptionId = winner,
+                    Summary = summary,
+                    Options = options
+                };
+            }).ToList()
+        };
+    }
+
+    public async Task<AssemblyResponseDto> SetMinutesAsync(int userId, int assemblyId, SetMinutesDto dto)
+    {
+        var assembly = await _context.Assemblies.FirstOrDefaultAsync(item => item.Id == assemblyId)
+            ?? throw new NotFoundException("Assembleia não encontrada.");
+
+        await _permissionService.EnsureCondominiumPermissionAsync(userId, assembly.CondominiumId, AppPermissions.AssembliesManage);
+
+        if (assembly.Status != AssemblyStatus.Closed)
+            throw new BadRequestException("A ata só pode ser ligada depois que a votação terminar.");
+
+        if (dto.DocumentId is not null)
+        {
+            var belongs = await _context.Documents
+                .AnyAsync(document => document.Id == dto.DocumentId && document.CondominiumId == assembly.CondominiumId);
+
+            if (!belongs)
+                throw new BadRequestException("Documento não encontrado neste condomínio. Publique a ata em Documentos primeiro.");
+        }
+
+        assembly.MinutesDocumentId = dto.DocumentId;
+        assembly.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        return await GetDetailsAsync(assembly.Id);
+    }
+
+    public async Task CloseDueAssembliesAsync(CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+
+        var dueIds = await _context.Assemblies
+            .Where(assembly => assembly.Status == AssemblyStatus.Published && assembly.VotingEndsAt <= now)
+            .Select(assembly => assembly.Id)
+            .ToListAsync(cancellationToken);
+
+        foreach (var id in dueIds)
+            await CloseIfDueAsync(id);
+    }
+
+    public async Task SendClosingRemindersAsync(CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+
+        var assemblies = await _context.Assemblies
+            .Where(assembly =>
+                assembly.Status == AssemblyStatus.Published &&
+                assembly.ClosingReminderSentAt == null &&
+                assembly.VotingStartsAt <= now &&
+                assembly.VotingEndsAt > now &&
+                assembly.VotingEndsAt <= now.AddHours(24))
+            .ToListAsync(cancellationToken);
+
+        foreach (var assembly in assemblies)
+        {
+            var itemsCount = await _context.AssemblyItems.CountAsync(item => item.AssemblyId == assembly.Id, cancellationToken);
+
+            // People who can still vote for a unit that has not voted on every item.
+            var recipients = await _context.PersonUnits
+                .AsNoTracking()
+                .Where(personUnit =>
+                    personUnit.Unit.Building.CondominiumId == assembly.CondominiumId &&
+                    (assembly.VoterRule == AssemblyVoterRule.OwnersAndResidents ||
+                     personUnit.RelationshipType == UnitRelationshipType.Owner) &&
+                    !_context.Charges.Any(charge => charge.UnitId == personUnit.UnitId && charge.Status == ChargeStatus.Overdue) &&
+                    _context.AssemblyVotes.Count(vote => vote.AssemblyId == assembly.Id && vote.UnitId == personUnit.UnitId) < itemsCount)
+                .SelectMany(personUnit => _context.Users.Where(user => user.PersonId == personUnit.PersonId))
+                .Where(user => user.UserCondominiums.Any(link =>
+                    link.CondominiumId == assembly.CondominiumId && link.Status == UserCondominiumStatus.Active))
+                .Select(user => new
+                {
+                    user.Id,
+                    user.Email,
+                    user.Person.Name,
+                    Role = user.UserCondominiums
+                        .Where(link => link.CondominiumId == assembly.CondominiumId)
+                        .Select(link => link.Role)
+                        .FirstOrDefault()
+                })
+                .Distinct()
+                .ToListAsync(cancellationToken);
+
+            var condominiumName = await _context.Condominiums
+                .Where(condominium => condominium.Id == assembly.CondominiumId)
+                .Select(condominium => condominium.Name)
+                .FirstAsync(cancellationToken);
+
+            var endsAt = TimeZoneInfo.ConvertTimeFromUtc(assembly.VotingEndsAt, AppTimeZone.SaoPaulo).ToString("dd/MM 'às' HH:mm", PtBr);
+
+            foreach (var role in recipients.GroupBy(recipient => recipient.Role ?? AppRoles.Resident))
+            {
+                await _notificationService.CreateManyAsync(
+                    role.Select(recipient => recipient.Id),
+                    NotificationType.News,
+                    "A votação está terminando",
+                    $"A votação de \"{assembly.Title}\" termina {endsAt} e a sua unidade ainda não votou em todas as pautas.",
+                    GetLink(role.Key, assembly.Id),
+                    assembly.CondominiumId);
+            }
+
+            foreach (var recipient in recipients.Where(recipient => !string.IsNullOrWhiteSpace(recipient.Email)))
+            {
+                var firstName = string.IsNullOrWhiteSpace(recipient.Name) ? "condômino(a)" : recipient.Name.Trim().Split(' ')[0];
+                var url = _appSettings.BuildFrontendUrl(GetLink(recipient.Role ?? AppRoles.Resident, assembly.Id).TrimStart('/'));
+
+                _emailQueue.Enqueue(AssemblyEmails
+                    .ClosingReminder(firstName, condominiumName, assembly.Title, assembly.VotingEndsAt, url)
+                    .ToMessage(recipient.Email!));
+            }
+
+            assembly.ClosingReminderSentAt = now;
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    // Closes one assembly whose voting ended. The conditional update lets only one caller
+    // (the job or a results request) win, so the result is announced exactly once.
+    private async Task CloseIfDueAsync(int assemblyId)
+    {
+        var assembly = await _context.Assemblies.AsNoTracking().FirstAsync(item => item.Id == assemblyId);
+        var now = DateTime.UtcNow;
+        var eligible = await CountEligibleUnitsAsync(assembly.CondominiumId);
+
+        var closed = await _context.Assemblies
+            .Where(item => item.Id == assemblyId && item.Status == AssemblyStatus.Published && item.VotingEndsAt <= now)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(item => item.Status, AssemblyStatus.Closed)
+                .SetProperty(item => item.ClosedAt, now)
+                .SetProperty(item => item.EligibleUnitsCount, eligible)
+                .SetProperty(item => item.UpdatedAt, now));
+
+        if (closed == 0)
+            return;
+
+        var members = await _context.UserCondominiums
+            .AsNoTracking()
+            .Where(link => link.CondominiumId == assembly.CondominiumId && link.Status == UserCondominiumStatus.Active)
+            .Select(link => new { link.UserId, link.Role })
+            .ToListAsync();
+
+        foreach (var role in members.GroupBy(member => member.Role))
+        {
+            await _notificationService.CreateManyAsync(
+                role.Select(member => member.UserId),
+                NotificationType.News,
+                "Resultado da assembleia",
+                $"A votação de \"{assembly.Title}\" terminou. Veja o resultado.",
+                GetLink(role.Key, assembly.Id),
+                assembly.CondominiumId);
+        }
+    }
+
+    // Units that may vote: every unit of the condominium without an overdue charge.
+    private async Task<int> CountEligibleUnitsAsync(int condominiumId)
+    {
+        return await _context.Units
+            .Where(unit =>
+                unit.Building.CondominiumId == condominiumId &&
+                !_context.Charges.Any(charge => charge.UnitId == unit.Id && charge.Status == ChargeStatus.Overdue))
+            .CountAsync();
+    }
+
+    // Abstentions never count as approval. Quorums over units use the eligible units frozen at closing.
+    private static (AssemblyItemOutcome Outcome, int? WinnerOptionId, string Summary) Evaluate(
+        AssemblyItem item,
+        List<AssemblyOptionResultDto> options,
+        int eligible)
+    {
+        int Needed() => item.Quorum switch
+        {
+            AssemblyQuorum.AbsoluteMajorityOfUnits => eligible / 2 + 1,
+            AssemblyQuorum.TwoThirdsOfUnits => (int)Math.Ceiling(eligible * 2 / 3.0),
+            AssemblyQuorum.Unanimity => eligible,
+            _ => 0
+        };
+
+        var quorumLabel = item.Quorum switch
+        {
+            AssemblyQuorum.AbsoluteMajorityOfUnits => "maioria absoluta das unidades",
+            AssemblyQuorum.TwoThirdsOfUnits => "2/3 das unidades",
+            AssemblyQuorum.Unanimity => "unanimidade",
+            _ => "maioria dos votos"
+        };
+
+        var choices = options.Where(option => !option.IsAbstention).ToList();
+
+        if (item.VoteType == AssemblyVoteType.YesNo)
+        {
+            var yes = options.First(option => option.Text == "Sim").Votes;
+            var no = options.First(option => option.Text == "Não").Votes;
+
+            if (item.Quorum == AssemblyQuorum.MajorityOfVotes)
+            {
+                var approved = yes > no;
+                return (approved ? AssemblyItemOutcome.Approved : AssemblyItemOutcome.Rejected, null,
+                    $"{(approved ? "Aprovada" : "Rejeitada")}: {yes} Sim × {no} Não ({quorumLabel}).");
+            }
+
+            var needed = Needed();
+            var reached = eligible > 0 && yes >= needed;
+
+            return (reached ? AssemblyItemOutcome.Approved : AssemblyItemOutcome.Rejected, null,
+                $"{(reached ? "Aprovada" : "Rejeitada")}: {Votes(yes)} Sim de {eligible} unidades aptas " +
+                $"(mínimo {needed}, {quorumLabel}).");
+        }
+
+        var top = choices.OrderByDescending(option => option.Votes).ToList();
+
+        if (top.Count == 0 || top[0].Votes == 0)
+            return (AssemblyItemOutcome.Undecided, null, "Sem decisão: nenhuma opção recebeu votos.");
+
+        if (top.Count > 1 && top[1].Votes == top[0].Votes)
+        {
+            var tied = string.Join(" e ", top.Where(option => option.Votes == top[0].Votes).Select(option => option.Text));
+            return (AssemblyItemOutcome.Undecided, null, $"Sem decisão: empate entre {tied} ({Votes(top[0].Votes)} cada).");
+        }
+
+        var winner = top[0];
+
+        if (item.Quorum == AssemblyQuorum.MajorityOfVotes)
+            return (AssemblyItemOutcome.Decided, winner.OptionId, $"Vencedora: {winner.Text} ({Votes(winner.Votes)}, opção mais votada).");
+
+        var minimum = Needed();
+
+        return eligible > 0 && winner.Votes >= minimum
+            ? (AssemblyItemOutcome.Decided, winner.OptionId,
+                $"Vencedora: {winner.Text} ({winner.Votes} de {eligible} unidades aptas, mínimo {minimum}, {quorumLabel}).")
+            : (AssemblyItemOutcome.Undecided, null,
+                $"Sem decisão: a mais votada ({winner.Text}) teve {Votes(winner.Votes)}; o mínimo era {minimum} ({quorumLabel}).");
+    }
+
+    private static string Votes(int count) => count == 1 ? "1 voto" : $"{count} votos";
+
     private async Task<Assembly> FindVisibleAsync(int userId, int assemblyId)
     {
         var assembly = await _context.Assemblies.AsNoTracking().FirstOrDefaultAsync(item => item.Id == assemblyId)
@@ -688,6 +1040,8 @@ public class AssemblyService : IAssemblyService
             CanceledAt = assembly.CanceledAt,
             CancelReason = assembly.CancelReason,
             ItemsCount = itemsCount,
+            EligibleUnitsCount = assembly.EligibleUnitsCount,
+            MinutesDocumentId = assembly.MinutesDocumentId,
             Items = items,
             CreatedByName = createdByName,
             CreatedAt = assembly.CreatedAt

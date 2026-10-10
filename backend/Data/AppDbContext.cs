@@ -487,6 +487,13 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .HasForeignKey(option => option.AssemblyItemId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        // Deleting the minutes document only unlinks it.
+        builder.Entity<Assembly>()
+            .HasOne(assembly => assembly.MinutesDocument)
+            .WithMany()
+            .HasForeignKey(assembly => assembly.MinutesDocumentId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         // One vote per unit per item.
         builder.Entity<AssemblyVote>()
             .HasIndex(vote => new { vote.AssemblyItemId, vote.UnitId })

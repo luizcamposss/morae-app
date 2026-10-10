@@ -91,7 +91,7 @@ builder.Services.AddHostedService<EmailBackgroundService>();
 builder.Services.AddScoped<IChargeEmailNotifier, ChargeEmailNotifier>();
 builder.Services.AddScoped<IInvitationEmailNotifier, InvitationEmailNotifier>();
 
-// Hourly routine: overdue charges, expired invitations, cleanup and daily charge and maintenance reminders.
+// Hourly routine: overdue charges, expired invitations, cleanup, assembly closing and daily reminders.
 builder.Services.AddScoped<IScheduledTasks, ScheduledTasks>();
 builder.Services.AddHostedService<ScheduledJobsService>();
 
