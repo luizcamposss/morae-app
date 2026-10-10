@@ -1,11 +1,16 @@
 using System.IO.Compression;
 
-namespace backend.Services.Documents;
+namespace backend.Services.Storage;
 
+// Shared by every upload (documents, maintenance attachments).
 // Identifies the file type from its content (the first bytes), never from the name or the
 // browser's content type: a renamed executable is rejected even if it is called ".pdf".
-public static class DocumentFileInspector
+public static class UploadedFileInspector
 {
+    public const long MaxFileSizeBytes = 20 * 1024 * 1024;
+    public const string AcceptedTypesMessage =
+        "Tipo de arquivo não aceito. Envie PDF, JPG, PNG, Word (.docx) ou Excel (.xlsx).";
+
     public record DetectedType(string ContentType, string Extension, string Label);
 
     private static readonly byte[] PdfSignature = "%PDF-"u8.ToArray();
@@ -66,6 +71,23 @@ public static class DocumentFileInspector
         {
             content.Position = 0;
         }
+    }
+
+    // Keeps the name the user knows, without folders or odd characters, and with the
+    // extension of the real type (a .pdf that was a PNG is downloaded as .png).
+    public static string BuildFileName(string? uploadedName, DetectedType detected, string fallback)
+    {
+        var name = Path.GetFileNameWithoutExtension(Path.GetFileName(uploadedName ?? string.Empty));
+        var invalid = Path.GetInvalidFileNameChars();
+        name = new string(name.Where(character => !char.IsControl(character) && !invalid.Contains(character)).ToArray()).Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+            name = fallback;
+
+        if (name.Length > 150)
+            name = name[..150];
+
+        return name + detected.Extension;
     }
 
     private static bool StartsWith(byte[] header, int read, byte[] signature)

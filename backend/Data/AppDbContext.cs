@@ -40,6 +40,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<UserCondominiumBuilding> UserCondominiumBuildings { get; set; }
     public DbSet<Document> Documents { get; set; }
     public DbSet<MaintenancePlan> MaintenancePlans { get; set; }
+    public DbSet<MaintenanceRecord> MaintenanceRecords { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -415,6 +416,22 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .HasOne(plan => plan.CreatedByUser)
             .WithMany()
             .HasForeignKey(plan => plan.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MaintenanceRecord>()
+            .HasIndex(record => new { record.MaintenancePlanId, record.PerformedOn });
+
+        // Deleting a plan deletes its history (the service removes the attachment files).
+        builder.Entity<MaintenanceRecord>()
+            .HasOne(record => record.MaintenancePlan)
+            .WithMany()
+            .HasForeignKey(record => record.MaintenancePlanId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<MaintenanceRecord>()
+            .HasOne(record => record.RegisteredByUser)
+            .WithMany()
+            .HasForeignKey(record => record.RegisteredByUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
         ApplyUtcDateTimeConvention(builder);

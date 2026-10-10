@@ -13,8 +13,6 @@ namespace backend.Services.Documents;
 
 public class DocumentService : IDocumentService
 {
-    public const long MaxFileSizeBytes = 20 * 1024 * 1024;
-
     private readonly AppDbContext _context;
     private readonly IPermissionService _permissionService;
     private readonly IFileStorage _fileStorage;
@@ -44,13 +42,13 @@ public class DocumentService : IDocumentService
         if (dto.File is null || dto.File.Length == 0)
             throw new BadRequestException("Escolha o arquivo do documento.");
 
-        if (dto.File.Length > MaxFileSizeBytes)
+        if (dto.File.Length > UploadedFileInspector.MaxFileSizeBytes)
             throw new BadRequestException("O arquivo pode ter no máximo 20 MB.");
 
         await using var content = dto.File.OpenReadStream();
 
-        var detected = DocumentFileInspector.Detect(content)
-            ?? throw new BadRequestException("Tipo de arquivo não aceito. Envie PDF, JPG, PNG, Word (.docx) ou Excel (.xlsx).");
+        var detected = UploadedFileInspector.Detect(content)
+            ?? throw new BadRequestException(UploadedFileInspector.AcceptedTypesMessage);
 
         var document = new Document
         {
@@ -59,7 +57,7 @@ public class DocumentService : IDocumentService
             Description = string.IsNullOrWhiteSpace(dto.Description) ? null : dto.Description.Trim(),
             Category = dto.Category,
             Visibility = dto.Visibility,
-            OriginalFileName = BuildFileName(dto.File.FileName, detected),
+            OriginalFileName = UploadedFileInspector.BuildFileName(dto.File.FileName, detected, "documento"),
             ContentType = detected.ContentType,
             SizeBytes = dto.File.Length,
             StorageKey = $"documents/{condominiumId}/{Guid.NewGuid():N}",
@@ -230,22 +228,6 @@ public class DocumentService : IDocumentService
 
         if (visibility == DocumentVisibility.Undefined || !Enum.IsDefined(visibility))
             throw new BadRequestException("Escolha quem pode ver o documento.");
-    }
-
-    // Keeps the name the user knows, without folders or odd characters, and with the
-    // extension of the real type (a .pdf that was a PNG is downloaded as .png).
-    private static string BuildFileName(string? uploadedName, DocumentFileInspector.DetectedType detected)
-    {
-        var name = Path.GetFileNameWithoutExtension(Path.GetFileName(uploadedName ?? string.Empty));
-        name = new string(name.Where(character => !char.IsControl(character) && !Path.GetInvalidFileNameChars().Contains(character)).ToArray()).Trim();
-
-        if (string.IsNullOrWhiteSpace(name))
-            name = "documento";
-
-        if (name.Length > 150)
-            name = name[..150];
-
-        return name + detected.Extension;
     }
 
     private static string GetCategoryLabel(DocumentCategory category)

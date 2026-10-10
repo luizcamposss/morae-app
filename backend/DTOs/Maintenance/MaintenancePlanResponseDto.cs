@@ -15,6 +15,7 @@ public class MaintenancePlanResponseDto
     public MaintenanceStatus Status { get; set; }
     // Negative when overdue.
     public int DaysUntilDue { get; set; }
+    public DateOnly? LastPerformedOn { get; set; }
     public string? ProviderName { get; set; }
     public string? ProviderPhone { get; set; }
     public string? Notes { get; set; }

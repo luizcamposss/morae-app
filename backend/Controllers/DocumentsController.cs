@@ -2,6 +2,7 @@ using System.Security.Claims;
 using backend.DTOs.Document;
 using backend.Enums;
 using backend.Services.Documents;
+using backend.Services.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,7 +12,7 @@ namespace backend.Controllers;
 [Authorize]
 public class DocumentsController : ControllerBase
 {
-    private const long UploadRequestLimitBytes = DocumentService.MaxFileSizeBytes + 5 * 1024 * 1024;
+    private const long UploadRequestLimitBytes = UploadedFileInspector.MaxFileSizeBytes + 5 * 1024 * 1024;
 
     private readonly IDocumentService _documentService;
 
