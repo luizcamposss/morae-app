@@ -91,3 +91,28 @@ public class AssemblyItemOption
     // "Abstenção": counts as participation, never for or against.
     public bool IsAbstention { get; set; }
 }
+
+// One unit's vote on one agenda item (unique per item and unit; changing the vote updates it).
+// For secret items the unit is still stored, so it cannot vote twice, but it is never shown.
+public class AssemblyVote
+{
+    public int Id { get; set; }
+
+    public int AssemblyId { get; set; }
+    public Assembly Assembly { get; set; } = null!;
+
+    public int AssemblyItemId { get; set; }
+    public AssemblyItem AssemblyItem { get; set; } = null!;
+
+    public int AssemblyItemOptionId { get; set; }
+    public AssemblyItemOption Option { get; set; } = null!;
+
+    public int UnitId { get; set; }
+    public Unit Unit { get; set; } = null!;
+
+    public int VotedByUserId { get; set; }
+    public ApplicationUser VotedByUser { get; set; } = null!;
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+}

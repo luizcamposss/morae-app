@@ -11,4 +11,6 @@ public interface IAssemblyService
     Task DeleteAsync(int userId, int assemblyId);
     Task<AssemblyResponseDto> PublishAsync(int userId, int assemblyId);
     Task<AssemblyResponseDto> CancelAsync(int userId, int assemblyId, CancelAssemblyDto dto);
+    Task<MyBallotDto> GetMyBallotAsync(int userId, int assemblyId);
+    Task<MyBallotDto> CastVotesAsync(int userId, int assemblyId, CastVotesDto dto);
 }

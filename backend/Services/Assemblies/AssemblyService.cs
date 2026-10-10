@@ -180,6 +180,197 @@ public class AssemblyService : IAssemblyService
         return await GetDetailsAsync(assembly.Id);
     }
 
+    public async Task<MyBallotDto> GetMyBallotAsync(int userId, int assemblyId)
+    {
+        var assembly = await FindVisibleAsync(userId, assemblyId);
+        return await BuildBallotAsync(userId, assembly);
+    }
+
+    public async Task<MyBallotDto> CastVotesAsync(int userId, int assemblyId, CastVotesDto dto)
+    {
+        var assembly = await FindVisibleAsync(userId, assemblyId);
+
+        if (GetPhase(assembly, DateTime.UtcNow) != AssemblyPhase.Open)
+            throw new BadRequestException("A votação desta assembleia não está aberta.");
+
+        if (dto.Votes.Count == 0)
+            throw new BadRequestException("Escolha pelo menos uma pauta para votar.");
+
+        var ballot = await BuildBallotAsync(userId, assembly);
+        var unit = ballot.Units.FirstOrDefault(item => item.UnitId == dto.UnitId)
+            ?? throw new ForbiddenException("Você não tem vínculo com esta unidade.");
+
+        if (!unit.CanVote)
+            throw new ForbiddenException(unit.BlockReason!);
+
+        var options = await _context.AssemblyItemOptions
+            .AsNoTracking()
+            .Where(option => option.AssemblyItem.AssemblyId == assembly.Id)
+            .Select(option => new { option.Id, option.AssemblyItemId })
+            .ToListAsync();
+
+        if (dto.Votes.Select(vote => vote.ItemId).Distinct().Count() != dto.Votes.Count)
+            throw new BadRequestException("Envie um voto por pauta.");
+
+        foreach (var vote in dto.Votes)
+        {
+            if (!options.Any(option => option.Id == vote.OptionId && option.AssemblyItemId == vote.ItemId))
+                throw new BadRequestException("Opção de voto inválida para esta pauta.");
+        }
+
+        var itemIds = dto.Votes.Select(vote => vote.ItemId).ToList();
+
+        var existing = await _context.AssemblyVotes
+            .Where(vote => vote.UnitId == dto.UnitId && itemIds.Contains(vote.AssemblyItemId))
+            .ToListAsync();
+
+        var now = DateTime.UtcNow;
+
+        foreach (var vote in dto.Votes)
+        {
+            var current = existing.FirstOrDefault(item => item.AssemblyItemId == vote.ItemId);
+
+            if (current is null)
+            {
+                _context.AssemblyVotes.Add(new AssemblyVote
+                {
+                    AssemblyId = assembly.Id,
+                    AssemblyItemId = vote.ItemId,
+                    AssemblyItemOptionId = vote.OptionId,
+                    UnitId = dto.UnitId,
+                    VotedByUserId = userId,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                });
+            }
+            else
+            {
+                // Changing the vote is allowed until voting closes.
+                current.AssemblyItemOptionId = vote.OptionId;
+                current.VotedByUserId = userId;
+                current.UpdatedAt = now;
+            }
+        }
+
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // Two people of the same unit voting at the same instant: the unique index keeps one.
+            throw new ConflictException("Outra pessoa da unidade votou agora mesmo. Atualize a página e confira.");
+        }
+
+        return await BuildBallotAsync(userId, assembly);
+    }
+
+    private async Task<Assembly> FindVisibleAsync(int userId, int assemblyId)
+    {
+        var assembly = await _context.Assemblies.AsNoTracking().FirstOrDefaultAsync(item => item.Id == assemblyId)
+            ?? throw new NotFoundException("Assembleia não encontrada.");
+
+        await _permissionService.EnsureCondominiumAccessAsync(userId, assembly.CondominiumId);
+
+        if (assembly.Status == AssemblyStatus.Draft)
+            throw new NotFoundException("Assembleia não encontrada.");
+
+        return assembly;
+    }
+
+    // The user's units in the condominium and whether each can vote: owners only (or any
+    // resident, by the assembly's rule), and no overdue charge (Código Civil, art. 1.335).
+    private async Task<MyBallotDto> BuildBallotAsync(int userId, Assembly assembly)
+    {
+        var personId = await _context.Users
+            .Where(user => user.Id == userId)
+            .Select(user => user.PersonId)
+            .FirstAsync();
+
+        var links = await _context.PersonUnits
+            .AsNoTracking()
+            .Where(personUnit =>
+                personUnit.PersonId == personId &&
+                personUnit.Unit.Building.CondominiumId == assembly.CondominiumId)
+            .Select(personUnit => new
+            {
+                personUnit.UnitId,
+                personUnit.RelationshipType,
+                personUnit.Unit.Number,
+                BuildingName = personUnit.Unit.Building.Name
+            })
+            .ToListAsync();
+
+        var unitIds = links.Select(link => link.UnitId).Distinct().ToList();
+
+        var overdue = await _context.Charges
+            .AsNoTracking()
+            .Where(charge =>
+                charge.CondominiumId == assembly.CondominiumId &&
+                charge.UnitId != null &&
+                unitIds.Contains(charge.UnitId.Value) &&
+                charge.Status == ChargeStatus.Overdue)
+            .OrderBy(charge => charge.DueDate)
+            .Select(charge => new { UnitId = charge.UnitId!.Value, charge.Description, charge.DueDate })
+            .ToListAsync();
+
+        var votes = await _context.AssemblyVotes
+            .AsNoTracking()
+            .Where(vote => vote.AssemblyId == assembly.Id && unitIds.Contains(vote.UnitId))
+            .Select(vote => new
+            {
+                vote.UnitId,
+                vote.AssemblyItemId,
+                vote.AssemblyItemOptionId,
+                vote.UpdatedAt,
+                VotedByName = vote.VotedByUser.Person.Name
+            })
+            .ToListAsync();
+
+        var units = links
+            .GroupBy(link => link.UnitId)
+            .Select(group =>
+            {
+                var first = group.First();
+                var isOwner = group.Any(link => link.RelationshipType == UnitRelationshipType.Owner);
+                var unitOverdue = overdue.FirstOrDefault(charge => charge.UnitId == group.Key);
+                var unitVotes = votes.Where(vote => vote.UnitId == group.Key).ToList();
+                var lastVote = unitVotes.OrderByDescending(vote => vote.UpdatedAt).FirstOrDefault();
+
+                string? blockReason = null;
+
+                if (assembly.VoterRule == AssemblyVoterRule.OwnersOnly && !isOwner)
+                {
+                    blockReason = "Nesta assembleia só os proprietários votam.";
+                }
+                else if (unitOverdue is not null)
+                {
+                    blockReason = $"A unidade tem cobrança em atraso (\"{unitOverdue.Description}\", " +
+                                  $"vencida em {unitOverdue.DueDate.ToString("dd/MM/yyyy", PtBr)}). Regularize para votar.";
+                }
+
+                return new BallotUnitDto
+                {
+                    UnitId = group.Key,
+                    UnitLabel = $"{first.BuildingName}, unidade {first.Number}",
+                    CanVote = blockReason is null,
+                    BlockReason = blockReason,
+                    Votes = unitVotes.ToDictionary(vote => vote.AssemblyItemId, vote => vote.AssemblyItemOptionId),
+                    LastVotedByName = lastVote?.VotedByName,
+                    LastVotedAt = lastVote?.UpdatedAt
+                };
+            })
+            .OrderBy(unit => unit.UnitLabel)
+            .ToList();
+
+        return new MyBallotDto
+        {
+            AssemblyId = assembly.Id,
+            VotingOpen = GetPhase(assembly, DateTime.UtcNow) == AssemblyPhase.Open,
+            Units = units
+        };
+    }
+
     public static AssemblyPhase GetPhase(Assembly assembly, DateTime utcNow)
     {
         return assembly.Status switch

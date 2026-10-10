@@ -63,6 +63,20 @@ public class AssembliesController : ControllerBase
         return Ok(await _assemblyService.CancelAsync(GetUserId(), id, dto));
     }
 
+    // The units the user can vote for and their current votes.
+    [HttpGet("api/assemblies/{id}/my-ballot")]
+    public async Task<IActionResult> GetMyBallot([FromRoute] int id)
+    {
+        return Ok(await _assemblyService.GetMyBallotAsync(GetUserId(), id));
+    }
+
+    // Votes (or changes the votes) of one unit; items left out keep their current vote.
+    [HttpPut("api/assemblies/{id}/votes")]
+    public async Task<IActionResult> CastVotes([FromRoute] int id, [FromBody] CastVotesDto dto)
+    {
+        return Ok(await _assemblyService.CastVotesAsync(GetUserId(), id, dto));
+    }
+
     private int GetUserId()
     {
         return int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);

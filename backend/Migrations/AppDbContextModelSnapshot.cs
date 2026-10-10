@@ -429,6 +429,51 @@ namespace backend.Migrations
                     b.ToTable("AssemblyItemOptions");
                 });
 
+            modelBuilder.Entity("backend.Models.AssemblyVote", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AssemblyId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AssemblyItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AssemblyItemOptionId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("UnitId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("VotedByUserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssemblyItemOptionId");
+
+                    b.HasIndex("UnitId");
+
+                    b.HasIndex("VotedByUserId");
+
+                    b.HasIndex("AssemblyId", "UnitId");
+
+                    b.HasIndex("AssemblyItemId", "UnitId")
+                        .IsUnique();
+
+                    b.ToTable("AssemblyVotes");
+                });
+
             modelBuilder.Entity("backend.Models.Building", b =>
                 {
                     b.Property<int>("Id")
@@ -1799,6 +1844,49 @@ namespace backend.Migrations
                         .IsRequired();
 
                     b.Navigation("AssemblyItem");
+                });
+
+            modelBuilder.Entity("backend.Models.AssemblyVote", b =>
+                {
+                    b.HasOne("backend.Models.Assembly", "Assembly")
+                        .WithMany()
+                        .HasForeignKey("AssemblyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.AssemblyItem", "AssemblyItem")
+                        .WithMany()
+                        .HasForeignKey("AssemblyItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.AssemblyItemOption", "Option")
+                        .WithMany()
+                        .HasForeignKey("AssemblyItemOptionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.ApplicationUser", "VotedByUser")
+                        .WithMany()
+                        .HasForeignKey("VotedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Assembly");
+
+                    b.Navigation("AssemblyItem");
+
+                    b.Navigation("Option");
+
+                    b.Navigation("Unit");
+
+                    b.Navigation("VotedByUser");
                 });
 
             modelBuilder.Entity("backend.Models.Building", b =>

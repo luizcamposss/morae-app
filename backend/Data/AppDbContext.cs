@@ -45,6 +45,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<Assembly> Assemblies { get; set; }
     public DbSet<AssemblyItem> AssemblyItems { get; set; }
     public DbSet<AssemblyItemOption> AssemblyItemOptions { get; set; }
+    public DbSet<AssemblyVote> AssemblyVotes { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -485,6 +486,45 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .WithMany(item => item.Options)
             .HasForeignKey(option => option.AssemblyItemId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // One vote per unit per item.
+        builder.Entity<AssemblyVote>()
+            .HasIndex(vote => new { vote.AssemblyItemId, vote.UnitId })
+            .IsUnique();
+
+        builder.Entity<AssemblyVote>()
+            .HasIndex(vote => new { vote.AssemblyId, vote.UnitId });
+
+        builder.Entity<AssemblyVote>()
+            .HasOne(vote => vote.Assembly)
+            .WithMany()
+            .HasForeignKey(vote => vote.AssemblyId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Items and options are frozen after publication, so these never cascade in practice.
+        builder.Entity<AssemblyVote>()
+            .HasOne(vote => vote.AssemblyItem)
+            .WithMany()
+            .HasForeignKey(vote => vote.AssemblyItemId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AssemblyVote>()
+            .HasOne(vote => vote.Option)
+            .WithMany()
+            .HasForeignKey(vote => vote.AssemblyItemOptionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AssemblyVote>()
+            .HasOne(vote => vote.Unit)
+            .WithMany()
+            .HasForeignKey(vote => vote.UnitId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AssemblyVote>()
+            .HasOne(vote => vote.VotedByUser)
+            .WithMany()
+            .HasForeignKey(vote => vote.VotedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         ApplyUtcDateTimeConvention(builder);
     }
