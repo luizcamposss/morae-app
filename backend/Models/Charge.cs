@@ -44,4 +44,8 @@ public class Charge
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? CanceledAt { get; set; }
+
+    // Set by the daily reminder job so each reminder goes out only once.
+    public DateTime? DueSoonReminderSentAt { get; set; }
+    public DateTime? OverdueReminderSentAt { get; set; }
 }
