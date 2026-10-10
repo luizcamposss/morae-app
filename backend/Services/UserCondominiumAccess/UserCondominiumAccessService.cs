@@ -213,6 +213,9 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
         userCondominium.Role = normalizedRole;
         targetUser.UpdatedAt = now;
 
+        if (normalizedRole == AppRoles.Syndic)
+            userCondominium.ManagesAllBuildings = true;
+
         if (normalizedRole == AppRoles.Syndic && userCondominium.Permissions.Count == 0)
         {
             userCondominium.Permissions = AppPermissions.All
@@ -228,6 +231,14 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
         if (normalizedRole == AppRoles.Resident && userCondominium.Permissions.Count > 0)
         {
             _context.UserCondominiumPermissions.RemoveRange(userCondominium.Permissions);
+        }
+
+        if (normalizedRole != AppRoles.Syndic)
+        {
+            userCondominium.ManagesAllBuildings = false;
+            await _context.UserCondominiumBuildings
+                .Where(managed => managed.UserCondominiumId == userCondominium.Id)
+                .ExecuteDeleteAsync();
         }
 
         if (targetPerson is not null)

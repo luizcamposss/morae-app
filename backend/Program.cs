@@ -2,7 +2,12 @@ using backend.Data;
 using backend.Models;
 using backend.Seeders;
 using backend.Settings;
+using System.Net;
+using System.Threading.RateLimiting;
+using backend.Constants;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -188,7 +193,58 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
+// Behind a reverse proxy (Caddy in production, ngrok in dev) the client IP comes in
+// X-Forwarded-For. Only proxies we trust may set it: loopback by default, plus the networks
+// listed in ForwardedHeaders:KnownNetworks (e.g. the Docker network in production).
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+
+    var knownNetworks = builder.Configuration["ForwardedHeaders:KnownNetworks"];
+
+    foreach (var network in (knownNetworks ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+    {
+        var parts = network.Split('/');
+        options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse(parts[0]), int.Parse(parts[1])));
+    }
+});
+
+// Per-IP limits: anonymous endpoints get strict policies (password guessing, invitation-token
+// guessing, floods); everything else shares a generous global limit.
+builder.Services.AddRateLimiter(options =>
+{
+    static string ClientIp(HttpContext context) => context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+    static RateLimitPartition<string> PerIpPerMinute(HttpContext context, int permitLimit) =>
+        RateLimitPartition.GetFixedWindowLimiter(ClientIp(context), _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = permitLimit,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0
+        });
+
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context => PerIpPerMinute(context, 300));
+    options.AddPolicy(RateLimitPolicies.Login, context => PerIpPerMinute(context, 10));
+    options.AddPolicy(RateLimitPolicies.Refresh, context => PerIpPerMinute(context, 30));
+    options.AddPolicy(RateLimitPolicies.Invitation, context => PerIpPerMinute(context, 10));
+    options.AddPolicy(RateLimitPolicies.PasswordReset, context => PerIpPerMinute(context, 5));
+    options.AddPolicy(RateLimitPolicies.Webhook, context => PerIpPerMinute(context, 120));
+
+    options.OnRejected = async (rejection, cancellationToken) =>
+    {
+        rejection.HttpContext.Response.ContentType = "application/json";
+        await rejection.HttpContext.Response.WriteAsJsonAsync(new
+        {
+            statusCode = StatusCodes.Status429TooManyRequests,
+            message = "Muitas tentativas. Aguarde um minuto e tente novamente."
+        }, cancellationToken);
+    };
+});
+
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 if (app.Environment.IsDevelopment())
 {
@@ -200,7 +256,11 @@ app.UseHttpsRedirection();
 
 app.UseMiddleware<ExceptionMiddleware>();
 
+app.UseRouting();
+
 app.UseCors("FrontendPolicy");
+
+app.UseRateLimiter();
 
 app.UseAuthentication();
 

@@ -1,3 +1,5 @@
+using backend.Constants;
+using backend.Enums;
 using AutoMapper;
 using backend.Data;
 using backend.DTOs.PersonUnit;
@@ -83,10 +85,21 @@ public class PersonUnitService : IPersonUnitService
 
     public async Task<IEnumerable<PersonUnitResponseDto>> GetByUnitAsync(int userId, int unitId)
     {
-        var unitExists = await _context.Units.AnyAsync(u => u.Id == unitId);
+        var condominiumId = await _context.Units
+            .Where(u => u.Id == unitId)
+            .Select(u => (int?)u.Building.CondominiumId)
+            .FirstOrDefaultAsync();
 
-        if (!unitExists)
+        if (condominiumId is null)
             throw new NotFoundException("Unit not found.");
+
+        // Residents always see who lives in their own unit; a syndic looking at other units
+        // needs the "residents.view" permission.
+        if (!await _permissionService.IsUnitResidentAsync(userId, unitId) &&
+            await _permissionService.GetCondominiumRoleAsync(userId, condominiumId.Value) == AppRoles.Syndic)
+        {
+            await _permissionService.EnsureCondominiumPermissionAsync(userId, condominiumId.Value, AppPermissions.ResidentsView);
+        }
 
         await _permissionService.EnsureUnitAccessAsync(userId, unitId);
 

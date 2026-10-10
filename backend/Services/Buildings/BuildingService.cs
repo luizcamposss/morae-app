@@ -49,10 +49,10 @@ public class BuildingService : IBuildingService
                         uc.CondominiumId == b.CondominiumId &&
                         uc.Role == AppRoles.Syndic &&
                         uc.Status == UserCondominiumStatus.Active &&
-                        _context.PersonUnits.Any(pu =>
-                            pu.PersonId == uc.User.PersonId &&
-                            pu.Unit.BuildingId == b.Id))
-                    .OrderBy(uc => uc.Id)
+                        (uc.ManagesAllBuildings || uc.Buildings.Any(managed => managed.BuildingId == b.Id)))
+                    // A syndic assigned to this building comes before a syndic of all buildings.
+                    .OrderBy(uc => uc.ManagesAllBuildings)
+                    .ThenBy(uc => uc.Id)
                     .Select(uc => (int?)uc.UserId)
                     .FirstOrDefault(),
                 SyndicName = _context.UserCondominiums
@@ -60,10 +60,10 @@ public class BuildingService : IBuildingService
                         uc.CondominiumId == b.CondominiumId &&
                         uc.Role == AppRoles.Syndic &&
                         uc.Status == UserCondominiumStatus.Active &&
-                        _context.PersonUnits.Any(pu =>
-                            pu.PersonId == uc.User.PersonId &&
-                            pu.Unit.BuildingId == b.Id))
-                    .OrderBy(uc => uc.Id)
+                        (uc.ManagesAllBuildings || uc.Buildings.Any(managed => managed.BuildingId == b.Id)))
+                    // A syndic assigned to this building comes before a syndic of all buildings.
+                    .OrderBy(uc => uc.ManagesAllBuildings)
+                    .ThenBy(uc => uc.Id)
                     .Select(uc => uc.User.Person.Name)
                     .FirstOrDefault() ?? string.Empty,
                 SyndicEmail = _context.UserCondominiums
@@ -71,10 +71,10 @@ public class BuildingService : IBuildingService
                         uc.CondominiumId == b.CondominiumId &&
                         uc.Role == AppRoles.Syndic &&
                         uc.Status == UserCondominiumStatus.Active &&
-                        _context.PersonUnits.Any(pu =>
-                            pu.PersonId == uc.User.PersonId &&
-                            pu.Unit.BuildingId == b.Id))
-                    .OrderBy(uc => uc.Id)
+                        (uc.ManagesAllBuildings || uc.Buildings.Any(managed => managed.BuildingId == b.Id)))
+                    // A syndic assigned to this building comes before a syndic of all buildings.
+                    .OrderBy(uc => uc.ManagesAllBuildings)
+                    .ThenBy(uc => uc.Id)
                     .Select(uc => uc.User.Email)
                     .FirstOrDefault() ?? string.Empty,
                 Status = _context.Units.Any(u =>

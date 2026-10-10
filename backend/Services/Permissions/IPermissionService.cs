@@ -26,4 +26,17 @@ public interface IPermissionService
     Task EnsureUnitAccessAsync(int userId, int unitId);
     Task EnsurePersonAccessAsync(int userId, int personId);
     Task EnsureCondominiumPermissionAsync(int userId, int condominiumId, string permissionKey);
+
+    // The user's active role in that condominium (Admin, Syndic, Resident) or null. Roles are per
+    // condominium: being Syndic in one condominium says nothing about another.
+    Task<string?> GetCondominiumRoleAsync(int userId, int condominiumId);
+
+    // Buildings whose data the user may manage in that condominium: null = all of them
+    // (Admins, and syndics set to manage all buildings); empty = none.
+    Task<IReadOnlyCollection<int>?> GetManagedBuildingIdsAsync(int userId, int condominiumId);
+    Task<bool> IsUnitResidentAsync(int userId, int unitId);
+    Task<bool> IsPlatformBillingAdminAsync(int userId, int condominiumId);
+    Task<bool> HasAnyCondominiumPermissionAsync(int userId, int condominiumId, IEnumerable<string> permissionKeys);
+    Task EnsureAnyCondominiumPermissionAsync(int userId, int condominiumId, IEnumerable<string> permissionKeys);
+    Task EnsureCanReadCondominiumChargeAsync(int userId, int condominiumId, int? unitId);
 }

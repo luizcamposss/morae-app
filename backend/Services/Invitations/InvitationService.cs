@@ -418,6 +418,8 @@ public class InvitationService : IInvitationService
 
         if (invitation.Role == UserRole.Syndic)
         {
+            // Like in the market: a syndic runs the whole condominium until the Admin restricts it.
+            userCondominium.ManagesAllBuildings = true;
             userCondominium.Permissions = AppPermissions.All
                 .Select(permission => new UserCondominiumPermission
                 {

@@ -70,12 +70,84 @@ public class UserCondominiumPermissionService : IUserCondominiumPermissionServic
         return MapResponse(userCondominium);
     }
 
+    public async Task<SyndicBuildingsResponseDto> GetBuildingsAsync(
+        int requesterUserId,
+        int condominiumId,
+        int targetUserId)
+    {
+        await _permissionService.EnsureCondominiumAdminAsync(requesterUserId, condominiumId);
+
+        var userCondominium = await GetSyndicUserCondominiumAsync(condominiumId, targetUserId);
+
+        return await MapBuildingsResponseAsync(userCondominium);
+    }
+
+    public async Task<SyndicBuildingsResponseDto> UpdateBuildingsAsync(
+        int requesterUserId,
+        int condominiumId,
+        int targetUserId,
+        UpdateSyndicBuildingsDto dto)
+    {
+        await _permissionService.EnsureCondominiumAdminAsync(requesterUserId, condominiumId);
+
+        var userCondominium = await GetSyndicUserCondominiumAsync(condominiumId, targetUserId);
+        var buildingIds = dto.AllBuildings ? [] : dto.BuildingIds.Distinct().ToList();
+
+        if (buildingIds.Count > 0)
+        {
+            var validCount = await _context.Buildings
+                .CountAsync(building => buildingIds.Contains(building.Id) && building.CondominiumId == condominiumId);
+
+            if (validCount != buildingIds.Count)
+                throw new BadRequestException("Escolha apenas prédios deste condomínio.");
+        }
+
+        userCondominium.ManagesAllBuildings = dto.AllBuildings;
+
+        _context.UserCondominiumBuildings.RemoveRange(userCondominium.Buildings);
+        userCondominium.Buildings = buildingIds
+            .Select(buildingId => new UserCondominiumBuilding
+            {
+                UserCondominiumId = userCondominium.Id,
+                BuildingId = buildingId,
+                CreatedAt = DateTime.UtcNow
+            })
+            .ToList();
+
+        await _context.SaveChangesAsync();
+
+        return await MapBuildingsResponseAsync(userCondominium);
+    }
+
+    private async Task<SyndicBuildingsResponseDto> MapBuildingsResponseAsync(UserCondominium userCondominium)
+    {
+        var buildingIds = userCondominium.Buildings.Select(managed => managed.BuildingId).ToList();
+
+        var buildings = userCondominium.ManagesAllBuildings
+            ? []
+            : await _context.Buildings
+                .AsNoTracking()
+                .Where(building => buildingIds.Contains(building.Id))
+                .OrderBy(building => building.Name)
+                .Select(building => new SyndicBuildingItemDto { Id = building.Id, Name = building.Name })
+                .ToListAsync();
+
+        return new SyndicBuildingsResponseDto
+        {
+            UserId = userCondominium.UserId,
+            CondominiumId = userCondominium.CondominiumId,
+            AllBuildings = userCondominium.ManagesAllBuildings,
+            Buildings = buildings
+        };
+    }
+
     private async Task<UserCondominium> GetSyndicUserCondominiumAsync(
         int condominiumId,
         int targetUserId)
     {
         var userCondominium = await _context.UserCondominiums
             .Include(uc => uc.Permissions)
+            .Include(uc => uc.Buildings)
             .FirstOrDefaultAsync(uc =>
                 uc.UserId == targetUserId &&
                 uc.CondominiumId == condominiumId);

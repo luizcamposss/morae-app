@@ -4,6 +4,7 @@ using backend.DTOs.Invitation;
 using backend.Services.Invitations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace backend.Controllers;
 
@@ -62,6 +63,7 @@ public class InvitationsController : ControllerBase
         return Ok(invitations);
     }
 
+    [EnableRateLimiting(RateLimitPolicies.Invitation)]
     [HttpGet("{token}")]
     [AllowAnonymous]
     public async Task<IActionResult> GetByToken([FromRoute] string token)
@@ -74,6 +76,7 @@ public class InvitationsController : ControllerBase
         return Ok(invitation);
     }
 
+    [EnableRateLimiting(RateLimitPolicies.Invitation)]
     [HttpPost("accept")]
     [AllowAnonymous]
     public async Task<IActionResult> Accept([FromBody] AcceptInvitationDto dto)

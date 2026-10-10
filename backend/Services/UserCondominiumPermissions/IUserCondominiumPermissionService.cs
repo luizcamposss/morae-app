@@ -9,6 +9,12 @@ public interface IUserCondominiumPermissionService
         int condominiumId,
         int targetUserId);
 
+    Task<SyndicBuildingsResponseDto> GetBuildingsAsync(int requesterUserId, int condominiumId, int targetUserId);
+    Task<SyndicBuildingsResponseDto> UpdateBuildingsAsync(
+        int requesterUserId,
+        int condominiumId,
+        int targetUserId,
+        UpdateSyndicBuildingsDto dto);
     Task<UserCondominiumPermissionsResponseDto> UpdateAsync(
         int requesterUserId,
         int condominiumId,

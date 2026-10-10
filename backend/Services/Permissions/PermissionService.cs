@@ -67,7 +67,8 @@ public class PermissionService : IPermissionService
                 uc.UserId == userId &&
                 uc.CondominiumId == condominiumId &&
                 uc.Role == AppRoles.Admin &&
-                uc.Status == UserCondominiumStatus.Active);
+                uc.Status == UserCondominiumStatus.Active &&
+                uc.Condominium.Status == Status.Active);
     }
 
     public async Task EnsureMasterAsync(int userId)
@@ -97,7 +98,8 @@ public class PermissionService : IPermissionService
             .AnyAsync(uc =>
                 uc.UserId == userId &&
                 uc.CondominiumId == condominiumId &&
-                uc.Status == UserCondominiumStatus.Active);
+                uc.Status == UserCondominiumStatus.Active &&
+                uc.Condominium.Status == Status.Active);
     }
 
     public async Task<bool> HasBuildingAccessAsync(int userId, int buildingId)
@@ -121,7 +123,8 @@ public class PermissionService : IPermissionService
             .FirstOrDefaultAsync(uc =>
                 uc.UserId == userId &&
                 uc.CondominiumId == building.CondominiumId &&
-                uc.Status == UserCondominiumStatus.Active);
+                uc.Status == UserCondominiumStatus.Active &&
+                uc.Condominium.Status == Status.Active);
 
         if (activeAccess is null)
             return false;
@@ -132,11 +135,7 @@ public class PermissionService : IPermissionService
         if (activeAccess.Role != AppRoles.Syndic)
             return false;
 
-        return await _context.PersonUnits
-            .AsNoTracking()
-            .AnyAsync(personUnit =>
-                personUnit.PersonId == user.PersonId &&
-                personUnit.Unit.BuildingId == buildingId);
+        return await ManagesBuildingAsync(activeAccess, buildingId);
     }
     public async Task<bool> HasUnitAccessAsync(int userId, int unitId)
     {
@@ -160,7 +159,8 @@ public class PermissionService : IPermissionService
             .FirstOrDefaultAsync(uc =>
                 uc.UserId == userId &&
                 uc.CondominiumId == unit.Building.CondominiumId &&
-                uc.Status == UserCondominiumStatus.Active);
+                uc.Status == UserCondominiumStatus.Active &&
+                uc.Condominium.Status == Status.Active);
 
         if (activeAccess is not null)
         {
@@ -168,20 +168,15 @@ public class PermissionService : IPermissionService
                 return true;
 
             if (activeAccess.Role == AppRoles.Syndic)
-            {
-                return await _context.PersonUnits
-                    .AsNoTracking()
-                    .AnyAsync(personUnit =>
-                        personUnit.PersonId == user.PersonId &&
-                        personUnit.Unit.BuildingId == unit.BuildingId);
-            }
+                return await ManagesBuildingAsync(activeAccess, unit.BuildingId);
         }
 
         return await _context.PersonUnits
             .AsNoTracking()
             .AnyAsync(personUnit =>
                 personUnit.PersonId == user.PersonId &&
-                personUnit.UnitId == unitId);
+                personUnit.UnitId == unitId &&
+                personUnit.Unit.Building.Condominium.Status == Status.Active);
     }
     public async Task<bool> HasPersonAccessAsync(int userId, int personId)
     {
@@ -212,7 +207,8 @@ public class PermissionService : IPermissionService
                         uc.UserId == userId &&
                         uc.CondominiumId == personCondominium.CondominiumId &&
                         uc.Role == AppRoles.Admin &&
-                        uc.Status == UserCondominiumStatus.Active));
+                        uc.Status == UserCondominiumStatus.Active &&
+                uc.Condominium.Status == Status.Active));
 
             if (hasCondominiumPersonLink)
                 return true;
@@ -225,7 +221,8 @@ public class PermissionService : IPermissionService
                         uc.UserId == userId &&
                         uc.CondominiumId == personUnit.Unit.Building.CondominiumId &&
                         uc.Role == AppRoles.Admin &&
-                        uc.Status == UserCondominiumStatus.Active));
+                        uc.Status == UserCondominiumStatus.Active &&
+                uc.Condominium.Status == Status.Active));
         }
 
         if (await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
@@ -234,14 +231,17 @@ public class PermissionService : IPermissionService
                 .AsNoTracking()
                 .AnyAsync(targetPersonUnit =>
                     targetPersonUnit.PersonId == personId &&
-                    _context.PersonUnits.Any(syndicPersonUnit =>
-                        syndicPersonUnit.PersonId == user.PersonId &&
-                        syndicPersonUnit.Unit.BuildingId == targetPersonUnit.Unit.BuildingId) &&
                     _context.UserCondominiums.Any(userCondominium =>
                         userCondominium.UserId == userId &&
                         userCondominium.CondominiumId == targetPersonUnit.Unit.Building.CondominiumId &&
                         userCondominium.Role == AppRoles.Syndic &&
-                        userCondominium.Status == UserCondominiumStatus.Active));
+                        userCondominium.Status == UserCondominiumStatus.Active &&
+                        userCondominium.Condominium.Status == Status.Active &&
+                        userCondominium.Permissions.Any(permission =>
+                            permission.PermissionKey == AppPermissions.ResidentsView) &&
+                        (userCondominium.ManagesAllBuildings ||
+                         userCondominium.Buildings.Any(managed =>
+                             managed.BuildingId == targetPersonUnit.Unit.BuildingId))));
         }
 
         return false;
@@ -259,7 +259,8 @@ public class PermissionService : IPermissionService
             .FirstOrDefaultAsync(uc =>
                 uc.UserId == userId &&
                 uc.CondominiumId == condominiumId &&
-                uc.Status == UserCondominiumStatus.Active);
+                uc.Status == UserCondominiumStatus.Active &&
+                uc.Condominium.Status == Status.Active);
 
         if (userCondominium is null)
             return false;
@@ -315,5 +316,129 @@ public class PermissionService : IPermissionService
 
         if (!hasPermission)
             throw new ForbiddenException("You do not have permission to perform this action.");
+    }
+
+    public async Task<IReadOnlyCollection<int>?> GetManagedBuildingIdsAsync(int userId, int condominiumId)
+    {
+        var access = await _context.UserCondominiums
+            .AsNoTracking()
+            .Where(uc =>
+                uc.UserId == userId &&
+                uc.CondominiumId == condominiumId &&
+                uc.Status == UserCondominiumStatus.Active &&
+                uc.Condominium.Status == Status.Active)
+            .Select(uc => new
+            {
+                uc.Role,
+                uc.ManagesAllBuildings,
+                BuildingIds = uc.Buildings.Select(managed => managed.BuildingId).ToList()
+            })
+            .FirstOrDefaultAsync();
+
+        if (access is null)
+            return Array.Empty<int>();
+
+        if (access.Role == AppRoles.Admin)
+            return null;
+
+        if (access.Role == AppRoles.Syndic)
+            return access.ManagesAllBuildings ? null : access.BuildingIds;
+
+        return Array.Empty<int>();
+    }
+
+    private async Task<bool> ManagesBuildingAsync(UserCondominium syndicAccess, int buildingId)
+    {
+        if (syndicAccess.ManagesAllBuildings)
+            return true;
+
+        return await _context.UserCondominiumBuildings
+            .AsNoTracking()
+            .AnyAsync(managed =>
+                managed.UserCondominiumId == syndicAccess.Id &&
+                managed.BuildingId == buildingId);
+    }
+
+    public async Task<string?> GetCondominiumRoleAsync(int userId, int condominiumId)
+    {
+        return await _context.UserCondominiums
+            .AsNoTracking()
+            .Where(uc =>
+                uc.UserId == userId &&
+                uc.CondominiumId == condominiumId &&
+                uc.Status == UserCondominiumStatus.Active &&
+                uc.Condominium.Status == Status.Active)
+            .Select(uc => uc.Role)
+            .FirstOrDefaultAsync();
+    }
+
+    public async Task<bool> IsUnitResidentAsync(int userId, int unitId)
+    {
+        return await _context.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId)
+            .AnyAsync(user => _context.PersonUnits.Any(personUnit =>
+                personUnit.PersonId == user.PersonId &&
+                personUnit.UnitId == unitId &&
+                personUnit.Unit.Building.Condominium.Status == Status.Active));
+    }
+
+    // Platform charges (MORAÊ's invoices to the condominium) stay visible and payable by its Admins
+    // even when the condominium is inactive, so an unpaid account can be settled and reactivated.
+    public async Task<bool> IsPlatformBillingAdminAsync(int userId, int condominiumId)
+    {
+        return await _context.UserCondominiums
+            .AsNoTracking()
+            .AnyAsync(uc =>
+                uc.UserId == userId &&
+                uc.CondominiumId == condominiumId &&
+                uc.Role == AppRoles.Admin &&
+                uc.Status == UserCondominiumStatus.Active);
+    }
+
+    public async Task<bool> HasAnyCondominiumPermissionAsync(
+        int userId,
+        int condominiumId,
+        IEnumerable<string> permissionKeys)
+    {
+        foreach (var permissionKey in permissionKeys)
+        {
+            if (await HasCondominiumPermissionAsync(userId, condominiumId, permissionKey))
+                return true;
+        }
+
+        return false;
+    }
+
+    public async Task EnsureAnyCondominiumPermissionAsync(
+        int userId,
+        int condominiumId,
+        IEnumerable<string> permissionKeys)
+    {
+        if (!await HasAnyCondominiumPermissionAsync(userId, condominiumId, permissionKeys))
+            throw new ForbiddenException("You do not have permission to perform this action.");
+    }
+
+    // Who may read a condominium charge and its payments: the unit's own residents (a syndic
+    // included, for their own unit), the condominium's Admins, and syndics with finance access
+    // to that unit's building.
+    public async Task EnsureCanReadCondominiumChargeAsync(int userId, int condominiumId, int? unitId)
+    {
+        if (unitId.HasValue && await IsUnitResidentAsync(userId, unitId.Value))
+            return;
+
+        var role = await GetCondominiumRoleAsync(userId, condominiumId);
+
+        if (role == AppRoles.Admin)
+            return;
+
+        if (role == AppRoles.Syndic && unitId.HasValue)
+        {
+            await EnsureAnyCondominiumPermissionAsync(userId, condominiumId, AppPermissions.FinanceAccess);
+            await EnsureUnitAccessAsync(userId, unitId.Value);
+            return;
+        }
+
+        throw new ForbiddenException("Você não tem acesso a esta cobrança.");
     }
 }

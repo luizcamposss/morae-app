@@ -201,19 +201,20 @@ public class PaymentService : IPaymentService
 
         if (charge.Scope == ChargeScope.Condominium)
         {
-            if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
-            {
-                await _permissionService.EnsureCondominiumAdminAsync(userId, charge.CondominiumId);
-                return;
-            }
+            var role = await _permissionService.GetCondominiumRoleAsync(userId, charge.CondominiumId);
 
-            if (await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
+            if (role == AppRoles.Admin)
+                return;
+
+            if (role == AppRoles.Syndic && charge.UnitId.HasValue)
             {
                 await _permissionService.EnsureCondominiumPermissionAsync(
                     userId,
                     charge.CondominiumId,
                     AppPermissions.ChargesMarkAsPaid);
 
+                // Only in the buildings the syndic manages.
+                await _permissionService.EnsureUnitAccessAsync(userId, charge.UnitId.Value);
                 return;
             }
 
@@ -238,7 +239,7 @@ public class PaymentService : IPaymentService
                 return;
             }
 
-            if (await _permissionService.IsCondominiumAdminAsync(userId, charge.CondominiumId))
+            if (await _permissionService.IsPlatformBillingAdminAsync(userId, charge.CondominiumId))
                 return;
 
             throw new ForbiddenException("User cannot access this payment.");
@@ -246,24 +247,8 @@ public class PaymentService : IPaymentService
 
         if (charge.Scope == ChargeScope.Condominium)
         {
-            if (await _userManager.IsInRoleAsync(user, AppRoles.Admin) ||
-                await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
-            {
-                await _permissionService.EnsureCondominiumAccessAsync(userId, charge.CondominiumId);
-                return;
-            }
-
-            var canReadAsResident = await _context.PersonUnits
-                .AsNoTracking()
-                .AnyAsync(pu =>
-                    pu.PersonId == user.PersonId &&
-                    charge.UnitId.HasValue &&
-                    pu.UnitId == charge.UnitId.Value);
-
-            if (canReadAsResident)
-                return;
-
-            throw new ForbiddenException("User cannot access this payment.");
+            await _permissionService.EnsureCanReadCondominiumChargeAsync(userId, charge.CondominiumId, charge.UnitId);
+            return;
         }
 
         throw new BadRequestException("Invalid charge scope.");

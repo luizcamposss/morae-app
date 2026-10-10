@@ -37,6 +37,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<UserCondominiumPermission> UserCondominiumPermissions { get; set; }
     public DbSet<Occurrence> Occurrences { get; set; }
     public DbSet<RefreshToken> RefreshTokens { get; set; }
+    public DbSet<UserCondominiumBuilding> UserCondominiumBuildings { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -346,6 +347,22 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .WithOne()
             .HasForeignKey<MercadoPagoPayment>(payment => payment.PaymentId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<UserCondominiumBuilding>()
+            .HasIndex(item => new { item.UserCondominiumId, item.BuildingId })
+            .IsUnique();
+
+        builder.Entity<UserCondominiumBuilding>()
+            .HasOne(item => item.UserCondominium)
+            .WithMany(userCondominium => userCondominium.Buildings)
+            .HasForeignKey(item => item.UserCondominiumId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<UserCondominiumBuilding>()
+            .HasOne(item => item.Building)
+            .WithMany()
+            .HasForeignKey(item => item.BuildingId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.Entity<RefreshToken>()
             .HasIndex(token => token.TokenHash)

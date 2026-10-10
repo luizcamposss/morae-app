@@ -17,5 +17,8 @@ public class MeResponseDto
     public bool IsSuspended { get; set; }
     public string? SuspensionReason { get; set; }
     public DateTime? SuspendedAt { get; set; }
+
+    // True when the user's only active links are to inactive condominiums (Master excluded).
+    public bool IsCondominiumInactive { get; set; }
     public IEnumerable<string> Roles { get; set; } = [];
 }

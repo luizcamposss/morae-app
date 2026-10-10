@@ -1,3 +1,4 @@
+using backend.Enums;
 using AutoMapper;
 using backend.Constants;
 using backend.Data;
@@ -198,9 +199,15 @@ public class PersonService : IPersonService
         if (await _userManager.IsInRoleAsync(user, AppRoles.Admin) ||
             await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
         {
+            // Admins see their condominiums' people; syndics only where they have "residents.view".
             var condominiumIds = await _context.UserCondominiums
                 .AsNoTracking()
-                .Where(uc => uc.UserId == userId)
+                .Where(uc =>
+                    uc.UserId == userId &&
+                    uc.Status == UserCondominiumStatus.Active &&
+                    (uc.Role == AppRoles.Admin ||
+                     (uc.Role == AppRoles.Syndic &&
+                      uc.Permissions.Any(permission => permission.PermissionKey == AppPermissions.ResidentsView))))
                 .Select(uc => uc.CondominiumId)
                 .ToListAsync();
 
@@ -246,27 +253,14 @@ public class PersonService : IPersonService
 
         var query = BuildPersonResponseQuery(condominiumId);
 
-        if (await _permissionService.IsSyndicAsync(userId))
+        var managedBuildingIds = await _permissionService.GetManagedBuildingIdsAsync(userId, condominiumId);
+
+        if (managedBuildingIds is not null)
         {
-            var personId = await _context.Users
-                .AsNoTracking()
-                .Where(user => user.Id == userId)
-                .Select(user => user.PersonId)
-                .FirstAsync();
-
-            var linkedBuildingIds = await _context.PersonUnits
-                .AsNoTracking()
-                .Where(personUnit =>
-                    personUnit.PersonId == personId &&
-                    personUnit.Unit.Building.CondominiumId == condominiumId)
-                .Select(personUnit => personUnit.Unit.BuildingId)
-                .Distinct()
-                .ToListAsync();
-
             query = query.Where(person =>
                 _context.PersonUnits.Any(personUnit =>
                     personUnit.PersonId == person.Id &&
-                    linkedBuildingIds.Contains(personUnit.Unit.BuildingId)));
+                    managedBuildingIds.Contains(personUnit.Unit.BuildingId)));
         }
 
         return await query
