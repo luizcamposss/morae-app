@@ -41,6 +41,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<Document> Documents { get; set; }
     public DbSet<MaintenancePlan> MaintenancePlans { get; set; }
     public DbSet<MaintenanceRecord> MaintenanceRecords { get; set; }
+    public DbSet<ExpectedVisit> ExpectedVisits { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -432,6 +433,27 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .HasOne(record => record.RegisteredByUser)
             .WithMany()
             .HasForeignKey(record => record.RegisteredByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ExpectedVisit>()
+            .HasIndex(visit => new { visit.CondominiumId, visit.StartDate, visit.EndDate });
+
+        builder.Entity<ExpectedVisit>()
+            .HasOne(visit => visit.Condominium)
+            .WithMany()
+            .HasForeignKey(visit => visit.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ExpectedVisit>()
+            .HasOne(visit => visit.Unit)
+            .WithMany()
+            .HasForeignKey(visit => visit.UnitId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ExpectedVisit>()
+            .HasOne(visit => visit.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(visit => visit.CreatedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
         ApplyUtcDateTimeConvention(builder);
