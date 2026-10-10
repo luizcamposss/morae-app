@@ -13,6 +13,8 @@ public class EmailTemplate
     public required string Title { get; init; }
     public string? Greeting { get; init; }
     public IReadOnlyList<string> Paragraphs { get; init; } = [];
+    // Label/value rows shown as a small table (amount, due date...).
+    public IReadOnlyList<(string Label, string Value)> Details { get; init; } = [];
     public string? ButtonText { get; init; }
     public string? ButtonUrl { get; init; }
     public string? Note { get; init; }
@@ -31,6 +33,23 @@ public class EmailTemplate
 
         foreach (var paragraph in Paragraphs)
             body.Append($"<p style=\"margin:0 0 16px\">{Encode(paragraph)}</p>");
+
+        if (Details.Count > 0)
+        {
+            body.Append("<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" " +
+                        "style=\"width:100%;margin:0 0 16px;border:1px solid #e5e7eb;border-radius:8px\">");
+
+            foreach (var (label, value) in Details)
+            {
+                body.Append(
+                    "<tr>" +
+                    $"<td style=\"padding:10px 14px;color:#6b7280;border-bottom:1px solid #f3f4f6\">{Encode(label)}</td>" +
+                    $"<td style=\"padding:10px 14px;font-weight:600;text-align:right;border-bottom:1px solid #f3f4f6\">{Encode(value)}</td>" +
+                    "</tr>");
+            }
+
+            body.Append("</table>");
+        }
 
         if (ButtonText is not null && ButtonUrl is not null)
         {
@@ -79,6 +98,12 @@ public class EmailTemplate
 
         foreach (var paragraph in Paragraphs)
             text.AppendLine(paragraph).AppendLine();
+
+        foreach (var (label, value) in Details)
+            text.AppendLine($"{label}: {value}");
+
+        if (Details.Count > 0)
+            text.AppendLine();
 
         if (ButtonText is not null && ButtonUrl is not null)
             text.AppendLine($"{ButtonText}: {ButtonUrl}").AppendLine();

@@ -76,6 +76,7 @@ builder.Services.AddSingleton<EmailQueue>();
 builder.Services.AddSingleton<IEmailQueue>(provider => provider.GetRequiredService<EmailQueue>());
 builder.Services.AddSingleton<IEmailSender, ResendEmailSender>();
 builder.Services.AddHostedService<EmailBackgroundService>();
+builder.Services.AddScoped<IChargeEmailNotifier, ChargeEmailNotifier>();
 
 var dataProtection = builder.Services
     .AddDataProtection()

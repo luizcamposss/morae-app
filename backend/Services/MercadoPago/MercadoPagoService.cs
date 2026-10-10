@@ -7,6 +7,7 @@ using backend.DTOs.MercadoPago;
 using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
+using backend.Services.Email;
 using backend.Services.Notifications;
 using backend.Services.Permissions;
 using backend.Settings;
@@ -42,6 +43,7 @@ public class MercadoPagoService : IMercadoPagoService
     private readonly IMercadoPagoWebhookValidator _webhookValidator;
     private readonly IMercadoPagoTokenProtector _tokenProtector;
     private readonly INotificationService _notificationService;
+    private readonly IChargeEmailNotifier _chargeEmailNotifier;
     private readonly IMapper _mapper;
     private readonly ILogger<MercadoPagoService> _logger;
 
@@ -56,6 +58,7 @@ public class MercadoPagoService : IMercadoPagoService
         IMercadoPagoWebhookValidator webhookValidator,
         IMercadoPagoTokenProtector tokenProtector,
         INotificationService notificationService,
+        IChargeEmailNotifier chargeEmailNotifier,
         IMapper mapper,
         ILogger<MercadoPagoService> logger)
     {
@@ -69,6 +72,7 @@ public class MercadoPagoService : IMercadoPagoService
         _webhookValidator = webhookValidator;
         _tokenProtector = tokenProtector;
         _notificationService = notificationService;
+        _chargeEmailNotifier = chargeEmailNotifier;
         _mapper = mapper;
         _logger = logger;
     }
@@ -537,6 +541,8 @@ public class MercadoPagoService : IMercadoPagoService
             trackedPayment.Charge,
             "Pagamento confirmado",
             "O pagamento pelo Mercado Pago foi confirmado.");
+
+        await _chargeEmailNotifier.QueuePaymentConfirmedAsync(trackedPayment.Charge, payment);
 
         await NotifyReceiversAsync(
             trackedPayment,
