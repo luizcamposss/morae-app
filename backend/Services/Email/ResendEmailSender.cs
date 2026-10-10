@@ -10,6 +10,10 @@ public class ResendEmailSender : IEmailSender
 {
     private const string Endpoint = "https://api.resend.com/emails";
 
+    // Reserved names that never receive e-mail (test accounts use them). Sending there would only
+    // produce bounces, which hurt the sending domain's reputation.
+    private static readonly string[] UndeliverableSuffixes = [".local", ".test", ".example", ".invalid", ".localhost"];
+
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ResendSettings _settings;
     private readonly ILogger<ResendEmailSender> _logger;
@@ -37,13 +41,30 @@ public class ResendEmailSender : IEmailSender
             return EmailSendResult.Sent;
         }
 
+        var to = message.To;
+        var subject = message.Subject;
+
+        if (!string.IsNullOrWhiteSpace(_settings.TestRecipient))
+        {
+            to = _settings.TestRecipient;
+            subject = $"[teste → {message.To}] {message.Subject}";
+        }
+        else if (IsUndeliverable(message.To))
+        {
+            _logger.LogInformation(
+                "E-mail not sent (test address that cannot receive e-mail). To: {To} | Subject: {Subject}",
+                message.To,
+                message.Subject);
+            return EmailSendResult.Sent;
+        }
+
         using var request = new HttpRequestMessage(HttpMethod.Post, Endpoint)
         {
             Content = JsonContent.Create(new
             {
                 from = _settings.From,
-                to = new[] { message.To },
-                subject = message.Subject,
+                to = new[] { to },
+                subject,
                 html = message.Html,
                 text = message.Text
             })
@@ -82,6 +103,14 @@ public class ResendEmailSender : IEmailSender
             _logger.LogWarning(exception, "Could not reach Resend to send e-mail \"{Subject}\".", message.Subject);
             return EmailSendResult.RetryLater;
         }
+    }
+
+    private static bool IsUndeliverable(string address)
+    {
+        var domain = address[(address.LastIndexOf('@') + 1)..].Trim().ToLowerInvariant();
+
+        return !domain.Contains('.') ||
+               UndeliverableSuffixes.Any(suffix => domain.EndsWith(suffix, StringComparison.Ordinal));
     }
 
     private record ResendResponse(string? Id);
