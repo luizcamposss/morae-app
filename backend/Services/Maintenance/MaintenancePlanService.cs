@@ -134,6 +134,72 @@ public class MaintenancePlanService : IMaintenancePlanService
             await DeleteFileQuietlyAsync(key);
     }
 
+    // Common maintenances of Brazilian condominiums, created in one click. The first date is
+    // 30 days ahead, so they show up as "vence em breve" for the manager to adjust each one.
+    private static readonly (string Name, MaintenanceCategory Category, int IntervalMonths, string Notes, bool NeedsElevator)[] DefaultPlans =
+    [
+        ("Manutenção do elevador", MaintenanceCategory.Elevator, 1,
+            "Obrigatória e mensal, feita por empresa habilitada. Guarde o relatório de cada visita.", true),
+        ("Recarga e inspeção dos extintores", MaintenanceCategory.FireSafety, 12,
+            "Confira a data na etiqueta de cada extintor.", false),
+        ("Inspeção de mangueiras e hidrantes", MaintenanceCategory.FireSafety, 12,
+            "Teste das mangueiras e do sistema de hidrantes.", false),
+        ("Renovação do AVCB", MaintenanceCategory.FireSafety, 36,
+            "A validade varia conforme o estado e o porte do prédio: ajuste a frequência para a do seu certificado.", false),
+        ("Limpeza da caixa d'água", MaintenanceCategory.WaterTank, 6,
+            "Limpeza e desinfecção dos reservatórios. Avise os moradores sobre a falta d'água.", false),
+        ("Dedetização e desratização", MaintenanceCategory.PestControl, 6,
+            "Feita por empresa licenciada. Guarde o certificado.", false),
+        ("Inspeção do para-raios (SPDA)", MaintenanceCategory.Electrical, 12,
+            "Inspeção do sistema de proteção contra descargas atmosféricas, com laudo.", false),
+        ("Manutenção das bombas d'água", MaintenanceCategory.Equipment, 3,
+            "Revisão das bombas de recalque e de incêndio.", false)
+    ];
+
+    public async Task<IEnumerable<MaintenancePlanResponseDto>> CreateDefaultsAsync(int userId, int condominiumId)
+    {
+        await _permissionService.EnsureCondominiumPermissionAsync(userId, condominiumId, AppPermissions.MaintenanceManage);
+        // They are condominium-wide plans.
+        await EnsureCanEditScopeAsync(userId, condominiumId, null);
+
+        var existingNames = await _context.MaintenancePlans
+            .Where(plan => plan.CondominiumId == condominiumId)
+            .Select(plan => plan.Name)
+            .ToListAsync();
+
+        var hasElevator = await _context.Buildings
+            .AnyAsync(building => building.CondominiumId == condominiumId && building.HasElevator);
+
+        var firstDueDate = Today().AddDays(30);
+
+        // Running it again only adds what is missing.
+        var plans = DefaultPlans
+            .Where(item => !item.NeedsElevator || hasElevator)
+            .Where(item => !existingNames.Contains(item.Name, StringComparer.OrdinalIgnoreCase))
+            .Select(item => new MaintenancePlan
+            {
+                CondominiumId = condominiumId,
+                Name = item.Name,
+                Category = item.Category,
+                IntervalMonths = item.IntervalMonths,
+                NextDueDate = firstDueDate,
+                Notes = item.Notes,
+                CreatedByUserId = userId,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            })
+            .ToList();
+
+        _context.MaintenancePlans.AddRange(plans);
+        await _context.SaveChangesAsync();
+
+        var today = Today();
+
+        return plans
+            .Select(plan => ToResponse(plan, null, null, today))
+            .ToList();
+    }
+
     public async Task<MaintenanceRecordResponseDto> CreateRecordAsync(
         int userId,
         int planId,

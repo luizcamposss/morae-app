@@ -11,6 +11,7 @@ public interface IMaintenancePlanService
     Task<MaintenancePlanResponseDto> GetByIdAsync(int userId, int planId);
     Task<MaintenancePlanResponseDto> UpdateAsync(int userId, int planId, SaveMaintenancePlanDto dto);
     Task DeleteAsync(int userId, int planId);
+    Task<IEnumerable<MaintenancePlanResponseDto>> CreateDefaultsAsync(int userId, int condominiumId);
 
     Task<MaintenanceRecordResponseDto> CreateRecordAsync(int userId, int planId, CreateMaintenanceRecordDto dto);
     Task<IEnumerable<MaintenanceRecordResponseDto>> GetRecordsAsync(int userId, int planId);

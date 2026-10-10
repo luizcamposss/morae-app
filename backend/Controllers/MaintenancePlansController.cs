@@ -26,6 +26,13 @@ public class MaintenancePlansController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, plan);
     }
 
+    // Creates the common maintenances (elevator, extinguishers, water tank...) that are missing.
+    [HttpPost("api/condominiums/{condominiumId}/maintenance-plans/defaults")]
+    public async Task<IActionResult> CreateDefaults([FromRoute] int condominiumId)
+    {
+        return Ok(await _maintenancePlanService.CreateDefaultsAsync(GetUserId(), condominiumId));
+    }
+
     [HttpGet("api/condominiums/{condominiumId}/maintenance-plans")]
     public async Task<IActionResult> GetByCondominium(
         [FromRoute] int condominiumId,

@@ -36,6 +36,12 @@ public class MaintenancePlan
     [StringLength(1000)]
     public string? Notes { get; set; }
 
+    // Due date each reminder was last sent for. When the due date moves (maintenance done or
+    // rescheduled), it no longer matches and the reminders run again for the new date.
+    public DateOnly? Reminder30SentFor { get; set; }
+    public DateOnly? Reminder7SentFor { get; set; }
+    public DateOnly? OverdueReminderSentFor { get; set; }
+
     public int CreatedByUserId { get; set; }
     public ApplicationUser CreatedByUser { get; set; } = null!;
 

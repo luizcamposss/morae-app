@@ -87,7 +87,7 @@ builder.Services.AddHostedService<EmailBackgroundService>();
 builder.Services.AddScoped<IChargeEmailNotifier, ChargeEmailNotifier>();
 builder.Services.AddScoped<IInvitationEmailNotifier, InvitationEmailNotifier>();
 
-// Hourly routine: overdue charges, expired invitations, cleanup and daily charge reminders.
+// Hourly routine: overdue charges, expired invitations, cleanup and daily charge and maintenance reminders.
 builder.Services.AddScoped<IScheduledTasks, ScheduledTasks>();
 builder.Services.AddHostedService<ScheduledJobsService>();
 
@@ -168,6 +168,7 @@ builder.Services.AddScoped<IOccurrenceService, OccurrenceService>();
 builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
 builder.Services.AddScoped<IMaintenancePlanService, MaintenancePlanService>();
+builder.Services.AddScoped<IMaintenanceReminderService, MaintenanceReminderService>();
 builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
 builder.Services.AddScoped<IUserCondominiumPermissionService, UserCondominiumPermissionService>();
 builder.Services.AddScoped<IUserCondominiumAccessService, UserCondominiumAccessService>();

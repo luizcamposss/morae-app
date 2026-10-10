@@ -4,6 +4,7 @@ using backend.Data;
 using backend.Enums;
 using backend.Models;
 using backend.Services.Email;
+using backend.Services.Maintenance;
 using backend.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
 
@@ -26,13 +27,16 @@ public class ScheduledTasks : IScheduledTasks
     private readonly IChargeEmailNotifier _chargeEmailNotifier;
     private readonly INotificationService _notificationService;
     private readonly ILogger<ScheduledTasks> _logger;
+    private readonly IMaintenanceReminderService _maintenanceReminderService;
 
     public ScheduledTasks(
         AppDbContext context,
         IChargeEmailNotifier chargeEmailNotifier,
         INotificationService notificationService,
-        ILogger<ScheduledTasks> logger)
+        ILogger<ScheduledTasks> logger,
+        IMaintenanceReminderService maintenanceReminderService)
     {
+        _maintenanceReminderService = maintenanceReminderService;
         _context = context;
         _chargeEmailNotifier = chargeEmailNotifier;
         _notificationService = notificationService;
@@ -52,6 +56,7 @@ public class ScheduledTasks : IScheduledTasks
         {
             await RunSafelyAsync("send due-soon reminders", SendDueSoonRemindersAsync, cancellationToken);
             await RunSafelyAsync("send overdue reminders", SendOverdueRemindersAsync, cancellationToken);
+            await RunSafelyAsync("send maintenance reminders", _maintenanceReminderService.SendRemindersAsync, cancellationToken);
         }
     }
 
