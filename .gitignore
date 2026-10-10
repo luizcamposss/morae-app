@@ -36,3 +36,6 @@ appsettings.Local.json
 TestResults/
 coverage/
 .build/
+
+# Arquivos enviados em dev (documentos)
+backend/storage/

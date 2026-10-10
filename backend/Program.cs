@@ -1,7 +1,12 @@
+using backend.Converters;
 using backend.Data;
 using backend.Models;
 using backend.Seeders;
+using backend.Services.Documents;
 using backend.Services.Email;
+using backend.Services.Maintenance;
+using backend.Services.Visits;
+using backend.Services.Storage;
 using backend.Services.Jobs;
 using backend.Settings;
 using System.Net;
@@ -42,7 +47,8 @@ DotEnv.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new TimeOnlyJsonConverter()));
 
 builder.Services.AddHttpClient();
 
@@ -67,6 +73,10 @@ builder.Services.Configure<AppSettings>(
     builder.Configuration.GetSection("App")
 );
 
+builder.Services.Configure<StorageSettings>(
+    builder.Configuration.GetSection("Storage")
+);
+
 builder.Services.Configure<ResendSettings>(
     builder.Configuration.GetSection("Resend")
 );
@@ -80,7 +90,7 @@ builder.Services.AddHostedService<EmailBackgroundService>();
 builder.Services.AddScoped<IChargeEmailNotifier, ChargeEmailNotifier>();
 builder.Services.AddScoped<IInvitationEmailNotifier, InvitationEmailNotifier>();
 
-// Hourly routine: overdue charges, expired invitations, cleanup and daily charge reminders.
+// Hourly routine: overdue charges, expired invitations, cleanup and daily charge and maintenance reminders.
 builder.Services.AddScoped<IScheduledTasks, ScheduledTasks>();
 builder.Services.AddHostedService<ScheduledJobsService>();
 
@@ -159,6 +169,11 @@ builder.Services.AddScoped<IPersonUnitService, PersonUnitService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IOccurrenceService, OccurrenceService>();
 builder.Services.AddScoped<IUnitService, UnitService>();
+builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<IMaintenancePlanService, MaintenancePlanService>();
+builder.Services.AddScoped<IMaintenanceReminderService, MaintenanceReminderService>();
+builder.Services.AddScoped<IVisitService, VisitService>();
+builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
 builder.Services.AddScoped<IUserCondominiumPermissionService, UserCondominiumPermissionService>();
 builder.Services.AddScoped<IUserCondominiumAccessService, UserCondominiumAccessService>();
 

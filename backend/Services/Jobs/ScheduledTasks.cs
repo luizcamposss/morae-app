@@ -4,6 +4,7 @@ using backend.Data;
 using backend.Enums;
 using backend.Models;
 using backend.Services.Email;
+using backend.Services.Maintenance;
 using backend.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,6 +20,8 @@ public class ScheduledTasks : IScheduledTasks
     // On the first run, older overdue charges get no reminder (avoids e-mailing years of history).
     private const int OverdueReminderMaxDaysLate = 3;
     private const int ReadNotificationRetentionDays = 90;
+    // LGPD: visitors' names and document digits are kept for 12 months after the visit.
+    private const int VisitRetentionDays = 365;
 
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
@@ -26,13 +29,16 @@ public class ScheduledTasks : IScheduledTasks
     private readonly IChargeEmailNotifier _chargeEmailNotifier;
     private readonly INotificationService _notificationService;
     private readonly ILogger<ScheduledTasks> _logger;
+    private readonly IMaintenanceReminderService _maintenanceReminderService;
 
     public ScheduledTasks(
         AppDbContext context,
         IChargeEmailNotifier chargeEmailNotifier,
         INotificationService notificationService,
-        ILogger<ScheduledTasks> logger)
+        ILogger<ScheduledTasks> logger,
+        IMaintenanceReminderService maintenanceReminderService)
     {
+        _maintenanceReminderService = maintenanceReminderService;
         _context = context;
         _chargeEmailNotifier = chargeEmailNotifier;
         _notificationService = notificationService;
@@ -52,6 +58,7 @@ public class ScheduledTasks : IScheduledTasks
         {
             await RunSafelyAsync("send due-soon reminders", SendDueSoonRemindersAsync, cancellationToken);
             await RunSafelyAsync("send overdue reminders", SendOverdueRemindersAsync, cancellationToken);
+            await RunSafelyAsync("send maintenance reminders", _maintenanceReminderService.SendRemindersAsync, cancellationToken);
         }
     }
 
@@ -104,12 +111,18 @@ public class ScheduledTasks : IScheduledTasks
                 notification.CreatedAt < now.AddDays(-ReadNotificationRetentionDays))
             .ExecuteDeleteAsync(cancellationToken);
 
-        if (refreshTokens + oauthStates + notifications > 0)
+        var oldestVisitDate = DateOnly.FromDateTime(AppTimeZone.Today).AddDays(-VisitRetentionDays);
+
+        var visits = await _context.ExpectedVisits
+            .Where(visit => visit.EndDate < oldestVisitDate)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        if (refreshTokens + oauthStates + notifications + visits > 0)
         {
             _logger.LogInformation(
-                "Cleanup removed {RefreshTokens} expired session(s), {OAuthStates} Mercado Pago connection attempt(s) " +
-                "and {Notifications} old read notification(s).",
-                refreshTokens, oauthStates, notifications);
+                "Cleanup removed {RefreshTokens} expired session(s), {OAuthStates} Mercado Pago connection attempt(s), " +
+                "{Notifications} old read notification(s) and {Visits} visit(s) older than 12 months.",
+                refreshTokens, oauthStates, notifications, visits);
         }
     }
 
