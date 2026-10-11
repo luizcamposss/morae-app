@@ -63,6 +63,12 @@ Decisões já tomadas com o Luiz. Siga sem perguntar de novo; se algo novo contr
 - Quóruns: maioria dos votos, maioria absoluta das unidades, 2/3 das unidades, unanimidade. Base = unidades em dia no encerramento (congelada). Múltipla escolha: vence a mais votada; empate = sem decisão.
 - Durante a votação ninguém vê parcial; a gestão vê só a participação. Lembrete "últimas horas" a menos de 24 h do fim.
 
+## Landing page e migração
+
+- A landing capta clientes (o Moraê é entregue pronto para vender). CTA principal **"Ver o Moraê funcionando"** (formulário de 4 campos: nome, WhatsApp, nº de unidades, administrador/síndico), secundário **WhatsApp**, ímã de leads **calculadora** de perdas. Os contatos são gravados no backend e o Master é avisado por e-mail.
+- **Assinatura da landing: hero com seletor de dor** — "O que mais te tira o sono no condomínio?" com 5 opções (inadimplência, avisos no WhatsApp, sistema antigo, assembleia vazia, medo de migrar); cada uma troca título, número de prova e a tela do produto; abre na inadimplência; a dor escolhida vai junto no formulário de contato.
+- **Migração:** construir **importação por planilha** (unidades, moradores e vínculos, cobranças em aberto) com prévia e erros antes de gravar. Sem migração assistida e sem exportação completa por agora.
+
 ## Ficou de fora (não implementar sem o Luiz pedir)
 
 Reservas de áreas comuns, encomendas, veículos/pets, todo financeiro novo (recorrência, multa/juros, prestação de contas, acordos), relatórios, papel de porteiro/funcionário, registro de entrada/saída, QR code de visitante, ligar/desligar módulos por condomínio, voto por fração ideal, "reenviar e-mail" de convite ainda válido.

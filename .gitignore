@@ -39,3 +39,6 @@ coverage/
 
 # Arquivos enviados em dev (documentos)
 backend/storage/
+
+# Testes de direção visual (Impeccable), não versionar
+.impeccable/

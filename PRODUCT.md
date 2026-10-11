@@ -43,6 +43,7 @@ Sucesso é o condomínio receber em dia sem trabalho manual, o morador participa
 - **Fluxo de design combinado:** as telas são desenhadas primeiro no **Figma** (navegador, conta Education) e só depois codadas.
 - **Ainda não existe landing page**; ela entra como superfície nova.
 - **Fora do escopo por agora:** reservas de áreas comuns, encomendas, veículos/pets, novos recursos financeiros (recorrência, multa/juros, acordos), relatórios, portaria/registro de entrada e saída, app nativo.
+- **Planejado antes do lançamento:** **importação por planilha** para quem vem de outro sistema (unidades, moradores, vínculos e cobranças em aberto), com prévia e erros apontados antes de gravar. **Ainda não existe**: a landing só pode prometer depois de pronto. Migração assistida (serviço) e exportação completa **não** estão planejadas por agora.
 - **Indefinido:** preço/planos do Moraê.
 
 ## Brand Commitments
@@ -51,10 +52,14 @@ Sucesso é o condomínio receber em dia sem trabalho manual, o morador participa
 - Logo existente: `frontend/src/assets/logo-morae.svg` (símbolo em verde `#00AE54`). Há também uma animação de carregamento: `frontend/src/assets/load-morae.mp4`.
 - Referências que o Luiz escolheu como norte: produtos da **AbacatePay** e do **Marc Lou**, e "appllama" (nome a confirmar). O que ele valoriza nelas: são **modernas**, **não têm cara de feito por IA** e têm uma **landing page bonita e única**.
 - Tom: português claro e direto, sem jargão técnico para o morador.
+- **Proibido pelo Luiz:** interface/landing **escura (dark)** — o Moraê é claro; visual **infantil** ou gamificado; **fotos de banco de imagem** (prédio genérico, família sorrindo, aperto de mão).
 
 ## Evidence on Hand
 
 - **Pré-lançamento:** ainda **não há clientes**, depoimentos, números de uso, cases ou imprensa. A landing page e qualquer material **não podem inventar** clientes, logos de parceiros, depoimentos, estatísticas ou preços.
+- O Luiz foi **contratado para construir o Moraê**, que será **entregue pronto para vender**. A landing precisa **captar clientes (leads)** desde o lançamento, pensada com mentalidade de marketing sênior (skill do projeto: `.claude/skills/marketing-senior`).
+- A landing ataca 5 dores: **inadimplência (a nº 1)**, bagunça no WhatsApp, sistemas antigos, assembleia vazia e **medo de migrar** (perder dados ao trocar de sistema).
+- Pesquisa de mercado (out/2026): inadimplência acima de 30 dias em recorde de 11,95% no 1º semestre de 2025 (dado de levantamentos do setor, inclusive de concorrentes: só citar com a fonte); reclamações frequentes contra concorrentes: suporte lento, cobrança indevida, boleto para a pessoa errada, acesso cortado sem aviso; migração trava por planilha/mapeamento de colunas e medo de ficar preso (caso NokNox, desligado em 01/12/2025).
 - Provas reais disponíveis: o próprio produto funcionando (fluxos de pagamento, votação, documentos etc.), que pode ser mostrado em capturas de tela ou demonstrações.
 
 ## Product Principles

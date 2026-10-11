@@ -4,6 +4,8 @@ O backend está completo (`docs/ai/api.md`). O Luiz quer **redesenhar a interfac
 
 - **Contexto de produto:** `PRODUCT.md` (público, posicionamento, referências de marca). O sistema visual vai para `DESIGN.md` quando for definido.
 - **Figma primeiro:** as telas são desenhadas no Figma e aprovadas pelo Luiz antes de codar. Ordem: hero da landing + painel do Admin (definem o mundo visual) → login + tela do morador no celular → componentes → demais telas.
+- **Figma (fonte da verdade do visual):** arquivo "Moraê — Design" (`https://www.figma.com/design/UKGvrNjI0Xd2fuVOCVf3Dx`). Página **Landing**: hero com frase-seletor ("Hoje, o que mais me tira o sono é ▾") e a página completa com a história em scroll. Página **App**: painel do Admin v2, Carteira, Cobranças, Início do morador, Login e cédula da Assembleia. As cores estão nas variáveis "Moraê / Cores".
+- **Estilo do app (decidido pelo Luiz):** clean e minimalista, inspirado nos apps da Apple. Mesma estrutura do código atual (menu lateral por papel + conteúdo), mas: menu com ícone + nome (sem grupos), sem barra de topo separada (título grande com sininho e perfil na mesma linha), números agrupados num só cartão, listas agrupadas estilo Ajustes do iPhone (ícone em quadradinho colorido, título, subtítulo, ›), fundo cinza-esverdeado claro `#EDF0EA` com cartões brancos, menu `#E4E9E2`, cantos de 12–16 px, botões em pílula, ícones de linha (estilo Lucide). Sem telas mobile no Figma por enquanto. A mensalidade do Moraê (cobrança da plataforma) fica em Ajustes → Plano e pagamento.
 - **PWA:** um só sistema web para computador e celular, instalável na tela inicial (manifest + service worker). Toda tela precisa funcionar nos dois tamanhos.
 
 ## Como dividir sem conflito
@@ -70,6 +72,8 @@ O backend está completo (`docs/ai/api.md`). O Luiz quer **redesenhar a interfac
 ### T8 — Landing page · `feat/landing-page`
 - Superfície nova (não existe hoje), pública, em `/` (o app continua em `/login` e nas áreas por papel). Público: administradores de condomínios e condomínios pequenos.
 - Mostrar o posicionamento do `PRODUCT.md` (pagamento integrado, simples e moderno, tudo em um) com capturas reais do produto. **Pré-lançamento: não inventar clientes, depoimentos, números nem preço.**
+- **Hero com seletor de dor** (ver `docs/ai/decisions.md`), CTA "Ver o Moraê funcionando" com formulário curto, WhatsApp e calculadora. Usar a skill `marketing-senior` para o texto.
+- **Backend necessário:** endpoint público para gravar contatos (com rate limit e e-mail para o Master), guardando nome, WhatsApp, nº de unidades, perfil (administrador/síndico) e a dor escolhida no hero. O Master tem a tela **Contatos** (Figma) com status (Novo, Em conversa, Fechado, Sem interesse), mensagem pronta e botão "Chamar no WhatsApp" (link wa.me com o texto). O número de WhatsApp comercial do dono do app vira configuração (usado na landing e no login). A seção de migração só entra quando a **importação por planilha** existir.
 - Desenhada no Figma junto com a F0 (o hero ajuda a definir o mundo visual); pode ser codada em paralelo com a Onda 1.
 
 ## Onda 2 — depois da Onda 1
@@ -86,6 +90,10 @@ O backend está completo (`docs/ai/api.md`). O Luiz quer **redesenhar a interfac
 - Responsividade (celular), estados vazios, mensagens de erro, acessibilidade básica.
 
 ---
+
+## Backend novo antes do lançamento — L Importação por planilha · `feat/spreadsheet-import`
+
+- Admin sobe uma planilha (modelo para baixar + aceitar CSV/XLSX) com unidades, moradores e vínculos, e cobranças em aberto. O sistema casa as colunas, mostra uma **prévia com erros por linha** e só grava quando o Admin confirma. Relatório do que foi importado. Seguir as regras do `CLAUDE.md` (explicar → decidir → partes pequenas).
 
 ## Depois do frontend — G Deploy
 
