@@ -2,6 +2,10 @@
 
 O backend está completo (`docs/ai/api.md`). O Luiz quer **redesenhar a interface**: não basta ligar telas novas no visual atual. Esta rodada faz o redesenho e cria as telas que faltam, dividida em tarefas que podem rodar **em paralelo** em worktrees separadas (Orca).
 
+- **Contexto de produto:** `PRODUCT.md` (público, posicionamento, referências de marca). O sistema visual vai para `DESIGN.md` quando for definido.
+- **Figma primeiro:** as telas são desenhadas no Figma e aprovadas pelo Luiz antes de codar. Ordem: hero da landing + painel do Admin (definem o mundo visual) → login + tela do morador no celular → componentes → demais telas.
+- **PWA:** um só sistema web para computador e celular, instalável na tela inicial (manifest + service worker). Toda tela precisa funcionar nos dois tamanhos.
+
 ## Como dividir sem conflito
 
 - **Onda 0 (F0) vem antes e sozinha.** Ela define o visual, os componentes compartilhados e os "pontos de registro" de rotas e menus. As outras tarefas só começam depois do merge da F0 na `develop`.
@@ -28,7 +32,8 @@ O backend está completo (`docs/ai/api.md`). O Luiz quer **redesenhar a interfac
    - Mapear as permissões novas (`documents.manage`, `maintenance.manage`, `visitors.manage`, `assemblies.manage`) em `features/syndicAccess`.
    - Telas de bloqueio: **condomínio inativo** (`isCondominiumInactive` do `GET /api/me`) e conta suspensa (já existe `/suspended`, revisar).
 7. **Aplicar o novo visual nas telas que já existem**, sem mudar comportamento. Pode ser feito por papel em partes (Master, Admin, Síndico, Morador).
-8. Limpeza: apagar páginas mock órfãs (confirmar com grep que não são importadas: `features/{inspections,maintenance,communication,masterInvitations,adminUsers,people}`), remover o BOM do `Sidebar.tsx`, corrigir os warnings de `exhaustive-deps`.
+8. **PWA:** `manifest.webmanifest` (nome Moraê, ícones a partir do logo, cores do tema), service worker simples (cache do app shell; nunca cachear respostas da API com dados pessoais), meta tags de tela inicial no iOS.
+9. Limpeza: apagar páginas mock órfãs (confirmar com grep que não são importadas: `features/{inspections,maintenance,communication,masterInvitations,adminUsers,people}`), remover o BOM do `Sidebar.tsx`, corrigir os warnings de `exhaustive-deps`.
 
 ---
 
@@ -61,6 +66,11 @@ O backend está completo (`docs/ai/api.md`). O Luiz quer **redesenhar a interfac
 - **Gestão** (Admin e síndico com `visitors.manage`): agenda de **hoje** e dos próximos dias (até 31), filtros por prédio, unidade e tipo, "incluir canceladas". Cadastrar visita do condomínio (sem unidade).
 
 ---
+
+### T8 — Landing page · `feat/landing-page`
+- Superfície nova (não existe hoje), pública, em `/` (o app continua em `/login` e nas áreas por papel). Público: administradores de condomínios e condomínios pequenos.
+- Mostrar o posicionamento do `PRODUCT.md` (pagamento integrado, simples e moderno, tudo em um) com capturas reais do produto. **Pré-lançamento: não inventar clientes, depoimentos, números nem preço.**
+- Desenhada no Figma junto com a F0 (o hero ajuda a definir o mundo visual); pode ser codada em paralelo com a Onda 1.
 
 ## Onda 2 — depois da Onda 1
 

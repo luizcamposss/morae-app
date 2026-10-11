@@ -4,6 +4,7 @@ Moraê é um SaaS de gestão de condomínios, feito para **produção real** (n�
 O dono do projeto é o Luiz. Ele fala português: **responda sempre em português, de forma simples e direta**, com tabelas e exemplos curtos quando ajudarem.
 
 Leia também, quando a tarefa pedir:
+- `PRODUCT.md` — para quem é o Moraê, posicionamento, referências de marca e o que a landing não pode inventar (é a base de qualquer trabalho de design)
 - `docs/ai/decisions.md` — decisões de produto já tomadas (não pergunte de novo o que já está decidido lá)
 - `docs/ai/api.md` — todas as rotas da API, enums e formatos de data
 - `docs/ai/frontend-plan.md` — plano da rodada de frontend, dividido em tarefas para agentes em paralelo
