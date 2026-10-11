@@ -8,6 +8,7 @@ Leia também, quando a tarefa pedir:
 - `docs/ai/decisions.md` — decisões de produto já tomadas (não pergunte de novo o que já está decidido lá)
 - `docs/ai/api.md` — todas as rotas da API, enums e formatos de data
 - `docs/ai/frontend-plan.md` — plano da rodada de frontend, dividido em tarefas para agentes em paralelo
+- `docs/ai/backend-backlog.md` — o que ainda falta no backend, com prioridade e ordem sugerida
 
 ## Regras de trabalho (obrigatórias)
 
