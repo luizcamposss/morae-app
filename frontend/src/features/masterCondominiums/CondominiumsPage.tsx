@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
 import { ChevronRight, Plus, Search, UserRound } from "lucide-react";
 import { Button } from "../../shared/components/Button";
 import { ConfirmDialog, type ConfirmRequest } from "../../shared/components/ConfirmDialog";
@@ -20,11 +19,12 @@ import {
 } from "../condominiums/condominiumService";
 import type { CondominiumResponse } from "../condominiums/types";
 import { cancelInvitation, createInvitation, getInvitationsByCondominium, renewInvitation } from "../invitations/invitationService";
+import { getInvitationLink } from "../invitations/invitationLink";
 import type { InvitationResponse } from "../invitations/types";
 import { getMasterUsers } from "../masterUsers/masterUserService";
 import type { MasterUserResponse } from "../masterUsers/types";
 import { createPerson } from "../persons/personService";
-import { AdminInvitationModal } from "./AdminInvitationModal";
+import { AdminInvitationModal } from "../invitations/AdminInvitationModal";
 import { CondominiumDetailsModal } from "./CondominiumDetailsModal";
 import { CondominiumFormModal } from "./CondominiumFormModal";
 import {
@@ -68,8 +68,6 @@ async function fetchPageData() {
 }
 
 export function CondominiumsPage() {
-    const navigate = useNavigate();
-
     const [condominiums, setCondominiums] = useState<CondominiumResponse[]>([]);
     const [charges, setCharges] = useState<ChargeResponse[]>([]);
     const [invitations, setInvitations] = useState<InvitationResponse[]>([]);
@@ -340,7 +338,6 @@ export function CondominiumsPage() {
             closeModal();
             setSuccessMessage("Convite de Admin gerado com sucesso.");
             await loadCondominiums();
-            navigate("/master/invitations");
         } catch (error) {
             if (error instanceof Error) {
                 setModalErrorMessage(getFriendlyErrorMessage(error.message));
@@ -407,9 +404,8 @@ export function CondominiumsPage() {
     }
 
     async function copyInvitationLink(invitation: InvitationResponse) {
-        const link = `${window.location.origin}/accept-invitation/${invitation.token}`;
         try {
-            await navigator.clipboard.writeText(link);
+            await navigator.clipboard.writeText(getInvitationLink(invitation.token));
             setSuccessMessage(`Link do convite de ${invitation.email} copiado.`);
         } catch {
             setErrorMessage("Não foi possível copiar o link. Tente de novo.");
