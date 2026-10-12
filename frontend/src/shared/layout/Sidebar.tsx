@@ -1,9 +1,9 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { ChevronDown, LogOut, type LucideIcon } from "lucide-react";
 import { useAuth } from "../../app/providers/useAuth";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { useSyndicAccess } from "../../features/syndicAccess/useSyndicAccess";
-import { roleAreas, type AreaRole } from "../../app/routes";
+import { getPrimaryRole, roleAreas, type AreaRole } from "../../app/routes";
 import { MoraeMark } from "../components/MoraeMark";
 
 type MenuItem = {
@@ -12,13 +12,6 @@ type MenuItem = {
   to: string;
   placement?: "footer";
 };
-
-function getPrimaryRole(roles: string[]): AreaRole {
-  if (roles.includes("Master")) return "Master";
-  if (roles.includes("Admin")) return "Admin";
-  if (roles.includes("Syndic")) return "Syndic";
-  return "Resident";
-}
 
 // Menu entries come from the role registries; a syndic only sees what the Admin allowed.
 function getMenuItems(role: AreaRole, syndicAccess: ReturnType<typeof useSyndicAccess>): MenuItem[] {
@@ -51,12 +44,11 @@ export function Sidebar() {
     <>
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-62 flex-col bg-menu px-3.5 pb-6 pt-7 lg:flex">
         <div className="px-2.5">
-          <MoraeMark withName size={26} />
-          {primaryRole === "Master" ? (
-            <p className="mt-5 text-sm font-semibold text-tinta">Plataforma</p>
-          ) : (
-            <CondominiumSwitcher />
-          )}
+          {/* Relative to the area's layout route, so it lands on that role's Início. */}
+          <Link to="dashboard" aria-label="Moraê, ir para o início" className="inline-block rounded-field">
+            <MoraeMark withName size={26} />
+          </Link>
+          {primaryRole !== "Master" && <CondominiumSwitcher />}
         </div>
 
         <nav aria-label="Menu principal" className="mt-6 flex flex-1 flex-col gap-0.5 overflow-y-auto">

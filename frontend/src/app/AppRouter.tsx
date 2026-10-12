@@ -54,6 +54,7 @@ function areaRoute(role: AreaRole) {
     return (
         <Route element={<RoleRoute allowedRoles={[role]} />}>
             <Route path={area.basePath} element={<AppLayout />}>
+                <Route index element={<Navigate to="dashboard" replace />} />
                 {area.routes.map((route) => (
                     <Route key={route.path} path={route.path} element={renderScreen(route)} />
                 ))}
