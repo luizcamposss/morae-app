@@ -1,953 +1,406 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { PaymentReceiptButton } from "../payments/PaymentReceiptButton";
-import { DatePickerField } from "../../shared/components/DatePickerField";
-import { MetricCard } from "../../shared/components/MetricCard";
-import { StatusBadge } from "../../shared/components/StatusBadge";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { ChevronRight, Plus, Search, TriangleAlert } from "lucide-react";
+import { Button, ButtonLink } from "../../shared/components/Button";
+import { SelectField } from "../../shared/components/SelectField";
+import { SummaryCard } from "../../shared/components/SummaryCard";
+import { PageHeader } from "../../shared/layout/PageHeader";
+import { formatCurrency } from "../../shared/lib/currency";
+import { formatCalendarDate, todayInputDate } from "../../shared/lib/date";
 import { cancelCharge, createCharge, getPlatformCharges } from "../charges/chargeService";
+import { CHARGE_STATUS, buildRevenueByMonth, currentMonthName } from "../charges/platformRevenue";
 import type { ChargeResponse } from "../charges/types";
 import { getCondominiums } from "../condominiums/condominiumService";
 import type { CondominiumResponse } from "../condominiums/types";
+import { getPlatformFinancialAccount } from "../financialAccounts/financialAccountService";
+import { RevenueChart } from "../masterDashboard/MasterCharts";
+import { buildBillingIndex } from "../masterCondominiums/condominiumBilling";
+import { getMercadoPagoConnectionStatus } from "../mercadoPago/mercadoPagoService";
 import { createManualPayment } from "../payments/paymentService";
-import type { PaymentMethod } from "../payments/types";
-import { formatCalendarDate, todayInputDate } from "../../shared/lib/date";
+import { ChargeStatusChip, ChargeStatusTile } from "./ChargeStatus";
+import { CancelChargeModal, ChargeDetailsModal, ManualPaymentModal, NewChargeModal } from "./PlatformChargeModals";
+import {
+  initialCreateForm,
+  parseCurrencyInput,
+  toPaymentForm,
+  validateCancelForm,
+  validateCreateForm,
+  validatePaymentForm,
+  type CancelFormState,
+  type CreateFormState,
+  type PaymentFormState,
+} from "./platformChargeForm";
 
-type CreateFormState = {
-  condominiumId: string;
-  description: string;
-  value: string;
-  dueDate: string;
-};
+const ACTIVE_STATUS = 1;
+const CHART_MONTHS = 12;
 
-type PaymentFormState = {
-  chargeId: number;
-  amountPaid: string;
-  paymentMethod: PaymentMethod;
-  paidAt: string;
-  notes: string;
-};
+type Tab = "open" | "overdue" | "paid" | "canceled" | "all";
 
-type CancelFormState = {
-  chargeId: number;
-  reason: string;
-};
-
-type StatusFilter = "all" | "1" | "2" | "3" | "4";
-
-const initialCreateForm: CreateFormState = {
-  condominiumId: "",
-  description: "",
-  value: "",
-  dueDate: "",
-};
-
-const statusFilterOptions: SelectOption<StatusFilter>[] = [
-  { value: "all", label: "Todos" },
-  { value: "1", label: "Pendentes" },
-  { value: "2", label: "Pagos" },
-  { value: "3", label: "Atrasados" },
-  { value: "4", label: "Cancelados" },
+const tabs: Array<{ key: Tab; label: string; statuses: number[] }> = [
+  { key: "open", label: "Em aberto", statuses: [CHARGE_STATUS.pending] },
+  { key: "overdue", label: "Atrasadas", statuses: [CHARGE_STATUS.overdue] },
+  { key: "paid", label: "Pagas", statuses: [CHARGE_STATUS.paid] },
+  { key: "canceled", label: "Canceladas", statuses: [CHARGE_STATUS.canceled] },
+  { key: "all", label: "Todas", statuses: [] },
 ];
 
-const paymentMethodOptions: SelectOption<PaymentMethod>[] = [
-  { value: 0, label: "Selecione" },
-  { value: 1, label: "Pix" },
-  { value: 2, label: "Cartão de crédito" },
-  { value: 3, label: "Cartão de débito" },
-  { value: 4, label: "Boleto" },
-];
+async function fetchPageData() {
+  const [charges, condominiums, account, mercadoPago] = await Promise.all([
+    getPlatformCharges(),
+    getCondominiums(),
+    getPlatformFinancialAccount().catch(() => null),
+    getMercadoPagoConnectionStatus(null).catch(() => null),
+  ]);
+
+  // Same rule the API uses to allow new subscriptions: a Pix key or a connected Mercado Pago.
+  const isReceivingReady = Boolean(account?.pixKey?.trim()) || Boolean(mercadoPago?.isConnected);
+
+  return { charges, condominiums, isReceivingReady };
+}
 
 export function PlatformPaymentsPage() {
   const [charges, setCharges] = useState<ChargeResponse[]>([]);
   const [condominiums, setCondominiums] = useState<CondominiumResponse[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [isReceivingReady, setIsReceivingReady] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [createForm, setCreateForm] = useState<CreateFormState>(initialCreateForm);
-  const [paymentForm, setPaymentForm] = useState<PaymentFormState | null>(null);
-  const [cancelForm, setCancelForm] = useState<CancelFormState | null>(null);
+  const [tab, setTab] = useState<Tab>("open");
+  const [search, setSearch] = useState("");
+  const [condominiumFilter, setCondominiumFilter] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [modalError, setModalError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createForm, setCreateForm] = useState<CreateFormState | null>(null);
+  const [paymentForm, setPaymentForm] = useState<PaymentFormState | null>(null);
+  const [cancelForm, setCancelForm] = useState<CancelFormState | null>(null);
+  const [selectedChargeId, setSelectedChargeId] = useState<number | null>(null);
 
-  async function loadPage() {
+  function applyPageData(data: Awaited<ReturnType<typeof fetchPageData>>) {
+    setCharges(data.charges);
+    setCondominiums(data.condominiums);
+    setIsReceivingReady(data.isReceivingReady);
+  }
+
+  async function reload() {
     try {
-      setIsLoading(true);
-      setErrorMessage("");
-
-      const [platformCharges, masterCondominiums] = await Promise.all([
-        getPlatformCharges(),
-        getCondominiums(),
-      ]);
-
-      setCharges(platformCharges);
-      setCondominiums(masterCondominiums);
+      applyPageData(await fetchPageData());
     } catch (error) {
-      setCharges([]);
-      setCondominiums([]);
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível carregar os pagamentos da plataforma.",
-      );
-    } finally {
-      setIsLoading(false);
+      setErrorMessage(error instanceof Error ? error.message : "Não foi possível carregar a receita.");
     }
   }
 
   useEffect(() => {
-    void loadPage();
+    let isMounted = true;
+
+    fetchPageData()
+      .then((data) => isMounted && applyPageData(data))
+      .catch((error) => isMounted && setErrorMessage(error instanceof Error ? error.message : "Não foi possível carregar a receita."))
+      .finally(() => isMounted && setIsLoading(false));
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  function openCreateModal() {
+  const summary = useMemo(() => {
+    const month = todayInputDate().slice(0, 7);
+    const sum = (list: ChargeResponse[]) => list.reduce((total, charge) => total + charge.value, 0);
+    const overdue = charges.filter((charge) => charge.status === CHARGE_STATUS.overdue);
+    const activeIds = new Set(condominiums.filter((condominium) => condominium.status === ACTIVE_STATUS).map((condominium) => condominium.id));
+    const recurring = [...buildBillingIndex(charges).entries()]
+      .filter(([condominiumId]) => activeIds.has(condominiumId))
+      .reduce((total, [, billing]) => total + (billing.monthlyValue ?? 0), 0);
+
+    return {
+      receivedThisMonth: sum(charges.filter((charge) => charge.status === CHARGE_STATUS.paid && charge.dueDate.startsWith(month))),
+      toReceive: sum(charges.filter((charge) => charge.status === CHARGE_STATUS.pending)),
+      pendingCount: charges.filter((charge) => charge.status === CHARGE_STATUS.pending).length,
+      overdue: sum(overdue),
+      overdueCondominiums: new Set(overdue.map((charge) => charge.condominiumId)).size,
+      recurring,
+    };
+  }, [charges, condominiums]);
+
+  const revenueByMonth = useMemo(() => buildRevenueByMonth(charges, CHART_MONTHS), [charges]);
+  const hasRevenue = revenueByMonth.some((month) => month.paid + month.open + month.overdue > 0);
+
+  const term = search.trim().toLowerCase();
+  const inScope = charges.filter(
+    (charge) =>
+      (!condominiumFilter || String(charge.condominiumId) === condominiumFilter) &&
+      (!term || [charge.description, charge.condominiumName].join(" ").toLowerCase().includes(term)),
+  );
+  const countFor = (key: Tab) => {
+    const statuses = tabs.find((item) => item.key === key)?.statuses ?? [];
+    return statuses.length ? inScope.filter((charge) => statuses.includes(charge.status)).length : inScope.length;
+  };
+  const activeStatuses = tabs.find((item) => item.key === tab)?.statuses ?? [];
+  const visibleCharges = (activeStatuses.length ? inScope.filter((charge) => activeStatuses.includes(charge.status)) : inScope).sort((a, b) =>
+    tab === "paid" || tab === "canceled" || tab === "all" ? b.dueDate.localeCompare(a.dueDate) : a.dueDate.localeCompare(b.dueDate),
+  );
+
+  const selectedCharge = charges.find((charge) => charge.id === selectedChargeId) ?? null;
+
+  function closeModals() {
+    setCreateForm(null);
+    setPaymentForm(null);
+    setCancelForm(null);
     setModalError("");
-    setErrorMessage("");
-    setSuccessMessage("");
-    setIsCreateOpen(true);
   }
 
-  function closeCreateModal() {
-    setIsCreateOpen(false);
-    setModalError("");
-  }
-
-  async function handleCreateCharge(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>, validate: () => string, action: () => Promise<unknown>, success: string, fallback: string) {
     event.preventDefault();
+    const validation = validate();
 
-    const validationMessage = validateCreateForm(createForm, condominiums);
-
-    if (validationMessage) {
-      setModalError(validationMessage);
+    if (validation) {
+      setModalError(validation);
       return;
     }
 
-    setIsSubmitting(true);
-    setErrorMessage("");
-    setSuccessMessage("");
-
     try {
-      const value = parseCurrencyInput(createForm.value);
-
-      await createCharge({
-        scope: 1,
-        condominiumId: Number(createForm.condominiumId),
-        targetUserId: null,
-        unitId: null,
-        value,
-        dueDate: createForm.dueDate,
-        description: createForm.description.trim(),
-      });
-
-      setCreateForm(initialCreateForm);
-      setIsCreateOpen(false);
-      setModalError("");
-      setSuccessMessage("Cobrança da plataforma criada com sucesso.");
-      await loadPage();
+      setIsSubmitting(true);
+      setErrorMessage("");
+      await action();
+      closeModals();
+      setSelectedChargeId(null);
+      setSuccessMessage(success);
+      await reload();
     } catch (error) {
-      setModalError(
-        error instanceof Error ? error.message : "Não foi possível criar a cobrança.",
-      );
+      setModalError(error instanceof Error ? error.message : fallback);
     } finally {
       setIsSubmitting(false);
     }
   }
-
-  async function handleManualPayment(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!paymentForm) {
-      return;
-    }
-
-    const charge = charges.find((item) => item.id === paymentForm.chargeId);
-    const validationMessage = validatePaymentForm(paymentForm, charge);
-
-    if (validationMessage) {
-      setModalError(validationMessage);
-      return;
-    }
-
-    setIsSubmitting(true);
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    try {
-      await createManualPayment(paymentForm.chargeId, {
-        amountPaid: Number(paymentForm.amountPaid),
-        paymentMethod: paymentForm.paymentMethod,
-        paidAt: paymentForm.paidAt || null,
-        notes: paymentForm.notes.trim() || null,
-      });
-
-      setPaymentForm(null);
-      setModalError("");
-      setSuccessMessage("Pagamento registrado com sucesso.");
-      await loadPage();
-    } catch (error) {
-      setModalError(
-        error instanceof Error ? error.message : "Não foi possível registrar o pagamento.",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  async function handleCancelCharge(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!cancelForm) {
-      return;
-    }
-
-    const validationMessage = validateCancelForm(cancelForm);
-
-    if (validationMessage) {
-      setModalError(validationMessage);
-      return;
-    }
-
-    setIsSubmitting(true);
-    setErrorMessage("");
-    setSuccessMessage("");
-
-    try {
-      await cancelCharge(cancelForm.chargeId, cancelForm.reason.trim());
-      setCancelForm(null);
-      setModalError("");
-      setSuccessMessage("Cobrança cancelada com sucesso.");
-      await loadPage();
-    } catch (error) {
-      setModalError(
-        error instanceof Error ? error.message : "Não foi possível cancelar a cobrança.",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  const filteredCharges = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
-
-    return charges.filter((charge) => {
-      const searchableText = [
-        charge.description,
-        charge.condominiumName,
-        charge.id.toString(),
-      ]
-        .join(" ")
-        .toLowerCase();
-
-      const matchesSearch =
-        normalizedSearch.length === 0 || searchableText.includes(normalizedSearch);
-      const matchesStatus =
-        statusFilter === "all" || charge.status.toString() === statusFilter;
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [charges, searchTerm, statusFilter]);
-
-  const pendingCharges = charges.filter((charge) => charge.status === 1);
-  const paidCharges = charges.filter((charge) => charge.status === 2);
-  const overdueCharges = charges.filter((charge) => charge.status === 3);
 
   return (
     <>
-      <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-[#111827]">
-              Pagamentos
-            </h1>
-            <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-              Cobranças institucionais da plataforma MORAÊ.
-            </p>
-          </div>
+      <PageHeader
+        overline={isLoading ? undefined : `Receita recorrente de ${formatCurrency(summary.recurring)} por mês`}
+        title="Receita"
+      >
+        <Button
+          variant="quiet"
+          size="sm"
+          onClick={() => {
+            setModalError("");
+            setCreateForm(initialCreateForm);
+          }}
+          disabled={!isReceivingReady}
+          className="bg-superficie shadow-whisper hover:bg-campo"
+        >
+          <Plus size={16} strokeWidth={2} aria-hidden />
+          Nova mensalidade
+        </Button>
+      </PageHeader>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <button
-              type="button"
-              onClick={openCreateModal}
-              disabled={condominiums.length === 0}
-              className="h-11 cursor-pointer rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:bg-[#9CA3AF]"
-            >
-              + Nova cobrança
-            </button>
-          </div>
+      {!isLoading && !isReceivingReady && (
+        <div className="mb-5 flex flex-col gap-3 rounded-card bg-ambar-suave px-5 py-4 sm:flex-row sm:items-center">
+          <TriangleAlert size={20} strokeWidth={1.8} aria-hidden className="shrink-0 text-ambar" />
+          <p className="flex-1 text-sm text-tinta">
+            <span className="font-semibold">Configure onde você recebe.</span> Para criar mensalidades, cadastre uma chave Pix ou conecte o Mercado Pago da
+            plataforma.
+          </p>
+          <ButtonLink to="/master/settings" size="sm">
+            Ir para Ajustes
+          </ButtonLink>
         </div>
+      )}
 
-        {errorMessage && <FeedbackMessage variant="error" message={errorMessage} />}
-        {successMessage && <FeedbackMessage variant="success" message={successMessage} />}
+      {errorMessage && <p role="alert" className="mb-5 rounded-field bg-vermelho-suave px-4 py-3 text-sm font-medium text-vermelho">{errorMessage}</p>}
+      {successMessage && <p role="status" className="mb-5 rounded-field bg-verde-suave px-4 py-3 text-sm font-medium text-verde-tinta">{successMessage}</p>}
 
-        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label="Total lançado"
-            value={formatCurrency(sumCharges(charges))}
-            helper={`${charges.length} cobranças`}
-          />
-          <MetricCard
-            label="Recebido"
-            value={formatCurrency(sumCharges(paidCharges))}
-            helper="Cobranças pagas"
-          />
-          <MetricCard
-            label="Em aberto"
-            value={formatCurrency(sumCharges(pendingCharges))}
-            helper={`${pendingCharges.length} pendentes`}
-          />
-          <MetricCard
-            label="Atrasado"
-            value={formatCurrency(sumCharges(overdueCharges))}
-            helper={`${overdueCharges.length} atrasadas`}
-          />
-        </div>
+      <SummaryCard
+        items={[
+          { label: "Pago do mês", value: isLoading ? "–" : formatCurrency(summary.receivedThisMonth), detail: `mensalidades de ${currentMonthName()}`, tone: "good" },
+          { label: "A receber", value: isLoading ? "–" : formatCurrency(summary.toReceive), detail: `${summary.pendingCount} em aberto` },
+          {
+            label: "Em atraso",
+            value: isLoading ? "–" : formatCurrency(summary.overdue),
+            detail: summary.overdueCondominiums ? `${summary.overdueCondominiums} condomínio${summary.overdueCondominiums > 1 ? "s" : ""}` : "nenhum atraso",
+            tone: summary.overdue > 0 ? "danger" : "neutral",
+          },
+          { label: "Receita recorrente", value: isLoading ? "–" : formatCurrency(summary.recurring), detail: "por mês, condomínios ativos" },
+        ]}
+      />
 
-        <div className="mt-6 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-4">
-          <div className="mb-4 flex flex-col gap-3 md:flex-row">
-            <input
-              type="search"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Buscar por descrição, condomínio ou nº da cobrança..."
-              className="h-11 flex-1 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-            />
-
-            <SelectField
-              value={statusFilter}
-              onChange={setStatusFilter}
-              options={statusFilterOptions}
-              className="md:w-44"
-            />
-          </div>
-
-          <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left text-sm">
-                <thead className="bg-[#DCFCE7] text-xs uppercase tracking-wide text-[#0B3D2E]">
-                  <tr>
-                    <th className="px-4 py-3 font-extrabold">Cobrança</th>
-                    <th className="px-4 py-3 font-extrabold">Condomínio</th>
-                    <th className="px-4 py-3 font-extrabold">Valor</th>
-                    <th className="px-4 py-3 font-extrabold">Vencimento</th>
-                    <th className="px-4 py-3 font-extrabold">Status</th>
-                    <th className="px-4 py-3 font-extrabold">Ações</th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-[#E5E7EB]">
-                  {isLoading ? (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-10 text-center font-bold text-[#6B7280]">
-                        Carregando cobranças...
-                      </td>
-                    </tr>
-                  ) : filteredCharges.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-4 py-10 text-center font-bold text-[#6B7280]">
-                        Nenhuma cobrança da plataforma encontrada.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredCharges.map((charge) => (
-                      <tr key={charge.id} className="transition hover:bg-[#F3F4F6]">
-                        <td className="px-4 py-4 font-extrabold text-[#111827]">
-                          {charge.description}
-                        </td>
-                        <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                          {charge.condominiumName || `Condomínio #${charge.condominiumId}`}
-                        </td>
-                        <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                          {formatCurrency(charge.value)}
-                        </td>
-                        <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                          {formatCalendarDate(charge.dueDate)}
-                        </td>
-                        <td className="px-4 py-4">
-                          <StatusBadge
-                            label={getChargeStatusLabel(charge.status)}
-                            variant={getChargeStatusVariant(charge.status)}
-                          />
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex flex-wrap gap-2">
-                            {charge.status === 2 && (
-                              <PaymentReceiptButton chargeId={charge.id} onRefunded={() => void loadPage()} />
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => openPaymentModal(charge, setPaymentForm, setModalError)}
-                              disabled={charge.status === 2 || charge.status === 4}
-                              className="h-9 cursor-pointer rounded-xl bg-[#16A34A] px-3 text-xs font-extrabold text-white transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:bg-[#D1D5DB]"
-                            >
-                              Baixar
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setModalError("");
-                                setCancelForm({ chargeId: charge.id, reason: "" });
-                              }}
-                              disabled={charge.status === 2 || charge.status === 4}
-                              className="h-9 cursor-pointer rounded-xl border border-[#FECACA] bg-white px-3 text-xs font-extrabold text-[#B42318] transition hover:bg-[#FDECEC] disabled:cursor-not-allowed disabled:border-[#E5E7EB] disabled:text-[#9CA3AF]"
-                            >
-                              Cancelar
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+      <section className="mt-6 rounded-card bg-superficie p-6 shadow-whisper">
+        <h2 className="font-display text-[19px] font-bold tracking-[-0.01em] text-tinta">Mensalidades por mês</h2>
+        <p className="mb-5 text-[13px] text-tinta-suave">por vencimento, até o próximo mês</p>
+        {hasRevenue ? (
+          <RevenueChart data={revenueByMonth} />
+        ) : (
+          <p className="grid h-40 place-items-center text-center text-sm text-tinta-suave">
+            {isLoading ? "Carregando…" : "Quando houver mensalidades, a evolução aparece aqui."}
+          </p>
+        )}
       </section>
 
-      {isCreateOpen && (
-        <Modal
-          title="Nova cobrança"
-          subtitle="Crie uma cobrança institucional para um condomínio."
-          onClose={closeCreateModal}
-        >
-          <form onSubmit={handleCreateCharge} noValidate>
-            {modalError && <FeedbackMessage variant="error" message={modalError} />}
+      <div className="mb-4 mt-8 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div role="tablist" aria-label="Situação das mensalidades" className="inline-flex max-w-full self-start overflow-x-auto rounded-block bg-menu p-1">
+          {tabs.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              role="tab"
+              aria-selected={tab === item.key}
+              onClick={() => setTab(item.key)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-field px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                tab === item.key ? "bg-superficie text-tinta shadow-whisper" : "text-tinta-suave hover:text-tinta"
+              }`}
+            >
+              {item.label}
+              <span className="text-xs font-medium tabular-nums text-tinta-suave">{countFor(item.key)}</span>
+            </button>
+          ))}
+        </div>
 
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <SelectField
-                label="Condomínio"
-                value={createForm.condominiumId}
-                onChange={(value) =>
-                  setCreateForm((current) => ({ ...current, condominiumId: value }))
-                }
-                options={[
-                  { value: "", label: "Selecione" },
-                  ...condominiums.map((condominium) => ({
-                    value: condominium.id.toString(),
-                    label: condominium.name,
-                  })),
-                ]}
-                className="md:col-span-2"
-              />
-
-              <FormInput
-                label="Valor"
-                inputMode="decimal"
-                placeholder="Ex.: 120,00"
-                value={createForm.value}
-                onChange={(value) => setCreateForm((current) => ({ ...current, value }))}
-              />
-              <FormInput
-                label="Vencimento"
-                type="date"
-                min={todayInputDate()}
-                placeholder="dd/mm/aaaa"
-                value={createForm.dueDate}
-                onChange={(value) => setCreateForm((current) => ({ ...current, dueDate: value }))}
-              />
-              <FormInput
-                label="Descrição"
-                placeholder="Ex.: Taxa da plataforma - agosto"
-                value={createForm.description}
-                onChange={(value) =>
-                  setCreateForm((current) => ({ ...current, description: value }))
-                }
-                className="md:col-span-2"
-              />
-            </div>
-
-            <ModalActions
-              isSubmitting={isSubmitting}
-              submitLabel="Criar cobrança"
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <SelectField
+            label="Condomínio"
+            className="[&>label]:sr-only sm:w-56"
+            value={condominiumFilter}
+            onChange={(event) => setCondominiumFilter(event.target.value)}
+            placeholder="Todos os condomínios"
+            options={condominiums.map((condominium) => ({ value: String(condominium.id), label: condominium.name }))}
+          />
+          <label className="relative sm:w-64">
+            <span className="sr-only">Buscar mensalidade</span>
+            <Search size={17} strokeWidth={1.8} aria-hidden className="pointer-events-none absolute inset-y-0 left-3.5 my-auto text-tinta-suave" />
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Descrição ou condomínio"
+              className="w-full rounded-full bg-superficie py-2.5 pl-10 pr-4 text-sm text-tinta shadow-whisper outline-none placeholder:text-tinta-suave/80 focus:ring-2 focus:ring-verde focus-visible:outline-none"
             />
-          </form>
-        </Modal>
+          </label>
+        </div>
+      </div>
+
+      <ul className="divide-y divide-linha overflow-hidden rounded-card bg-superficie shadow-whisper">
+        {visibleCharges.length === 0 ? (
+          <li className="px-5 py-10 text-center text-sm text-tinta-suave">
+            {isLoading ? "Carregando…" : term || condominiumFilter ? "Nenhuma mensalidade encontrada com esses filtros." : "Nenhuma mensalidade nesta situação."}
+          </li>
+        ) : (
+          visibleCharges.map((charge) => (
+            <li key={charge.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  setSuccessMessage("");
+                  setSelectedChargeId(charge.id);
+                }}
+                className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-campo/60"
+              >
+                <ChargeStatusTile status={charge.status} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-semibold text-tinta">{charge.description}</span>
+                  <span className="block truncate text-[13px] text-tinta-suave">
+                    {charge.condominiumName} · {charge.status === CHARGE_STATUS.overdue ? "venceu" : "vence"} {formatCalendarDate(charge.dueDate)}
+                  </span>
+                </span>
+                <span className="text-right">
+                  <span className="block text-sm font-semibold tabular-nums text-tinta">{formatCurrency(charge.value)}</span>
+                  <span className="mt-1 hidden justify-end sm:flex">
+                    <ChargeStatusChip status={charge.status} />
+                  </span>
+                </span>
+                <ChevronRight size={18} strokeWidth={1.8} aria-hidden className="shrink-0 text-tinta-suave" />
+              </button>
+            </li>
+          ))
+        )}
+      </ul>
+
+      {selectedCharge && !paymentForm && !cancelForm && (
+        <ChargeDetailsModal
+          charge={selectedCharge}
+          onClose={() => setSelectedChargeId(null)}
+          onPay={() => {
+            setModalError("");
+            setPaymentForm(toPaymentForm(selectedCharge));
+          }}
+          onCancel={() => {
+            setModalError("");
+            setCancelForm({ chargeId: selectedCharge.id, reason: "" });
+          }}
+          onRefunded={() => void reload()}
+        />
+      )}
+
+      {createForm && (
+        <NewChargeModal
+          form={createForm}
+          condominiums={condominiums.filter((condominium) => condominium.status === ACTIVE_STATUS)}
+          error={modalError}
+          isSubmitting={isSubmitting}
+          onChange={setCreateForm}
+          onClose={closeModals}
+          onSubmit={(event) =>
+            void submit(
+              event,
+              () => validateCreateForm(createForm, condominiums),
+              () =>
+                createCharge({
+                  scope: 1,
+                  condominiumId: Number(createForm.condominiumId),
+                  targetUserId: null,
+                  unitId: null,
+                  value: parseCurrencyInput(createForm.value),
+                  dueDate: createForm.dueDate,
+                  description: createForm.description.trim(),
+                }),
+              "Mensalidade criada.",
+              "Não foi possível criar a mensalidade.",
+            )
+          }
+        />
       )}
 
       {paymentForm && (
-        <Modal
-          title="Registrar pagamento"
-          subtitle="Baixa manual confirmada pelo Master."
-          onClose={() => {
-            setPaymentForm(null);
-            setModalError("");
-          }}
-        >
-          <form onSubmit={handleManualPayment} noValidate>
-            {modalError && <FeedbackMessage variant="error" message={modalError} />}
-
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <FormInput
-                label="Valor pago"
-                inputMode="decimal"
-                placeholder="Ex.: 120,00"
-                value={paymentForm.amountPaid}
-                onChange={(value) =>
-                  setPaymentForm((current) =>
-                    current ? { ...current, amountPaid: value } : current,
-                  )
-                }
-              />
-              <SelectField
-                label="Método"
-                value={paymentForm.paymentMethod}
-                onChange={(value) =>
-                  setPaymentForm((current) =>
-                    current ? { ...current, paymentMethod: value } : current,
-                  )
-                }
-                options={paymentMethodOptions}
-              />
-              <FormInput
-                label="Data do pagamento"
-                type="date"
-                max={todayInputDate()}
-                placeholder="dd/mm/aaaa"
-                value={paymentForm.paidAt}
-                onChange={(value) =>
-                  setPaymentForm((current) => (current ? { ...current, paidAt: value } : current))
-                }
-              />
-              <FormInput
-                label="Observação"
-                placeholder="Ex.: Pagamento conferido via extrato"
-                value={paymentForm.notes}
-                onChange={(value) =>
-                  setPaymentForm((current) => (current ? { ...current, notes: value } : current))
-                }
-              />
-            </div>
-
-            <ModalActions
-              isSubmitting={isSubmitting}
-              submitLabel="Registrar baixa"
-            />
-          </form>
-        </Modal>
+        <ManualPaymentModal
+          form={paymentForm}
+          charge={charges.find((charge) => charge.id === paymentForm.chargeId)}
+          error={modalError}
+          isSubmitting={isSubmitting}
+          onChange={setPaymentForm}
+          onClose={closeModals}
+          onSubmit={(event) =>
+            void submit(
+              event,
+              () => validatePaymentForm(paymentForm, charges.find((charge) => charge.id === paymentForm.chargeId)),
+              () =>
+                createManualPayment(paymentForm.chargeId, {
+                  amountPaid: parseCurrencyInput(paymentForm.amountPaid),
+                  paymentMethod: paymentForm.paymentMethod,
+                  paidAt: paymentForm.paidAt || null,
+                  notes: paymentForm.notes.trim() || null,
+                }),
+              "Pagamento registrado.",
+              "Não foi possível registrar o pagamento.",
+            )
+          }
+        />
       )}
 
       {cancelForm && (
-        <Modal
-          title="Cancelar cobrança"
-          subtitle="Informe o motivo para manter auditoria do processo."
-          onClose={() => {
-            setCancelForm(null);
-            setModalError("");
-          }}
-        >
-          <form onSubmit={handleCancelCharge} noValidate>
-            {modalError && <FeedbackMessage variant="error" message={modalError} />}
-
-            <label className="block">
-              <span className="mb-2 block text-sm font-extrabold text-[#111827]">
-                Motivo
-              </span>
-              <textarea
-                value={cancelForm.reason}
-                placeholder="Ex.: Cobrança duplicada ou lançada com valor incorreto"
-                onChange={(event) =>
-                  setCancelForm((current) =>
-                    current ? { ...current, reason: event.target.value } : current,
-                  )
-                }
-                className="min-h-28 w-full resize-none rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-              />
-            </label>
-
-            <ModalActions
-              isSubmitting={isSubmitting}
-              submitLabel="Confirmar cancelamento"
-            />
-          </form>
-        </Modal>
+        <CancelChargeModal
+          form={cancelForm}
+          error={modalError}
+          isSubmitting={isSubmitting}
+          onChange={setCancelForm}
+          onClose={closeModals}
+          onSubmit={(event) =>
+            void submit(
+              event,
+              () => validateCancelForm(cancelForm),
+              () => cancelCharge(cancelForm.chargeId, cancelForm.reason.trim()),
+              "Mensalidade cancelada.",
+              "Não foi possível cancelar a mensalidade.",
+            )
+          }
+        />
       )}
     </>
   );
-}
-
-type FeedbackMessageProps = {
-  message: string;
-  variant: "success" | "error";
-};
-
-function FeedbackMessage({ message, variant }: FeedbackMessageProps) {
-  const classes =
-    variant === "success"
-      ? "border-[#BBF7D0] bg-[#DCFCE7] text-[#0B3D2E]"
-      : "border-[#FECACA] bg-[#FDECEC] text-[#B42318]";
-
-  return (
-    <div className={`mt-5 rounded-2xl border px-4 py-3 text-sm font-bold ${classes}`}>
-      {message}
-    </div>
-  );
-}
-
-type ModalProps = {
-  title: string;
-  subtitle: string;
-  onClose: () => void;
-  children: ReactNode;
-};
-
-function Modal({ title, subtitle, onClose, children }: ModalProps) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B3D2E]/30 px-6 py-8 backdrop-blur-sm">
-      <div className="w-full max-w-3xl overflow-hidden rounded-[2rem] border border-[#E5E7EB] bg-white shadow-2xl shadow-[#0B3D2E]/20">
-        <div className="flex items-start justify-between gap-5 border-b border-[#E5E7EB] px-6 py-5">
-          <div>
-            <h2 className="text-2xl font-extrabold text-[#111827]">{title}</h2>
-            <p className="mt-1 text-sm font-semibold text-[#6B7280]">{subtitle}</p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Fechar"
-            className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[#F3F4F6] text-xl font-light text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
-          >
-            x
-          </button>
-        </div>
-        <div className="px-8 py-7">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-type ModalActionsProps = {
-  isSubmitting: boolean;
-  submitLabel: string;
-};
-
-function ModalActions({ isSubmitting, submitLabel }: ModalActionsProps) {
-  return (
-    <div className="mt-7 flex justify-end">
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="h-12 cursor-pointer rounded-2xl bg-[#16A34A] px-6 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:bg-[#9CA3AF]"
-      >
-        {isSubmitting ? "Processando..." : submitLabel}
-      </button>
-    </div>
-  );
-}
-
-type SelectOption<T extends string | number> = {
-  value: T;
-  label: string;
-};
-
-type SelectFieldProps<T extends string | number> = {
-  label?: string;
-  value: T;
-  onChange: (value: T) => void;
-  options: SelectOption<T>[];
-  className?: string;
-};
-
-function SelectField<T extends string | number>({
-  label,
-  value,
-  onChange,
-  options,
-  className = "",
-}: SelectFieldProps<T>) {
-  const [isOpen, setIsOpen] = useState(false);
-  const selectedOption = options.find((option) => option.value === value);
-
-  function handleSelect(nextValue: T) {
-    onChange(nextValue);
-    setIsOpen(false);
-  }
-
-  return (
-    <div
-      className={`relative ${className}`}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) {
-          setIsOpen(false);
-        }
-      }}
-    >
-      {label && (
-        <span className="mb-2 block text-sm font-extrabold text-[#111827]">
-          {label}
-        </span>
-      )}
-
-      <button
-        type="button"
-        aria-expanded={isOpen}
-        onClick={() => setIsOpen((current) => !current)}
-        className={`flex h-11 w-full cursor-pointer items-center justify-between rounded-2xl border bg-white px-4 text-left text-sm font-bold outline-none transition ${
-          isOpen
-            ? "border-[#22C55E] text-[#111827] ring-4 ring-[#86EFAC]/30"
-            : "border-[#E5E7EB] text-[#6B7280] hover:border-[#BBF7D0] hover:text-[#0B3D2E]"
-        }`}
-      >
-        <span className="truncate">{selectedOption?.label ?? "Selecione"}</span>
-        <span
-          aria-hidden="true"
-          className={`ml-3 block size-2 shrink-0 border-r-2 border-b-2 border-current text-[#6B7280] transition-transform ${
-            isOpen ? "rotate-[225deg] translate-y-0.5" : "rotate-45 -translate-y-0.5"
-          }`}
-        />
-      </button>
-
-      {isOpen && (
-        <div className="absolute left-0 right-0 top-full z-[70] mt-2 max-h-60 overflow-y-auto rounded-2xl border border-[#E5E7EB] bg-white p-1 shadow-xl shadow-[#111827]/10">
-          {options.map((option) => {
-            const isSelected = option.value === value;
-
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => handleSelect(option.value)}
-                className={`flex min-h-10 w-full cursor-pointer items-center rounded-xl px-3 py-2 text-left text-sm font-extrabold transition ${
-                  isSelected
-                    ? "bg-[#DCFCE7] text-[#0B3D2E]"
-                    : "text-[#6B7280] hover:bg-[#F0FDF4] hover:text-[#0B3D2E]"
-                }`}
-              >
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-type FormInputProps = {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
-  min?: string;
-  max?: string;
-  step?: string;
-  placeholder?: string;
-  inputMode?: "decimal" | "numeric" | "text";
-  className?: string;
-};
-
-function FormInput({
-  label,
-  value,
-  onChange,
-  type = "text",
-  min,
-  max,
-  step,
-  placeholder,
-  inputMode,
-  className = "",
-}: FormInputProps) {
-  const isDate = type === "date";
-
-  if (isDate) {
-    return (
-      <DatePickerField
-        label={label}
-        value={value}
-        onChange={onChange}
-        min={min}
-        max={max}
-        placeholder={placeholder}
-        className={className}
-      />
-    );
-  }
-
-  return (
-    <label className={`block ${className}`}>
-      <span className="mb-2 block text-sm font-extrabold text-[#111827]">{label}</span>
-      <input
-        type={type}
-        lang="pt-BR"
-        min={min}
-        max={max}
-        step={step}
-        inputMode={inputMode}
-        placeholder={placeholder}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-      />
-    </label>
-  );
-}
-
-function validateCreateForm(
-  form: CreateFormState,
-  condominiums: CondominiumResponse[],
-) {
-  const condominiumId = Number(form.condominiumId);
-  const description = form.description.trim();
-  const value = parseCurrencyInput(form.value);
-
-  if (!form.condominiumId || Number.isNaN(condominiumId)) {
-    return "Selecione um condomínio.";
-  }
-
-  if (!condominiums.some((condominium) => condominium.id === condominiumId)) {
-    return "O condomínio selecionado não está disponível.";
-  }
-
-  if (!description) {
-    return "Informe a descrição da cobrança.";
-  }
-
-  if (description.length < 3) {
-    return "A descrição precisa ter pelo menos 3 caracteres.";
-  }
-
-  if (description.length > 255) {
-    return "A descrição deve ter no máximo 255 caracteres.";
-  }
-
-  if (!form.value || !Number.isFinite(value) || value <= 0) {
-    return "Informe um valor maior que zero.";
-  }
-
-  if (!Number.isInteger(value * 100)) {
-    return "Informe o valor com no máximo duas casas decimais.";
-  }
-
-  if (!form.dueDate) {
-    return "Informe a data de vencimento.";
-  }
-
-  if (!isValidInputDate(form.dueDate)) {
-    return "Informe uma data de vencimento válida.";
-  }
-
-  if (form.dueDate < todayInputDate()) {
-    return "O vencimento não pode ser anterior a hoje.";
-  }
-
-  return "";
-}
-
-function validatePaymentForm(form: PaymentFormState, charge?: ChargeResponse) {
-  const amountPaid = parseCurrencyInput(form.amountPaid);
-
-  if (!charge) {
-    return "Cobrança não encontrada para registrar a baixa.";
-  }
-
-  if (!form.amountPaid || !Number.isFinite(amountPaid) || amountPaid <= 0) {
-    return "Informe um valor pago maior que zero.";
-  }
-
-  if (!Number.isInteger(amountPaid * 100)) {
-    return "Informe o valor pago com no máximo duas casas decimais.";
-  }
-
-  if (toCents(amountPaid) !== toCents(charge.value)) {
-    return `O valor pago precisa ser igual ao valor da cobrança (${formatCurrency(charge.value)}).`;
-  }
-
-  if (form.paymentMethod === 0) {
-    return "Selecione o método de pagamento.";
-  }
-
-  if (!form.paidAt) {
-    return "Informe a data do pagamento.";
-  }
-
-  if (!isValidInputDate(form.paidAt)) {
-    return "Informe uma data de pagamento válida.";
-  }
-
-  if (form.paidAt > todayInputDate()) {
-    return "A data do pagamento não pode ser futura.";
-  }
-
-  if (form.notes.trim().length > 255) {
-    return "A observação deve ter no máximo 255 caracteres.";
-  }
-
-  return "";
-}
-
-function validateCancelForm(form: CancelFormState) {
-  const reason = form.reason.trim();
-
-  if (!reason) {
-    return "Informe o motivo do cancelamento.";
-  }
-
-  if (reason.length < 5) {
-    return "O motivo precisa ter pelo menos 5 caracteres.";
-  }
-
-  if (reason.length > 255) {
-    return "O motivo deve ter no máximo 255 caracteres.";
-  }
-
-  return "";
-}
-
-function openPaymentModal(
-  charge: ChargeResponse,
-  setPaymentForm: (value: PaymentFormState) => void,
-  setModalError: (value: string) => void,
-) {
-  setModalError("");
-  setPaymentForm({
-    chargeId: charge.id,
-    amountPaid: charge.value.toString(),
-    paymentMethod: 1,
-    paidAt: todayInputDate(),
-    notes: "",
-  });
-}
-
-function sumCharges(charges: ChargeResponse[]) {
-  return charges.reduce((total, charge) => total + charge.value, 0);
-}
-
-function getChargeStatusLabel(status: ChargeResponse["status"]) {
-  if (status === 1) return "Pendente";
-  if (status === 2) return "Pago";
-  if (status === 3) return "Atrasado";
-  if (status === 4) return "Cancelado";
-  return "Indefinido";
-}
-
-function getChargeStatusVariant(status: ChargeResponse["status"]) {
-  if (status === 2) return "success";
-  if (status === 1) return "warning";
-  if (status === 3) return "danger";
-  return "neutral";
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
-}
-
-function toCents(value: number) {
-  return Math.round(value * 100);
-}
-
-function parseCurrencyInput(value: string) {
-  return Number(value.trim().replace(/\./g, "").replace(",", "."));
-}
-
-function isValidInputDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return false;
-  }
-
-  const date = new Date(`${value}T00:00:00`);
-
-  return !Number.isNaN(date.getTime());
 }

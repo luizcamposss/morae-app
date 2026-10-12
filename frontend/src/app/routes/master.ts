@@ -1,4 +1,4 @@
-import { Building2, House, Receipt, SlidersHorizontal, Users } from "lucide-react";
+import { Building2, House, SlidersHorizontal, TrendingUp, Users } from "lucide-react";
 import { MasterDashboardPage } from "../../features/masterDashboard/MasterDashboardPage";
 import { CondominiumsPage } from "../../features/masterCondominiums/CondominiumsPage";
 import { PlatformPaymentsPage } from "../../features/masterPayments/PlatformPaymentsPage";
@@ -12,7 +12,7 @@ export const masterArea: RoleArea = {
   routes: [
     { path: "dashboard", component: MasterDashboardPage, nav: { label: "Início", icon: House } },
     { path: "condominiums", component: CondominiumsPage, nav: { label: "Condomínios", icon: Building2 } },
-    { path: "payments", component: PlatformPaymentsPage, nav: { label: "Pagamentos", icon: Receipt } },
+    { path: "payments", component: PlatformPaymentsPage, nav: { label: "Receita", icon: TrendingUp } },
     { path: "admins", component: AdminsPage, nav: { label: "Administradores", icon: Users } },
     { path: "users", component: MasterAdminsRedirect },
     { path: "invitations", component: MasterAdminsRedirect },
