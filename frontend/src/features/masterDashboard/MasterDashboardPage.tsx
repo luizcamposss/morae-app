@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
+import { SummaryCard } from "../../shared/components/SummaryCard";
 import { PageHeader } from "../../shared/layout/PageHeader";
 import { formatCurrency } from "../../shared/lib/currency";
 import { formatCalendarDate, formatTodayHeading, toAppDateString, todayInputDate } from "../../shared/lib/date";
@@ -112,20 +113,18 @@ export function MasterDashboardPage() {
         </p>
       )}
 
-      <section aria-label="Resumo" className="grid rounded-card bg-superficie shadow-whisper sm:grid-cols-3">
-        <SummaryItem
-          label="Condomínios ativos"
-          value={isLoading ? "–" : String(summary.activeCondominiums)}
-          detail={`${condominiums.length} no total`}
-        />
-        <SummaryItem label="Receita do mês" value={isLoading ? "–" : formatCurrency(summary.monthRevenue)} detail="mensalidades pagas" />
-        <SummaryItem
-          label="Mensalidade em atraso"
-          value={isLoading ? "–" : formatCurrency(summary.overdueValue)}
-          detail={overdueCount ? `${overdueCount} condomínio${overdueCount > 1 ? "s" : ""}` : "nenhum condomínio"}
-          tone={summary.overdueValue > 0 ? "danger" : "neutral"}
-        />
-      </section>
+      <SummaryCard
+        items={[
+          { label: "Condomínios ativos", value: isLoading ? "–" : String(summary.activeCondominiums), detail: `${condominiums.length} no total` },
+          { label: "Receita do mês", value: isLoading ? "–" : formatCurrency(summary.monthRevenue), detail: "mensalidades pagas" },
+          {
+            label: "Mensalidade em atraso",
+            value: isLoading ? "–" : formatCurrency(summary.overdueValue),
+            detail: overdueCount ? `${overdueCount} condomínio${overdueCount > 1 ? "s" : ""}` : "nenhum condomínio",
+            tone: summary.overdueValue > 0 ? "danger" : "neutral",
+          },
+        ]}
+      />
 
       <div className="mt-10 grid gap-x-6 gap-y-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
         <Section title="Mensalidades" note="próximas e atrasadas" footer={<SectionLink to="/master/payments">Ver a receita</SectionLink>}>
@@ -199,18 +198,6 @@ export function MasterDashboardPage() {
         </ChartCard>
       </div>
     </>
-  );
-}
-
-function SummaryItem({ label, value, detail, tone = "neutral" }: { label: string; value: string; detail: string; tone?: "neutral" | "danger" }) {
-  return (
-    <div className="px-7 py-6 [&+&]:border-t [&+&]:border-linha sm:[&+&]:border-l sm:[&+&]:border-t-0">
-      <p className="text-sm text-tinta-suave">{label}</p>
-      <p className={`mt-2 font-display text-[30px] font-bold leading-none tracking-[-0.015em] tabular-nums ${tone === "danger" ? "text-vermelho" : "text-tinta"}`}>
-        {value}
-      </p>
-      <p className="mt-2 text-[13px] text-tinta-suave">{detail}</p>
-    </div>
   );
 }
 

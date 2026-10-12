@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes } from "react";
 import { Link, type LinkProps } from "react-router-dom";
 import { MoraeMark } from "./MoraeMark";
 
-type ButtonVariant = "primary" | "accent" | "quiet";
+type ButtonVariant = "primary" | "accent" | "quiet" | "danger";
 type ButtonSize = "md" | "sm";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -17,6 +17,7 @@ const variantClasses: Record<ButtonVariant, string> = {
   primary: "bg-tinta text-white hover:bg-tinta-forte",
   accent: "bg-verde text-verde-tinta hover:bg-verde-forte",
   quiet: "bg-campo text-tinta hover:bg-menu",
+  danger: "bg-vermelho text-white hover:bg-vermelho/90",
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
