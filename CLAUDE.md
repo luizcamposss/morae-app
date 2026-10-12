@@ -9,6 +9,7 @@ Leia também, quando a tarefa pedir:
 - `docs/ai/api.md` — todas as rotas da API, enums e formatos de data
 - `docs/ai/frontend-plan.md` — plano da rodada de frontend, dividido em tarefas para agentes em paralelo
 - `docs/ai/backend-backlog.md` — o que ainda falta no backend, com prioridade e ordem sugerida
+- `DESIGN.md` — sistema visual ("A Casa em Ordem"): cores, fontes, componentes e regras. Base de qualquer tela
 
 ## Regras de trabalho (obrigatórias)
 
@@ -25,6 +26,7 @@ Leia também, quando a tarefa pedir:
 5. **Os serviços principais são do Luiz.** Ele roda a API na porta **5242**, o front na **5173** e o ngrok. Não pare nem reinicie esses processos. Depois de mudar o backend, peça para ele reiniciar a API.
 6. **Teste de verdade e conte o resultado fielmente.** Se algo falhou, diga. Apague os dados de teste que criar e restaure qualquer coisa que alterar (permissões, status de cobranças), num bloco que rode mesmo se o teste quebrar.
 7. Escreva código parecido com o que já existe ao redor: mesmo estilo, nomes, densidade de comentários (comentários em inglês, mensagens ao usuário em português).
+8. **Frontend sempre com a skill Impeccable.** Toda tela, componente, animação ou ajuste visual passa pela skill `impeccable` (carregar o contexto, seguir o `DESIGN.md` e a referência do comando, rodar o detector no fim). O visual segue o Figma "Moraê — Design" (páginas Landing e App) e o `DESIGN.md`. Conferir no Chrome no computador e no celular antes de entregar.
 
 ## Stack
 
