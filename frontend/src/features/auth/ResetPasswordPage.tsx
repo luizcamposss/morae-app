@@ -107,7 +107,7 @@ export function ResetPasswordPage() {
           autoComplete="new-password"
         />
 
-        <PasswordRequirements password={password} />
+        <PasswordRequirements password={password} confirmation={confirmation} />
 
         <Button type="submit" fullWidth isLoading={isSubmitting} loadingText="Salvando…" className="mt-1">
           Salvar nova senha
