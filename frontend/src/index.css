@@ -66,6 +66,13 @@
     color: var(--color-verde-tinta);
   }
 
+  /* Browser autofill keeps the field colors instead of its default blue. */
+  input:-webkit-autofill {
+    -webkit-text-fill-color: var(--color-tinta);
+    box-shadow: 0 0 0 1000px var(--color-campo) inset;
+    caret-color: var(--color-tinta);
+  }
+
   :focus-visible {
     outline: 2px solid var(--color-verde);
     outline-offset: 2px;
