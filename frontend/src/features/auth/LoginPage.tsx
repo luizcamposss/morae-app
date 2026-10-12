@@ -7,6 +7,7 @@ import { getDefaultRouteByRoles } from "./authRedirect";
 import { Button } from "../../shared/components/Button";
 import { TextField } from "../../shared/components/TextField";
 import { AuthLayout } from "./AuthLayout";
+import { LoginPanel } from "./authPanels";
 
 export function LoginPage() {
     const navigate = useNavigate();
@@ -71,7 +72,7 @@ export function LoginPage() {
     }
 
     return (
-        <AuthLayout>
+        <AuthLayout panel={<LoginPanel />}>
             <h1 className="font-display text-[34px] font-bold leading-[1.12] tracking-[-0.015em] text-tinta">
                 Bem-vindo de volta
             </h1>

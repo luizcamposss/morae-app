@@ -28,3 +28,19 @@ export async function changePassword(currentPassword: string, newPassword: strin
     withCredentials: true,
   });
 }
+
+// Always answers neutrally (the API never tells whether the e-mail exists).
+export async function forgotPassword(email: string): Promise<void> {
+  await apiRequest<unknown>("/api/auth/forgot-password", {
+    method: "POST",
+    body: { email },
+  });
+}
+
+// Uses the one-time code from the e-mail link; ends every other session of the user.
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  return apiRequest<void>("/api/auth/reset-password", {
+    method: "POST",
+    body: { token, newPassword },
+  });
+}

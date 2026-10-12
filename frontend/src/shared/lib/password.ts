@@ -3,9 +3,9 @@ export const PASSWORD_MIN_LENGTH = 8;
 
 export function getPasswordChecks(password: string) {
   return [
-    { label: `Pelo menos ${PASSWORD_MIN_LENGTH} caracteres`, isMet: password.length >= PASSWORD_MIN_LENGTH },
-    { label: "Uma letra", isMet: /\p{L}/u.test(password) },
-    { label: "Um número", isMet: /\d/.test(password) },
+    { label: `${PASSWORD_MIN_LENGTH} caracteres ou mais`, isMet: password.length >= PASSWORD_MIN_LENGTH },
+    { label: "Pelo menos uma letra", isMet: /\p{L}/u.test(password) },
+    { label: "Pelo menos um número", isMet: /\d/.test(password) },
   ];
 }
 
