@@ -33,8 +33,8 @@ Ajustes que serão feitos no desenho, não no backend:
 
 | # | Recurso | Hoje | O que fazer |
 |---|---|---|---|
-| 3.1 | **Cobrança em lote e recorrente** (decidir) | `POST /api/charges` cria **uma** cobrança para **uma** unidade: 60 unidades = 60 cobranças à mão por mês | Gerar a taxa do mês para todas as unidades (ou por prédio) de uma vez, e a opção de gerar sozinho todo mês na rotina de hora em hora. |
-| 3.2 | **Multa e juros automáticos** (decidir) | O valor atrasado continua o mesmo | Configurar por condomínio (multa de até 2% e juros de até 1% ao mês, conforme o Código Civil) e calcular o valor atualizado no pagamento. |
+| 3.1 | **Cobrança em lote e recorrente** (aprovado) | `POST /api/charges` cria **uma** cobrança para **uma** unidade: 60 unidades = 60 cobranças à mão por mês | Gerar a taxa do mês para todas as unidades (ou por prédio) de uma vez, e a opção de gerar sozinho todo mês na rotina de hora em hora. |
+| 3.2 | **Multa e juros automáticos** (aprovado) | O valor atrasado continua o mesmo | Configurar por condomínio (multa de até 2% e juros de até 1% ao mês, conforme o Código Civil) e calcular o valor atualizado no pagamento. |
 | 3.3 | **Prestação de contas** (decidir) | Só existe o upload de PDF em Documentos | Lançar despesas por categoria e montar o balancete mensal (entradas × saídas) que o morador pode ver. |
 | 3.4 | **Relatórios e exportação** (decidir) | Nada | Inadimplência, recebimentos e despesas em Excel/PDF. |
 | 3.5 | **Reservas de áreas comuns** (decidir) | Nada | Áreas (salão, churrasqueira), regras (antecedência, taxa, limite), agenda e aprovação pela gestão. |

@@ -58,7 +58,8 @@ Sucesso é o condomínio receber em dia sem trabalho manual, o morador participa
 
 - **Pré-lançamento:** ainda **não há clientes**, depoimentos, números de uso, cases ou imprensa. A landing page e qualquer material **não podem inventar** clientes, logos de parceiros, depoimentos, estatísticas ou preços.
 - O Luiz foi **contratado para construir o Moraê**, que será **entregue pronto para vender**. A landing precisa **captar clientes (leads)** desde o lançamento, pensada com mentalidade de marketing sênior (skill do projeto: `.claude/skills/marketing-senior`).
-- A landing ataca 5 dores: **inadimplência (a nº 1)**, bagunça no WhatsApp, sistemas antigos, assembleia vazia e **medo de migrar** (perder dados ao trocar de sistema).
+- A landing ataca as dores: **inadimplência (a nº 1)**, bagunça no WhatsApp, assembleia vazia e o dia a dia esquecido (manutenção, visitas, chamados). "Sistema antigo" aparece no tom (simples, pouco texto), e o **medo de migrar** só entra quando a importação por planilha existir.
+- **Pouco texto:** o Luiz quer que o visitante entenda em menos de 5 segundos que é gestão de condomínio. Cada seção: título + 1 frase + tela real.
 - Pesquisa de mercado (out/2026): inadimplência acima de 30 dias em recorde de 11,95% no 1º semestre de 2025 (dado de levantamentos do setor, inclusive de concorrentes: só citar com a fonte); reclamações frequentes contra concorrentes: suporte lento, cobrança indevida, boleto para a pessoa errada, acesso cortado sem aviso; migração trava por planilha/mapeamento de colunas e medo de ficar preso (caso NokNox, desligado em 01/12/2025).
 - Provas reais disponíveis: o próprio produto funcionando (fluxos de pagamento, votação, documentos etc.), que pode ser mostrado em capturas de tela ou demonstrações.
 

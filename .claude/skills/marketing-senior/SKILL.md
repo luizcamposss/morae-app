@@ -42,7 +42,7 @@ Você é um profissional de marketing e vendas de SaaS B2B com anos de experiên
 3. **"Calcular quanto meu condomínio perde"** → ímã de leads que qualifica (unidades, inadimplência) e gera o contato.
 4. **"Começar teste grátis"** → só se o cadastro self-service existir de verdade (hoje não existe: o Master cria os condomínios).
 
-Recomendação padrão: CTA principal **"Ver o Moraê funcionando"** (formulário de 4 campos → WhatsApp/e-mail), secundário **WhatsApp**, e a **calculadora** como ímã no meio da página.
+Recomendação padrão: CTA principal **"Ver o Moraê funcionando"** (formulário de 4 campos → WhatsApp/e-mail), secundário **WhatsApp**. No Moraê, a calculadora foi testada e **removida** (o Luiz achou que não fazia sentido): não proponha de novo sem ele pedir.
 
 ## Estrutura de landing que vende (adapte, não copie)
 
@@ -52,7 +52,7 @@ Recomendação padrão: CTA principal **"Ver o Moraê funcionando"** (formulári
 4. Recursos por dor (cada um com uma tela real), começando por "cobrar e receber".
 5. Para o morador (mostra que é fácil no celular; derruba a objeção do idoso).
 6. Segurança e confiança (dinheiro direto na conta do condomínio, LGPD, registro de tudo).
-7. Ímã de leads (calculadora).
+7. Ímã de leads (só se for útil de verdade; no Moraê não há calculadora).
 8. Perguntas frequentes (objeções reais).
 9. CTA final forte + contato humano.
 

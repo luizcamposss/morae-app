@@ -65,13 +65,23 @@ Decisões já tomadas com o Luiz. Siga sem perguntar de novo; se algo novo contr
 
 ## Landing page e migração
 
-- A landing capta clientes (o Moraê é entregue pronto para vender). CTA principal **"Ver o Moraê funcionando"** (formulário de 4 campos: nome, WhatsApp, nº de unidades, administrador/síndico), secundário **WhatsApp**, ímã de leads **calculadora** de perdas. Os contatos são gravados no backend e o Master é avisado por e-mail.
-- **Assinatura da landing: hero com seletor de dor** — "O que mais te tira o sono no condomínio?" com 5 opções (inadimplência, avisos no WhatsApp, sistema antigo, assembleia vazia, medo de migrar); cada uma troca título, número de prova e a tela do produto; abre na inadimplência; a dor escolhida vai junto no formulário de contato.
+- A landing capta clientes (o Moraê é entregue pronto para vender). CTA principal **"Ver o Moraê funcionando"** (formulário de 4 campos: nome, WhatsApp, nº de unidades, administrador/síndico), secundário **WhatsApp**. Sem calculadora (removida em out/2026: não fazia sentido). Os contatos são gravados no backend e o Master é avisado por e-mail.
+- **Assinatura da landing: hero com seletor de dor** — "O que mais te tira o sono no condomínio?" com 5 opções (inadimplência, avisos no WhatsApp, sistema antigo, assembleia vazia, medo de migrar); cada uma troca título, número de prova e a tela do produto; abre na inadimplência; a dor escolhida vai junto no formulário de contato. O seletor **mantém as 5 dores**, mesmo com 4 capítulos (decisão do Luiz, out/2026); a opção "medo de migrar" não pode prometer a importação antes de ela existir.
+- **Landing enxuta (out/2026):** pouco texto; em 5 segundos o visitante entende que é gestão de condomínio. Cada seção tem título + 1 frase + uma tela real do produto. Ordem: hero → barra de capítulos (**Receber, Avisar, Decidir, Cuidar**) → segurança do dinheiro → perguntas frequentes → CTA final → rodapé. Menu: Cobranças, Avisos, Assembleias, Dia a dia, Dúvidas, Entrar + botão "Ver funcionando". Saíram: intro "Um mês no condomínio", capítulo "Sistema antigo" (vira o tom da página), capítulo de migração (até a importação existir), faixa de garantias e calculadora.
+- **Tour + coleta (out/2026):** o botão "Ver o Moraê funcionando" abre um **tour animado** (60–90 s, telas reais em movimento, começando pela dor escolhida). A última cena é o **formulário** (nome, WhatsApp, nº de unidades, administrador/síndico + a dor), gravado no backend (item 1.1 do backlog) com e-mail para o Master, que chama a pessoa no WhatsApp. O mesmo formulário fica no fim da página. Enquanto o tour não existir, o botão leva direto ao formulário.
+- **Capítulos com provas:** cada capítulo tem título + 1 frase + 3 etiquetas com fatos reais do produto. Seção "Como começar em 3 passos" antes do FAQ. Painéis com motion (grade ficando verde, aviso chegando, barra de votação enchendo).
+- **Taxas:** o Moraê não cobra por pagamento. Só existem as taxas do Mercado Pago (descontadas na conta do condomínio) e a mensalidade do Moraê. Pode ser dito no FAQ.
 - **Migração:** construir **importação por planilha** (unidades, moradores e vínculos, cobranças em aberto) com prévia e erros antes de gravar. Sem migração assistida e sem exportação completa por agora.
+
+## Financeiro novo (aprovado em out/2026)
+
+- **Cobrança em lote e recorrente** (backlog 3.1): gerar a taxa do mês para todas as unidades (ou por prédio) de uma vez, e a opção de gerar sozinho todo mês.
+- **Multa e juros** (backlog 3.2): configuráveis por condomínio, multa de até 2% e juros de até 1% ao mês (Código Civil), com o valor atualizado no pagamento.
+- Os detalhes (regras, telas) são definidos com o Luiz no início do módulo Financeiro.
 
 ## Ficou de fora (não implementar sem o Luiz pedir)
 
-Reservas de áreas comuns, encomendas, veículos/pets, todo financeiro novo (recorrência, multa/juros, prestação de contas, acordos), relatórios, papel de porteiro/funcionário, registro de entrada/saída, QR code de visitante, ligar/desligar módulos por condomínio, voto por fração ideal, "reenviar e-mail" de convite ainda válido.
+Reservas de áreas comuns, encomendas, veículos/pets, prestação de contas e acordos, relatórios, papel de porteiro/funcionário, registro de entrada/saída, QR code de visitante, ligar/desligar módulos por condomínio, voto por fração ideal, "reenviar e-mail" de convite ainda válido.
 
 ## Deploy (G, ainda não feito)
 
