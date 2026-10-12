@@ -73,6 +73,25 @@
     caret-color: var(--color-tinta);
   }
 
+  /* Tailwind 4 resets buttons to the default cursor; every clickable control shows the hand. */
+  button,
+  [role="button"],
+  [role="switch"],
+  [role="tab"],
+  [role="menuitem"],
+  summary,
+  select,
+  label[for],
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="file"] {
+    cursor: pointer;
+  }
+
+  :is(button, select, input):disabled {
+    cursor: not-allowed;
+  }
+
   :focus-visible {
     outline: 2px solid var(--color-verde);
     outline-offset: 2px;
