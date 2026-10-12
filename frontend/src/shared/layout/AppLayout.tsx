@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Link, Outlet } from "react-router-dom";
 import { MoraeMark } from "../components/MoraeMark";
 import { HeaderActions } from "./HeaderActions";
 import { Sidebar } from "./Sidebar";
@@ -13,7 +13,9 @@ export function AppLayout() {
 
       <div className="min-w-0 px-4 pb-28 pt-4 sm:px-6 lg:ml-62 lg:px-14 lg:pb-14 lg:pt-8 lg:[&:has([data-page-header])_[data-legacy-actions]]:hidden">
         <div data-legacy-actions className="mb-6 flex items-center justify-between lg:justify-end">
-          <MoraeMark withName size={24} className="lg:hidden" />
+          <Link to="dashboard" aria-label="Moraê, ir para o início" className="rounded-field lg:hidden">
+            <MoraeMark withName size={24} />
+          </Link>
           <HeaderActions />
         </div>
 

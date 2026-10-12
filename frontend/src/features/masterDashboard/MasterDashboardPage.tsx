@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
+import { useAuth } from "../../app/providers/useAuth";
 import { SummaryCard } from "../../shared/components/SummaryCard";
 import { PageHeader } from "../../shared/layout/PageHeader";
 import { formatCurrency } from "../../shared/lib/currency";
-import { formatCalendarDate, formatTodayHeading, toAppDateString, todayInputDate } from "../../shared/lib/date";
+import { formatCalendarDate, formatTodayHeading, getGreeting, toAppDateString, todayInputDate } from "../../shared/lib/date";
 import { getPlatformCharges } from "../charges/chargeService";
 import type { ChargeResponse } from "../charges/types";
 import { getCondominiums } from "../condominiums/condominiumService";
@@ -19,6 +20,7 @@ const CHARGE_STATUS_OVERDUE = 3;
 const CHART_MONTHS = 6;
 
 export function MasterDashboardPage() {
+  const { user } = useAuth();
   const [condominiums, setCondominiums] = useState<CondominiumResponse[]>([]);
   const [charges, setCharges] = useState<ChargeResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -81,10 +83,14 @@ export function MasterDashboardPage() {
   }, [condominiums]);
 
   const overdueCount = summary.overdueCondominiumIds.size;
+  const firstName = (user?.personName ?? "").trim().split(/\s+/)[0];
 
   return (
     <>
-      <PageHeader overline={formatTodayHeading()} title="Visão da plataforma" />
+      <PageHeader
+        overline={`${formatTodayHeading()} · visão da plataforma`}
+        title={firstName ? `${getGreeting()}, ${firstName}` : getGreeting()}
+      />
 
       {errorMessage && (
         <p role="alert" className="mb-6 rounded-field bg-vermelho-suave px-4 py-3 text-sm font-medium text-vermelho">

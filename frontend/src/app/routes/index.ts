@@ -12,3 +12,18 @@ export const roleAreas: Record<AreaRole, RoleArea> = {
   Syndic: syndicArea,
   Resident: residentArea,
 };
+
+export const roleLabels: Record<AreaRole, string> = {
+  Master: "Master",
+  Admin: "Administração",
+  Syndic: "Síndico",
+  Resident: "Morador",
+};
+
+// A user with several roles lands in the highest one.
+export function getPrimaryRole(roles: string[]): AreaRole {
+  if (roles.includes("Master")) return "Master";
+  if (roles.includes("Admin")) return "Admin";
+  if (roles.includes("Syndic")) return "Syndic";
+  return "Resident";
+}
