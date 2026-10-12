@@ -68,76 +68,49 @@ export function ProfilePhotoBlock() {
   const avatarLetter = displayName.charAt(0).toUpperCase();
 
   return (
-    <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm">
-      <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-4">
-          {user?.profilePhotoUrl ? (
-            <img
-              src={user.profilePhotoUrl}
-              alt={`Foto de ${displayName}`}
-              className="size-20 rounded-[1.5rem] object-cover shadow-sm"
-            />
-          ) : (
-            <div className="flex size-20 items-center justify-center rounded-[1.5rem] bg-[#0B3D2E] text-2xl font-black text-white shadow-sm">
-              {avatarLetter}
-            </div>
-          )}
-
-          <div>
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-[#16A34A]">
-              Perfil na plataforma
-            </p>
-            <h2 className="mt-1 text-2xl font-black text-[#111827]">{displayName}</h2>
-            <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-              Configure sua foto para aparecer no MORAÊ.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row">
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-4">
+        {user?.profilePhotoUrl ? (
+          <img src={user.profilePhotoUrl} alt={`Foto de ${displayName}`} className="size-16 shrink-0 rounded-full object-cover" />
+        ) : (
+          <span aria-hidden className="grid size-16 shrink-0 place-items-center rounded-full bg-verde-suave font-display text-2xl font-bold text-verde-tinta">
+            {avatarLetter}
+          </span>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
           <label
             htmlFor={inputId}
-            className="inline-flex h-12 cursor-pointer items-center justify-center rounded-2xl bg-[#16A34A] px-5 text-sm font-black text-white shadow-sm shadow-[#16A34A]/25 transition hover:bg-[#0B3D2E]"
+            className={`inline-flex min-h-9 cursor-pointer items-center rounded-full bg-campo px-4 text-sm font-semibold text-tinta transition-colors hover:bg-menu ${isSubmitting ? "pointer-events-none opacity-60" : ""}`}
           >
-            {isSubmitting ? "Salvando..." : "Alterar foto"}
+            {isSubmitting ? "Salvando…" : user?.profilePhotoUrl ? "Trocar foto" : "Adicionar foto"}
           </label>
           <input
             id={inputId}
             type="file"
             accept="image/png,image/jpeg,image/webp"
             disabled={isSubmitting}
+            className="sr-only"
             onChange={(event) => {
               void handleFileChange(event.target.files?.[0]);
               event.target.value = "";
             }}
-            className="sr-only"
           />
-
           {user?.profilePhotoUrl && (
             <button
               type="button"
               disabled={isSubmitting}
               onClick={() => void handleRemovePhoto()}
-              className="h-12 cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-black text-[#6B7280] transition hover:border-[#FECACA] hover:bg-[#FDECEC] hover:text-[#B42318]"
+              className="rounded-full px-3 text-sm font-semibold text-vermelho hover:underline disabled:opacity-60"
             >
               Remover
             </button>
           )}
         </div>
       </div>
-
-      {(errorMessage || successMessage) && (
-        <p
-          className={`mt-4 rounded-2xl border px-4 py-3 text-sm font-bold ${
-            errorMessage
-              ? "border-[#FECACA] bg-[#FDECEC] text-[#B42318]"
-              : "border-[#BBF7D0] bg-[#DCFCE7] text-[#0B3D2E]"
-          }`}
-        >
-          {errorMessage || successMessage}
-        </p>
-      )}
-    </section>
+      <p className={`text-[13px] ${errorMessage ? "font-medium text-vermelho" : successMessage ? "text-verde-tinta" : "text-tinta-suave"}`}>
+        {errorMessage || successMessage || "JPG, PNG ou WEBP de até 500 KB."}
+      </p>
+    </div>
   );
 }
 

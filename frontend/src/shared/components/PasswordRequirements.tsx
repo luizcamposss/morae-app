@@ -1,10 +1,21 @@
 import { Check } from "lucide-react";
 import { getPasswordChecks } from "../lib/password";
 
-export function PasswordRequirements({ password }: { password: string }) {
+type PasswordRequirementsProps = {
+  password: string;
+  // When given, adds a "both passwords match" check.
+  confirmation?: string;
+};
+
+export function PasswordRequirements({ password, confirmation }: PasswordRequirementsProps) {
+  const checks = getPasswordChecks(password);
+  if (confirmation !== undefined) {
+    checks.push({ label: "As duas senhas são iguais", isMet: password.length > 0 && password === confirmation });
+  }
+
   return (
     <ul className="grid gap-2" aria-label="Requisitos da senha">
-      {getPasswordChecks(password).map((check) => (
+      {checks.map((check) => (
         <li
           key={check.label}
           className={`flex items-center gap-2 text-sm ${check.isMet ? "text-tinta" : "text-tinta-suave"}`}

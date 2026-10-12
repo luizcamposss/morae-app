@@ -1,33 +1,39 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { svgIcone } from "@edusites/icons/core";
+import { useEffect, useState, type FormEvent } from "react";
+import { Bell, CreditCard, KeyRound, Lock, Mail, QrCode, UserRound } from "lucide-react";
 import { useAuth } from "../../app/providers/useAuth";
-import {
-  getNotificationPreferences,
-  updateMyProfile,
-  updateNotificationPreferences,
-} from "../me/meService";
-import type { NotificationPreferences } from "../me/types";
-import {
-  getPlatformFinancialAccount,
-  upsertPlatformFinancialAccount,
-} from "../financialAccounts/financialAccountService";
+import { Button } from "../../shared/components/Button";
+import { GroupedList, GroupedRow } from "../../shared/components/GroupedList";
+import { Modal } from "../../shared/components/Modal";
+import { Switch } from "../../shared/components/Switch";
+import { TextField } from "../../shared/components/TextField";
+import { PageHeader } from "../../shared/layout/PageHeader";
+import { ChangePasswordModal } from "../auth/ChangePasswordModal";
 import { FinancialAccountForm } from "../financialAccounts/FinancialAccountForm";
-import type {
-  FinancialAccountResponse,
-  UpsertFinancialAccountRequest,
-} from "../financialAccounts/types";
-import { ProfilePhotoBlock } from "../profile/ProfilePhotoBlock";
+import { getPlatformFinancialAccount, upsertPlatformFinancialAccount } from "../financialAccounts/financialAccountService";
+import type { FinancialAccountResponse, UpsertFinancialAccountRequest } from "../financialAccounts/types";
+import { getNotificationPreferences, updateMyProfile, updateNotificationPreferences } from "../me/meService";
+import type { NotificationPreferences } from "../me/types";
 import { MercadoPagoConnectionPanel } from "../mercadoPago/MercadoPagoConnectionPanel";
 import { describePaymentMethods, useMercadoPagoConnected } from "../mercadoPago/useMercadoPagoConnected";
-import { ChangePasswordModal } from "../auth/ChangePasswordModal";
+import { ProfilePhotoBlock } from "../profile/ProfilePhotoBlock";
 
-type ModalType = "profile" | "notifications" | "financial" | "password" | null;
+type ModalType = "profile" | "notifications" | "password" | "pix" | "mercadoPago" | null;
 
-const defaultNotificationPreferences: NotificationPreferences = {
-  noticesEnabled: true,
-  billsEnabled: true,
-  unitUpdatesEnabled: true,
-};
+const statusTones = { success: "bg-verde-suave text-verde-tinta", warning: "bg-ambar-suave text-ambar" };
+
+function onlyDigits(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function formatPhone(value: string) {
+  const digits = onlyDigits(value);
+  if (digits.length < 10) return value;
+  return digits.length === 11 ? `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}` : `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+}
+
+function StatusChip({ tone, children }: { tone: "success" | "warning"; children: string }) {
+  return <span className={`shrink-0 rounded-chip px-2 py-0.5 text-xs font-semibold ${statusTones[tone]}`}>{children}</span>;
+}
 
 export function MasterSettingsPage() {
   const { user, refreshUser } = useAuth();
@@ -35,198 +41,144 @@ export function MasterSettingsPage() {
   const [account, setAccount] = useState<FinancialAccountResponse | null>(null);
   const [isLoadingAccount, setIsLoadingAccount] = useState(true);
   const [accountError, setAccountError] = useState("");
-
-  async function loadAccount() {
-    try {
-      setIsLoadingAccount(true);
-      setAccountError("");
-      setAccount(await getPlatformFinancialAccount());
-    } catch (error) {
-      setAccount(null);
-      setAccountError(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível carregar a chave Pix.",
-      );
-    } finally {
-      setIsLoadingAccount(false);
-    }
-  }
+  // Re-checks the Mercado Pago connection whenever a dialog closes.
+  const isMercadoPagoConnected = useMercadoPagoConnected(null, { refreshKey: modal });
 
   useEffect(() => {
-    void loadAccount();
+    let isMounted = true;
+
+    getPlatformFinancialAccount()
+      .then((result) => isMounted && setAccount(result))
+      .catch((error) => isMounted && setAccountError(error instanceof Error ? error.message : "Não foi possível carregar a chave Pix."))
+      .finally(() => isMounted && setIsLoadingAccount(false));
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const hasPixKey = Boolean(account?.pixKey);
+  const receiving = describePaymentMethods(hasPixKey, isMercadoPagoConnected, "mensalidades");
+  const displayName = user?.personName || user?.userName || "Usuário";
 
   return (
     <>
-      <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm sm:p-6 lg:p-7">
-        <div className="border-b border-[#E5E7EB] pb-6">
-          <h1 className="text-3xl font-black tracking-tight text-[#111827] sm:text-4xl">
-            Configurações
-          </h1>
-          <p className="mt-2 text-sm font-semibold text-[#6B7280]">
-            Ajuste seu perfil, notificações e dados de recebimento da plataforma.
-          </p>
+      <PageHeader overline="Conta Master" title="Ajustes" />
+
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
+        <div className="flex flex-col gap-8">
+          <section className="rounded-card bg-superficie p-6 shadow-whisper">
+            <ProfilePhotoBlock />
+            <div className="mt-5 border-t border-linha pt-5">
+              <p className="font-display text-2xl font-bold tracking-[-0.01em] text-tinta">{displayName}</p>
+              <p className="mt-0.5 text-sm text-tinta-suave">Dono da plataforma Moraê</p>
+              <dl className="mt-4 space-y-2 text-sm">
+                <div className="flex items-center gap-2.5 text-tinta">
+                  <Mail size={16} strokeWidth={1.7} aria-hidden className="text-tinta-suave" />
+                  <dt className="sr-only">E-mail</dt>
+                  <dd>{user?.email}</dd>
+                </div>
+                <div className="flex items-center gap-2.5 text-tinta">
+                  <UserRound size={16} strokeWidth={1.7} aria-hidden className="text-tinta-suave" />
+                  <dt className="sr-only">Telefone</dt>
+                  <dd>{user?.phoneNumber ? formatPhone(user.phoneNumber) : "Telefone não informado"}</dd>
+                </div>
+              </dl>
+              <Button variant="quiet" size="sm" className="mt-5" onClick={() => setModal("profile")}>
+                Editar dados pessoais
+              </Button>
+            </div>
+          </section>
+
+          <GroupedList title="Segurança e avisos">
+            <GroupedRow icon={Lock} title="Senha" subtitle="Trocar a senha desconecta os outros aparelhos" onClick={() => setModal("password")} />
+            <GroupedRow icon={Bell} title="Notificações" subtitle="Avisos, cobranças e cadastros" onClick={() => setModal("notifications")} />
+          </GroupedList>
         </div>
 
-        {accountError && (
-          <FeedbackMessage variant="error" message={accountError} />
-        )}
+        <div className="flex flex-col gap-4">
+          <div className={`rounded-card px-5 py-4 ${receiving.tone === "success" ? "bg-verde-suave/70" : "bg-ambar-suave"}`}>
+            <p className="text-[13px] font-semibold text-tinta-suave">Onde as mensalidades caem</p>
+            <p className="mt-1 font-display text-xl font-bold tracking-[-0.01em] text-tinta">{isLoadingAccount ? "Verificando…" : receiving.value}</p>
+            <p className="mt-1 text-sm text-tinta-suave">{receiving.description}</p>
+          </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
-          <SettingsBlock
-            icon="usuario"
-            title="Perfil e dados pessoais"
-            description="Foto, nome, telefone e e-mail do seu perfil Master."
-            action="Editar perfil"
-            onClick={() => setModal("profile")}
-          />
+          {accountError && (
+            <p role="alert" className="rounded-field bg-vermelho-suave px-4 py-3 text-sm font-medium text-vermelho">
+              {accountError}
+            </p>
+          )}
 
-          <SettingsBlock
-            icon="sino"
-            title="Notificações"
-            description="Preferências de avisos e lembretes da sua conta."
-            action="Configurar"
-            onClick={() => setModal("notifications")}
-          />
+          <GroupedList
+            title="Recebimento da plataforma"
+            footer="O Mercado Pago recebe Pix, cartão e boleto pelo app e dá baixa sozinho. A chave Pix serve para pagamentos manuais."
+          >
+            <GroupedRow
+              icon={CreditCard}
+              tone={isMercadoPagoConnected ? "green" : "neutral"}
+              title="Mercado Pago"
+              subtitle={isMercadoPagoConnected ? "Pagamentos online com baixa automática" : "Conecte para receber online"}
+              trailing={<StatusChip tone={isMercadoPagoConnected ? "success" : "warning"}>{isMercadoPagoConnected ? "Conectado" : "Não conectado"}</StatusChip>}
+              onClick={() => setModal("mercadoPago")}
+            />
+            <GroupedRow
+              icon={QrCode}
+              tone={hasPixKey ? "green" : "neutral"}
+              title="Chave Pix"
+              subtitle={hasPixKey ? account?.pixKey : "Para pagamentos manuais"}
+              trailing={<StatusChip tone={hasPixKey ? "success" : "warning"}>{hasPixKey ? "Cadastrada" : "Não cadastrada"}</StatusChip>}
+              onClick={() => setModal("pix")}
+            />
+          </GroupedList>
 
-          <SettingsBlock
-            icon="cadeado"
-            title="Senha e segurança"
-            description="Troque sua senha; os outros aparelhos conectados são desconectados."
-            action="Alterar senha"
-            onClick={() => setModal("password")}
-          />
-
-          <SettingsBlock
-            icon="carteira"
-            title="Método de pagamento"
-            description={getFinancialCardDescription(isLoadingAccount, hasPixKey)}
-            action="Configurar"
-            onClick={() => setModal("financial")}
-          />
+          <GroupedList title="Acesso">
+            <GroupedRow icon={KeyRound} title="E-mail de acesso" subtitle={user?.email} />
+          </GroupedList>
         </div>
-      </section>
+      </div>
 
       {modal === "profile" && user && (
-        <ProfileDataModal
-          userName={user.personName}
-          email={user.email}
-          phoneNumber={user.phoneNumber ?? ""}
+        <ProfileDataModal userName={user.personName} phoneNumber={user.phoneNumber ?? ""} onClose={() => setModal(null)} onSaved={refreshUser} />
+      )}
+      {modal === "notifications" && <NotificationsModal onClose={() => setModal(null)} />}
+      {modal === "password" && <ChangePasswordModal onClose={() => setModal(null)} />}
+      {modal === "pix" && (
+        <PixModal
+          account={account}
           onClose={() => setModal(null)}
-          onSaved={async () => {
-            await refreshUser();
+          onSaved={(result) => {
+            setAccount(result);
+            setAccountError("");
           }}
         />
       )}
-
-      {modal === "notifications" && <NotificationsModal onClose={() => setModal(null)} />}
-
-
-      {modal === "password" && <ChangePasswordModal onClose={() => setModal(null)} />}
-
-      {modal === "financial" && (
-        <FinancialAccountModal
-          account={account}
-          isLoading={isLoadingAccount}
-          onClose={() => setModal(null)}
-          onSaved={async (result) => {
-            setAccount(result);
-            await loadAccount();
-          }}
-        />
+      {modal === "mercadoPago" && (
+        <Modal title="Mercado Pago da plataforma" description="A conta onde as mensalidades pagas online caem." onClose={() => setModal(null)}>
+          <MercadoPagoConnectionPanel contextLabel="mensalidades" onBack={() => setModal(null)} />
+        </Modal>
       )}
     </>
   );
 }
 
-type SettingsBlockProps = {
-  icon: string;
-  title: string;
-  description: string;
-  action: string;
-  onClick: () => void;
-};
-
-function SettingsBlock({ icon, title, description, action, onClick }: SettingsBlockProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group min-h-56 cursor-pointer rounded-[1.7rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#86EFAC] hover:bg-white hover:shadow-xl hover:shadow-[#0B3D2E]/8"
-    >
-      <div className="flex size-12 items-center justify-center rounded-2xl bg-[#DCFCE7] text-2xl text-[#16A34A] transition group-hover:bg-[#16A34A] group-hover:text-white">
-        <EduIcon nome={icon} />
-      </div>
-
-      <h2 className="mt-7 text-2xl font-black text-[#111827]">{title}</h2>
-      <p className="mt-3 min-h-12 text-sm font-semibold leading-6 text-[#6B7280]">
-        {description}
-      </p>
-
-      <span className="mt-6 inline-flex items-center gap-2 text-sm font-black text-[#16A34A]">
-        {action}
-        <span className="transition group-hover:translate-x-1">→</span>
-      </span>
-    </button>
-  );
-}
-
-type ModalProps = {
-  onClose: () => void;
-};
-
-function ModalShell({
-  title,
-  children,
-  onClose,
-}: ModalProps & { title: string; children: ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B3D2E]/30 px-4 py-8 backdrop-blur-sm">
-      <div className="max-h-[calc(100vh-4rem)] w-full max-w-3xl overflow-y-auto rounded-[2rem] border border-[#E5E7EB] bg-white shadow-2xl shadow-[#0B3D2E]/20">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#E5E7EB] bg-white px-6 py-5">
-          <h2 className="text-2xl font-black text-[#111827]">{title}</h2>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex size-10 cursor-pointer items-center justify-center rounded-full bg-[#F3F4F6] text-xl font-light text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="px-5 py-6 sm:px-8">{children}</div>
-      </div>
-    </div>
-  );
-}
-
 function ProfileDataModal({
   userName,
-  email,
   phoneNumber,
   onClose,
   onSaved,
-}: ModalProps & {
+}: {
   userName: string;
-  email: string;
   phoneNumber: string;
-  onSaved: () => Promise<void>;
+  onClose: () => void;
+  onSaved: () => Promise<unknown>;
 }) {
-  const [form, setForm] = useState({
-    name: userName,
-    phoneNumber,
-  });
+  const [form, setForm] = useState({ name: userName, phoneNumber: formatPhone(phoneNumber) });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     const phoneDigits = onlyDigits(form.phoneNumber);
 
     if (form.name.trim().length < 2) {
@@ -243,529 +195,178 @@ function ProfileDataModal({
       setIsSubmitting(true);
       setErrorMessage("");
       setSuccessMessage("");
-
-      await updateMyProfile({
-        name: form.name.trim(),
-        phoneNumber: phoneDigits,
-      });
+      await updateMyProfile({ name: form.name.trim(), phoneNumber: phoneDigits });
       await onSaved();
-
       setSuccessMessage("Dados pessoais atualizados.");
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível atualizar seus dados.",
-      );
+      setErrorMessage(error instanceof Error ? error.message : "Não foi possível atualizar seus dados.");
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <ModalShell title="Perfil e dados pessoais" onClose={onClose}>
-      <div className="space-y-6">
-        <ProfilePhotoBlock />
-
-        <form onSubmit={(event) => void handleSubmit(event)} className="space-y-6">
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <TextField
-              label="Nome"
-              value={form.name}
-              onChange={(value) => setForm((current) => ({ ...current, name: value }))}
-            />
-            <TextField
-              label="Telefone"
-              value={form.phoneNumber}
-              onChange={(value) =>
-                setForm((current) => ({ ...current, phoneNumber: value }))
-              }
-            />
-            <TextField label="E-mail" value={email} disabled />
-          </div>
-
-          {(errorMessage || successMessage) && (
-            <FeedbackMessage
-              variant={errorMessage ? "error" : "success"}
-              message={errorMessage || successMessage}
-            />
-          )}
-
-          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="h-12 cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-black text-[#6B7280] transition hover:bg-[#F3F4F6]"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="h-12 cursor-pointer rounded-2xl bg-[#16A34A] px-6 text-sm font-black text-white shadow-sm shadow-[#16A34A]/25 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {isSubmitting ? "Salvando..." : "Salvar alterações"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </ModalShell>
+    <Modal
+      title="Dados pessoais"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="quiet" onClick={onClose}>
+            Fechar
+          </Button>
+          <Button type="submit" form="profile-data" isLoading={isSubmitting} loadingText="Salvando…">
+            Salvar
+          </Button>
+        </>
+      }
+    >
+      <form id="profile-data" onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {(errorMessage || successMessage) && (
+          <p
+            role={errorMessage ? "alert" : "status"}
+            className={`rounded-field px-4 py-3 text-sm font-medium ${errorMessage ? "bg-vermelho-suave text-vermelho" : "bg-verde-suave text-verde-tinta"}`}
+          >
+            {errorMessage || successMessage}
+          </p>
+        )}
+        <TextField label="Nome" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} autoComplete="name" />
+        <TextField
+          label="Telefone"
+          value={form.phoneNumber}
+          onChange={(event) => setForm({ ...form, phoneNumber: event.target.value })}
+          inputMode="tel"
+          autoComplete="tel"
+          placeholder="(11) 99999-9999"
+        />
+      </form>
+    </Modal>
   );
 }
 
-function NotificationsModal({ onClose }: ModalProps) {
-  const [preferences, setPreferences] = useState<NotificationPreferences>(
-    defaultNotificationPreferences,
-  );
-  const [isLoading, setIsLoading] = useState(true);
+const notificationOptions: Array<{ key: keyof NotificationPreferences; label: string; description: string }> = [
+  { key: "noticesEnabled", label: "Avisos", description: "Comunicados importantes da plataforma" },
+  { key: "billsEnabled", label: "Cobranças", description: "Mensalidades criadas, pagas e atrasadas" },
+  { key: "unitUpdatesEnabled", label: "Cadastros", description: "Convites aceitos, condomínios e acessos" },
+];
+
+function NotificationsModal({ onClose }: { onClose: () => void }) {
+  const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
-    async function loadPreferences() {
-      try {
-        setIsLoading(true);
-        setErrorMessage("");
-        setPreferences(await getNotificationPreferences());
-      } catch (error) {
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Não foi possível carregar suas preferências.",
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    }
+    let isMounted = true;
 
-    void loadPreferences();
+    getNotificationPreferences()
+      .then((result) => isMounted && setPreferences(result))
+      .catch((error) => isMounted && setErrorMessage(error instanceof Error ? error.message : "Não foi possível carregar suas preferências."));
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  function updatePreference(key: keyof NotificationPreferences) {
-    setSuccessMessage("");
-    setPreferences((current) => ({
-      ...current,
-      [key]: !current[key],
-    }));
-  }
-
   async function handleSave() {
+    if (!preferences) return;
+
     try {
       setIsSubmitting(true);
       setErrorMessage("");
       setSuccessMessage("");
-
-      const result = await updateNotificationPreferences(preferences);
-      setPreferences(result);
-      setSuccessMessage("Preferências de notificação atualizadas.");
+      setPreferences(await updateNotificationPreferences(preferences));
+      setSuccessMessage("Preferências salvas.");
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível salvar suas preferências.",
-      );
+      setErrorMessage(error instanceof Error ? error.message : "Não foi possível salvar suas preferências.");
     } finally {
       setIsSubmitting(false);
     }
   }
 
   return (
-    <ModalShell title="Notificações" onClose={onClose}>
-      <div className="space-y-4">
-        {isLoading ? (
-          <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 text-sm font-bold text-[#6B7280]">
-            Carregando preferências...
-          </div>
-        ) : (
-          <>
-            <ToggleRow
-              label="Avisos institucionais"
-              description="Receber comunicados importantes da plataforma."
-              checked={preferences.noticesEnabled}
-              onChange={() => updatePreference("noticesEnabled")}
+    <Modal
+      title="Notificações"
+      description="O que aparece no sininho e chega por e-mail."
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="quiet" onClick={onClose}>
+            Fechar
+          </Button>
+          <Button onClick={() => void handleSave()} disabled={!preferences} isLoading={isSubmitting} loadingText="Salvando…">
+            Salvar
+          </Button>
+        </>
+      }
+    >
+      {(errorMessage || successMessage) && (
+        <p
+          role={errorMessage ? "alert" : "status"}
+          className={`mb-2 rounded-field px-4 py-3 text-sm font-medium ${errorMessage ? "bg-vermelho-suave text-vermelho" : "bg-verde-suave text-verde-tinta"}`}
+        >
+          {errorMessage || successMessage}
+        </p>
+      )}
+      {preferences ? (
+        <div className="divide-y divide-linha">
+          {notificationOptions.map((option) => (
+            <Switch
+              key={option.key}
+              label={option.label}
+              description={option.description}
+              checked={preferences[option.key]}
+              onChange={(checked) => {
+                setSuccessMessage("");
+                setPreferences({ ...preferences, [option.key]: checked });
+              }}
             />
-            <ToggleRow
-              label="Lembretes financeiros"
-              description="Exibir alertas sobre cobranças e recebimentos."
-              checked={preferences.billsEnabled}
-              onChange={() => updatePreference("billsEnabled")}
-            />
-            <ToggleRow
-              label="Atualizações de cadastro"
-              description="Receber avisos sobre convites, condomínios e acessos."
-              checked={preferences.unitUpdatesEnabled}
-              onChange={() => updatePreference("unitUpdatesEnabled")}
-            />
-          </>
-        )}
-
-        {(errorMessage || successMessage) && (
-          <FeedbackMessage
-            variant={errorMessage ? "error" : "success"}
-            message={errorMessage || successMessage}
-          />
-        )}
-
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => void handleSave()}
-            disabled={isLoading || isSubmitting}
-            className="h-12 cursor-pointer rounded-2xl bg-[#16A34A] px-6 text-sm font-black text-white shadow-sm shadow-[#16A34A]/25 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {isSubmitting ? "Salvando..." : "Salvar preferências"}
-          </button>
+          ))}
         </div>
-      </div>
-    </ModalShell>
+      ) : (
+        !errorMessage && <p className="py-6 text-center text-sm text-tinta-suave">Carregando…</p>
+      )}
+    </Modal>
   );
 }
 
-function FinancialAccountModal({
+function PixModal({
   account,
-  isLoading,
   onClose,
   onSaved,
-}: ModalProps & {
+}: {
   account: FinancialAccountResponse | null;
-  isLoading: boolean;
-  onSaved: (account: FinancialAccountResponse) => Promise<void>;
+  onClose: () => void;
+  onSaved: (account: FinancialAccountResponse) => void;
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  const [selectedMethod, setSelectedMethod] = useState<"choice" | "pix" | "mercadoPago">("choice");
-  const isMercadoPagoConnected = useMercadoPagoConnected(null, { refreshKey: selectedMethod });
-  const paymentMethodSummary = describePaymentMethods(Boolean(account?.pixKey), isMercadoPagoConnected, `cobranças institucionais`);
 
   async function handleSubmit(data: UpsertFinancialAccountRequest) {
     try {
       setIsSubmitting(true);
       setErrorMessage("");
       setSuccessMessage("");
-
-      const result = await upsertPlatformFinancialAccount(data);
-      await onSaved(result);
-      setSuccessMessage("Chave Pix atualizada.");
+      onSaved(await upsertPlatformFinancialAccount(data));
+      setSuccessMessage("Chave Pix salva.");
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível salvar a chave Pix.",
-      );
+      setErrorMessage(error instanceof Error ? error.message : "Não foi possível salvar a chave Pix.");
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  if (selectedMethod === "choice") {
-    return (
-      <ModalShell title="Método de pagamento" onClose={onClose}>
-        <div className="space-y-5">
-          <PaymentMethodStatus
-            label="Método em uso"
-            value={paymentMethodSummary.value}
-            description={paymentMethodSummary.description}
-            tone={paymentMethodSummary.tone}
-          />
-
-          <PaymentMethodChoice
-            pixConfigured={Boolean(account?.pixKey)}
-            onSelectPix={() => setSelectedMethod("pix")}
-            onSelectMercadoPago={() => setSelectedMethod("mercadoPago")}
-            mercadoPagoConnected={isMercadoPagoConnected}
-          />
-        </div>
-      </ModalShell>
-    );
-  }
-
-  if (selectedMethod === "mercadoPago") {
-    return (
-      <ModalShell title="Mercado Pago" onClose={onClose}>
-        <MercadoPagoConnectionPanel
-          contextLabel="recebimentos MORAÊ"
-          onBack={() => setSelectedMethod("choice")}
-        />
-      </ModalShell>
-    );
-  }
-
   return (
-    <ModalShell title="Pix normal" onClose={onClose}>
-      <div className="space-y-5">
-        <PaymentMethodStatus
-          label="Método selecionado"
-          value="Pix normal"
-          description={
-            account?.pixKey
-              ? "Este é o método em uso nas cobranças institucionais."
-              : "Cadastre a chave Pix para ativar este método."
-          }
-          tone={account?.pixKey ? "success" : "warning"}
-        />
-
-        <div className="rounded-2xl border border-[#BBF7D0] bg-[#DCFCE7] p-4">
-          <p className="text-sm font-extrabold text-[#0B3D2E]">
-            Configure a chave Pix usada nos recebimentos do MORAÊ.
-          </p>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#0D7A3A]">
-            Dados internos dos condomínios continuam restritos aos administradores de cada operação.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setSelectedMethod("choice")}
-          className="h-11 cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-black text-[#6B7280] transition hover:bg-[#F3F4F6] hover:text-[#111827]"
+    <Modal title="Chave Pix da plataforma" description="Para mensalidades pagas fora do app." onClose={onClose}>
+      {(errorMessage || successMessage) && (
+        <p
+          role={errorMessage ? "alert" : "status"}
+          className={`mb-4 rounded-field px-4 py-3 text-sm font-medium ${errorMessage ? "bg-vermelho-suave text-vermelho" : "bg-verde-suave text-verde-tinta"}`}
         >
-          Trocar método
-        </button>
-
-        {isLoading ? (
-          <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 text-sm font-bold text-[#6B7280]">
-            Carregando chave Pix...
-          </div>
-        ) : (
-          <FinancialAccountForm
-            account={account}
-            isSubmitting={isSubmitting}
-            onSubmit={handleSubmit}
-          />
-        )}
-
-        {(errorMessage || successMessage) && (
-          <FeedbackMessage
-            variant={errorMessage ? "error" : "success"}
-            message={errorMessage || successMessage}
-          />
-        )}
-      </div>
-    </ModalShell>
-  );
-}
-
-function PaymentMethodStatus({
-  label,
-  value,
-  description,
-  tone,
-}: {
-  label: string;
-  value: string;
-  description: string;
-  tone: "success" | "warning" | "info";
-}) {
-  const styles = {
-    success: "border-[#BBF7D0] bg-[#ECFDF5] text-[#065F46]",
-    warning: "border-[#FDE68A] bg-[#FFFBEB] text-[#92400E]",
-    info: "border-[#BAE6FD] bg-[#F0F9FF] text-[#075985]",
-  }[tone];
-
-  return (
-    <div className={`rounded-2xl border px-5 py-4 ${styles}`}>
-      <p className="text-xs font-black uppercase tracking-[0.16em]">{label}</p>
-      <p className="mt-1 text-lg font-black text-[#111827]">{value}</p>
-      <p className="mt-1 text-sm font-semibold leading-6">{description}</p>
-    </div>
-  );
-}
-
-function PaymentMethodChoice({
-  pixConfigured,
-  onSelectPix,
-  onSelectMercadoPago,
-  mercadoPagoConnected,
-}: {
-  pixConfigured: boolean;
-  onSelectPix: () => void;
-  onSelectMercadoPago: () => void;
-  mercadoPagoConnected: boolean;
-}) {
-  return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <button
-        type="button"
-        onClick={onSelectPix}
-        className="group min-h-48 cursor-pointer rounded-[1.5rem] border border-[#BBF7D0] bg-[#F9FAFB] p-5 text-left transition hover:-translate-y-0.5 hover:bg-white hover:shadow-xl hover:shadow-[#0B3D2E]/10"
-      >
-        <div className="flex size-12 items-center justify-center rounded-2xl bg-[#DCFCE7] text-2xl text-[#16A34A] transition group-hover:bg-[#16A34A] group-hover:text-white">
-          <EduIcon nome="carteira" />
-        </div>
-        <h3 className="mt-5 text-xl font-black text-[#111827]">Pix normal</h3>
-        <p className="mt-2 text-sm font-semibold leading-6 text-[#6B7280]">
-          Receba usando uma chave Pix cadastrada manualmente.
+          {errorMessage || successMessage}
         </p>
-        <span className="mt-5 inline-flex text-sm font-black text-[#16A34A]">
-          {pixConfigured ? "Editar chave Pix" : "Cadastrar chave Pix"} →
-        </span>
-      </button>
-
-      <button
-        type="button"
-        onClick={onSelectMercadoPago}
-        className="group min-h-48 cursor-pointer rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 text-left transition hover:-translate-y-0.5 hover:bg-white hover:shadow-xl hover:shadow-[#0B3D2E]/10"
-      >
-        <div className="flex size-12 items-center justify-center rounded-2xl bg-[#E0F2FE] text-2xl text-[#0284C7] transition group-hover:bg-[#0284C7] group-hover:text-white">
-          <EduIcon nome="cartao" />
-        </div>
-        <h3 className="mt-5 text-xl font-black text-[#111827]">Mercado Pago</h3>
-        <p className="mt-2 text-sm font-semibold leading-6 text-[#6B7280]">
-          Receba pagamentos online com Pix, cartão e boleto direto na conta Mercado Pago.
-        </p>
-        <span className="mt-5 inline-flex text-sm font-black text-[#0284C7]">
-          {mercadoPagoConnected ? "Conta conectada · gerenciar" : "Conectar conta"} →
-        </span>
-      </button>
-    </div>
+      )}
+      <FinancialAccountForm account={account} isSubmitting={isSubmitting} onSubmit={handleSubmit} />
+    </Modal>
   );
-}
-
-type TextFieldProps = {
-  label: string;
-  value: string;
-  disabled?: boolean;
-  onChange?: (value: string) => void;
-};
-
-function TextField({ label, value, disabled = false, onChange }: TextFieldProps) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-sm font-black text-[#111827]">{label}</span>
-      <input
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange?.(event.target.value)}
-        className="h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30 disabled:bg-[#F3F4F6] disabled:text-[#6B7280]"
-      />
-    </label>
-  );
-}
-
-type ToggleRowProps = {
-  label: string;
-  description: string;
-  checked: boolean;
-  onChange: () => void;
-};
-
-function ToggleRow({ label, description, checked, onChange }: ToggleRowProps) {
-  return (
-    <button
-      type="button"
-      onClick={onChange}
-      className="flex w-full cursor-pointer items-center justify-between gap-4 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 text-left transition hover:border-[#86EFAC] hover:bg-white"
-    >
-      <span>
-        <span className="block text-base font-black text-[#111827]">{label}</span>
-        <span className="mt-1 block text-sm font-semibold leading-6 text-[#6B7280]">
-          {description}
-        </span>
-      </span>
-
-      <span
-        className={`flex h-8 w-14 shrink-0 items-center rounded-full p-1 transition ${
-          checked ? "bg-[#16A34A]" : "bg-[#E5E7EB]"
-        }`}
-      >
-        <span
-          className={`size-6 rounded-full bg-white shadow-sm transition ${
-            checked ? "translate-x-6" : "translate-x-0"
-          }`}
-        />
-      </span>
-    </button>
-  );
-}
-
-function FeedbackMessage({
-  message,
-  variant,
-}: {
-  message: string;
-  variant: "success" | "error";
-}) {
-  const classes =
-    variant === "success"
-      ? "border-[#BBF7D0] bg-[#DCFCE7] text-[#0B3D2E]"
-      : "border-[#FECACA] bg-[#FDECEC] text-[#B42318]";
-
-  return (
-    <div className={`mt-5 rounded-2xl border px-4 py-3 text-sm font-bold ${classes}`}>
-      {message}
-    </div>
-  );
-}
-
-function EduIcon({ nome }: { nome: string }) {
-  const [svg, setSvg] = useState<string | null>(() =>
-    svgIcone({
-      nome,
-      cor: "currentColor",
-      tamanho: "1em",
-    }) ?? null,
-  );
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadIcon() {
-      const icons = await import("@edusites/icons/core");
-      const loadedSvg = await (icons as typeof icons & {
-        svgIconeAsync?: (options: {
-          nome: string;
-          cor: string;
-          tamanho: string;
-        }) => Promise<string | null | undefined>;
-      }).svgIconeAsync?.({
-        nome,
-        cor: "currentColor",
-        tamanho: "1em",
-      });
-
-      if (isMounted) {
-        setSvg(loadedSvg ?? null);
-      }
-    }
-
-    if (!svg) {
-      void loadIcon();
-    }
-
-    return () => {
-      isMounted = false;
-    };
-  }, [nome, svg]);
-
-  if (!svg) {
-    return <span aria-hidden="true" className="inline-flex size-[1em]" />;
-  }
-
-  return (
-    <span
-      aria-hidden="true"
-      className="inline-flex leading-none"
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
-  );
-}
-
-function getFinancialCardDescription(
-  isLoading: boolean,
-  hasPixKey: boolean,
-) {
-  if (isLoading) {
-    return "Carregando método de pagamento da plataforma.";
-  }
-
-  if (hasPixKey) {
-    return "Pix normal configurado para recebimentos.";
-  }
-
-  return "Escolha Pix normal ou Mercado Pago para receber cobranças institucionais.";
-}
-
-function onlyDigits(value: string) {
-  return value.replace(/\D/g, "");
 }
