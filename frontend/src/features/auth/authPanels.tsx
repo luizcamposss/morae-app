@@ -15,6 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { MoraeMark } from "../../shared/components/MoraeMark";
+import { getPasswordStrength, type PasswordStrength } from "../../shared/lib/password";
 
 type PanelShellProps = {
   title: ReactNode;
@@ -130,7 +131,19 @@ const protections: PanelItem[] = [
   { icon: FileText, title: "Seu histórico continua igual", detail: "Boletos, documentos e votos ficam onde estão" },
 ];
 
-export function ResetPasswordPanel() {
+const strengthTones: Record<PasswordStrength["tone"], { bar: string; text: string; tile: string }> = {
+  empty: { bar: "bg-linha", text: "text-tinta-suave", tile: "bg-campo text-tinta-suave" },
+  weak: { bar: "bg-vermelho", text: "text-vermelho", tile: "bg-vermelho-suave text-vermelho" },
+  medium: { bar: "bg-ambar", text: "text-ambar", tile: "bg-ambar-suave text-ambar" },
+  good: { bar: "bg-verde", text: "text-verde", tile: "bg-verde-suave text-verde" },
+};
+
+// Without a password (success and missing-link states) the card shows the finished, strong state.
+export function ResetPasswordPanel({ password }: { password?: string }) {
+  const strength: PasswordStrength =
+    password === undefined ? { score: 4, label: "Forte", tone: "good" } : getPasswordStrength(password);
+  const tone = strengthTones[strength.tone];
+
   return (
     <PanelShell
       title={<>Senha nova,<br />conta <Highlight>protegida.</Highlight></>}
@@ -138,17 +151,20 @@ export function ResetPasswordPanel() {
       notice={{ icon: Check, title: "Conta protegida", detail: "Tudo certo por aqui" }}
     >
       <div className="flex items-center gap-4 px-6 pb-5 pt-6">
-        <span className="grid size-12 place-items-center rounded-block bg-verde-suave text-verde">
+        <span className={`grid size-12 place-items-center rounded-block transition-colors duration-300 ${tone.tile}`}>
           <ShieldCheck size={22} strokeWidth={1.7} />
         </span>
         <span className="flex-1">
           <span className="flex justify-between text-sm">
             <span className="text-tinta-suave">Força da senha</span>
-            <span className="font-semibold text-verde">Forte</span>
+            <span className={`font-semibold transition-colors duration-300 ${tone.text}`}>{strength.label}</span>
           </span>
           <span className="mt-2 flex gap-1.5">
-            {[0, 1, 2, 3].map((bar) => (
-              <span key={bar} className="h-1.5 flex-1 rounded-full bg-verde" />
+            {[1, 2, 3, 4].map((bar) => (
+              <span
+                key={bar}
+                className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ease-out ${bar <= strength.score ? tone.bar : "bg-linha"}`}
+              />
             ))}
           </span>
         </span>
