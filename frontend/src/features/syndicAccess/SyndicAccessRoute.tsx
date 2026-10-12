@@ -14,7 +14,7 @@ export function SyndicAccessRoute({ accessKey, children }: SyndicAccessRouteProp
   const access = useSyndicAccess();
 
   if (access === null) {
-    return <PageLoader message="Validando permissão..." />;
+    return <PageLoader message="Validando permissão…" />;
   }
 
   if (!access?.[accessKey]) {

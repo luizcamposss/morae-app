@@ -7,7 +7,7 @@ export function ProtectedRoute() {
   const location = useLocation();
 
   if (isLoading) {
-    return <PageLoader message="Validando acesso..." />;
+    return <PageLoader message="Validando acesso…" />;
   }
 
   if (!isAuthenticated) {

@@ -1,28 +1,19 @@
-import loadMoraeVideo from "../../assets/load-morae.mp4";
+import { MoraeMark } from "./MoraeMark";
 
 type PageLoaderProps = {
   message?: string;
 };
 
-export function PageLoader({
-  message = "Carregando sua sessão...",
-}: PageLoaderProps) {
+// Full-screen loading state (opening the app, validating access): the "Chegada" logo, then it keeps breathing.
+export function PageLoader({ message = "Carregando sua sessão…" }: PageLoaderProps) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#F7F6F2] px-6">
-      <div className="flex w-full max-w-sm flex-col items-center rounded-[2rem] border border-[#E5E7EB] bg-white px-8 py-10 text-center shadow-sm">
-        <video
-          className="mb-4 h-24 w-24 object-contain"
-          src={loadMoraeVideo}
-          autoPlay
-          loop
-          muted
-          playsInline
-          aria-label="Carregando MORAÊ"
-        />
-        <p className="text-base font-extrabold text-[#0B3D2E]">MORAÊ</p>
-        <p className="mt-2 text-sm font-semibold text-[#6B7280]">
-          {message}
+    <main className="flex min-h-screen items-center justify-center bg-fundo px-6">
+      <div role="status" aria-live="polite" className="flex flex-col items-center text-center">
+        <MoraeMark size={72} motion="chegada" />
+        <p className="mt-5 animate-rise-in [animation-delay:700ms] motion-reduce:animate-none font-display text-[28px] font-bold leading-none tracking-[-0.015em] text-tinta">
+          Moraê
         </p>
+        <p className="mt-3 animate-rise-in [animation-delay:900ms] motion-reduce:animate-none text-[15px] text-tinta-suave">{message}</p>
       </div>
     </main>
   );

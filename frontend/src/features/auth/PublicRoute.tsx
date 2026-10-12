@@ -6,7 +6,7 @@ import { PageLoader } from "../../shared/components/PageLoader";
 export function PublicRoute() {
     const { user, isAuthenticated, isLoading } = useAuth();
     if (isLoading) {
-        return <PageLoader message="Preparando sua entrada..." />;
+        return <PageLoader message="Preparando sua entrada…" />;
     }
 
     if (isAuthenticated && user) {

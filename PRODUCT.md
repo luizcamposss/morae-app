@@ -49,7 +49,7 @@ Sucesso é o condomínio receber em dia sem trabalho manual, o morador participa
 ## Brand Commitments
 
 - Nome: **Moraê** (com M maiúsculo e acento circunflexo no ê).
-- Logo existente: `frontend/src/assets/logo-morae.svg` (símbolo em verde `#00AE54`). Há também uma animação de carregamento: `frontend/src/assets/load-morae.mp4`.
+- Logo existente: `frontend/src/assets/logo-morae.svg` (símbolo em verde `#00AE54`). O logo tem animações próprias (Chegada, Respiro, Confirmação…) feitas em SVG: no app, `frontend/src/shared/components/MoraeMark.tsx`; as originais ficam em `~/Documents/morae-logos` na máquina do Luiz.
 - Referências que o Luiz escolheu como norte: produtos da **AbacatePay** e do **Marc Lou**, e "appllama" (nome a confirmar). O que ele valoriza nelas: são **modernas**, **não têm cara de feito por IA** e têm uma **landing page bonita e única**.
 - Tom: português claro e direto, sem jargão técnico para o morador.
 - **Proibido pelo Luiz:** interface/landing **escura (dark)** — o Moraê é claro; visual **infantil** ou gamificado; **fotos de banco de imagem** (prédio genérico, família sorrindo, aperto de mão).

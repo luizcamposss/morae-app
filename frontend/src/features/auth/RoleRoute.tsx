@@ -12,7 +12,7 @@ export function RoleRoute({ allowedRoles }: RoleRouteProps) {
   const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return <PageLoader message="Validando permissao..." />;
+    return <PageLoader message="Validando permissão…" />;
   }
 
   if (!isAuthenticated || !user) {
