@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes } from "react";
+import { Link, type LinkProps } from "react-router-dom";
 import { MoraeMark } from "./MoraeMark";
 
 type ButtonVariant = "primary" | "accent" | "quiet";
@@ -23,6 +24,10 @@ const sizeClasses: Record<ButtonSize, string> = {
   sm: "min-h-9 px-4 text-sm",
 };
 
+function buttonClasses(variant: ButtonVariant, size: ButtonSize, fullWidth: boolean) {
+  return `inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-colors duration-150 ease-out ${variantClasses[variant]} ${sizeClasses[size]} ${fullWidth ? "w-full" : ""}`;
+}
+
 export function Button({
   variant = "primary",
   size = "md",
@@ -40,7 +45,7 @@ export function Button({
       type={type}
       disabled={disabled || isLoading}
       aria-busy={isLoading || undefined}
-      className={`inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-colors duration-150 ease-out ${isLoading ? "cursor-progress" : "disabled:cursor-not-allowed disabled:opacity-60"} ${variantClasses[variant]} ${sizeClasses[size]} ${fullWidth ? "w-full" : ""} ${className}`}
+      className={`${buttonClasses(variant, size, fullWidth)} ${isLoading ? "cursor-progress" : "disabled:cursor-not-allowed disabled:opacity-60"} ${className}`}
       {...props}
     >
       {isLoading ? (
@@ -53,4 +58,15 @@ export function Button({
       )}
     </button>
   );
+}
+
+type ButtonLinkProps = LinkProps & {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  fullWidth?: boolean;
+};
+
+// A navigation link that looks like a button (never nest a <button> inside a <Link>).
+export function ButtonLink({ variant = "primary", size = "md", fullWidth = false, className = "", ...props }: ButtonLinkProps) {
+  return <Link className={`${buttonClasses(variant, size, fullWidth)} ${className}`} {...props} />;
 }
