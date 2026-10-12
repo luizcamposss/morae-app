@@ -129,7 +129,8 @@ export async function apiRequest<T>(
         }
 
         if (response.status === 404) {
-            throw new Error("Endpoint não encontrado na API. Reinicie o backend e tente novamente.");
+            // The API also answers 404 for things the user may not see (docs/ai/api.md).
+            throw new Error("Não encontramos o que você procura. Pode ter sido removido ou não estar disponível para você.");
         }
 
         if (response.status === 401) {

@@ -1,5 +1,17 @@
 import type { ReactNode } from "react";
-import { Check, FileText, Laptop, Lock, Mail, ShieldCheck, type LucideIcon } from "lucide-react";
+import {
+  Bell,
+  Check,
+  FileText,
+  House,
+  Laptop,
+  Lock,
+  Mail,
+  Receipt,
+  ShieldCheck,
+  Vote,
+  type LucideIcon,
+} from "lucide-react";
 import { MoraeMark } from "../../shared/components/MoraeMark";
 
 type PanelShellProps = {
@@ -35,6 +47,26 @@ function PanelShell({ title, subtitle, notice, children }: PanelShellProps) {
 
 function Highlight({ children }: { children: ReactNode }) {
   return <span className="text-verde">{children}</span>;
+}
+
+type PanelItem = { icon: LucideIcon; title: string; detail: string };
+
+function PanelList({ items, className = "" }: { items: PanelItem[]; className?: string }) {
+  return (
+    <ul className={`mx-6 divide-y divide-linha pb-2 ${className}`}>
+      {items.map((item) => (
+        <li key={item.title} className="flex items-center gap-3 py-3.5">
+          <span className="grid size-9 place-items-center rounded-[9px] bg-campo text-tinta-suave">
+            <item.icon size={17} strokeWidth={1.7} />
+          </span>
+          <span>
+            <span className="block text-sm font-semibold text-tinta">{item.title}</span>
+            <span className="block text-xs text-tinta-suave">{item.detail}</span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 export function LoginPanel() {
@@ -90,7 +122,7 @@ export function ForgotPasswordPanel() {
   );
 }
 
-const protections: Array<{ icon: LucideIcon; title: string; detail: string }> = [
+const protections: PanelItem[] = [
   { icon: Lock, title: "Só você sabe a nova senha", detail: "Nem a administração consegue ver" },
   { icon: Laptop, title: "Outros aparelhos são desconectados", detail: "Quem estava logado precisa entrar de novo" },
   { icon: FileText, title: "Seu histórico continua igual", detail: "Boletos, documentos e votos ficam onde estão" },
@@ -119,19 +151,51 @@ export function ResetPasswordPanel() {
           </span>
         </span>
       </div>
-      <ul className="mx-6 divide-y divide-linha border-t border-linha pb-2">
-        {protections.map((item) => (
-          <li key={item.title} className="flex items-center gap-3 py-3.5">
-            <span className="grid size-9 place-items-center rounded-[9px] bg-campo text-tinta-suave">
-              <item.icon size={17} strokeWidth={1.7} />
-            </span>
-            <span>
-              <span className="block text-sm font-semibold text-tinta">{item.title}</span>
-              <span className="block text-xs text-tinta-suave">{item.detail}</span>
-            </span>
-          </li>
-        ))}
-      </ul>
+      <PanelList items={protections} className="border-t border-linha" />
+    </PanelShell>
+  );
+}
+
+
+const residentBenefits: PanelItem[] = [
+  { icon: Receipt, title: "Pagar o condomínio com Pix em segundos", detail: "O comprovante chega sozinho" },
+  { icon: Bell, title: "Receber os avisos sem grupo de WhatsApp", detail: "Só o que é da sua torre" },
+  { icon: Vote, title: "Votar nas assembleias de onde estiver", detail: "1 voto por unidade, com resultado na hora" },
+];
+
+const managementBenefits: PanelItem[] = [
+  { icon: Receipt, title: "Cobranças com baixa automática", detail: "O dinheiro cai direto na conta do condomínio" },
+  { icon: Bell, title: "Avisos por prédio e por público", detail: "Chegam no app e no sininho" },
+  { icon: Vote, title: "Assembleias com quórum calculado", detail: "Resultado e ata no mesmo lugar" },
+];
+
+type InvitationPanelProps = {
+  condominiumName?: string;
+  personName?: string;
+  roleLabel?: string;
+  validUntil?: string;
+  isResident?: boolean;
+};
+
+export function InvitationPanel({ condominiumName, personName, roleLabel, validUntil, isResident = true }: InvitationPanelProps) {
+  return (
+    <PanelShell
+      title={<>Seu lugar no<br /><Highlight>{condominiumName ? `${condominiumName}.` : "Moraê."}</Highlight></>}
+      subtitle="Já está tudo pronto. Falta só a sua senha."
+      notice={{ icon: Check, title: "Convite válido", detail: validUntil ? `Até ${validUntil}` : "Crie sua senha para entrar" }}
+    >
+      <div className="flex items-center gap-4 bg-verde-suave/60 px-6 py-5">
+        <span className="grid size-12 place-items-center rounded-block bg-verde text-superficie">
+          <House size={22} strokeWidth={1.8} />
+        </span>
+        <span>
+          <span className="block text-xs font-semibold tracking-[0.06em] text-tinta-suave">CONVITE</span>
+          <span className="block font-display text-xl font-bold tracking-[-0.01em] text-tinta">{personName ?? "Seu acesso"}</span>
+          {roleLabel && <span className="block text-sm text-tinta-suave">{roleLabel}</span>}
+        </span>
+      </div>
+      <p className="px-6 pt-5 text-xs text-tinta-suave">Com o Moraê você vai</p>
+      <PanelList items={isResident ? residentBenefits : managementBenefits} />
     </PanelShell>
   );
 }
