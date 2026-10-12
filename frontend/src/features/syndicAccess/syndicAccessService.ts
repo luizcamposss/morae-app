@@ -25,6 +25,13 @@ export const defaultSyndicAccess: SyndicAccessSettings = {
   maintenance: true,
 };
 
+export const noSyndicAccess: SyndicAccessSettings = {
+  residents: false,
+  finance: false,
+  communication: false,
+  maintenance: false,
+};
+
 export const syndicAccessOptions: Array<{
   key: SyndicAccessKey;
   label: string;

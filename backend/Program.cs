@@ -53,12 +53,17 @@ builder.Services.AddControllers()
 
 builder.Services.AddHttpClient();
 
+// Allowed frontend origins, comma-separated (Cors__Origins). Defaults to the local Vite dev server.
+var corsSetting = builder.Configuration["Cors:Origins"];
+var corsOrigins = (string.IsNullOrWhiteSpace(corsSetting) ? "http://localhost:5173" : corsSetting)
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
     {
         policy
-            .WithOrigins("http://localhost:5173")
+            .WithOrigins(corsOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
             // The refresh-token cookie must travel with /api/auth requests.

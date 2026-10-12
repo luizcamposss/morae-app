@@ -9,6 +9,7 @@ Leia também, quando a tarefa pedir:
 - `docs/ai/api.md` — todas as rotas da API, enums e formatos de data
 - `docs/ai/frontend-plan.md` — plano da rodada de frontend, dividido em tarefas para agentes em paralelo
 - `docs/ai/backend-backlog.md` — o que ainda falta no backend, com prioridade e ordem sugerida
+- `DESIGN.md` — sistema visual ("A Casa em Ordem"): cores, fontes, componentes e regras. Base de qualquer tela
 
 ## Regras de trabalho (obrigatórias)
 
@@ -22,9 +23,10 @@ Leia também, quando a tarefa pedir:
    ```
    (No primeiro push de uma branch nova, use `git push -u origin <branch>`.)
 4. **Nunca mostre segredos.** Não imprima o conteúdo de `backend/.env` nem de `backend/.env.test-accounts`. Leia os valores por script sem exibi-los.
-5. **Os serviços principais são do Luiz.** Ele roda a API na porta **5242**, o front na **5173** e o ngrok. Não pare nem reinicie esses processos. Depois de mudar o backend, peça para ele reiniciar a API.
+5. **Serviços principais (API 5242, front 5173, ngrok): o agente pode parar e reiniciar** quando precisar (ex.: depois de mudar o backend), avisando no chat o que reiniciou. Ver "Como rodar e testar". Com vários agentes em paralelo, cada um testa nas **suas** portas; só reinicie os principais para código que já está na branch em que o Luiz está trabalhando.
 6. **Teste de verdade e conte o resultado fielmente.** Se algo falhou, diga. Apague os dados de teste que criar e restaure qualquer coisa que alterar (permissões, status de cobranças), num bloco que rode mesmo se o teste quebrar.
 7. Escreva código parecido com o que já existe ao redor: mesmo estilo, nomes, densidade de comentários (comentários em inglês, mensagens ao usuário em português).
+8. **Frontend sempre com a skill Impeccable.** Toda tela, componente, animação ou ajuste visual passa pela skill `impeccable` (carregar o contexto, seguir o `DESIGN.md` e a referência do comando, rodar o detector no fim). O visual segue o Figma "Moraê — Design" (páginas Landing e App) e o `DESIGN.md`. Conferir no Chrome no computador e no celular antes de entregar.
 
 ## Stack
 
@@ -44,7 +46,11 @@ Leia também, quando a tarefa pedir:
 
 ## Como rodar e testar
 
-- O Luiz roda: API `http://localhost:5242`, front `http://localhost:5173`, ngrok `https://supreme-erupt-sheep.ngrok-free.dev` → 5242 (webhook e OAuth do Mercado Pago).
+- Serviços principais: API `http://localhost:5242`, front `http://localhost:5173`, ngrok `https://supreme-erupt-sheep.ngrok-free.dev` → 5242 (webhook e OAuth do Mercado Pago). Para (re)iniciar, em segundo plano, e conferir que respondeu:
+  - API: parar pelo PID da porta 5242 e rodar `dotnet run` dentro de `backend/`.
+  - Front: `npm run dev` dentro de `frontend/` (o Vite recarrega sozinho; quase nunca precisa reiniciar).
+  - ngrok: `ngrok http --url=supreme-erupt-sheep.ngrok-free.dev 5242`.
+- **Node:** o shell dos agentes pode abrir com o Node 18 do sistema, e o Vite pede 20+. Use o do nvm: `export PATH=$HOME/.nvm/versions/node/v22.23.3/bin:$PATH`.
 - Contas de teste dos 4 papéis: `backend/.env.test-accounts` (no `.gitignore`; leia por script, não exiba).
 - **API temporária para testes:** compile (`dotnet build`) e rode `dotnet backend/bin/Debug/net8.0/backend.dll` **a partir de outra pasta** (o DotEnv lê o `.env` da pasta atual), passando as variáveis do `.env` por script, `ASPNETCORE_URLS=http://localhost:<porta>` e `Resend__ApiKey=` vazio (para não enviar e-mail). Pare o processo no fim (mate pelo PID da porta, não use `pkill -f`).
 - **Agentes em paralelo:** cada agente usa a **sua** porta de API (5243, 5244, 5245…) e de front (5174, 5175…). O banco é compartilhado: crie dados de teste com prefixo único e apague no fim. O CORS do backend hoje aceita só `http://localhost:5173` (ver tarefa F0 no plano de frontend).

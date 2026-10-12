@@ -13,6 +13,7 @@
     "@edusites/icons": "^1.5.2",
     "@mercadopago/sdk-react": "^1.0.7",
     "@tailwindcss/vite": "^4.3.1",
+    "lucide-react": "^1.48.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.1",

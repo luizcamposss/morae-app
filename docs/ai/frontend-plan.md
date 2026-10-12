@@ -8,22 +8,20 @@ O backend está completo (`docs/ai/api.md`). O Luiz quer **redesenhar a interfac
 - **Estilo do app (decidido pelo Luiz):** clean e minimalista, inspirado nos apps da Apple. Mesma estrutura do código atual (menu lateral por papel + conteúdo), mas: menu com ícone + nome (sem grupos), sem barra de topo separada (título grande com sininho e perfil na mesma linha), números agrupados num só cartão, listas agrupadas estilo Ajustes do iPhone (ícone em quadradinho colorido, título, subtítulo, ›), fundo cinza-esverdeado claro `#EDF0EA` com cartões brancos, menu `#E4E9E2`, cantos de 12–16 px, botões em pílula, ícones de linha (estilo Lucide). Sem telas mobile no Figma por enquanto. A mensalidade do Moraê (cobrança da plataforma) fica em Ajustes → Plano e pagamento.
 - **PWA:** um só sistema web para computador e celular, instalável na tela inicial (manifest + service worker). Toda tela precisa funcionar nos dois tamanhos.
 
-## Ordem combinada com o Luiz (out/2026)
+## Roadmap (combinado com o Luiz em out/2026)
 
-Por módulo, cada um numa branch nova a partir da `develop`: primeiro o que falta no backend, depois a tela redesenhada, testar e parar para o commit. Seguir o padrão de código existente, sem nada mirabolante.
+Por painel, na ordem abaixo. Cada item é uma parte pequena: explicar → o Luiz decide → implementar → `lint` + `build` → conferir no Chrome → parar com o bloco de commit. Código limpo a cada parte (sem sobras do visual antigo), seguindo o padrão existente, sem nada mirabolante. Todo trabalho de interface passa pela skill **Impeccable**. Cada fase tem a sua branch a partir da `develop`.
 
-| # | Módulo | Backend | Frontend |
-|---|---|---|---|
-| 0 | Fundação (F0) | CORS por `Cors__Origins` | Tokens, componentes, layout e menu por papel, guarda de permissões |
-| 1 | Financeiro | Cobrança em lote/recorrente (3.1), multa e juros (3.2) | Cobranças, pagamento, comprovante PDF, gráficos |
-| 2 | Ocorrências | Fotos (2.1) e resposta da gestão (2.2) | Abrir e acompanhar chamados |
-| 3 | Avisos e Documentos | — | Telas |
-| 4 | Assembleias | — | Gestão e cédula |
-| 5 | Manutenção e Visitantes | — | Telas |
-| 6 | Pessoas, unidades e síndico | Importação por planilha (1.3) | Cadastros, convites, permissões |
-| 7 | Master | Contatos da landing (1.1), WhatsApp em configuração (1.2) | Condomínios, Contatos, mensalidade |
-| 8 | Landing | — | Codar o desenho do Figma |
-| 9 | Deploy (G) | Docker, Caddy | — |
+| Fase | Branch | Partes |
+|---|---|---|
+| **0. Fundação** | `feat/frontend-foundation` | 0.1 Configuração (`VITE_API_URL` no front, `Cors__Origins` no backend) · 0.2 Sistema visual (tokens + `DESIGN.md`, a partir do Figma "App") · 0.3 Componentes base · 0.4 Layout e menu por papel + guarda de permissões do síndico · 0.5 Logos animados no app (Chegada, Respiro, Confirmação) |
+| **1. Acesso** | `feat/frontend-auth` | 1.1 Login · 1.2 Esqueci/redefinir senha · 1.3 Aceitar convite · 1.4 Telas de bloqueio (suspenso, condomínio inativo) |
+| **2. Master** | `feat/frontend-master` | 2.1 Painel · 2.2 Condomínios · 2.3 Admins e convites · 2.4 Mensalidade (cobranças da plataforma) · 2.5 Contatos da landing (backend 1.1 e 1.2) · 2.6 Ajustes |
+| **3. Admin** (por módulo) | uma branch por módulo | 3.1 Financeiro (backend: lote/recorrência e multa/juros) · 3.2 Pessoas, unidades e síndico (backend: importação por planilha) · 3.3 Avisos e Documentos · 3.4 Ocorrências (backend: fotos e resposta) · 3.5 Manutenção e Visitantes · 3.6 Assembleias · 3.7 Painel com gráficos |
+| **4. Síndico** | `feat/frontend-syndic` | As telas do Admin com permissões e prédios do síndico |
+| **5. Morador** | `feat/frontend-resident` | Celular primeiro: início, pagar, avisos, documentos, visitas, ocorrências, votar |
+| **6. Landing** | `feat/landing-page` | Codar o desenho do Figma (tour animado + formulário) |
+| **7. Lançamento** | `feat/pwa`, `feat/deploy` | PWA (manifest, service worker) e deploy na VPS |
 
 As tarefas T1–T8 abaixo continuam valendo como descrição do que cada tela precisa.
 

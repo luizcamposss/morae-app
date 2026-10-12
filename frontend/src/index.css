@@ -1,67 +1,107 @@
-@import url('https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,200..1000;1,200..1000&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@600;700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
-:root {
-  font-family: "Nunito", sans-serif;
-  color: #1F2421;
-  background: #F7F6F2;
+/* Design tokens from DESIGN.md ("A Casa em Ordem"). Use them as Tailwind utilities:
+   bg-fundo, text-tinta, rounded-card, shadow-whisper, font-display… */
+@theme {
+  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Familjen Grotesk", "Hanken Grotesk", ui-sans-serif, sans-serif;
+
+  --color-tinta: #0f3d3e;
+  --color-tinta-suave: #4a6563;
+  --color-tinta-forte: #0b3132;
+  --color-verde: #00ae54;
+  --color-verde-forte: #00a04d;
+  --color-verde-tinta: #06301e;
+  --color-verde-suave: #e2f4e9;
+  --color-fundo: #edf0ea;
+  --color-menu: #e4e9e2;
+  --color-campo: #f2f4f0;
+  --color-superficie: #ffffff;
+  --color-linha: #dce2da;
+  --color-ambar: #c98a12;
+  --color-ambar-suave: #fbf0d6;
+  --color-vermelho: #b8432a;
+  --color-vermelho-suave: #f8e2db;
+
+  --radius-chip: 6px;
+  --radius-field: 10px;
+  --radius-block: 14px;
+  --radius-card: 20px;
+
+  --shadow-whisper: 0 1px 3px rgb(15 61 62 / 0.06);
+  --shadow-float: 0 12px 30px -8px rgb(15 61 62 / 0.1);
+  --shadow-window: 0 20px 50px rgb(5 26 26 / 0.18);
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-rise-in: rise-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+  }
 }
 
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  background: #F7F6F2;
-}
+/* Base rules live in the base layer so Tailwind utilities (e.g. outline-none) can override them. */
+@layer base {
+  :root {
+    font-family: var(--font-sans);
+    color: var(--color-tinta);
+    background: var(--color-fundo);
+    -webkit-font-smoothing: antialiased;
+  }
 
-* {
-  scrollbar-color: #16a34a transparent;
-  scrollbar-width: thin;
-}
+  body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+    background: var(--color-fundo);
+  }
 
-*::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
+  ::selection {
+    background: var(--color-verde-suave);
+    color: var(--color-verde-tinta);
+  }
 
-*::-webkit-scrollbar-track {
-  background: transparent;
-  border-radius: 999px;
-}
+  :focus-visible {
+    outline: 2px solid var(--color-verde);
+    outline-offset: 2px;
+  }
 
-*::-webkit-scrollbar-thumb {
-  min-height: 64px;
-  border: 3px solid #f3f4f6;
-  border-radius: 999px;
-  background: #16a34a;
-}
+  * {
+    scrollbar-color: var(--color-linha) transparent;
+    scrollbar-width: thin;
+  }
 
-*::-webkit-scrollbar-thumb:hover {
-  background: #0b3d2e;
-}
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
 
-*::-webkit-scrollbar-button {
-  display: none;
-  width: 0;
-  height: 0;
-  border: 0;
-  background: transparent;
-  -webkit-appearance: none;
-}
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
 
-*::-webkit-scrollbar-button:single-button,
-*::-webkit-scrollbar-button:vertical:start:decrement,
-*::-webkit-scrollbar-button:vertical:end:increment,
-*::-webkit-scrollbar-button:horizontal:start:decrement,
-*::-webkit-scrollbar-button:horizontal:end:increment {
-  display: none;
-  width: 0;
-  height: 0;
-  border: 0;
-  background: transparent;
-  -webkit-appearance: none;
-}
+  *::-webkit-scrollbar-thumb {
+    min-height: 64px;
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: var(--color-linha);
+    background-clip: padding-box;
+  }
 
-*::-webkit-scrollbar-corner {
-  background: transparent;
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-tinta-suave);
+  }
+
+  *::-webkit-scrollbar-button,
+  *::-webkit-scrollbar-corner {
+    display: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
 }
