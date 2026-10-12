@@ -2,6 +2,31 @@
 
 O backend está completo (`docs/ai/api.md`). O Luiz quer **redesenhar a interface**: não basta ligar telas novas no visual atual. Esta rodada faz o redesenho e cria as telas que faltam, dividida em tarefas que podem rodar **em paralelo** em worktrees separadas (Orca).
 
+- **Contexto de produto:** `PRODUCT.md` (público, posicionamento, referências de marca). O sistema visual vai para `DESIGN.md` quando for definido.
+- **Figma primeiro:** as telas são desenhadas no Figma e aprovadas pelo Luiz antes de codar. Ordem: hero da landing + painel do Admin (definem o mundo visual) → login + tela do morador no celular → componentes → demais telas.
+- **Figma (fonte da verdade do visual):** arquivo "Moraê — Design" (`https://www.figma.com/design/UKGvrNjI0Xd2fuVOCVf3Dx`). Página **Landing**: hero com frase-seletor ("Hoje, o que mais me tira o sono é ▾") e a página completa com a história em scroll. Página **App** (hoje não está neste arquivo): painel do Admin v2, Carteira, Cobranças, Início do morador, Login e cédula da Assembleia. As cores estão nas variáveis "Moraê / Cores".
+- **Estilo do app (decidido pelo Luiz):** clean e minimalista, inspirado nos apps da Apple. Mesma estrutura do código atual (menu lateral por papel + conteúdo), mas: menu com ícone + nome (sem grupos), sem barra de topo separada (título grande com sininho e perfil na mesma linha), números agrupados num só cartão, listas agrupadas estilo Ajustes do iPhone (ícone em quadradinho colorido, título, subtítulo, ›), fundo cinza-esverdeado claro `#EDF0EA` com cartões brancos, menu `#E4E9E2`, cantos de 12–16 px, botões em pílula, ícones de linha (estilo Lucide). Sem telas mobile no Figma por enquanto. A mensalidade do Moraê (cobrança da plataforma) fica em Ajustes → Plano e pagamento.
+- **PWA:** um só sistema web para computador e celular, instalável na tela inicial (manifest + service worker). Toda tela precisa funcionar nos dois tamanhos.
+
+## Ordem combinada com o Luiz (out/2026)
+
+Por módulo, cada um numa branch nova a partir da `develop`: primeiro o que falta no backend, depois a tela redesenhada, testar e parar para o commit. Seguir o padrão de código existente, sem nada mirabolante.
+
+| # | Módulo | Backend | Frontend |
+|---|---|---|---|
+| 0 | Fundação (F0) | CORS por `Cors__Origins` | Tokens, componentes, layout e menu por papel, guarda de permissões |
+| 1 | Financeiro | Cobrança em lote/recorrente (3.1), multa e juros (3.2) | Cobranças, pagamento, comprovante PDF, gráficos |
+| 2 | Ocorrências | Fotos (2.1) e resposta da gestão (2.2) | Abrir e acompanhar chamados |
+| 3 | Avisos e Documentos | — | Telas |
+| 4 | Assembleias | — | Gestão e cédula |
+| 5 | Manutenção e Visitantes | — | Telas |
+| 6 | Pessoas, unidades e síndico | Importação por planilha (1.3) | Cadastros, convites, permissões |
+| 7 | Master | Contatos da landing (1.1), WhatsApp em configuração (1.2) | Condomínios, Contatos, mensalidade |
+| 8 | Landing | — | Codar o desenho do Figma |
+| 9 | Deploy (G) | Docker, Caddy | — |
+
+As tarefas T1–T8 abaixo continuam valendo como descrição do que cada tela precisa.
+
 ## Como dividir sem conflito
 
 - **Onda 0 (F0) vem antes e sozinha.** Ela define o visual, os componentes compartilhados e os "pontos de registro" de rotas e menus. As outras tarefas só começam depois do merge da F0 na `develop`.
@@ -28,7 +53,8 @@ O backend está completo (`docs/ai/api.md`). O Luiz quer **redesenhar a interfac
    - Mapear as permissões novas (`documents.manage`, `maintenance.manage`, `visitors.manage`, `assemblies.manage`) em `features/syndicAccess`.
    - Telas de bloqueio: **condomínio inativo** (`isCondominiumInactive` do `GET /api/me`) e conta suspensa (já existe `/suspended`, revisar).
 7. **Aplicar o novo visual nas telas que já existem**, sem mudar comportamento. Pode ser feito por papel em partes (Master, Admin, Síndico, Morador).
-8. Limpeza: apagar páginas mock órfãs (confirmar com grep que não são importadas: `features/{inspections,maintenance,communication,masterInvitations,adminUsers,people}`), remover o BOM do `Sidebar.tsx`, corrigir os warnings de `exhaustive-deps`.
+8. **PWA:** `manifest.webmanifest` (nome Moraê, ícones a partir do logo, cores do tema), service worker simples (cache do app shell; nunca cachear respostas da API com dados pessoais), meta tags de tela inicial no iOS.
+9. Limpeza: apagar páginas mock órfãs (confirmar com grep que não são importadas: `features/{inspections,maintenance,communication,masterInvitations,adminUsers,people}`), remover o BOM do `Sidebar.tsx`, corrigir os warnings de `exhaustive-deps`.
 
 ---
 
@@ -62,6 +88,13 @@ O backend está completo (`docs/ai/api.md`). O Luiz quer **redesenhar a interfac
 
 ---
 
+### T8 — Landing page · `feat/landing-page`
+- Superfície nova (não existe hoje), pública, em `/` (o app continua em `/login` e nas áreas por papel). Público: administradores de condomínios e condomínios pequenos.
+- Mostrar o posicionamento do `PRODUCT.md` (pagamento integrado, simples e moderno, tudo em um) com capturas reais do produto. **Pré-lançamento: não inventar clientes, depoimentos, números nem preço.**
+- **Hero com seletor de dor** (ver `docs/ai/decisions.md`), CTA "Ver o Moraê funcionando" com formulário curto e WhatsApp. Estrutura enxuta (sem calculadora) descrita em `docs/ai/decisions.md`. Usar a skill `marketing-senior` para o texto.
+- **Backend necessário:** endpoint público para gravar contatos (com rate limit e e-mail para o Master), guardando nome, WhatsApp, nº de unidades, perfil (administrador/síndico) e a dor escolhida no hero. O Master tem a tela **Contatos** (Figma) com status (Novo, Em conversa, Fechado, Sem interesse), mensagem pronta e botão "Chamar no WhatsApp" (link wa.me com o texto). O número de WhatsApp comercial do dono do app vira configuração (usado na landing e no login). A seção de migração só entra quando a **importação por planilha** existir.
+- Desenhada no Figma junto com a F0 (o hero ajuda a definir o mundo visual); pode ser codada em paralelo com a Onda 1.
+
 ## Onda 2 — depois da Onda 1
 
 ### T6 — Assembleias e votações · `feat/frontend-assemblies`
@@ -76,6 +109,10 @@ O backend está completo (`docs/ai/api.md`). O Luiz quer **redesenhar a interfac
 - Responsividade (celular), estados vazios, mensagens de erro, acessibilidade básica.
 
 ---
+
+## Backend novo antes do lançamento — L Importação por planilha · `feat/spreadsheet-import`
+
+- Admin sobe uma planilha (modelo para baixar + aceitar CSV/XLSX) com unidades, moradores e vínculos, e cobranças em aberto. O sistema casa as colunas, mostra uma **prévia com erros por linha** e só grava quando o Admin confirma. Relatório do que foi importado. Seguir as regras do `CLAUDE.md` (explicar → decidir → partes pequenas).
 
 ## Depois do frontend — G Deploy
 
