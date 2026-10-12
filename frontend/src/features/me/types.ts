@@ -9,6 +9,8 @@ export type MeResponse = {
   isSuspended: boolean;
   suspensionReason?: string | null;
   suspendedAt?: string | null;
+  // True when every active link of the user points to an inactive condominium (Master excluded).
+  isCondominiumInactive: boolean;
   roles: string[];
 };
 

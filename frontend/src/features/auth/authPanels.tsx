@@ -7,12 +7,15 @@ import {
   Laptop,
   Lock,
   Mail,
+  Pause,
   Receipt,
   ShieldCheck,
+  UserRound,
   Vote,
   type LucideIcon,
 } from "lucide-react";
 import { MoraeMark } from "../../shared/components/MoraeMark";
+import { getPasswordStrength, type PasswordStrength } from "../../shared/lib/password";
 
 type PanelShellProps = {
   title: ReactNode;
@@ -128,7 +131,19 @@ const protections: PanelItem[] = [
   { icon: FileText, title: "Seu histórico continua igual", detail: "Boletos, documentos e votos ficam onde estão" },
 ];
 
-export function ResetPasswordPanel() {
+const strengthTones: Record<PasswordStrength["tone"], { bar: string; text: string; tile: string }> = {
+  empty: { bar: "bg-linha", text: "text-tinta-suave", tile: "bg-campo text-tinta-suave" },
+  weak: { bar: "bg-vermelho", text: "text-vermelho", tile: "bg-vermelho-suave text-vermelho" },
+  medium: { bar: "bg-ambar", text: "text-ambar", tile: "bg-ambar-suave text-ambar" },
+  good: { bar: "bg-verde", text: "text-verde", tile: "bg-verde-suave text-verde" },
+};
+
+// Without a password (success and missing-link states) the card shows the finished, strong state.
+export function ResetPasswordPanel({ password }: { password?: string }) {
+  const strength: PasswordStrength =
+    password === undefined ? { score: 4, label: "Forte", tone: "good" } : getPasswordStrength(password);
+  const tone = strengthTones[strength.tone];
+
   return (
     <PanelShell
       title={<>Senha nova,<br />conta <Highlight>protegida.</Highlight></>}
@@ -136,17 +151,20 @@ export function ResetPasswordPanel() {
       notice={{ icon: Check, title: "Conta protegida", detail: "Tudo certo por aqui" }}
     >
       <div className="flex items-center gap-4 px-6 pb-5 pt-6">
-        <span className="grid size-12 place-items-center rounded-block bg-verde-suave text-verde">
+        <span className={`grid size-12 place-items-center rounded-block transition-colors duration-300 ${tone.tile}`}>
           <ShieldCheck size={22} strokeWidth={1.7} />
         </span>
         <span className="flex-1">
           <span className="flex justify-between text-sm">
             <span className="text-tinta-suave">Força da senha</span>
-            <span className="font-semibold text-verde">Forte</span>
+            <span className={`font-semibold transition-colors duration-300 ${tone.text}`}>{strength.label}</span>
           </span>
           <span className="mt-2 flex gap-1.5">
-            {[0, 1, 2, 3].map((bar) => (
-              <span key={bar} className="h-1.5 flex-1 rounded-full bg-verde" />
+            {[1, 2, 3, 4].map((bar) => (
+              <span
+                key={bar}
+                className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ease-out ${bar <= strength.score ? tone.bar : "bg-linha"}`}
+              />
             ))}
           </span>
         </span>
@@ -196,6 +214,26 @@ export function InvitationPanel({ condominiumName, personName, roleLabel, validU
       </div>
       <p className="px-6 pt-5 text-xs text-tinta-suave">Com o Moraê você vai</p>
       <PanelList items={isResident ? residentBenefits : managementBenefits} />
+    </PanelShell>
+  );
+}
+
+const keptData: PanelItem[] = [
+  { icon: Receipt, title: "Histórico de pagamentos", detail: "Boletos e comprovantes" },
+  { icon: FileText, title: "Documentos do condomínio", detail: "Atas, convenção e regimento" },
+  { icon: Vote, title: "Votos e assembleias", detail: "Registrados com data e hora" },
+  { icon: UserRound, title: "Seus dados pessoais", detail: "Protegidos pela LGPD" },
+];
+
+export function PausedAccessPanel({ pausedOn }: { pausedOn?: string }) {
+  return (
+    <PanelShell
+      title={<>Nada foi<br /><Highlight>perdido.</Highlight></>}
+      subtitle="Quando o acesso voltar, tudo estará do jeito que você deixou."
+      notice={{ icon: Pause, title: "Acesso pausado", detail: pausedOn ? `Desde ${pausedOn}` : "Seus dados estão guardados" }}
+    >
+      <p className="px-6 pt-5 text-sm font-semibold text-tinta">Guardado com segurança</p>
+      <PanelList items={keptData} />
     </PanelShell>
   );
 }

@@ -73,7 +73,7 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <AuthLayout panel={<ResetPasswordPanel />}>
+    <AuthLayout panel={<ResetPasswordPanel password={password} />}>
       <h1 className="font-display text-[34px] font-bold leading-[1.12] tracking-[-0.015em] text-tinta">Crie sua nova senha</h1>
       <p className="mt-2 text-[15px] leading-relaxed text-tinta-suave">
         Ela precisa ter pelo menos 8 caracteres, com letras e números.
