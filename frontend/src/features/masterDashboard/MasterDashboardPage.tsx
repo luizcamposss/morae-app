@@ -9,25 +9,14 @@ import { getPlatformCharges } from "../charges/chargeService";
 import type { ChargeResponse } from "../charges/types";
 import { getCondominiums } from "../condominiums/condominiumService";
 import type { CondominiumResponse } from "../condominiums/types";
-import { GrowthChart, RevenueChart, type GrowthMonth, type RevenueMonth } from "./MasterCharts";
+import { buildRevenueByMonth, currentMonthName, lastMonths } from "../charges/platformRevenue";
+import { GrowthChart, RevenueChart, type GrowthMonth } from "./MasterCharts";
 
 const ACTIVE_STATUS = 1;
 const CHARGE_STATUS_PENDING = 1;
 const CHARGE_STATUS_PAID = 2;
 const CHARGE_STATUS_OVERDUE = 3;
 const CHART_MONTHS = 6;
-
-const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" });
-
-// Last N months as "YYYY-MM" keys (São Paulo calendar), oldest first.
-function lastMonths(count: number) {
-  const [year, month] = todayInputDate().split("-").map(Number);
-
-  return Array.from({ length: count }, (_, index) => {
-    const date = new Date(Date.UTC(year, month - 1 - (count - 1 - index), 1));
-    return { month: date.toISOString().slice(0, 7), label: monthLabel.format(date).replace(".", "") };
-  });
-}
 
 export function MasterDashboardPage() {
   const [condominiums, setCondominiums] = useState<CondominiumResponse[]>([]);
@@ -79,17 +68,7 @@ export function MasterDashboardPage() {
     [charges],
   );
 
-  const revenueByMonth = useMemo<RevenueMonth[]>(
-    () =>
-      lastMonths(CHART_MONTHS).map(({ month, label }) => {
-        const inMonth = charges.filter((charge) => charge.dueDate.startsWith(month));
-        const sum = (status: number) =>
-          inMonth.filter((charge) => charge.status === status).reduce((total, charge) => total + charge.value, 0);
-
-        return { month, label, paid: sum(CHARGE_STATUS_PAID), open: sum(CHARGE_STATUS_PENDING), overdue: sum(CHARGE_STATUS_OVERDUE) };
-      }),
-    [charges],
-  );
+  const revenueByMonth = useMemo(() => buildRevenueByMonth(charges, CHART_MONTHS), [charges]);
 
   const growthByMonth = useMemo<GrowthMonth[]>(() => {
     const createdMonths = condominiums.map((condominium) => toAppDateString(condominium.createdAt).slice(0, 7));
@@ -116,7 +95,7 @@ export function MasterDashboardPage() {
       <SummaryCard
         items={[
           { label: "Condomínios ativos", value: isLoading ? "–" : String(summary.activeCondominiums), detail: `${condominiums.length} no total` },
-          { label: "Receita do mês", value: isLoading ? "–" : formatCurrency(summary.monthRevenue), detail: "mensalidades pagas" },
+          { label: "Pago do mês", value: isLoading ? "–" : formatCurrency(summary.monthRevenue), detail: `mensalidades de ${currentMonthName()}` },
           {
             label: "Mensalidade em atraso",
             value: isLoading ? "–" : formatCurrency(summary.overdueValue),
@@ -184,7 +163,7 @@ export function MasterDashboardPage() {
       </div>
 
       <div className="mt-10 grid gap-6 lg:grid-cols-2">
-        <ChartCard title="Mensalidades" note={`últimos ${CHART_MONTHS} meses, por vencimento`}>
+        <ChartCard title="Mensalidades" note="por vencimento, até o próximo mês">
           {revenueByMonth.some((month) => month.paid + month.open + month.overdue > 0) ? (
             <RevenueChart data={revenueByMonth} />
           ) : (

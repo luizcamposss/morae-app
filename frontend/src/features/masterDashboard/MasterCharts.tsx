@@ -1,11 +1,11 @@
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Rectangle, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { formatCompactCurrency, formatCurrency } from "../../shared/lib/currency";
+import type { RevenueMonth } from "../charges/platformRevenue";
 
 // Status colors (DESIGN.md). Validated with the dataviz script: green and amber sit in the
 // CVD 6–8 floor band, so stacks keep a fixed order, 2px surface gaps, legend and tooltip text.
 const COLORS = { paid: "#00ae54", open: "#c98a12", overdue: "#b8432a", ink: "#4a6563", grid: "#dce2da" };
 
-export type RevenueMonth = { month: string; label: string; paid: number; open: number; overdue: number };
 export type GrowthMonth = { month: string; label: string; total: number };
 
 const revenueSeries = [
