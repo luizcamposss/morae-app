@@ -4,7 +4,9 @@ description: Gestão de condomínio calma e clara, do computador da gestão ao c
 colors:
   tinta: "#0F3D3E"
   tinta-suave: "#4A6563"
+  tinta-forte: "#0B3132"
   verde: "#00AE54"
+  verde-forte: "#00A04D"
   verde-tinta: "#06301E"
   verde-suave: "#E2F4E9"
   fundo: "#EDF0EA"
@@ -196,7 +198,7 @@ Cantos suaves e consistentes: 6px em etiquetas, 10px em campos, linhas e itens d
 - **Primary:** fundo `tinta`, texto branco, Hanken SemiBold 15px, altura ~50px no formulário. É o "Entrar", "Salvar", "Criar cobrança".
 - **Accent:** fundo `verde`, texto `verde-tinta`, para ações de marca/contato ("Chamar no WhatsApp", "Pagar com Pix").
 - **Quiet:** fundo `campo`, texto `tinta`, para ações secundárias e filtros.
-- **Hover / Focus:** escurecer levemente o fundo em 150ms; foco visível com anel de 2px em `verde` afastado 2px.
+- **Hover / Focus:** o fundo passa para o tom forte (`tinta-forte`, `verde-forte`, `menu` no discreto) em 150ms; foco visível com anel de 2px em `verde` afastado 2px.
 - **Loading:** o logo animado "Respiro" pequeno + texto no gerúndio ("Salvando…").
 
 ### Chips

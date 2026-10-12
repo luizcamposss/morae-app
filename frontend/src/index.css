@@ -9,7 +9,9 @@
 
   --color-tinta: #0f3d3e;
   --color-tinta-suave: #4a6563;
+  --color-tinta-forte: #0b3132;
   --color-verde: #00ae54;
+  --color-verde-forte: #00a04d;
   --color-verde-tinta: #06301e;
   --color-verde-suave: #e2f4e9;
   --color-fundo: #edf0ea;
@@ -34,60 +36,63 @@
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-:root {
-  font-family: var(--font-sans);
-  color: var(--color-tinta);
-  background: var(--color-fundo);
-  -webkit-font-smoothing: antialiased;
-}
+/* Base rules live in the base layer so Tailwind utilities (e.g. outline-none) can override them. */
+@layer base {
+  :root {
+    font-family: var(--font-sans);
+    color: var(--color-tinta);
+    background: var(--color-fundo);
+    -webkit-font-smoothing: antialiased;
+  }
 
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  background: var(--color-fundo);
-}
+  body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+    background: var(--color-fundo);
+  }
 
-::selection {
-  background: var(--color-verde-suave);
-  color: var(--color-verde-tinta);
-}
+  ::selection {
+    background: var(--color-verde-suave);
+    color: var(--color-verde-tinta);
+  }
 
-:focus-visible {
-  outline: 2px solid var(--color-verde);
-  outline-offset: 2px;
-}
+  :focus-visible {
+    outline: 2px solid var(--color-verde);
+    outline-offset: 2px;
+  }
 
-* {
-  scrollbar-color: var(--color-linha) transparent;
-  scrollbar-width: thin;
-}
+  * {
+    scrollbar-color: var(--color-linha) transparent;
+    scrollbar-width: thin;
+  }
 
-*::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
 
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
 
-*::-webkit-scrollbar-thumb {
-  min-height: 64px;
-  border: 3px solid transparent;
-  border-radius: 999px;
-  background: var(--color-linha);
-  background-clip: padding-box;
-}
+  *::-webkit-scrollbar-thumb {
+    min-height: 64px;
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: var(--color-linha);
+    background-clip: padding-box;
+  }
 
-*::-webkit-scrollbar-thumb:hover {
-  background-color: var(--color-tinta-suave);
-}
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-tinta-suave);
+  }
 
-*::-webkit-scrollbar-button,
-*::-webkit-scrollbar-corner {
-  display: none;
-  width: 0;
-  height: 0;
-  background: transparent;
+  *::-webkit-scrollbar-button,
+  *::-webkit-scrollbar-corner {
+    display: none;
+    width: 0;
+    height: 0;
+    background: transparent;
+  }
 }

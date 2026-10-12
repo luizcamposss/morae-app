@@ -1,0 +1,26 @@
+/* "Respiro": the dot lifts and lands, forever. Used as the loading state (DESIGN.md → Buttons). */
+.morae-mark__dot {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.morae-mark--respiro .morae-mark__dot {
+  animation: morae-respiro 1.5s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes morae-respiro {
+  0%, 100% { transform: none; }
+  12% { transform: scale(1.06, 0.94); }
+  50% { transform: translateY(-150px) scale(0.94); }
+  88% { transform: scale(1.04, 0.96); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .morae-mark--respiro .morae-mark__dot {
+    animation: morae-pulse 1.6s ease-in-out infinite;
+  }
+
+  @keyframes morae-pulse {
+    50% { opacity: 0.45; }
+  }
+}
