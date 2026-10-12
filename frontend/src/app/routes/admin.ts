@@ -1,3 +1,4 @@
+import { Building, Building2, House, Mail, Receipt, SlidersHorizontal, Users } from "lucide-react";
 import { AdminDashboardPage } from "../../features/adminDashboard/AdminDashboardPage";
 import { BuildingsPage } from "../../features/buildings/BuildingsPage";
 import { UnitsPage } from "../../features/units/UnitsPage";
@@ -10,12 +11,12 @@ import type { RoleArea } from "./types";
 export const adminArea: RoleArea = {
   basePath: "/admin",
   routes: [
-    { path: "dashboard", component: AdminDashboardPage, nav: { label: "Dashboard", icon: "dashboard" } },
-    { path: "buildings", component: BuildingsPage, nav: { label: "Prédios", icon: "predio" } },
-    { path: "units", component: UnitsPage, nav: { label: "Unidades", icon: "apartamento" } },
-    { path: "people", component: PeoplePage, nav: { label: "Moradores", icon: "usuarios" } },
-    { path: "invitations", component: InvitationsPage, nav: { label: "Convites", icon: "envelope-2" } },
-    { path: "payments", component: AdminPaymentsPage, nav: { label: "Pagamentos", icon: "boleto" } },
-    { path: "settings", component: AdminSettingsPage, nav: { label: "Configurações", icon: "engrenagem" } },
+    { path: "dashboard", component: AdminDashboardPage, nav: { label: "Início", icon: House } },
+    { path: "buildings", component: BuildingsPage, nav: { label: "Prédios", icon: Building2 } },
+    { path: "units", component: UnitsPage, nav: { label: "Unidades", icon: Building } },
+    { path: "people", component: PeoplePage, nav: { label: "Moradores", icon: Users } },
+    { path: "invitations", component: InvitationsPage, nav: { label: "Convites", icon: Mail } },
+    { path: "payments", component: AdminPaymentsPage, nav: { label: "Pagamentos", icon: Receipt } },
+    { path: "settings", component: AdminSettingsPage, nav: { label: "Ajustes", icon: SlidersHorizontal, placement: "footer" } },
   ],
 };

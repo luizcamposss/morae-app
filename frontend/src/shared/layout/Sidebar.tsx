@@ -1,10 +1,17 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { svgIcone } from "@edusites/icons/core";
+import { ChevronDown, LogOut, type LucideIcon } from "lucide-react";
 import { useAuth } from "../../app/providers/useAuth";
+import { useCondominium } from "../../app/providers/useCondominium";
 import { useSyndicAccess } from "../../features/syndicAccess/useSyndicAccess";
 import { roleAreas, type AreaRole } from "../../app/routes";
-import logoMorae from "../../assets/logo-morae.svg";
+import { MoraeMark } from "../components/MoraeMark";
+
+type MenuItem = {
+  label: string;
+  icon: LucideIcon;
+  to: string;
+  placement?: "footer";
+};
 
 function getPrimaryRole(roles: string[]): AreaRole {
   if (roles.includes("Master")) return "Master";
@@ -13,27 +20,8 @@ function getPrimaryRole(roles: string[]): AreaRole {
   return "Resident";
 }
 
-function getUserDisplayName(user: ReturnType<typeof useAuth>["user"]) {
-  return user?.personName || user?.userName || "Usuário";
-}
-
-function getUserInitials(name: string) {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-
-  if (words.length === 0) return "U";
-  if (words.length === 1) return words[0].slice(0, 1).toUpperCase();
-
-  return `${words[0].slice(0, 1)}${words[words.length - 1].slice(0, 1)}`.toUpperCase();
-}
-
-function getRoleLabel(role: string) {
-  if (role === "Syndic") return "Síndico";
-  if (role === "Resident") return "Morador";
-  return role;
-}
-
 // Menu entries come from the role registries; a syndic only sees what the Admin allowed.
-function getMenuItems(role: AreaRole, syndicAccess: ReturnType<typeof useSyndicAccess>) {
+function getMenuItems(role: AreaRole, syndicAccess: ReturnType<typeof useSyndicAccess>): MenuItem[] {
   const area = roleAreas[role];
 
   return area.routes.flatMap(({ path, nav, syndicAccess: accessKey }) => {
@@ -41,19 +29,18 @@ function getMenuItems(role: AreaRole, syndicAccess: ReturnType<typeof useSyndicA
       return [];
     }
 
-    return [{ label: nav.label, icon: nav.icon, to: `${area.basePath}/${path}` }];
+    return [{ ...nav, to: `${area.basePath}/${path}` }];
   });
 }
 
 export function Sidebar() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const primaryRole = getPrimaryRole(user?.roles ?? []);
-  const userDisplayName = getUserDisplayName(user);
-  const userInitials = getUserInitials(userDisplayName);
   const syndicAccess = useSyndicAccess();
+  const primaryRole = getPrimaryRole(user?.roles ?? []);
   const menuItems = getMenuItems(primaryRole, syndicAccess);
-  const sidebarTopClass = "top-[12rem]";
+  const mainItems = menuItems.filter((item) => item.placement !== "footer");
+  const footerItems = menuItems.filter((item) => item.placement === "footer");
 
   function handleLogout() {
     logout();
@@ -62,193 +49,113 @@ export function Sidebar() {
 
   return (
     <>
-      <div className={`group fixed left-5 ${sidebarTopClass} z-40 hidden lg:block`}>
-        <aside className="flex h-[min(640px,calc(100vh-48px))] w-[4.875rem] flex-col overflow-hidden rounded-[1.9rem] border border-[#E5E7EB] bg-white px-3 py-5 shadow-sm transition-all duration-300 group-hover:w-72 group-hover:shadow-2xl group-hover:shadow-[#0B3D2E]/10">
-          <div className="mb-7 flex h-12 w-full items-center justify-center gap-3 group-hover:justify-start group-hover:px-1">
-            <div className="flex size-10 shrink-0 items-center justify-center">
-              <img
-                src={logoMorae}
-                alt="Logo MORAÊ"
-                className="h-10 w-10 translate-x-[3px] object-contain"
-              />
-            </div>
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-62 flex-col bg-menu px-3.5 pb-6 pt-7 lg:flex">
+        <div className="px-2.5">
+          <MoraeMark withName size={26} />
+          {primaryRole !== "Master" && <CondominiumSwitcher />}
+        </div>
 
-            <div className="w-0 min-w-0 -translate-x-2 overflow-hidden opacity-0 transition-all duration-200 group-hover:w-auto group-hover:translate-x-0 group-hover:opacity-100">
-              <p className="text-xl font-extrabold text-[#0B3D2E]">MORAÊ</p>
-            </div>
-          </div>
+        <nav aria-label="Menu principal" className="mt-6 flex flex-1 flex-col gap-0.5 overflow-y-auto">
+          {mainItems.map((item) => (
+            <SidebarLink key={item.to} item={item} />
+          ))}
+        </nav>
 
-          <nav className="flex flex-1 flex-col items-center gap-2 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {menuItems.map((item) => (
-              <NavLink
-                key={item.label}
-                to={item.to}
-                title={item.label}
-                className={({ isActive }) =>
-                  `flex h-12 w-full items-center justify-center rounded-2xl text-left text-sm font-extrabold transition group-hover:justify-start group-hover:gap-3 group-hover:px-2 ${
-                    isActive
-                      ? "bg-[#DCFCE7] text-[#0B3D2E] shadow-sm shadow-[#16A34A]/10"
-                      : "text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#0B3D2E]"
-                  }`
-                }
-              >
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-lg text-[#16A34A] ring-1 ring-[#E5E7EB]">
-                  <EduIcon nome={item.icon} />
-                </span>
-
-                <span className="w-0 whitespace-nowrap -translate-x-2 overflow-hidden opacity-0 transition-all duration-200 group-hover:w-auto group-hover:translate-x-0 group-hover:opacity-100">
-                  {item.label}
-                </span>
-              </NavLink>
-            ))}
-          </nav>
-
-          <div className="mt-4 space-y-3">
-            <div className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl group-hover:justify-start group-hover:px-2">
-              <UserAvatar
-                name={userDisplayName}
-                initials={userInitials}
-                photoUrl={user?.profilePhotoUrl}
-              />
-
-              <div className="w-0 min-w-0 -translate-x-2 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-200 group-hover:w-auto group-hover:translate-x-0 group-hover:opacity-100">
-                <p className="max-w-44 truncate text-sm font-extrabold text-[#111827]">
-                  {userDisplayName}
-                </p>
-                <p className="text-sm font-semibold text-[#6B7280]">{getRoleLabel(primaryRole)}</p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex h-12 w-full cursor-pointer items-center justify-center rounded-2xl text-left text-sm font-extrabold text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318] group-hover:justify-start group-hover:gap-3 group-hover:px-2"
-            >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-[#F3F4F6] text-lg">
-                <EduIcon nome="sair" />
-              </span>
-
-              <span className="w-0 whitespace-nowrap -translate-x-2 overflow-hidden opacity-0 transition-all duration-200 group-hover:w-auto group-hover:translate-x-0 group-hover:opacity-100">
-                Sair
-              </span>
-            </button>
-          </div>
-        </aside>
-      </div>
-
-      <nav className="fixed inset-x-3 bottom-3 z-50 rounded-[1.5rem] border border-[#E5E7EB] bg-white/95 p-2 shadow-2xl shadow-[#0B3D2E]/15 backdrop-blur lg:hidden">
-        <div className="flex gap-2 overflow-x-auto">
-          {menuItems.map((item) => (
-            <NavLink
-              key={item.label}
-              to={item.to}
-              title={item.label}
-              className={({ isActive }) =>
-                `flex min-w-[4.6rem] flex-col items-center justify-center rounded-2xl px-3 py-2 text-[0.68rem] font-black transition ${
-                  isActive
-                    ? "bg-[#DCFCE7] text-[#0B3D2E]"
-                    : "text-[#6B7280] hover:bg-[#F3F4F6] hover:text-[#0B3D2E]"
-                }`
-              }
-            >
-              <span className="mb-1 text-lg text-[#16A34A]">
-                <EduIcon nome={item.icon} />
-              </span>
-              <span className="max-w-[4.3rem] truncate">{item.label}</span>
-            </NavLink>
+        <div className="flex flex-col gap-0.5 pt-4">
+          {footerItems.map((item) => (
+            <SidebarLink key={item.to} item={item} />
           ))}
 
           <button
             type="button"
             onClick={handleLogout}
-            className="flex min-w-[4.6rem] cursor-pointer flex-col items-center justify-center rounded-2xl px-3 py-2 text-[0.68rem] font-black text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
+            className="flex items-center gap-3 rounded-field px-2.5 py-2.5 text-[15px] font-medium text-tinta-suave transition-colors duration-150 hover:bg-superficie/60 hover:text-vermelho"
           >
-            <span className="mb-1 text-lg">
-              <EduIcon nome="sair" />
-            </span>
-            <span>Sair</span>
+            <LogOut size={18} strokeWidth={1.6} aria-hidden />
+            Sair
           </button>
+        </div>
+      </aside>
+
+      <nav
+        aria-label="Menu principal"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-linha bg-superficie/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-sm lg:hidden"
+      >
+        <div className="flex gap-1 overflow-x-auto [scrollbar-width:none]">
+          {menuItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                `flex min-w-17 flex-1 flex-col items-center gap-1 rounded-field px-2 py-1.5 text-[11px] font-semibold transition-colors ${
+                  isActive ? "bg-verde-suave text-verde-tinta" : "text-tinta-suave hover:text-tinta"
+                }`
+              }
+            >
+              <item.icon size={20} strokeWidth={1.6} aria-hidden />
+              <span className="max-w-full truncate">{item.label}</span>
+            </NavLink>
+          ))}
         </div>
       </nav>
     </>
   );
 }
 
-function UserAvatar({
-  name,
-  initials,
-  photoUrl,
-}: {
-  name: string;
-  initials: string;
-  photoUrl?: string | null;
-}) {
-  if (photoUrl) {
-    return (
-      <img
-        src={photoUrl}
-        alt={`Foto de ${name}`}
-        className="size-10 shrink-0 translate-x-[3px] rounded-full object-cover ring-1 ring-[#E5E7EB]"
-      />
-    );
-  }
-
+function SidebarLink({ item }: { item: MenuItem }) {
   return (
-    <div className="flex size-10 shrink-0 translate-x-[3px] items-center justify-center rounded-full bg-[#16A34A] text-sm font-black text-white ring-1 ring-[#E5E7EB]">
-      {initials}
-    </div>
+    <NavLink
+      to={item.to}
+      className={({ isActive }) =>
+        `group flex items-center gap-3 rounded-field px-2.5 py-2.5 text-[15px] transition-colors duration-150 ${
+          isActive
+            ? "bg-superficie font-semibold text-tinta shadow-whisper"
+            : "font-medium text-tinta hover:bg-superficie/60"
+        }`
+      }
+    >
+      {({ isActive }) => (
+        <>
+          <item.icon
+            size={18}
+            strokeWidth={1.6}
+            aria-hidden
+            className={isActive ? "text-verde" : "text-tinta-suave group-hover:text-tinta"}
+          />
+          {item.label}
+        </>
+      )}
+    </NavLink>
   );
 }
 
-function EduIcon({ nome }: { nome: string }) {
-  const [svg, setSvg] = useState<string | null>(() =>
-    svgIcone({
-      nome,
-      cor: "currentColor",
-      tamanho: "1em",
-    }) ?? null,
-  );
+// Shows the active condominium; becomes a picker when the user belongs to more than one.
+function CondominiumSwitcher() {
+  const { condominiums, activeCondominium, setActiveCondominiumId } = useCondominium();
 
-  useEffect(() => {
-    let isMounted = true;
+  if (!activeCondominium) {
+    return null;
+  }
 
-    async function loadIcon() {
-      const icons = await import("@edusites/icons/core");
-      const loadedSvg = await (icons as typeof icons & {
-        svgIconeAsync?: (options: {
-          nome: string;
-          cor: string;
-          tamanho: string;
-        }) => Promise<string | null | undefined>;
-      }).svgIconeAsync?.({
-        nome,
-        cor: "currentColor",
-        tamanho: "1em",
-      });
-
-      if (isMounted) {
-        setSvg(loadedSvg ?? null);
-      }
-    }
-
-    if (!svg) {
-      void loadIcon();
-    }
-
-    return () => {
-      isMounted = false;
-    };
-  }, [nome, svg]);
-
-  if (!svg) {
-    return <span aria-hidden="true" className="inline-flex size-[1em]" />;
+  if (condominiums.length < 2) {
+    return <p className="mt-5 truncate text-sm font-semibold text-tinta">{activeCondominium.condominiumName}</p>;
   }
 
   return (
-    <span
-      aria-hidden="true"
-      className="inline-flex leading-none"
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
+    <label className="relative mt-5 flex items-center">
+      <span className="sr-only">Condomínio</span>
+      <select
+        value={activeCondominium.condominiumId}
+        onChange={(event) => setActiveCondominiumId(Number(event.target.value))}
+        className="w-full cursor-pointer appearance-none truncate rounded-chip bg-transparent py-1 pr-6 text-sm font-semibold text-tinta hover:text-tinta-forte"
+      >
+        {condominiums.map((condominium) => (
+          <option key={condominium.condominiumId} value={condominium.condominiumId}>
+            {condominium.condominiumName}
+          </option>
+        ))}
+      </select>
+      <ChevronDown size={16} strokeWidth={1.8} aria-hidden className="pointer-events-none absolute right-0 text-tinta-suave" />
+    </label>
   );
 }
