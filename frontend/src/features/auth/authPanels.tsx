@@ -7,8 +7,10 @@ import {
   Laptop,
   Lock,
   Mail,
+  Pause,
   Receipt,
   ShieldCheck,
+  UserRound,
   Vote,
   type LucideIcon,
 } from "lucide-react";
@@ -196,6 +198,26 @@ export function InvitationPanel({ condominiumName, personName, roleLabel, validU
       </div>
       <p className="px-6 pt-5 text-xs text-tinta-suave">Com o Moraê você vai</p>
       <PanelList items={isResident ? residentBenefits : managementBenefits} />
+    </PanelShell>
+  );
+}
+
+const keptData: PanelItem[] = [
+  { icon: Receipt, title: "Histórico de pagamentos", detail: "Boletos e comprovantes" },
+  { icon: FileText, title: "Documentos do condomínio", detail: "Atas, convenção e regimento" },
+  { icon: Vote, title: "Votos e assembleias", detail: "Registrados com data e hora" },
+  { icon: UserRound, title: "Seus dados pessoais", detail: "Protegidos pela LGPD" },
+];
+
+export function PausedAccessPanel({ pausedOn }: { pausedOn?: string }) {
+  return (
+    <PanelShell
+      title={<>Nada foi<br /><Highlight>perdido.</Highlight></>}
+      subtitle="Quando o acesso voltar, tudo estará do jeito que você deixou."
+      notice={{ icon: Pause, title: "Acesso pausado", detail: pausedOn ? `Desde ${pausedOn}` : "Seus dados estão guardados" }}
+    >
+      <p className="px-6 pt-5 text-sm font-semibold text-tinta">Guardado com segurança</p>
+      <PanelList items={keptData} />
     </PanelShell>
   );
 }

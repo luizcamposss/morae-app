@@ -14,7 +14,13 @@ export function ProtectedRoute() {
     return <Navigate to="/login" replace />;
   }
 
-  if (user?.isSuspended && location.pathname !== "/suspended") {
+  // Suspended account or inactive condominium: only the paused page, except that the Admin
+  // can still see and pay the Moraê subscription (docs/ai/decisions.md → Papéis e permissões).
+  const isPaused = user?.isSuspended || user?.isCondominiumInactive;
+  const canStillPay =
+    user?.isCondominiumInactive && user.roles.includes("Admin") && location.pathname.startsWith("/admin/payments");
+
+  if (isPaused && !canStillPay && location.pathname !== "/suspended") {
     return <Navigate to="/suspended" replace />;
   }
 
