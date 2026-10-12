@@ -14,14 +14,8 @@ Leia também, quando a tarefa pedir:
 ## Regras de trabalho (obrigatórias)
 
 1. **Explique antes de implementar.** Para cada tarefa: explique o que vai fazer em linguagem simples → espere o Luiz decidir → implemente → teste → entregue.
-2. **Divida em partes pequenas.** Ao terminar e testar cada parte, pare e entregue o commit daquela parte. Nada de um commit gigante no fim.
-3. **Nunca rode `git commit` nem `git push`.** Quem faz commit é o Luiz. Ao fim de cada parte, entregue exatamente este bloco, com uma mensagem de uma linha no padrão conventional commits:
-   ```bash
-   git add .
-   git commit -m "feat(escopo): mensagem curta em inglês"
-   git push
-   ```
-   (No primeiro push de uma branch nova, use `git push -u origin <branch>`.)
+2. **Divida em partes pequenas.** Ao terminar e testar cada parte, pare e mostre ao Luiz o que mudou. Nada de um commit gigante no fim.
+3. **Commit e push são do agente, mas só depois do ok do Luiz** em cada parte. Mensagem de uma linha no padrão conventional commits, em inglês (`feat(escopo): mensagem curta`), com a identidade git já configurada (a do Luiz). **Não** coloque linha `Co-Authored-By` nem rodapé de ferramenta (ex.: "Generated with…") em commits e PRs. Faça `git add` só dos arquivos da parte (nunca segredos). No primeiro push de uma branch nova, use `git push -u origin <branch>`. O PR leva `Closes #N` da issue; quem mescla é o Luiz.
 4. **Nunca mostre segredos.** Não imprima o conteúdo de `backend/.env` nem de `backend/.env.test-accounts`. Leia os valores por script sem exibi-los.
 5. **Serviços principais (API 5242, front 5173, ngrok): o agente pode parar e reiniciar** quando precisar (ex.: depois de mudar o backend), avisando no chat o que reiniciou. Ver "Como rodar e testar". Com vários agentes em paralelo, cada um testa nas **suas** portas; só reinicie os principais para código que já está na branch em que o Luiz está trabalhando.
 6. **Teste de verdade e conte o resultado fielmente.** Se algo falhou, diga. Apague os dados de teste que criar e restaure qualquer coisa que alterar (permissões, status de cobranças), num bloco que rode mesmo se o teste quebrar.
