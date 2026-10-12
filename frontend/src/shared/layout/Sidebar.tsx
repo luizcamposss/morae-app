@@ -52,7 +52,11 @@ export function Sidebar() {
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-62 flex-col bg-menu px-3.5 pb-6 pt-7 lg:flex">
         <div className="px-2.5">
           <MoraeMark withName size={26} />
-          {primaryRole !== "Master" && <CondominiumSwitcher />}
+          {primaryRole === "Master" ? (
+            <p className="mt-5 text-sm font-semibold text-tinta">Plataforma</p>
+          ) : (
+            <CondominiumSwitcher />
+          )}
         </div>
 
         <nav aria-label="Menu principal" className="mt-6 flex flex-1 flex-col gap-0.5 overflow-y-auto">
