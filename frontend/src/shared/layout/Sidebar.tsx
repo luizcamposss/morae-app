@@ -1,28 +1,16 @@
-﻿import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { svgIcone } from "@edusites/icons/core";
 import { useAuth } from "../../app/providers/useAuth";
-import { useCondominium } from "../../app/providers/useCondominium";
-import {
-  defaultSyndicAccess,
-  getMySyndicAccess,
-  type SyndicAccessKey,
-  type SyndicAccessSettings,
-} from "../../features/syndicAccess/syndicAccessService";
+import { useSyndicAccess } from "../../features/syndicAccess/useSyndicAccess";
+import { roleAreas, type AreaRole } from "../../app/routes";
 import logoMorae from "../../assets/logo-morae.svg";
 
-type MenuItem = {
-  label: string;
-  icon: string;
-  to: string;
-  accessKey?: SyndicAccessKey;
-};
-
-function getPrimaryRole(roles: string[]) {
+function getPrimaryRole(roles: string[]): AreaRole {
   if (roles.includes("Master")) return "Master";
   if (roles.includes("Admin")) return "Admin";
   if (roles.includes("Syndic")) return "Syndic";
-  return "Morador";
+  return "Resident";
 }
 
 function getUserDisplayName(user: ReturnType<typeof useAuth>["user"]) {
@@ -40,105 +28,32 @@ function getUserInitials(name: string) {
 
 function getRoleLabel(role: string) {
   if (role === "Syndic") return "Síndico";
-  if (role === "Morador") return "Morador";
+  if (role === "Resident") return "Morador";
   return role;
 }
 
-function getMenuItemsByRole(role: string): MenuItem[] {
-  if (role === "Master") {
-    return [
-      { label: "Dashboard", icon: "dashboard", to: "/master/dashboard" },
-      { label: "Condomínios", icon: "predio", to: "/master/condominiums" },
-      { label: "Convites", icon: "envelope-2", to: "/master/invitations" },
-      { label: "Pagamentos", icon: "boleto", to: "/master/payments" },
-      { label: "Usuários", icon: "usuarios", to: "/master/users" },
-      { label: "Configurações", icon: "engrenagem", to: "/master/settings" },
-    ];
-  }
+// Menu entries come from the role registries; a syndic only sees what the Admin allowed.
+function getMenuItems(role: AreaRole, syndicAccess: ReturnType<typeof useSyndicAccess>) {
+  const area = roleAreas[role];
 
-  if (role === "Admin") {
-    return [
-      { label: "Dashboard", icon: "dashboard", to: "/admin/dashboard" },
-      { label: "Prédios", icon: "predio", to: "/admin/buildings" },
-      { label: "Unidades", icon: "apartamento", to: "/admin/units" },
-      { label: "Moradores", icon: "usuarios", to: "/admin/people" },
-      { label: "Convites", icon: "envelope-2", to: "/admin/invitations" },
-      { label: "Pagamentos", icon: "boleto", to: "/admin/payments" },
-      { label: "Configurações", icon: "engrenagem", to: "/admin/settings" },
-    ];
-  }
+  return area.routes.flatMap(({ path, nav, syndicAccess: accessKey }) => {
+    if (!nav || (accessKey && !syndicAccess?.[accessKey])) {
+      return [];
+    }
 
-  if (role === "Syndic") {
-    return [
-      { label: "Dashboard", icon: "dashboard", to: "/syndic/dashboard" },
-      { label: "Moradores", icon: "usuarios", to: "/syndic/residents", accessKey: "residents" },
-      { label: "Financeiro", icon: "boleto", to: "/syndic/finance", accessKey: "finance" },
-      { label: "Comunicados", icon: "envelope-2", to: "/syndic/communication", accessKey: "communication" },
-      { label: "Ocorrências", icon: "atencao", to: "/syndic/maintenance", accessKey: "maintenance" },
-      { label: "Configurações", icon: "engrenagem", to: "/syndic/settings" },
-    ];
-  }
-
-  return [
-    { label: "Dashboard", icon: "dashboard", to: "/resident/dashboard" },
-    { label: "Minha unidade", icon: "apartamento", to: "/resident/unit" },
-    { label: "Boletos", icon: "boleto", to: "/resident/bills" },
-    { label: "Ocorrências", icon: "atencao", to: "/resident/occurrences" },
-    { label: "Avisos", icon: "envelope-2", to: "/resident/notices" },
-    { label: "Configurações", icon: "engrenagem", to: "/resident/settings" },
-  ];
-}
-
-function getVisibleMenuItems(role: string, access: SyndicAccessSettings) {
-  const menuItems = getMenuItemsByRole(role);
-
-  if (role !== "Syndic") {
-    return menuItems;
-  }
-
-  return menuItems.filter((item) => !item.accessKey || access[item.accessKey]);
+    return [{ label: nav.label, icon: nav.icon, to: `${area.basePath}/${path}` }];
+  });
 }
 
 export function Sidebar() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
-  const { activeCondominiumId } = useCondominium();
   const primaryRole = getPrimaryRole(user?.roles ?? []);
   const userDisplayName = getUserDisplayName(user);
   const userInitials = getUserInitials(userDisplayName);
-  const [syndicAccess, setSyndicAccess] =
-    useState<SyndicAccessSettings>(defaultSyndicAccess);
-  const menuItems = getVisibleMenuItems(primaryRole, syndicAccess);
+  const syndicAccess = useSyndicAccess();
+  const menuItems = getMenuItems(primaryRole, syndicAccess);
   const sidebarTopClass = "top-[12rem]";
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadSyndicAccess() {
-      if (primaryRole !== "Syndic" || !activeCondominiumId) {
-        setSyndicAccess(defaultSyndicAccess);
-        return;
-      }
-
-      try {
-        const access = await getMySyndicAccess(activeCondominiumId);
-
-        if (isMounted) {
-          setSyndicAccess(access);
-        }
-      } catch {
-        if (isMounted) {
-          setSyndicAccess(defaultSyndicAccess);
-        }
-      }
-    }
-
-    void loadSyndicAccess();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [activeCondominiumId, primaryRole]);
 
   function handleLogout() {
     logout();
