@@ -1,18 +1,11 @@
 import { useState, type FormEvent } from "react";
-import { Megaphone } from "lucide-react";
 import { Button } from "../../shared/components/Button";
 import { Modal } from "../../shared/components/Modal";
 import { TextAreaField } from "../../shared/components/TextAreaField";
 import { TextField } from "../../shared/components/TextField";
-import { formatDateTime } from "../../shared/lib/date";
-import { NEWS_PRIORITY, newsPriorityMeta, newsPriorityOptions } from "../news/newsPriority";
+import { TEXT_MAX, TITLE_MAX, toNewsForm, validateNewsForm, type NewsForm, type NewsFormErrors } from "../news/newsForm";
+import { newsPriorityOptions } from "../news/newsPriority";
 import type { NewsResponse } from "../news/types";
-import { TEXT_MAX, TITLE_MAX, toNewsForm, type NewsForm } from "./newsForm";
-
-export function PriorityChip({ priority }: { priority: number }) {
-  const meta = newsPriorityMeta(priority);
-  return <span className={`shrink-0 rounded-chip px-2 py-0.5 text-xs font-semibold ${meta.tone}`}>{meta.label}</span>;
-}
 
 type NewsFormModalProps = {
   news: NewsResponse | null;
@@ -24,21 +17,15 @@ type NewsFormModalProps = {
 
 export function NewsFormModal({ news, errorMessage, isSubmitting, onClose, onSubmit }: NewsFormModalProps) {
   const [form, setForm] = useState<NewsForm>(() => toNewsForm(news));
-  const [errors, setErrors] = useState<{ title?: string; description?: string }>({});
+  const [errors, setErrors] = useState<NewsFormErrors>({});
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const title = form.title.trim();
-    const description = form.description.trim();
-    const nextErrors = {
-      title: title.length < 3 ? "Escreva um título com pelo menos 3 caracteres." : undefined,
-      description: description.length < 3 ? "Escreva o texto do aviso." : undefined,
-    };
+    const result = validateNewsForm(form);
+    setErrors(result.errors);
+    if (!result.isValid) return;
 
-    setErrors(nextErrors);
-    if (nextErrors.title || nextErrors.description) return;
-
-    await onSubmit({ ...form, title, description });
+    await onSubmit(result.form);
   }
 
   return (
@@ -111,46 +98,6 @@ export function NewsFormModal({ news, errorMessage, isSubmitting, onClose, onSub
           </div>
         </fieldset>
       </form>
-    </Modal>
-  );
-}
-
-type NewsDetailsModalProps = {
-  news: NewsResponse;
-  onClose: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-};
-
-export function NewsDetailsModal({ news, onClose, onEdit, onDelete }: NewsDetailsModalProps) {
-  const isImportant = news.priority === NEWS_PRIORITY.high;
-
-  return (
-    <Modal
-      title={news.title}
-      description={
-        <span className="flex flex-wrap items-center gap-2">
-          <PriorityChip priority={news.priority} />
-          <span>Publicado em {formatDateTime(news.createdAt)} · para os administradores</span>
-        </span>
-      }
-      leading={
-        <span className={`grid size-11 place-items-center rounded-block ${isImportant ? "bg-vermelho-suave text-vermelho" : "bg-verde-suave text-verde-tinta"}`}>
-          <Megaphone size={20} strokeWidth={1.8} aria-hidden />
-        </span>
-      }
-      size="lg"
-      onClose={onClose}
-      footer={
-        <>
-          <button type="button" onClick={onDelete} className="mr-auto rounded-full px-3 text-sm font-semibold text-vermelho hover:underline">
-            Apagar aviso
-          </button>
-          <Button onClick={onEdit}>Editar aviso</Button>
-        </>
-      }
-    >
-      <p className="whitespace-pre-line text-[15px] leading-relaxed text-tinta">{news.description}</p>
     </Modal>
   );
 }

@@ -1,5 +1,6 @@
-import { Building, Building2, House, Mail, Receipt, SlidersHorizontal, Users } from "lucide-react";
+import { Building, Building2, House, Mail, Megaphone, Receipt, SlidersHorizontal, Users } from "lucide-react";
 import { AdminDashboardPage } from "../../features/adminDashboard/AdminDashboardPage";
+import { AdminNewsPage } from "../../features/adminNews/AdminNewsPage";
 import { BuildingsPage } from "../../features/buildings/BuildingsPage";
 import { UnitsPage } from "../../features/units/UnitsPage";
 import { PeoplePage } from "../../features/persons/PeoplePage";
@@ -17,6 +18,7 @@ export const adminArea: RoleArea = {
     { path: "people", component: PeoplePage, nav: { label: "Moradores", icon: Users } },
     { path: "invitations", component: InvitationsPage, nav: { label: "Convites", icon: Mail } },
     { path: "payments", component: AdminPaymentsPage, nav: { label: "Pagamentos", icon: Receipt } },
+    { path: "news", component: AdminNewsPage, nav: { label: "Avisos", icon: Megaphone } },
     { path: "settings", component: AdminSettingsPage, nav: { label: "Ajustes", icon: SlidersHorizontal, placement: "footer" } },
   ],
 };

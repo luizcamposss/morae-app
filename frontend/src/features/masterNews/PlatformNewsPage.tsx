@@ -6,13 +6,15 @@ import { SummaryCard } from "../../shared/components/SummaryCard";
 import { PageHeader } from "../../shared/layout/PageHeader";
 import { formatDate, toAppDateString, todayInputDate } from "../../shared/lib/date";
 import { createNews, deleteNews, getPlatformNews, updateNews } from "../news/newsService";
+import { NEWS_AUDIENCE } from "../news/newsAudience";
 import { NEWS_PRIORITY } from "../news/newsPriority";
 import type { NewsResponse } from "../news/types";
-import type { NewsForm } from "./newsForm";
-import { NewsDetailsModal, NewsFormModal, PriorityChip } from "./PlatformNewsModals";
+import { NewsDetailsModal } from "../news/NewsDetailsModal";
+import type { NewsForm } from "../news/newsForm";
+import { PriorityChip } from "../news/PriorityChip";
+import { NewsFormModal } from "./PlatformNewsModals";
 
 const PLATFORM_SCOPE = 2;
-const ADMINS_AUDIENCE = 2;
 
 type FormState = { news: NewsResponse | null } | null;
 
@@ -74,9 +76,9 @@ export function PlatformNewsPage() {
 
     try {
       if (editing) {
-        await updateNews(editing.id, { ...form, targetAudience: ADMINS_AUDIENCE, buildingId: null });
+        await updateNews(editing.id, { ...form, targetAudience: NEWS_AUDIENCE.admins, buildingId: null });
       } else {
-        await createNews({ ...form, scope: PLATFORM_SCOPE, targetAudience: ADMINS_AUDIENCE, condominiumId: null, buildingId: null });
+        await createNews({ ...form, scope: PLATFORM_SCOPE, targetAudience: NEWS_AUDIENCE.admins, condominiumId: null, buildingId: null });
       }
       await reload();
       setFormState(null);
@@ -216,6 +218,7 @@ export function PlatformNewsPage() {
       {selectedNews && (
         <NewsDetailsModal
           news={selectedNews}
+          audienceLabel="para os administradores"
           onClose={() => setSelectedId(null)}
           onEdit={() => openForm(selectedNews)}
           onDelete={() => askDelete(selectedNews)}
