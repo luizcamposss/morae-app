@@ -967,7 +967,7 @@ public class MercadoPagoService : IMercadoPagoService
         var user = await _userManager.FindByIdAsync(userId.ToString());
 
         if (user is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         if (charge.Scope == ChargeScope.Platform)
         {
@@ -992,7 +992,7 @@ public class MercadoPagoService : IMercadoPagoService
             throw new ForbiddenException("Você não pode pagar esta cobrança.");
         }
 
-        throw new BadRequestException("Invalid charge scope.");
+        throw new BadRequestException("Tipo de cobrança inválido.");
     }
 
     private static void EnsureChargeCanBePaid(Charge charge)
@@ -1061,7 +1061,7 @@ public class MercadoPagoService : IMercadoPagoService
         EnsureChargeCanBePaid(charge);
 
         var user = await _userManager.FindByIdAsync(userId.ToString())
-            ?? throw new NotFoundException("User not found.");
+            ?? throw new NotFoundException("Usuário não encontrado.");
 
         return (charge, user);
     }

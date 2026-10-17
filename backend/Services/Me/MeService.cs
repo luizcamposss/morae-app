@@ -27,7 +27,7 @@ public class MeService : IMeService
         .FirstOrDefaultAsync(u => u.Id == userId);
 
         if (user is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         var roles = await _userManager.GetRolesAsync(user);
         var accessLinks = await _context.UserCondominiums
@@ -71,7 +71,7 @@ public class MeService : IMeService
             .FirstOrDefaultAsync(u => u.Id == userId);
 
         if (user is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         user.Person.Name = dto.Name.Trim();
         user.Person.PhoneNumber = OnlyDigits(dto.PhoneNumber);
@@ -89,7 +89,7 @@ public class MeService : IMeService
             .FirstOrDefaultAsync(u => u.Id == userId);
 
         if (user is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         ValidateProfilePhoto(dto.ProfilePhotoUrl);
 
@@ -115,10 +115,10 @@ public class MeService : IMeService
             normalizedValue.StartsWith("data:image/webp;base64,", StringComparison.OrdinalIgnoreCase);
 
         if (!isSupportedImage)
-            throw new BadRequestException("Profile photo must be a JPEG, PNG or WEBP image.");
+            throw new BadRequestException("A foto precisa ser uma imagem JPG, PNG ou WEBP.");
 
         if (normalizedValue.Length > 700_000)
-            throw new BadRequestException("Profile photo is too large.");
+            throw new BadRequestException("A foto é grande demais. Envie uma imagem de até 500 KB.");
     }
 
     private static string OnlyDigits(string value)
@@ -154,7 +154,7 @@ public class MeService : IMeService
         var userExists = await _context.Users.AnyAsync(user => user.Id == userId);
 
         if (!userExists)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         var preference = await _context.UserNotificationPreferences
             .FirstOrDefaultAsync(item => item.UserId == userId);
@@ -214,7 +214,7 @@ public class MeService : IMeService
                 uc.Status == UserCondominiumStatus.Active);
 
         if (userCondominium is null)
-            throw new ForbiddenException("You do not have access to this condominium.");
+            throw new ForbiddenException("Você não tem acesso a este condomínio.");
 
         var permissions = userCondominium.Role == AppRoles.Admin
             ? AppPermissions.All.OrderBy(permission => permission).ToList()
@@ -237,7 +237,7 @@ public class MeService : IMeService
             .FirstOrDefaultAsync(u => u.Id == userId);
 
         if (user is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         return await _context.PersonUnits
             .AsNoTracking()

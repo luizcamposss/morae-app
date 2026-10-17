@@ -50,7 +50,7 @@ public class UserCondominiumPermissionService : IUserCondominiumPermissionServic
             .ToList();
 
         if (invalidPermissions.Count > 0)
-            throw new BadRequestException($"Invalid permissions: {string.Join(", ", invalidPermissions)}");
+            throw new BadRequestException($"Permissões inválidas: {string.Join(", ", invalidPermissions)}.");
 
         var userCondominium = await GetSyndicUserCondominiumAsync(condominiumId, targetUserId);
 
@@ -153,10 +153,10 @@ public class UserCondominiumPermissionService : IUserCondominiumPermissionServic
                 uc.CondominiumId == condominiumId);
 
         if (userCondominium is null)
-            throw new NotFoundException("User does not belong to this condominium.");
+            throw new NotFoundException("Este usuário não pertence a este condomínio.");
 
         if (userCondominium.Role != AppRoles.Syndic)
-            throw new BadRequestException("Permissions can only be managed for syndic users.");
+            throw new BadRequestException("Permissões só podem ser definidas para síndicos.");
 
         return userCondominium;
     }
