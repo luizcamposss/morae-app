@@ -43,28 +43,28 @@ public class InvitationService : IInvitationService
         var creator = await _userManager.FindByIdAsync(userId.ToString());
 
         if (creator is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         var creatorIsMaster = await _userManager.IsInRoleAsync(creator, AppRoles.Master);
         var creatorIsAdmin = await _userManager.IsInRoleAsync(creator, AppRoles.Admin);
 
         if (dto.Role is UserRole.Undefined or UserRole.Master)
-            throw new BadRequestException("Invalid invitation role.");
+            throw new BadRequestException("Tipo de convite inválido.");
 
         if (creatorIsMaster && dto.Role is not UserRole.Admin)
-            throw new ForbiddenException("Master users can only invite condominium admins.");
+            throw new ForbiddenException("O Master só convida administradores de condomínio.");
 
         if (creatorIsAdmin && dto.Role is not UserRole.Syndic and not UserRole.Resident)
-            throw new ForbiddenException("Admin users can only invite syndics or residents.");
+            throw new ForbiddenException("O administrador só convida síndicos ou moradores.");
 
         if (!creatorIsMaster && !creatorIsAdmin)
-            throw new ForbiddenException("User cannot create invitations.");
+            throw new ForbiddenException("Você não tem permissão para criar convites.");
 
         var condominiumExists = await _context.Condominiums
             .AnyAsync(c => c.Id == dto.CondominiumId);
 
         if (!condominiumExists)
-            throw new NotFoundException("Condominium not found.");
+            throw new NotFoundException("Condomínio não encontrado.");
 
         if (creatorIsAdmin)
         {
@@ -76,10 +76,10 @@ public class InvitationService : IInvitationService
             .FirstOrDefaultAsync(p => p.Id == dto.PersonId);
 
         if (person is null)
-            throw new NotFoundException("Person not found.");
+            throw new NotFoundException("Pessoa não encontrada.");
 
         if (creatorIsMaster && person.CreatedByUserId != userId)
-            throw new ForbiddenException("Master can only invite people created by themselves.");
+            throw new ForbiddenException("Você só pode convidar pessoas cadastradas por você.");
 
         if (creatorIsAdmin)
         {
@@ -90,7 +90,7 @@ public class InvitationService : IInvitationService
                     personCondominium.CondominiumId == dto.CondominiumId);
 
             if (!personBelongsToCondominium)
-                throw new ForbiddenException("This person does not belong to this condominium.");
+                throw new ForbiddenException("Esta pessoa não pertence a este condomínio.");
         }
 
         var personAlreadyHasUser = await _context.Users
@@ -106,12 +106,12 @@ public class InvitationService : IInvitationService
                 i.InvitationStatus == InvitationStatus.Pending);
 
         if (pendingInvitationExists)
-            throw new ConflictException("There is already a pending invitation for this person.");
+            throw new ConflictException("Já existe um convite pendente para esta pessoa.");
 
         var emailAlreadyUsed = await _userManager.FindByEmailAsync(dto.Email);
 
         if (emailAlreadyUsed is not null)
-            throw new ConflictException("Email already registered.");
+            throw new ConflictException("Este e-mail já está cadastrado.");
 
         var invitation = _mapper.Map<Invitation>(dto);
 
@@ -143,44 +143,44 @@ public class InvitationService : IInvitationService
             .FirstOrDefaultAsync(i => i.Id == invitationId);
 
         if (invitation is null)
-            throw new NotFoundException("Invitation not found.");
+            throw new NotFoundException("Convite não encontrado.");
 
         var requester = await _userManager.FindByIdAsync(userId.ToString());
 
         if (requester is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         var requesterIsMaster = await _userManager.IsInRoleAsync(requester, AppRoles.Master);
         var requesterIsAdmin = await _userManager.IsInRoleAsync(requester, AppRoles.Admin);
 
         if (!requesterIsMaster && !requesterIsAdmin)
-            throw new ForbiddenException("User cannot renew invitations.");
+            throw new ForbiddenException("Você não tem permissão para reenviar convites.");
 
         if (requesterIsMaster)
         {
             if (invitation.Role is not UserRole.Admin)
-                throw new ForbiddenException("Master users can only renew admin invitations.");
+                throw new ForbiddenException("O Master só reenvia convites de administradores.");
 
             if (invitation.CreatedByUserId != userId)
-                throw new ForbiddenException("Master can only renew invitations created by themselves.");
+                throw new ForbiddenException("Você só pode reenviar convites criados por você.");
         }
 
         if (requesterIsAdmin)
         {
             if (invitation.Role is not UserRole.Syndic and not UserRole.Resident)
-                throw new ForbiddenException("Admin users can only renew syndic or resident invitations.");
+                throw new ForbiddenException("O administrador só reenvia convites de síndicos ou moradores.");
 
             await _permissionService.EnsureCondominiumAdminAsync(userId, invitation.CondominiumId);
         }
 
         if (invitation.InvitationStatus == InvitationStatus.Accepted)
-            throw new BadRequestException("Accepted invitations cannot be renewed.");
+            throw new BadRequestException("Este convite já foi aceito.");
 
         var isExpired = invitation.InvitationStatus == InvitationStatus.Expired ||
                         invitation.ExpiresAt < DateTime.UtcNow;
 
         if (!isExpired)
-            throw new BadRequestException("Only expired invitations can be renewed.");
+            throw new BadRequestException("Só convites expirados podem ser reenviados. Este ainda está válido: copie o link.");
 
         var personAlreadyHasUser = await _context.Users
             .AnyAsync(u => u.PersonId == invitation.PersonId);
@@ -191,7 +191,7 @@ public class InvitationService : IInvitationService
         var emailAlreadyUsed = await _userManager.FindByEmailAsync(invitation.Email);
 
         if (emailAlreadyUsed is not null)
-            throw new ConflictException("Email already registered.");
+            throw new ConflictException("Este e-mail já está cadastrado.");
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -233,51 +233,51 @@ public class InvitationService : IInvitationService
             .FirstOrDefaultAsync(i => i.Id == invitationId);
 
         if (invitation is null)
-            throw new NotFoundException("Invitation not found.");
+            throw new NotFoundException("Convite não encontrado.");
 
         var requester = await _userManager.FindByIdAsync(userId.ToString());
 
         if (requester is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         var requesterIsMaster = await _userManager.IsInRoleAsync(requester, AppRoles.Master);
         var requesterIsAdmin = await _userManager.IsInRoleAsync(requester, AppRoles.Admin);
 
         if (!requesterIsMaster && !requesterIsAdmin)
-            throw new ForbiddenException("User cannot cancel invitations.");
+            throw new ForbiddenException("Você não tem permissão para cancelar convites.");
 
         if (requesterIsMaster)
         {
             if (invitation.Role is not UserRole.Admin)
-                throw new ForbiddenException("Master users can only cancel admin invitations.");
+                throw new ForbiddenException("O Master só cancela convites de administradores.");
 
             if (invitation.CreatedByUserId != userId)
-                throw new ForbiddenException("Master can only cancel invitations created by themselves.");
+                throw new ForbiddenException("Você só pode cancelar convites criados por você.");
         }
 
         if (requesterIsAdmin)
         {
             if (invitation.Role is not UserRole.Syndic and not UserRole.Resident)
-                throw new ForbiddenException("Admin users can only cancel syndic or resident invitations.");
+                throw new ForbiddenException("O administrador só cancela convites de síndicos ou moradores.");
 
             await _permissionService.EnsureCondominiumAdminAsync(userId, invitation.CondominiumId);
         }
 
         if (invitation.InvitationStatus == InvitationStatus.Accepted)
-            throw new BadRequestException("Accepted invitations cannot be canceled.");
+            throw new BadRequestException("Este convite já foi aceito e não pode ser cancelado.");
 
         if (invitation.InvitationStatus == InvitationStatus.Canceled)
-            throw new BadRequestException("Invitation already canceled.");
+            throw new BadRequestException("Este convite já foi cancelado.");
 
         if (invitation.InvitationStatus != InvitationStatus.Pending)
-            throw new BadRequestException("Only pending invitations can be canceled.");
+            throw new BadRequestException("Só convites pendentes podem ser cancelados.");
 
         if (invitation.ExpiresAt < DateTime.UtcNow)
         {
             invitation.InvitationStatus = InvitationStatus.Expired;
             await _context.SaveChangesAsync();
 
-            throw new BadRequestException("Expired invitations cannot be canceled.");
+            throw new BadRequestException("Este convite já expirou.");
         }
 
         invitation.InvitationStatus = InvitationStatus.Canceled;
@@ -292,20 +292,20 @@ public class InvitationService : IInvitationService
         var user = await _userManager.FindByIdAsync(userId.ToString());
 
         if (user is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         var isMaster = await _userManager.IsInRoleAsync(user, AppRoles.Master);
         var isAdmin = await _userManager.IsInRoleAsync(user, AppRoles.Admin);
 
         if (!isMaster && !isAdmin)
-            throw new ForbiddenException("User cannot access invitations.");
+            throw new ForbiddenException("Você não tem acesso aos convites.");
 
         var condominiumExists = await _context.Condominiums
             .AsNoTracking()
             .AnyAsync(c => c.Id == condominiumId);
 
         if (!condominiumExists)
-            throw new NotFoundException("Condominium not found.");
+            throw new NotFoundException("Condomínio não encontrado.");
 
         if (isAdmin)
             await _permissionService.EnsureCondominiumAdminAsync(userId, condominiumId);
@@ -349,10 +349,10 @@ public class InvitationService : IInvitationService
             return null;
 
         if (invitation.InvitationStatus != InvitationStatus.Pending)
-            throw new BadRequestException("Invitation is not pending.");
+            throw new BadRequestException("Este convite não está mais pendente.");
 
         if (invitation.ExpiresAt < DateTime.UtcNow)
-            throw new BadRequestException("Invitation expired.");
+            throw new BadRequestException("Este convite expirou. Peça um novo para quem te convidou.");
 
         return _mapper.Map<InvitationResponseDto>(invitation);
     }
@@ -363,26 +363,26 @@ public class InvitationService : IInvitationService
             .FirstOrDefaultAsync(i => i.Token == dto.Token);
 
         if (invitation is null)
-            throw new NotFoundException("Invitation not found.");
+            throw new NotFoundException("Convite não encontrado.");
 
         if (invitation.InvitationStatus is not InvitationStatus.Pending)
-            throw new BadRequestException("Invitation is not pending.");
+            throw new BadRequestException("Este convite não está mais pendente.");
 
         if (invitation.ExpiresAt < DateTime.UtcNow)
         {
             invitation.InvitationStatus = InvitationStatus.Expired;
             await _context.SaveChangesAsync();
 
-            throw new BadRequestException("Invitation expired.");
+            throw new BadRequestException("Este convite expirou. Peça um novo para quem te convidou.");
         }
 
         if (!string.Equals(invitation.Email, dto.Email, StringComparison.OrdinalIgnoreCase))
-            throw new BadRequestException("Email does not match invitation.");
+            throw new BadRequestException("Este e-mail não é o do convite.");
 
         var emailAlreadyUsed = await _userManager.FindByEmailAsync(dto.Email);
 
         if (emailAlreadyUsed is not null)
-            throw new ConflictException("Email already registered.");
+            throw new ConflictException("Este e-mail já está cadastrado.");
 
         var personAlreadyHasUser = await _context.Users
             .AnyAsync(u => u.PersonId == invitation.PersonId);

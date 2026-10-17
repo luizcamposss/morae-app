@@ -62,7 +62,7 @@ public class UnitService : IUnitService
             .FirstOrDefaultAsync(b => b.Id == buildingId);
 
         if (building is null)
-            throw new NotFoundException("Building not found.");
+            throw new NotFoundException("Prédio não encontrado.");
 
         await _permissionService.EnsureBuildingAccessAsync(userId, buildingId);
 
@@ -72,7 +72,7 @@ public class UnitService : IUnitService
                 u.Number == dto.Number);
 
         if (numberExists)
-            throw new ConflictException("Unit number already exists in this building.");
+            throw new ConflictException("Já existe uma unidade com este número neste prédio.");
 
         var unit = _mapper.Map<Unit>(dto);
 
@@ -94,7 +94,7 @@ public class UnitService : IUnitService
             .FirstOrDefaultAsync(b => b.Id == buildingId);
 
         if (building is null)
-            throw new NotFoundException("Building not found.");
+            throw new NotFoundException("Prédio não encontrado.");
 
         await _permissionService.EnsureCondominiumPermissionAsync(
             userId,
@@ -151,7 +151,7 @@ public class UnitService : IUnitService
                 u.Id != unitId);
 
         if (numberExists)
-            throw new ConflictException("Unit number already exists in this building.");
+            throw new ConflictException("Já existe uma unidade com este número neste prédio.");
 
         _mapper.Map(dto, unit);
 
@@ -176,7 +176,7 @@ public class UnitService : IUnitService
             .AnyAsync(personUnit => personUnit.UnitId == unitId);
 
         if (hasLinkedPeople)
-            throw new ConflictException("Cannot delete a unit that still has linked people.");
+            throw new ConflictException("Esta unidade ainda tem pessoas vinculadas. Remova os vínculos antes de excluir.");
 
         _context.Units.Remove(unit);
         await _context.SaveChangesAsync();

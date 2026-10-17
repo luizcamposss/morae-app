@@ -85,7 +85,7 @@ public class InvitationsController : ControllerBase
 
         return Ok(new
         {
-            message = "Invitation accepted successfully."
+            message = "Convite aceito."
         });
     }
 }

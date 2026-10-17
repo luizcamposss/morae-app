@@ -33,7 +33,7 @@ public class FinancialAccountService : IFinancialAccountService
             await _permissionService.IsAdminAsync(userId);
 
         if (!canReadPlatformAccount)
-            throw new ForbiddenException("Only Master or Admin can access platform payment information.");
+            throw new ForbiddenException("Só o Master ou o administrador têm acesso aos dados de recebimento.");
 
         var account = await BuildResponseQuery()
             .FirstOrDefaultAsync(account => account.Scope == FinancialAccountScope.Platform);
@@ -98,7 +98,7 @@ public class FinancialAccountService : IFinancialAccountService
             .AnyAsync(condominium => condominium.Id == condominiumId);
 
         if (!condominiumExists)
-            throw new NotFoundException("Condominium not found.");
+            throw new NotFoundException("Condomínio não encontrado.");
 
         var account = await _context.FinancialAccounts
             .FirstOrDefaultAsync(account =>
@@ -137,7 +137,7 @@ public class FinancialAccountService : IFinancialAccountService
             .FirstOrDefaultAsync(account => account.Id == id);
 
         if (account is null)
-            throw new NotFoundException("Financial account not found.");
+            throw new NotFoundException("Conta de recebimento não encontrada.");
 
         return _mapper.Map<FinancialAccountResponseDto>(account);
     }
@@ -164,6 +164,6 @@ public class FinancialAccountService : IFinancialAccountService
     private static void ValidateDto(UpsertFinancialAccountDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.PixKey))
-            throw new BadRequestException("Pix key is required.");
+            throw new BadRequestException("Informe a chave Pix.");
     }
 }

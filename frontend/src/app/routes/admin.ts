@@ -1,4 +1,4 @@
-import { Building, Building2, House, Mail, Megaphone, Receipt, SlidersHorizontal, Users } from "lucide-react";
+import { Building, Building2, FileText, House, Mail, Megaphone, Receipt, SlidersHorizontal, Users } from "lucide-react";
 import { AdminDashboardPage } from "../../features/adminDashboard/AdminDashboardPage";
 import { AdminNewsPage } from "../../features/adminNews/AdminNewsPage";
 import { BuildingsPage } from "../../features/buildings/BuildingsPage";
@@ -7,6 +7,7 @@ import { PeoplePage } from "../../features/persons/PeoplePage";
 import { InvitationsPage } from "../../features/invitations/InvitationsPage";
 import { AdminPaymentsPage } from "../../features/adminPayments/AdminPaymentsPage";
 import { AdminSettingsPage } from "../../features/adminSettings/AdminSettingsPage";
+import { DocumentsPage } from "../../features/documents/DocumentsPage";
 import type { RoleArea } from "./types";
 
 export const adminArea: RoleArea = {
@@ -17,6 +18,7 @@ export const adminArea: RoleArea = {
     { path: "units", component: UnitsPage, nav: { label: "Unidades", icon: Building } },
     { path: "people", component: PeoplePage, nav: { label: "Moradores", icon: Users } },
     { path: "invitations", component: InvitationsPage, nav: { label: "Convites", icon: Mail } },
+    { path: "documents", component: DocumentsPage, nav: { label: "Documentos", icon: FileText } },
     { path: "payments", component: AdminPaymentsPage, nav: { label: "Pagamentos", icon: Receipt } },
     { path: "news", component: AdminNewsPage, nav: { label: "Avisos", icon: Megaphone } },
     { path: "settings", component: AdminSettingsPage, nav: { label: "Ajustes", icon: SlidersHorizontal, placement: "footer" } },

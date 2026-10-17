@@ -45,13 +45,13 @@ public class NewsService : INewsService
         var user = await _userManager.FindByIdAsync(userId.ToString());
 
         if (user is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         var isMaster = await _userManager.IsInRoleAsync(user, AppRoles.Master);
         var isAdmin = await _userManager.IsInRoleAsync(user, AppRoles.Admin);
 
         if (!isMaster && !isAdmin)
-            throw new ForbiddenException("User cannot access platform news.");
+            throw new ForbiddenException("Você não tem acesso aos avisos da plataforma.");
 
         var news = await _context.News
             .AsNoTracking()
@@ -101,7 +101,7 @@ public class NewsService : INewsService
         await EnsureCanEditAsync(userId, news);
 
         if (news.Scope == NewsScope.Platform && dto.BuildingId is not null)
-            throw new BadRequestException("Platform news cannot have a building.");
+            throw new BadRequestException("Aviso da plataforma não pode ter prédio.");
 
         if (news.Scope == NewsScope.Condominium && dto.BuildingId is not null)
             await EnsureBuildingBelongsToCondominiumAsync(dto.BuildingId.Value, news.CondominiumId!.Value);
@@ -134,13 +134,13 @@ public class NewsService : INewsService
             await _permissionService.EnsureMasterAsync(userId);
 
             if (dto.CondominiumId is not null)
-                throw new BadRequestException("Platform news cannot have a condominium.");
+                throw new BadRequestException("Aviso da plataforma não pode ter condomínio.");
 
             if (dto.BuildingId is not null)
-                throw new BadRequestException("Platform news cannot have a building.");
+                throw new BadRequestException("Aviso da plataforma não pode ter prédio.");
 
             if (dto.TargetAudience != NewsTargetAudience.Admins)
-                throw new BadRequestException("Platform news must target admins for now.");
+                throw new BadRequestException("Avisos da plataforma vão só para administradores.");
 
             return;
         }
@@ -148,7 +148,7 @@ public class NewsService : INewsService
         if (dto.Scope == NewsScope.Condominium)
         {
             if (dto.CondominiumId is null)
-                throw new BadRequestException("Condominium news must have a condominium.");
+                throw new BadRequestException("Selecione o condomínio do aviso.");
 
             await _permissionService.EnsureCondominiumPermissionAsync(
                 userId,
@@ -161,7 +161,7 @@ public class NewsService : INewsService
             return;
         }
 
-        throw new BadRequestException("Invalid news scope.");
+        throw new BadRequestException("Tipo de aviso inválido.");
     }
     private async Task EnsureCanReadAsync(int userId, backend.Models.News news)
     {
@@ -170,13 +170,13 @@ public class NewsService : INewsService
             var user = await _userManager.FindByIdAsync(userId.ToString());
 
             if (user is null)
-                throw new NotFoundException("User not found.");
+                throw new NotFoundException("Usuário não encontrado.");
 
             if (await _userManager.IsInRoleAsync(user, AppRoles.Master) ||
                 await _userManager.IsInRoleAsync(user, AppRoles.Admin))
                 return;
 
-            throw new ForbiddenException("User cannot access platform news.");
+            throw new ForbiddenException("Você não tem acesso aos avisos da plataforma.");
         }
 
         await _permissionService.EnsureCondominiumAccessAsync(
@@ -187,7 +187,7 @@ public class NewsService : INewsService
 
         // Same answer as for a missing notice: does not reveal notices meant for others.
         if (!reader.CanSee(news))
-            throw new NotFoundException("News not found.");
+            throw new NotFoundException("Aviso não encontrado.");
     }
 
     // Who reads a condominium notice: the audience (Everyone or the reader's role) and,
@@ -291,6 +291,6 @@ public class NewsService : INewsService
                 b.CondominiumId == condominiumId);
 
         if (!belongsToCondominium)
-            throw new BadRequestException("Building does not belong to this condominium.");
+            throw new BadRequestException("Este prédio não pertence a este condomínio.");
     }
 }

@@ -104,7 +104,7 @@ public class ChargeService : IChargeService
             return _mapper.Map<IEnumerable<ChargeResponseDto>>(charges);
         }
 
-        throw new ForbiddenException("User cannot access platform charges.");
+        throw new ForbiddenException("Você não tem acesso às mensalidades da plataforma.");
     }
     public async Task<IEnumerable<ChargeResponseDto>> GetByCondominiumAsync(int userId, int condominiumId)
     {
@@ -115,7 +115,7 @@ public class ChargeService : IChargeService
         var isSyndic = role == AppRoles.Syndic;
 
         if (role != AppRoles.Admin && !isSyndic)
-            throw new ForbiddenException("User cannot access condominium charges.");
+            throw new ForbiddenException("Você não tem acesso às cobranças deste condomínio.");
 
         if (isSyndic)
             await _permissionService.EnsureAnyCondominiumPermissionAsync(userId, condominiumId, AppPermissions.FinanceAccess);
@@ -185,10 +185,10 @@ public class ChargeService : IChargeService
         await EnsureCanCancelAsync(userId, charge);
 
         if (charge.Status == ChargeStatus.Paid)
-            throw new BadRequestException("Paid charges cannot be canceled.");
+            throw new BadRequestException("Cobranças pagas não podem ser canceladas.");
 
         if (charge.Status == ChargeStatus.Canceled)
-            throw new BadRequestException("Charge is already canceled.");
+            throw new BadRequestException("Esta cobrança já foi cancelada.");
 
         charge.Status = ChargeStatus.Canceled;
         charge.CanceledAt = DateTime.UtcNow;
@@ -211,7 +211,7 @@ public class ChargeService : IChargeService
             .AnyAsync(c => c.Id == dto.CondominiumId);
 
         if (!condominiumExists)
-            throw new NotFoundException("Condominium not found.");
+            throw new NotFoundException("Condomínio não encontrado.");
 
         if (dto.Scope == ChargeScope.Platform)
         {
@@ -225,14 +225,14 @@ public class ChargeService : IChargeService
             return;
         }
 
-        throw new BadRequestException("Invalid charge scope.");
+        throw new BadRequestException("Tipo de cobrança inválido.");
     }
     private async Task ValidatePlatformChargeCreateAsync(int userId, CreateChargeDto dto)
     {
         await _permissionService.EnsureMasterAsync(userId);
 
         if (dto.UnitId is not null)
-            throw new BadRequestException("Platform charge cannot have a unit.");
+            throw new BadRequestException("Mensalidade da plataforma não pode ter unidade.");
 
         var ownsCondominium = await _context.Condominiums
             .AsNoTracking()
@@ -241,7 +241,7 @@ public class ChargeService : IChargeService
                 c.CreatedByUserId == userId);
 
         if (!ownsCondominium)
-            throw new ForbiddenException("Master can only create platform charges for condominiums created by them.");
+            throw new ForbiddenException("Você só pode criar mensalidades para condomínios cadastrados por você.");
 
         await EnsurePaymentMethodConfiguredAsync(FinancialAccountScope.Platform, null);
     }
@@ -249,13 +249,13 @@ public class ChargeService : IChargeService
     private async Task ValidateCondominiumChargeCreateAsync(int userId, CreateChargeDto dto)
     {
         if (await _permissionService.IsMasterAsync(userId))
-            throw new ForbiddenException("Master cannot create condominium charges.");
+            throw new ForbiddenException("O Master não cria cobranças de condomínio.");
 
         if (dto.TargetUserId is not null)
-            throw new BadRequestException("Condominium charge cannot have a target user for now.");
+            throw new BadRequestException("Cobrança de condomínio não pode ter um usuário de destino.");
 
         if (dto.UnitId is null)
-            throw new BadRequestException("Condominium charge must have a unit.");
+            throw new BadRequestException("Selecione a unidade da cobrança.");
 
         await _permissionService.EnsureCondominiumPermissionAsync(
             userId,
@@ -272,7 +272,7 @@ public class ChargeService : IChargeService
                 u.Building.CondominiumId == dto.CondominiumId);
 
         if (!unitBelongsToCondominium)
-            throw new BadRequestException("Unit does not belong to this condominium.");
+            throw new BadRequestException("Esta unidade não pertence a este condomínio.");
 
         await EnsurePaymentMethodConfiguredAsync(FinancialAccountScope.Condominium, dto.CondominiumId);
     }
@@ -326,7 +326,7 @@ public class ChargeService : IChargeService
             if (await _permissionService.IsPlatformBillingAdminAsync(userId, charge.CondominiumId))
                 return;
 
-            throw new ForbiddenException("User cannot access this platform charge.");
+            throw new ForbiddenException("Você não tem acesso a esta mensalidade.");
         }
 
         await _permissionService.EnsureCanReadCondominiumChargeAsync(userId, charge.CondominiumId, charge.UnitId);
@@ -341,7 +341,7 @@ public class ChargeService : IChargeService
             await _permissionService.EnsureMasterAsync(userId);
 
             if (!await IsMasterCondominiumOwnerAsync(userId, charge.CondominiumId))
-                throw new ForbiddenException("Master can only cancel platform charges from condominiums created by them.");
+                throw new ForbiddenException("Você só pode cancelar mensalidades de condomínios cadastrados por você.");
 
             return;
         }
@@ -352,14 +352,14 @@ public class ChargeService : IChargeService
             return;
         }
 
-        throw new ForbiddenException("User cannot cancel this charge.");
+        throw new ForbiddenException("Você não tem permissão para cancelar esta cobrança.");
     }
     private async Task<ApplicationUser> GetUserOrThrowAsync(int userId)
     {
         var user = await _userManager.FindByIdAsync(userId.ToString());
 
         if (user is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         return user;
     }
@@ -379,7 +379,7 @@ public class ChargeService : IChargeService
             .FirstOrDefaultAsync(c => c.Id == id);
 
         if (charge is null)
-            throw new NotFoundException("Charge not found.");
+            throw new NotFoundException("Cobrança não encontrada.");
 
         return _mapper.Map<ChargeResponseDto>(charge);
     }

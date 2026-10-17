@@ -44,20 +44,20 @@ public class CondominiumService : ICondominiumService
             .AnyAsync(c => c.CNPJ == dto.Condominium.CNPJ);
 
         if (cnpjExists)
-            throw new ConflictException("CNPJ already registered.");
+            throw new ConflictException("Este CNPJ já está cadastrado.");
 
         var cpfExists = await _context.Persons
             .AnyAsync(c => c.CPF == dto.Admin.CPF);
 
         if (cpfExists)
-            throw new ConflictException("CPF already registered.");
+            throw new ConflictException("Este CPF já está cadastrado no sistema.");
 
         var adminEmail = dto.Admin.Email.Trim();
 
         var emailExists = await _userManager.FindByEmailAsync(adminEmail);
 
         if (emailExists is not null)
-            throw new ConflictException("Email already registered.");
+            throw new ConflictException("Este e-mail já está cadastrado.");
 
         var pendingEmailInvitationExists = await _context.Invitations
             .AnyAsync(i =>
@@ -65,7 +65,7 @@ public class CondominiumService : ICondominiumService
                 i.InvitationStatus == InvitationStatus.Pending);
 
         if (pendingEmailInvitationExists)
-            throw new ConflictException("Email already has a pending invitation.");
+            throw new ConflictException("Este e-mail já tem um convite pendente.");
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -124,7 +124,7 @@ public class CondominiumService : ICondominiumService
 
         if (cnpjExists)
         {
-            throw new ConflictException("CNPJ already registered");
+            throw new ConflictException("Este CNPJ já está cadastrado.");
         }
 
         var condominium = _mapper.Map<Condominium>(dto);
@@ -235,7 +235,7 @@ public class CondominiumService : ICondominiumService
         if (condominium is null) return false;
 
         if (condominium.CreatedByUserId != userId)
-            throw new ForbiddenException("Master can only change status from condominiums created by themselves.");
+            throw new ForbiddenException("Você só pode alterar condomínios cadastrados por você.");
 
         condominium.Status = dto.Status;
         condominium.UpdatedAt = DateTime.UtcNow;
@@ -255,15 +255,15 @@ public class CondominiumService : ICondominiumService
         if (condominium is null) return false;
 
         if (condominium.CreatedByUserId != userId)
-            throw new ForbiddenException("Master can only change admins from condominiums created by themselves.");
+            throw new ForbiddenException("Você só pode trocar administradores de condomínios cadastrados por você.");
 
         var targetAdmin = await _userManager.FindByIdAsync(dto.AdminUserId.ToString());
 
         if (targetAdmin is null)
-            throw new NotFoundException("Admin user not found.");
+            throw new NotFoundException("Administrador não encontrado.");
 
         if (!await _userManager.IsInRoleAsync(targetAdmin, AppRoles.Admin))
-            throw new BadRequestException("Selected user must be an Admin.");
+            throw new BadRequestException("A pessoa selecionada precisa ser administradora.");
 
         var targetBelongsToMaster = await _context.UserCondominiums
             .AsNoTracking()
@@ -273,7 +273,7 @@ public class CondominiumService : ICondominiumService
                 uc.Condominium.CreatedByUserId == userId);
 
         if (!targetBelongsToMaster)
-            throw new ForbiddenException("Selected Admin must belong to a condominium created by this Master.");
+            throw new ForbiddenException("O administrador selecionado precisa ser de um condomínio cadastrado por você.");
 
         var adminLinks = await _context.UserCondominiums
             .Where(uc =>
@@ -330,7 +330,7 @@ public class CondominiumService : ICondominiumService
         if (condominium is null) return false;
 
         if (condominium.CreatedByUserId != userId)
-            throw new ForbiddenException("Master can only remove admins from condominiums created by themselves.");
+            throw new ForbiddenException("Você só pode remover administradores de condomínios cadastrados por você.");
 
         var activeAdminLinks = await _context.UserCondominiums
             .Where(uc =>
@@ -413,7 +413,7 @@ public class CondominiumService : ICondominiumService
             .FirstOrDefaultAsync();
 
         if (condominium is null)
-            throw new NotFoundException("Condominium not found.");
+            throw new NotFoundException("Condomínio não encontrado.");
 
         return condominium;
     }
