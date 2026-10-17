@@ -61,13 +61,7 @@ export async function deleteMaintenanceRecord(id: number): Promise<void> {
   await apiRequest<void>(`/api/maintenance-records/${id}`, { method: "DELETE", auth: true });
 }
 
-// The attachment needs the token, so it is fetched as a blob and saved from a temporary URL.
+// The attachment needs the token, so apiDownload fetches it and saves it from a temporary URL.
 export async function downloadMaintenanceAttachment(record: MaintenanceRecordResponse): Promise<void> {
-  const blob = await apiDownload(`/api/maintenance-records/${record.id}/attachment`);
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = record.attachmentFileName ?? "anexo";
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  await apiDownload(`/api/maintenance-records/${record.id}/attachment`, record.attachmentFileName ?? "anexo");
 }

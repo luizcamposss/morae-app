@@ -61,7 +61,7 @@ public class LocalFileStorage : IFileStorage
         var path = Path.GetFullPath(Path.Combine(_rootPath, key));
 
         if (!path.StartsWith(_rootPath + Path.DirectorySeparatorChar, StringComparison.Ordinal))
-            throw new InvalidOperationException("Invalid storage key.");
+            throw new InvalidOperationException("Arquivo inválido.");
 
         return path;
     }

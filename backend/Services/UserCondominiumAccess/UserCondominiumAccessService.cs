@@ -75,12 +75,12 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
                 c.CreatedByUserId == requesterUserId);
 
         if (condominium is null)
-            throw new ForbiddenException("Master can only create admins for condominiums created by themselves.");
+            throw new ForbiddenException("Você só pode criar administradores para condomínios cadastrados por você.");
 
         var existingUser = await _userManager.FindByEmailAsync(dto.Email);
 
         if (existingUser is not null)
-            throw new BadRequestException("Email is already in use.");
+            throw new BadRequestException("Este e-mail já está em uso.");
 
         await using var transaction = await _context.Database.BeginTransactionAsync();
 
@@ -135,14 +135,14 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
         SuspendUserCondominiumDto dto)
     {
         if (requesterUserId == targetUserId)
-            throw new BadRequestException("You cannot suspend yourself.");
+            throw new BadRequestException("Você não pode suspender o próprio acesso.");
 
         var userCondominium = await GetUserCondominiumAsync(condominiumId, targetUserId);
 
         await EnsureCanManageAccessAsync(requesterUserId, condominiumId, userCondominium.Role);
 
         if (userCondominium.Status == UserCondominiumStatus.Suspended)
-            throw new BadRequestException("User access is already suspended.");
+            throw new BadRequestException("Este acesso já está suspenso.");
 
         userCondominium.Status = UserCondominiumStatus.Suspended;
         userCondominium.SuspendedAt = DateTime.UtcNow;
@@ -160,14 +160,14 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
         int targetUserId)
     {
         if (requesterUserId == targetUserId)
-            throw new BadRequestException("You cannot reactivate yourself.");
+            throw new BadRequestException("Você não pode reativar o próprio acesso.");
 
         var userCondominium = await GetUserCondominiumAsync(condominiumId, targetUserId);
 
         await EnsureCanManageAccessAsync(requesterUserId, condominiumId, userCondominium.Role);
 
         if (userCondominium.Status == UserCondominiumStatus.Active)
-            throw new BadRequestException("User access is already active.");
+            throw new BadRequestException("Este acesso já está ativo.");
 
         userCondominium.Status = UserCondominiumStatus.Active;
         userCondominium.SuspendedAt = null;
@@ -188,7 +188,7 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
         var normalizedRole = dto.Role.Trim();
 
         if (normalizedRole != AppRoles.Resident && normalizedRole != AppRoles.Syndic)
-            throw new BadRequestException("Role must be Resident or Syndic.");
+            throw new BadRequestException("O papel precisa ser morador ou síndico.");
 
         var userCondominium = await GetUserCondominiumAsync(condominiumId, targetUserId);
 
@@ -200,7 +200,7 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
         var targetUser = await _userManager.FindByIdAsync(targetUserId.ToString());
 
         if (targetUser is null)
-            throw new NotFoundException("Target user not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         var previousRole = userCondominium.Role;
 
@@ -289,7 +289,7 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
         int targetUserId)
     {
         if (requesterUserId == targetUserId)
-            throw new BadRequestException("You cannot delete yourself.");
+            throw new BadRequestException("Você não pode remover o próprio acesso.");
 
         var userCondominium = await GetUserCondominiumAsync(condominiumId, targetUserId);
 
@@ -330,7 +330,7 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
                 uc.CondominiumId == condominiumId);
 
         if (userCondominium is null)
-            throw new NotFoundException("User does not belong to this condominium.");
+            throw new NotFoundException("Este usuário não pertence a este condomínio.");
 
         return userCondominium;
     }
@@ -358,7 +358,7 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
             .FirstOrDefaultAsync();
 
         if (user is null)
-            throw new NotFoundException("User access not found.");
+            throw new NotFoundException("Acesso não encontrado.");
 
         return user;
     }
@@ -371,15 +371,15 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
         var requester = await _userManager.FindByIdAsync(requesterUserId.ToString());
 
         if (requester is null)
-            throw new NotFoundException("Requester user not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         if (targetRole == AppRoles.Master)
-            throw new ForbiddenException("Master users cannot be suspended.");
+            throw new ForbiddenException("O acesso do Master não pode ser suspenso.");
 
         if (await _userManager.IsInRoleAsync(requester, AppRoles.Master))
         {
             if (targetRole != AppRoles.Admin)
-                throw new ForbiddenException("Master can only manage condominium admins through this flow.");
+                throw new ForbiddenException("Por aqui, o Master só gerencia administradores de condomínio.");
 
             var ownsCondominium = await _context.Condominiums
                 .AnyAsync(condominium =>
@@ -387,7 +387,7 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
                     condominium.CreatedByUserId == requesterUserId);
 
             if (!ownsCondominium)
-                throw new ForbiddenException("Master can only manage admins from condominiums created by themselves.");
+                throw new ForbiddenException("Você só pode gerenciar administradores de condomínios cadastrados por você.");
 
             return;
         }
@@ -397,15 +397,15 @@ public class UserCondominiumAccessService : IUserCondominiumAccessService
             await _permissionService.EnsureCondominiumAdminAsync(requesterUserId, condominiumId);
 
             if (targetRole == AppRoles.Admin)
-                throw new ForbiddenException("Admin users cannot manage other admins.");
+                throw new ForbiddenException("O administrador não pode gerenciar outros administradores.");
 
             if (targetRole != AppRoles.Syndic && targetRole != AppRoles.Resident)
-                throw new ForbiddenException("Admin can only manage syndics or residents.");
+                throw new ForbiddenException("O administrador só gerencia síndicos e moradores.");
 
             return;
         }
 
-        throw new ForbiddenException("User cannot manage condominium access.");
+        throw new ForbiddenException("Você não tem permissão para gerenciar acessos deste condomínio.");
     }
 
     private static string GetRoleLabel(string role)

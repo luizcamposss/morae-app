@@ -1,27 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
-import type { ReactNode } from "react";
+import { ChevronRight, Plus, Search, Users } from "lucide-react";
 import { useCondominium } from "../../app/providers/useCondominium";
-import { MetricCard } from "../../shared/components/MetricCard";
-import { StatusBadge } from "../../shared/components/StatusBadge";
-import { CreateInvitationModal } from "../invitations/InvitationsPage";
+import { Button } from "../../shared/components/Button";
+import { SelectField } from "../../shared/components/SelectField";
+import { SummaryCard } from "../../shared/components/SummaryCard";
+import { PageHeader } from "../../shared/layout/PageHeader";
+import { CreateInvitationModal, InvitationStatusChip } from "../invitations/InvitationModals";
 import { getInvitationsByCondominium } from "../invitations/invitationService";
+import { invitationStatusLabel, invitationStatusOf, isOpenInvitation } from "../invitations/invitationStatus";
 import type { InvitationResponse } from "../invitations/types";
-import {
-  createPersonInCondominium,
-  getPersonsByCondominium,
-  updatePersonInCondominium,
-} from "./personService";
-import type { CreatePersonRequest, PersonResponse } from "./types";
-
-const emptyForm: CreatePersonRequest = {
-  name: "",
-  cpf: "",
-  phoneNumber: "",
-};
+import { createPersonInCondominium, getPersonsByCondominium, updatePersonInCondominium } from "./personService";
+import { PERSON_FILTERS, accessRoleLabel, emptyPersonForm, formatCpf, formatPhone, matchesPersonFilter, toPersonForm, type PersonFilter } from "./personForm";
+import { PersonAvatar, PersonDetailsModal, PersonFormModal } from "./PersonModals";
+import type { PersonResponse } from "./types";
 
 export function PeoplePage() {
   const {
     condominiums,
+    activeCondominium,
     activeCondominiumId,
     isLoading: isLoadingCondominiums,
     errorMessage: condominiumErrorMessage,
@@ -33,327 +29,274 @@ export function PeoplePage() {
   const [isLoadingPeople, setIsLoadingPeople] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<PersonResponse | null>(null);
-  const [viewingPerson, setViewingPerson] = useState<PersonResponse | null>(null);
+  const [viewingPersonId, setViewingPersonId] = useState<number | null>(null);
   const [invitingPerson, setInvitingPerson] = useState<PersonResponse | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filter, setFilter] = useState<PersonFilter>("all");
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
-  const filteredPeople = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
-
-    if (!normalizedSearch) {
-      return people;
-    }
-
-    return people.filter((person) =>
-      person.name.toLowerCase().includes(normalizedSearch) ||
-      person.cpf.includes(normalizedSearch) ||
-      person.phoneNumber.includes(normalizedSearch) ||
-      person.mainUnit.toLowerCase().includes(normalizedSearch),
-    );
-  }, [people, searchTerm]);
-
-  const totalPeople = people.length;
-  const linkedPeople = people.filter((person) => person.unitCount > 0).length;
-  const unlinkedPeople = totalPeople - linkedPeople;
-  const totalUnitLinks = people.reduce((sum, person) => sum + person.unitCount, 0);
-  const blockedInvitationPersonIds = useMemo(
-    () =>
-      new Set(
-        invitations
-          .filter((invitation) => isPreparedInvitation(invitation))
-          .map((invitation) => invitation.personId),
-      ),
-    [invitations],
-  );
-  const invitablePeople = useMemo(
-    () =>
-      people.filter(
-        (person) =>
-          !person.hasRegisteredUser && !blockedInvitationPersonIds.has(person.id),
-      ),
-    [people, blockedInvitationPersonIds],
-  );
-
-  const metrics = [
-    { label: "Total", value: totalPeople.toString(), helper: "Cadastros ativos" },
-    { label: "Com unidade", value: linkedPeople.toString(), helper: "Vínculo residencial ativo" },
-    { label: "Sem unidade", value: unlinkedPeople.toString(), helper: "Aguardam associação" },
-    { label: "Vínculos", value: totalUnitLinks.toString(), helper: "Relações com unidades" },
-  ];
-
-  async function loadPeople(condominiumId: number) {
-    try {
-      setErrorMessage("");
-      setSuccessMessage("");
-      setIsLoadingPeople(true);
-
-      const [peopleResult, invitationsResult] = await Promise.all([
-        getPersonsByCondominium(condominiumId),
-        getInvitationsByCondominium(condominiumId),
-      ]);
-
-      setPeople(peopleResult);
-      setInvitations(invitationsResult);
-    } catch (error) {
-      setPeople([]);
-      setInvitations([]);
-
-      if (error instanceof Error) {
-        setErrorMessage(error.message);
-      } else {
-        setErrorMessage("Não foi possível carregar os moradores.");
-      }
-    } finally {
-      setIsLoadingPeople(false);
-    }
-  }
-
-  async function refreshPeople() {
-    if (!activeCondominiumId) {
-      return;
-    }
-
-    await loadPeople(activeCondominiumId);
-  }
-
   useEffect(() => {
-    if (!activeCondominiumId) {
-      setPeople([]);
-      setInvitations([]);
-      setIsLoadingPeople(false);
-      return;
-    }
+    if (!activeCondominiumId) return;
+    let isMounted = true;
 
-    void loadPeople(activeCondominiumId);
+    Promise.all([getPersonsByCondominium(activeCondominiumId), getInvitationsByCondominium(activeCondominiumId)])
+      .then(([peopleResult, invitationsResult]) => {
+        if (!isMounted) return;
+        setPeople(peopleResult);
+        setInvitations(invitationsResult);
+        setErrorMessage("");
+      })
+      .catch((error) => {
+        if (!isMounted) return;
+        setPeople([]);
+        setInvitations([]);
+        setErrorMessage(error instanceof Error ? error.message : "Não foi possível carregar os moradores.");
+      })
+      .finally(() => isMounted && setIsLoadingPeople(false));
+
+    return () => {
+      isMounted = false;
+    };
   }, [activeCondominiumId]);
 
-  const isLoading = isLoadingCondominiums || isLoadingPeople;
+  async function refreshPeople() {
+    if (!activeCondominiumId) return;
+    const [peopleResult, invitationsResult] = await Promise.all([
+      getPersonsByCondominium(activeCondominiumId),
+      getInvitationsByCondominium(activeCondominiumId),
+    ]);
+    setPeople(peopleResult);
+    setInvitations(invitationsResult);
+  }
+
+  // Invitations come newest first, so the first one per person is the latest.
+  const latestInvitationByPerson = useMemo(() => {
+    const map = new Map<number, InvitationResponse>();
+    for (const invitation of invitations) {
+      if (!map.has(invitation.personId)) map.set(invitation.personId, invitation);
+    }
+    return map;
+  }, [invitations]);
+
+  const blockedInvitationPersonIds = useMemo(
+    () => new Set(invitations.filter(isOpenInvitation).map((invitation) => invitation.personId)),
+    [invitations],
+  );
+  const canInvite = (person: PersonResponse) => !person.hasRegisteredUser && !blockedInvitationPersonIds.has(person.id);
+  const invitablePeople = people.filter(canInvite);
+
+  const visiblePeople = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    return people.filter(
+      (person) =>
+        matchesPersonFilter(person, filter) &&
+        (!term ||
+          person.name.toLowerCase().includes(term) ||
+          person.cpf.includes(term) ||
+          person.phoneNumber.includes(term) ||
+          person.mainUnit.toLowerCase().includes(term)),
+    );
+  }, [people, searchTerm, filter]);
+
+  const linkedPeople = people.filter((person) => person.unitCount > 0).length;
+  const totalUnitLinks = people.reduce((sum, person) => sum + person.unitCount, 0);
+  const peopleWithAccess = people.filter((person) => person.hasRegisteredUser).length;
+  const pendingInvitations = people.filter((person) => !person.hasRegisteredUser && blockedInvitationPersonIds.has(person.id)).length;
+
+  const isLoading = isLoadingCondominiums || (Boolean(activeCondominiumId) && isLoadingPeople);
   const pageErrorMessage = condominiumErrorMessage || errorMessage;
+  const viewingPerson = people.find((person) => person.id === viewingPersonId) ?? null;
+  const countFor = (value: PersonFilter) => people.filter((person) => matchesPersonFilter(person, value)).length;
+
+  function openCreate() {
+    setSuccessMessage("");
+    setIsCreateOpen(true);
+  }
 
   return (
     <>
-      <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-6 shadow-sm">
-        <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-[#111827]">
-              Moradores
-            </h1>
-            <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-              Cadastre pessoas, acompanhe vinculos e prepare convites de acesso.
-            </p>
-          </div>
+      <PageHeader overline={activeCondominium?.condominiumName} title="Moradores">
+        <Button variant="accent" disabled={!activeCondominiumId} onClick={openCreate}>
+          <Plus size={18} strokeWidth={2} aria-hidden />
+          Novo morador
+        </Button>
+      </PageHeader>
 
-          <div className="flex flex-col gap-3 md:items-end">
-            {condominiums.length > 1 && (
-              <select
-                value={activeCondominiumId ?? ""}
-                onChange={(event) => setActiveCondominiumId(Number(event.target.value))}
-                className="h-11 min-w-72 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-              >
-                {condominiums.map((condominium) => (
-                  <option
-                    key={condominium.condominiumId}
-                    value={condominium.condominiumId}
-                  >
-                    {condominium.condominiumName}
-                  </option>
-                ))}
-              </select>
-            )}
+      {condominiums.length > 1 && (
+        <SelectField
+          label="Condomínio"
+          className="mb-6 lg:hidden"
+          value={activeCondominiumId ?? ""}
+          onChange={(event) => setActiveCondominiumId(Number(event.target.value))}
+          options={condominiums.map((condominium) => ({ value: String(condominium.condominiumId), label: condominium.condominiumName }))}
+        />
+      )}
 
+      {pageErrorMessage && (
+        <p role="alert" className="mb-6 rounded-field bg-vermelho-suave px-4 py-3 text-sm font-medium text-vermelho">
+          {pageErrorMessage}
+        </p>
+      )}
+      {successMessage && (
+        <p role="status" className="mb-6 rounded-field bg-verde-suave px-4 py-3 text-sm font-medium text-verde-tinta">
+          {successMessage}
+        </p>
+      )}
+
+      <SummaryCard
+        items={[
+          { label: "Pessoas", value: isLoading ? "–" : String(people.length), detail: "cadastradas no condomínio" },
+          {
+            label: "Com unidade",
+            value: isLoading ? "–" : String(linkedPeople),
+            detail: `${totalUnitLinks} vínculo${totalUnitLinks === 1 ? "" : "s"} com unidades`,
+            tone: people.length > 0 && linkedPeople === people.length ? "good" : "neutral",
+          },
+          { label: "Sem unidade", value: isLoading ? "–" : String(people.length - linkedPeople), detail: "aguardando vínculo" },
+          {
+            label: "Com acesso ao app",
+            value: isLoading ? "–" : String(peopleWithAccess),
+            detail: pendingInvitations ? `${pendingInvitations} com convite pendente` : "nenhum convite pendente",
+          },
+        ]}
+      />
+
+      <div className="mb-4 mt-10 flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
+        <div role="tablist" aria-label="Filtro" className="flex gap-1 self-start overflow-x-auto rounded-field bg-campo p-1 [scrollbar-width:none] max-lg:max-w-full">
+          {PERSON_FILTERS.map((option) => (
             <button
+              key={option.value}
               type="button"
-              disabled={!activeCondominiumId}
-              onClick={() => setIsCreateOpen(true)}
-              className="h-11 cursor-pointer rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
+              role="tab"
+              aria-selected={filter === option.value}
+              onClick={() => setFilter(option.value)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-field px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                filter === option.value ? "bg-superficie text-tinta shadow-whisper" : "text-tinta-suave hover:text-tinta"
+              }`}
             >
-              + Novo Morador
+              {option.label}
+              <span className="text-xs font-medium tabular-nums text-tinta-suave">{isLoading ? "–" : countFor(option.value)}</span>
             </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {metrics.map((metric) => (
-            <MetricCard
-              key={metric.label}
-              label={metric.label}
-              value={metric.value}
-              helper={metric.helper}
-            />
           ))}
         </div>
+        <label className="relative lg:w-72">
+          <span className="sr-only">Buscar morador</span>
+          <Search size={17} strokeWidth={1.8} aria-hidden className="pointer-events-none absolute inset-y-0 left-3.5 my-auto text-tinta-suave" />
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Nome, CPF, telefone ou unidade"
+            className="w-full rounded-full bg-superficie py-2.5 pl-10 pr-4 text-sm text-tinta shadow-whisper outline-none placeholder:text-tinta-suave/80 focus:ring-2 focus:ring-verde focus-visible:outline-none"
+          />
+        </label>
+      </div>
 
-        <div className="mt-6 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-4">
-          <div className="mb-4 flex flex-col gap-3 md:flex-row">
-            <div className="relative flex-1">
-              <input
-                type="text"
-                placeholder="Buscar morador, CPF, telefone ou unidade..."
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 pr-11 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-              />
-
-              {searchTerm && (
+      <ul className="divide-y divide-linha overflow-hidden rounded-card bg-superficie shadow-whisper">
+        {visiblePeople.length === 0 ? (
+          <li className="flex flex-col items-center px-5 py-12 text-center">
+            {isLoading ? (
+              <span className="text-sm text-tinta-suave">Carregando…</span>
+            ) : people.length > 0 ? (
+              <span className="text-sm text-tinta-suave">Nenhum morador encontrado com esses filtros.</span>
+            ) : (
+              <>
+                <span className="grid size-12 place-items-center rounded-block bg-verde-suave text-verde-tinta">
+                  <Users size={22} strokeWidth={1.8} aria-hidden />
+                </span>
+                <span className="mt-4 font-display text-lg font-bold text-tinta">Nenhum morador cadastrado</span>
+                <span className="mt-1 max-w-sm text-sm text-tinta-suave">Cadastre a primeira pessoa antes de vincular unidades ou enviar convites.</span>
+                {activeCondominiumId && (
+                  <Button variant="quiet" size="sm" className="mt-5" onClick={openCreate}>
+                    Cadastrar o primeiro morador
+                  </Button>
+                )}
+              </>
+            )}
+          </li>
+        ) : (
+          visiblePeople.map((person) => {
+            const invitation = latestInvitationByPerson.get(person.id);
+            const invitationStatus = invitation ? invitationStatusOf(invitation) : null;
+            const roleLabel = accessRoleLabel(person);
+            const hasOpenInvitation = !person.hasRegisteredUser && invitationStatus && invitationStatus !== "Accepted";
+            const accessText = person.hasRegisteredUser
+              ? "Acesso ativo"
+              : hasOpenInvitation
+                ? `Convite ${invitationStatusLabel(invitationStatus).toLowerCase()}`
+                : "Sem acesso";
+            return (
+              <li key={person.id}>
                 <button
                   type="button"
-                  onClick={() => setSearchTerm("")}
-                  aria-label="Limpar busca"
-                  className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-base font-extrabold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
+                  onClick={() => {
+                    setSuccessMessage("");
+                    setViewingPersonId(person.id);
+                  }}
+                  className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-campo/60"
                 >
-                  ×
+                  <PersonAvatar name={person.name} isActive={person.hasRegisteredUser} />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                      <span className="truncate text-[15px] font-semibold text-tinta">{person.name}</span>
+                      {roleLabel === "Síndico" && <span className="shrink-0 rounded-chip bg-campo px-2 py-0.5 text-xs font-semibold text-tinta">Síndico</span>}
+                    </span>
+                    <span className="block truncate text-[13px] text-tinta-suave">
+                      CPF {formatCpf(person.cpf)} · {formatPhone(person.phoneNumber)}
+                    </span>
+                    <span className="block truncate text-xs text-tinta-suave md:hidden">
+                      <span className={`sm:hidden ${person.unitCount ? "" : "text-ambar"}`}>{person.mainUnit || "Sem unidade"} · </span>
+                      {accessText}
+                    </span>
+                  </span>
+                  <span className="hidden w-44 shrink-0 text-[13px] sm:block">
+                    <span className={`block truncate font-semibold ${person.unitCount ? "text-tinta" : "text-ambar"}`}>{person.mainUnit || "Sem unidade"}</span>
+                    <span className="block text-tinta-suave">
+                      {person.unitCount > 1 ? `+${person.unitCount - 1} vínculo${person.unitCount > 2 ? "s" : ""}` : person.unitCount === 1 ? "1 vínculo" : "vincular em Unidades"}
+                    </span>
+                  </span>
+                  <span className="hidden w-32 shrink-0 justify-end md:flex">
+                    {person.hasRegisteredUser ? (
+                      <span className="rounded-chip bg-verde-suave px-2 py-0.5 text-xs font-semibold text-verde-tinta">Acesso ativo</span>
+                    ) : hasOpenInvitation ? (
+                      <InvitationStatusChip status={invitationStatus} prefix="Convite" />
+                    ) : (
+                      <span className="rounded-chip bg-campo px-2 py-0.5 text-xs font-semibold text-tinta-suave">Sem acesso</span>
+                    )}
+                  </span>
+                  <ChevronRight size={18} strokeWidth={1.8} aria-hidden className="shrink-0 text-tinta-suave" />
                 </button>
-              )}
-            </div>
-          </div>
-
-          {isLoading && (
-            <p className="mb-4 text-sm font-semibold text-[#6B7280]">
-              Carregando moradores...
-            </p>
-          )}
-
-          {pageErrorMessage && (
-            <p className="mb-4 text-sm font-semibold text-[#B42318]">
-              {pageErrorMessage}
-            </p>
-          )}
-
-          {successMessage && (
-            <p className="mb-4 text-sm font-semibold text-[#16A34A]">
-              {successMessage}
-            </p>
-          )}
-
-          {!isLoading && filteredPeople.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[#D0D5DD] bg-white px-6 py-12 text-center">
-              <p className="text-lg font-extrabold text-[#111827]">
-                {searchTerm ? "Nenhum morador encontrado" : "Nenhum morador cadastrado"}
-              </p>
-              <p className="mt-2 text-sm font-semibold text-[#6B7280]">
-                {searchTerm
-                  ? "Tente outro termo para localizar a pessoa."
-                  : "Cadastre a primeira pessoa antes de vincular unidades ou enviar convites."}
-              </p>
-              {!searchTerm && activeCondominiumId && (
-                <button
-                  type="button"
-                  onClick={() => setIsCreateOpen(true)}
-                  className="mt-6 h-11 rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E]"
-                >
-                  + Novo Morador
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white">
-              <table className="w-full border-collapse text-left text-sm">
-                <thead className="bg-[#DCFCE7] text-xs uppercase tracking-wide text-[#0B3D2E]">
-                  <tr>
-                    <th className="px-4 py-3 font-extrabold">Pessoa</th>
-                    <th className="px-4 py-3 font-extrabold">Contato</th>
-                    <th className="px-4 py-3 font-extrabold">Unidade principal</th>
-                    <th className="px-4 py-3 font-extrabold">Status</th>
-                    <th className="px-4 py-3 font-extrabold">Ações</th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-[#E5E7EB]">
-                  {filteredPeople.map((person) => {
-                    const hasPreparedInvitation = blockedInvitationPersonIds.has(person.id);
-
-                    return (
-                    <tr key={person.id} className="transition hover:bg-[#F3F4F6]">
-                      <td className="px-4 py-4 font-extrabold text-[#111827]">
-                        <div>{person.name}</div>
-                        <div className="mt-1 text-xs font-semibold text-[#6B7280]">
-                          CPF {person.cpf}
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                        {person.phoneNumber}
-                      </td>
-                      <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                        {person.mainUnit || "Sem unidade vinculada"}
-                      </td>
-                      <td className="px-4 py-4">
-                        <StatusBadge
-                          label={person.unitCount > 0 ? "Vinculado" : "Sem unidade"}
-                          variant={person.unitCount > 0 ? "success" : "warning"}
-                        />
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setViewingPerson(person)}
-                            className="cursor-pointer rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
-                          >
-                            Ver
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditingPerson(person)}
-                            className="cursor-pointer rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
-                          >
-                            Editar
-                          </button>
-                          {!person.hasRegisteredUser && !hasPreparedInvitation && (
-                            <button
-                              type="button"
-                              onClick={() => setInvitingPerson(person)}
-                              className="cursor-pointer rounded-xl border border-[#E5E7EB] bg-white px-3 py-1.5 text-xs font-bold text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E]"
-                            >
-                              Preparar convite
-                            </button>
-                          )}
-                          {!person.hasRegisteredUser && hasPreparedInvitation && (
-                            <span className="rounded-xl bg-[#DCFCE7] px-3 py-1.5 text-xs font-bold text-[#047857]">
-                              Convite preparado
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </section>
+              </li>
+            );
+          })
+        )}
+      </ul>
 
       {isCreateOpen && activeCondominiumId && (
         <PersonFormModal
-          title="Novo Morador"
+          title="Novo morador"
           submitLabel="Cadastrar morador"
-          initialForm={emptyForm}
+          initialForm={emptyPersonForm}
           onClose={() => setIsCreateOpen(false)}
           onSubmit={async (form) => {
             await createPersonInCondominium(activeCondominiumId, form);
             await refreshPeople();
-            setSuccessMessage("Morador cadastrado com sucesso.");
+            setSuccessMessage(`${form.name} cadastrado.`);
           }}
         />
       )}
 
       {editingPerson && activeCondominiumId && (
         <PersonFormModal
-          title="Editar Morador"
-          submitLabel="Salvar alteracoes"
-          initialForm={{
-            name: editingPerson.name,
-            cpf: editingPerson.cpf,
-            phoneNumber: editingPerson.phoneNumber,
-          }}
+          title="Editar morador"
+          submitLabel="Salvar alterações"
+          initialForm={toPersonForm(editingPerson)}
           onClose={() => setEditingPerson(null)}
           onSubmit={async (form) => {
             await updatePersonInCondominium(activeCondominiumId, editingPerson.id, form);
             await refreshPeople();
-            setSuccessMessage("Morador atualizado com sucesso.");
+            setSuccessMessage("Morador atualizado.");
           }}
         />
       )}
@@ -361,7 +304,17 @@ export function PeoplePage() {
       {viewingPerson && (
         <PersonDetailsModal
           person={viewingPerson}
-          onClose={() => setViewingPerson(null)}
+          invitation={latestInvitationByPerson.get(viewingPerson.id) ?? null}
+          canInvite={canInvite(viewingPerson)}
+          onClose={() => setViewingPersonId(null)}
+          onEdit={() => {
+            setEditingPerson(viewingPerson);
+            setViewingPersonId(null);
+          }}
+          onInvite={() => {
+            setInvitingPerson(viewingPerson);
+            setViewingPersonId(null);
+          }}
         />
       )}
 
@@ -371,273 +324,12 @@ export function PeoplePage() {
           people={invitablePeople}
           initialPersonId={invitingPerson.id}
           onClose={() => setInvitingPerson(null)}
-          onCreated={async () => {
+          onCreated={async (invitation) => {
             await refreshPeople();
-            setSuccessMessage("Convite criado com sucesso.");
+            setSuccessMessage(`Convite enviado para ${invitation.email}.`);
           }}
         />
       )}
     </>
-  );
-}
-
-type PersonFormModalProps = {
-  title: string;
-  submitLabel: string;
-  initialForm: CreatePersonRequest;
-  onClose: () => void;
-  onSubmit: (form: CreatePersonRequest) => Promise<void>;
-};
-
-function PersonFormModal({
-  title,
-  submitLabel,
-  initialForm,
-  onClose,
-  onSubmit,
-}: PersonFormModalProps) {
-  const [form, setForm] = useState<CreatePersonRequest>(initialForm);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-
-  function updateField<K extends keyof CreatePersonRequest>(
-    field: K,
-    value: CreatePersonRequest[K],
-  ) {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
-  }
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setErrorMessage("");
-
-    const validationMessage = validatePersonForm(form);
-
-    if (validationMessage) {
-      setErrorMessage(validationMessage);
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      await onSubmit(form);
-      onClose();
-    } catch (error) {
-      if (error instanceof Error) {
-        setErrorMessage(getPersonErrorMessage(error.message));
-      } else {
-        setErrorMessage("Não foi possível salvar o morador.");
-      }
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  return (
-    <ModalShell title={title} onClose={onClose}>
-      <form className="space-y-6" onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <Field
-            label="Nome"
-            value={form.name}
-            onChange={(value) => updateField("name", value)}
-            placeholder="Ex.: Ana Martins"
-          />
-          <Field
-            label="CPF"
-            value={form.cpf}
-            onChange={(value) => updateField("cpf", onlyDigits(value, 11))}
-            placeholder="000.000.000-00"
-          />
-          <Field
-            label="Telefone"
-            value={form.phoneNumber}
-            onChange={(value) => updateField("phoneNumber", onlyDigits(value, 20))}
-            placeholder="(11) 99999-9999"
-          />
-        </div>
-
-        {errorMessage && (
-          <p className="rounded-2xl border border-[#FECDCA] bg-[#FEE4E2] px-4 py-3 text-sm font-extrabold text-[#B42318]">
-            {errorMessage}
-          </p>
-        )}
-
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="h-12 w-full cursor-pointer rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          {isSubmitting ? "Salvando..." : submitLabel}
-        </button>
-      </form>
-    </ModalShell>
-  );
-}
-
-function PersonDetailsModal({
-  person,
-  onClose,
-}: {
-  person: PersonResponse;
-  onClose: () => void;
-}) {
-  return (
-    <ModalShell title="Detalhes do Morador" onClose={onClose}>
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          <ReadOnlyField label="Nome" value={person.name} />
-          <ReadOnlyField label="CPF" value={person.cpf} />
-          <ReadOnlyField label="Telefone" value={person.phoneNumber} />
-          <ReadOnlyField
-            label="Condominio"
-            value={person.condominiumName || "Nao informado"}
-          />
-          <ReadOnlyField
-            label="Unidade principal"
-            value={person.mainUnit || "Sem unidade vinculada"}
-          />
-          <ReadOnlyField
-            label="Total de vinculos"
-            value={person.unitCount.toString()}
-          />
-        </div>
-
-        <section className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-5">
-          <h3 className="text-sm font-extrabold uppercase tracking-wide text-[#0B3D2E]">
-            Proximo passo
-          </h3>
-          <p className="mt-2 text-sm font-semibold text-[#6B7280]">
-            Convites de acesso serao conectados no proximo modulo, usando esta pessoa como base.
-          </p>
-        </section>
-      </div>
-    </ModalShell>
-  );
-}
-
-function ModalShell({
-  title,
-  children,
-  onClose,
-}: {
-  title: string;
-  children: ReactNode;
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B3D2E]/30 px-6 py-8 backdrop-blur-sm">
-      <div className="w-full max-w-3xl overflow-hidden rounded-[2rem] bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-[#E5E7EB] px-6 py-5">
-          <h2 className="text-xl font-extrabold text-[#111827]">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="cursor-pointer rounded-full bg-[#F3F4F6] px-3 py-1 text-sm font-extrabold text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
-          >
-            Fechar
-          </button>
-        </div>
-
-        <div className="max-h-[75vh] overflow-y-auto px-6 py-6">
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-type FieldProps = {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-};
-
-function Field({ label, value, onChange, placeholder }: FieldProps) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-sm font-extrabold text-[#111827]">
-        {label}
-      </span>
-      <input
-        type="text"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-      />
-    </label>
-  );
-}
-
-function ReadOnlyField({ label, value }: { label: string; value: string }) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-sm font-extrabold text-[#111827]">
-        {label}
-      </span>
-      <input
-        type="text"
-        value={value}
-        readOnly
-        className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 text-sm font-bold text-[#111827] outline-none"
-      />
-    </label>
-  );
-}
-
-function onlyDigits(value: string, maxLength: number) {
-  return value.replace(/\D/g, "").slice(0, maxLength);
-}
-
-function validatePersonForm(form: CreatePersonRequest) {
-  if (form.name.trim().length < 2) {
-    return "Informe o nome completo do morador.";
-  }
-
-  if (form.cpf.length !== 11) {
-    return "Informe um CPF válido com 11 números.";
-  }
-
-  if (form.phoneNumber.length < 10) {
-    return "Informe um telefone válido com DDD.";
-  }
-
-  return "";
-}
-
-function getPersonErrorMessage(message: string) {
-  if (message.includes("CPF already registered")) {
-    return "Este CPF já está cadastrado no sistema.";
-  }
-
-  if (message.includes("CPF must contain exactly 11 digits")) {
-    return "Informe um CPF válido com 11 números.";
-  }
-
-  if (message.includes("Phone number must contain between 10 and 20 digits")) {
-    return "Informe um telefone válido com DDD.";
-  }
-
-  if (message.includes("Erro ao comunicar com a API. Status 400")) {
-    return "Revise os dados informados antes de cadastrar o morador.";
-  }
-
-  return message;
-}
-
-function isPreparedInvitation(invitation: InvitationResponse) {
-  const status = invitation.statusName || invitation.invitationStatus.toString();
-
-  return (
-    status === "Pending" ||
-    status === "Accepted" ||
-    invitation.invitationStatus === 1 ||
-    invitation.invitationStatus === 2
   );
 }

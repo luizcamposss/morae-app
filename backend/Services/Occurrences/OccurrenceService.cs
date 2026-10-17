@@ -112,7 +112,7 @@ public class OccurrenceService : IOccurrenceService
         await EnsureCanManageOccurrenceAsync(userId, occurrence);
 
         if (dto.Status == OccurrenceStatus.Undefined)
-            throw new BadRequestException("Invalid occurrence status.");
+            throw new BadRequestException("Status de ocorrência inválido.");
 
         occurrence.Status = dto.Status;
         occurrence.UpdatedAt = DateTime.UtcNow;
@@ -131,10 +131,10 @@ public class OccurrenceService : IOccurrenceService
     private async Task ValidateCreateAsync(int userId, CreateOccurrenceDto dto)
     {
         if (dto.Priority == OccurrencePriority.Undefined)
-            throw new BadRequestException("Invalid occurrence priority.");
+            throw new BadRequestException("Prioridade de ocorrência inválida.");
 
         if (dto.Type == OccurrenceType.Undefined)
-            throw new BadRequestException("Invalid occurrence type.");
+            throw new BadRequestException("Tipo de ocorrência inválido.");
 
         var unit = await _context.Units
             .AsNoTracking()
@@ -142,18 +142,18 @@ public class OccurrenceService : IOccurrenceService
             .FirstOrDefaultAsync(u => u.Id == dto.UnitId);
 
         if (unit is null)
-            throw new NotFoundException("Unit not found.");
+            throw new NotFoundException("Unidade não encontrada.");
 
         if (unit.Building.CondominiumId != dto.CondominiumId)
-            throw new BadRequestException("Unit does not belong to this condominium.");
+            throw new BadRequestException("Esta unidade não pertence a este condomínio.");
 
         var user = await _userManager.FindByIdAsync(userId.ToString());
 
         if (user is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
-            throw new ForbiddenException("Master cannot create occurrences.");
+            throw new ForbiddenException("O Master não abre ocorrências.");
 
         if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
         {
@@ -180,7 +180,7 @@ public class OccurrenceService : IOccurrenceService
                 pu.UnitId == dto.UnitId);
 
         if (!userBelongsToUnit)
-            throw new ForbiddenException("User cannot create occurrence for this unit.");
+            throw new ForbiddenException("Você não pode abrir ocorrência para esta unidade.");
     }
 
     private async Task EnsureCanReadAsync(int userId, Occurrence occurrence)
@@ -188,7 +188,7 @@ public class OccurrenceService : IOccurrenceService
         var user = await _userManager.FindByIdAsync(userId.ToString());
 
         if (user is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         if (occurrence.CreatedByUserId == userId)
             return;
@@ -210,7 +210,7 @@ public class OccurrenceService : IOccurrenceService
             return;
         }
 
-        throw new ForbiddenException("User cannot access this occurrence.");
+        throw new ForbiddenException("Você não tem acesso a esta ocorrência.");
     }
 
     private async Task EnsureCanManageCondominiumOccurrencesAsync(int userId, int condominiumId)
@@ -218,7 +218,7 @@ public class OccurrenceService : IOccurrenceService
         var user = await _userManager.FindByIdAsync(userId.ToString());
 
         if (user is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
         {
@@ -236,7 +236,7 @@ public class OccurrenceService : IOccurrenceService
             return;
         }
 
-        throw new ForbiddenException("User cannot manage occurrences.");
+        throw new ForbiddenException("Você não tem permissão para gerenciar ocorrências.");
     }
 
     private async Task EnsureCanManageOccurrenceAsync(int userId, Occurrence occurrence)
@@ -244,7 +244,7 @@ public class OccurrenceService : IOccurrenceService
         var user = await _userManager.FindByIdAsync(userId.ToString());
 
         if (user is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
         {
@@ -263,6 +263,6 @@ public class OccurrenceService : IOccurrenceService
             return;
         }
 
-        throw new ForbiddenException("User cannot manage occurrences.");
+        throw new ForbiddenException("Você não tem permissão para gerenciar ocorrências.");
     }
 }

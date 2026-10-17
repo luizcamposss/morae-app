@@ -93,7 +93,7 @@ public class BuildingService : IBuildingService
 
         if (!condominiumExists)
         {
-            throw new NotFoundException("Condominium not found");
+            throw new NotFoundException("Condomínio não encontrado.");
         }
 
         await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
@@ -102,7 +102,7 @@ public class BuildingService : IBuildingService
 
         if (codeExists)
         {
-            throw new ConflictException("Building code already exists in this condominium");
+            throw new ConflictException("Já existe um prédio com este código neste condomínio.");
         }
 
         var building = _mapper.Map<Building>(dto);
@@ -181,7 +181,7 @@ public class BuildingService : IBuildingService
                 b.Id != buildingId);
 
         if (codeExists)
-            throw new ConflictException("Building code already exists in this condominium.");
+            throw new ConflictException("Já existe um prédio com este código neste condomínio.");
 
         _mapper.Map(dto, building);
 
@@ -213,7 +213,7 @@ public class BuildingService : IBuildingService
             .FirstOrDefaultAsync(u => u.Id == userId);
 
         if (user is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         return await _context.PersonUnits
             .AsNoTracking()

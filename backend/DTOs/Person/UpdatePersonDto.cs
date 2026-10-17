@@ -13,10 +13,10 @@ public class UpdatePersonDto
     public string Name { get; set; } = string.Empty;
 
     [Required]
-    [RegularExpression(@"^\d{11}$", ErrorMessage = "CPF must contain exactly 11 digits.")]
+    [RegularExpression(@"^\d{11}$", ErrorMessage = "Informe um CPF válido com 11 números.")]
     public string CPF { get; set; } = string.Empty;
 
     [Required]
-    [RegularExpression(@"^\d{10,20}$", ErrorMessage = "Phone number must contain between 10 and 20 digits.")]
+    [RegularExpression(@"^\d{10,20}$", ErrorMessage = "Informe um telefone válido com DDD.")]
     public string PhoneNumber { get; set; } = string.Empty;
 }
