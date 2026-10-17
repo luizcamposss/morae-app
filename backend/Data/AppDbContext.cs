@@ -36,6 +36,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<UserCondominium> UserCondominiums { get; set; }
     public DbSet<UserCondominiumPermission> UserCondominiumPermissions { get; set; }
     public DbSet<Occurrence> Occurrences { get; set; }
+    public DbSet<OccurrencePhoto> OccurrencePhotos { get; set; }
     public DbSet<RefreshToken> RefreshTokens { get; set; }
     public DbSet<UserCondominiumBuilding> UserCondominiumBuildings { get; set; }
     public DbSet<Document> Documents { get; set; }
@@ -270,6 +271,18 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .WithMany()
             .HasForeignKey(o => o.CreatedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Occurrence>()
+            .HasOne(o => o.RespondedByUser)
+            .WithMany()
+            .HasForeignKey(o => o.RespondedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<OccurrencePhoto>()
+            .HasOne(photo => photo.Occurrence)
+            .WithMany(occurrence => occurrence.Photos)
+            .HasForeignKey(photo => photo.OccurrenceId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.Entity<MercadoPagoAccount>()
             .HasIndex(account => account.UserId);

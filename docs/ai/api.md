@@ -12,7 +12,7 @@ Para os detalhes de cada rota (corpo, validações, quem pode chamar), leia o co
 - **Horários** (`TimeOnly`, visitas): `"HH:mm"` (aceita `"HH:mm:ss"` na entrada).
 - **Erros:** `{ "statusCode": 400, "message": "texto em português para mostrar ao usuário" }`. Erro inesperado: `"Ocorreu um erro inesperado. Tente novamente. Código: XXXXXXXX"`. Rate limit: 429.
 - **Sessão:** o access token dura 15 min. Em 401, `apiClient.ts` chama `POST /api/auth/refresh` (cookie HttpOnly em `/api/auth`, `credentials: "include"`) e repete. Se falhar → `/login?expired=1`.
-- **Uploads** (`multipart/form-data`): documentos (`file`, `title`, `description`, `category`, `visibility`) e execução de manutenção (`performedOn`, `providerName`, `notes`, `file` opcional). Limite de 20 MB; tipos PDF, JPG, PNG, DOCX, XLSX.
+- **Uploads** (`multipart/form-data`): documentos (`file`, `title`, `description`, `category`, `visibility`) e execução de manutenção (`performedOn`, `providerName`, `notes`, `file` opcional). Limite de 20 MB; tipos PDF, JPG, PNG, DOCX, XLSX. Ocorrência: até 5 `photos` (JPG ou PNG, 10 MB cada).
 - **Downloads** (documento, anexo de manutenção, comprovante): exigem o token, então baixe com `fetch` + `Authorization` e gere um blob/URL temporária (link direto não funciona).
 - **Recursos escondidos** aparecem como **404** (não 403) quando o usuário não pode nem saber que existem (documento "só gestão", rascunho de assembleia, visita/manutenção de outro prédio).
 
@@ -207,8 +207,14 @@ GET    /api/condominiums/{condominiumId}/occurrences
 GET    /api/my/occurrences
 POST   /api/occurrences
 GET    /api/occurrences/{id}
+PUT    /api/occurrences/{id}/response
 PUT    /api/occurrences/{id}/status
+GET    /api/occurrence-photos/{id}
 ```
+- `POST /api/occurrences` aceita JSON (sem fotos) ou `multipart/form-data` com os mesmos campos + até 5 arquivos `photos` (só JPG ou PNG, conferidos pelo conteúdo; até 10 MB cada).
+- `PUT /api/occurrences/{id}/response` (Admin ou síndico com `occurrences.manage`): `{ "message": "..." }` (até 2000 caracteres). Grava `managementResponse`, `respondedAt` e `respondedByName` e avisa no sininho quem abriu (tipo `Occurrence`).
+- `GET /api/occurrence-photos/{id}` devolve o arquivo da foto (com o token; use `apiDownload`). Quem pode ver a ocorrência pode ver a foto.
+- A resposta das ocorrências traz também `buildingId`, `buildingName`, `unitNumber`, `createdByName` e `photos` (`id`, `fileName`, `contentType`, `sizeBytes`).
 
 ### Documentos (H)
 ```
