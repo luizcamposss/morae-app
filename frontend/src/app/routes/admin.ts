@@ -1,4 +1,4 @@
-import { Building, Building2, FileText, House, Mail, Receipt, SlidersHorizontal, Users, Wrench } from "lucide-react";
+import { Building, Building2, DoorOpen, FileText, House, Mail, Receipt, SlidersHorizontal, Users, Wrench } from "lucide-react";
 import { AdminDashboardPage } from "../../features/adminDashboard/AdminDashboardPage";
 import { BuildingsPage } from "../../features/buildings/BuildingsPage";
 import { UnitsPage } from "../../features/units/UnitsPage";
@@ -7,6 +7,7 @@ import { InvitationsPage } from "../../features/invitations/InvitationsPage";
 import { AdminPaymentsPage } from "../../features/adminPayments/AdminPaymentsPage";
 import { PreventiveMaintenancePage } from "../../features/maintenance/PreventiveMaintenancePage";
 import { AdminSettingsPage } from "../../features/adminSettings/AdminSettingsPage";
+import { AdminVisitsPage } from "../../features/adminVisits/AdminVisitsPage";
 import { DocumentsPage } from "../../features/documents/DocumentsPage";
 import type { RoleArea } from "./types";
 
@@ -21,6 +22,7 @@ export const adminArea: RoleArea = {
     { path: "documents", component: DocumentsPage, nav: { label: "Documentos", icon: FileText } },
     { path: "payments", component: AdminPaymentsPage, nav: { label: "Pagamentos", icon: Receipt } },
     { path: "preventive-maintenance", component: PreventiveMaintenancePage, nav: { label: "Manutenção", icon: Wrench } },
+    { path: "visitors", component: AdminVisitsPage, nav: { label: "Visitantes", icon: DoorOpen } },
     { path: "settings", component: AdminSettingsPage, nav: { label: "Ajustes", icon: SlidersHorizontal, placement: "footer" } },
   ],
 };
