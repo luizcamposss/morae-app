@@ -9,12 +9,14 @@ using backend.Services.Visits;
 using backend.Services.Assemblies;
 using backend.Services.Storage;
 using backend.Services.Jobs;
+using backend.Services.Validation;
 using backend.Settings;
 using System.Net;
 using System.Threading.RateLimiting;
 using backend.Constants;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -49,7 +51,28 @@ DotEnv.Load();
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers()
-    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new TimeOnlyJsonConverter()));
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new TimeOnlyJsonConverter()))
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        // Same ValidationProblemDetails shape the frontend reads, with the messages in Portuguese.
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = context.ModelState
+                .Where(entry => entry.Value?.Errors.Count > 0)
+                .ToDictionary(
+                    entry => entry.Key,
+                    entry => entry.Value!.Errors
+                        .Select(error => ValidationMessageTranslator.Translate(entry.Key, error.ErrorMessage))
+                        .Distinct()
+                        .ToArray());
+
+            return new BadRequestObjectResult(new ValidationProblemDetails(errors)
+            {
+                Title = "Revise os dados informados.",
+                Status = StatusCodes.Status400BadRequest,
+            });
+        };
+    });
 
 builder.Services.AddHttpClient();
 

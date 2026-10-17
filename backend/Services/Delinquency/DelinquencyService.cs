@@ -81,13 +81,13 @@ public class DelinquencyService : IDelinquencyService
         var user = await _userManager.FindByIdAsync(userId.ToString());
 
         if (user is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         // Role in this condominium; HasCondominiumPermission lets Admins through.
         var role = await _permissionService.GetCondominiumRoleAsync(userId, condominiumId);
 
         if (role != AppRoles.Admin && role != AppRoles.Syndic)
-            throw new ForbiddenException("User cannot view condominium delinquency.");
+            throw new ForbiddenException("Você não tem acesso à inadimplência deste condomínio.");
 
         await _permissionService.EnsureCondominiumPermissionAsync(
             userId,

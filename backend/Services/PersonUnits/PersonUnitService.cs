@@ -31,14 +31,14 @@ public class PersonUnitService : IPersonUnitService
             .FirstOrDefaultAsync(existingUnit => existingUnit.Id == unitId);
 
         if (unit is null)
-            throw new NotFoundException("Unit not found.");
+            throw new NotFoundException("Unidade não encontrada.");
 
         await _permissionService.EnsureUnitAccessAsync(userId, unitId);
 
         var personExists = await _context.Persons.AnyAsync(p => p.Id == dto.PersonId);
 
         if (!personExists)
-            throw new NotFoundException("Person not found.");
+            throw new NotFoundException("Pessoa não encontrada.");
 
         var personBelongsToCondominium = await _context.PersonCondominiums
             .AsNoTracking()
@@ -47,7 +47,7 @@ public class PersonUnitService : IPersonUnitService
                 personCondominium.CondominiumId == unit.Building.CondominiumId);
 
         if (!personBelongsToCondominium)
-            throw new ForbiddenException("This person does not belong to this condominium.");
+            throw new ForbiddenException("Esta pessoa não pertence a este condomínio.");
 
         var personHasLinksInAnotherCondominium = await _context.PersonUnits
             .AsNoTracking()
@@ -56,7 +56,7 @@ public class PersonUnitService : IPersonUnitService
                 personUnit.Unit.Building.CondominiumId != unit.Building.CondominiumId);
 
         if (personHasLinksInAnotherCondominium)
-            throw new ConflictException("This person is already linked to a unit in another condominium.");
+            throw new ConflictException("Esta pessoa já está vinculada a uma unidade de outro condomínio.");
 
         var relationshipExists = await _context.PersonUnits.AnyAsync(pu =>
             pu.UnitId == unitId &&
@@ -64,7 +64,7 @@ public class PersonUnitService : IPersonUnitService
             pu.RelationshipType == dto.RelationshipType);
 
         if (relationshipExists)
-            throw new ConflictException("This person already has this relationship with this unit.");
+            throw new ConflictException("Esta pessoa já tem esse vínculo com esta unidade.");
 
         var personUnit = _mapper.Map<PersonUnit>(dto);
 
@@ -91,7 +91,7 @@ public class PersonUnitService : IPersonUnitService
             .FirstOrDefaultAsync();
 
         if (condominiumId is null)
-            throw new NotFoundException("Unit not found.");
+            throw new NotFoundException("Unidade não encontrada.");
 
         // Residents always see who lives in their own unit; a syndic looking at other units
         // needs the "residents.view" permission.

@@ -126,18 +126,18 @@ public class PersonService : IPersonService
         var user = await _userManager.FindByIdAsync(userId.ToString());
 
         if (user is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         var isMaster = await _userManager.IsInRoleAsync(user, AppRoles.Master);
         var isAdmin = await _userManager.IsInRoleAsync(user, AppRoles.Admin);
 
         if (!isMaster && !isAdmin)
-            throw new ForbiddenException("User cannot create persons.");
+            throw new ForbiddenException("Você não tem permissão para cadastrar pessoas.");
 
         if (isAdmin)
         {
             if (condominiumId is null)
-                throw new BadRequestException("Condominium is required to create a person.");
+                throw new BadRequestException("Selecione o condomínio para cadastrar a pessoa.");
 
             await _permissionService.EnsureCondominiumAdminAsync(userId, condominiumId.Value);
         }
@@ -148,14 +148,14 @@ public class PersonService : IPersonService
                 .AnyAsync(c => c.Id == condominiumId.Value);
 
             if (!condominiumExists)
-                throw new NotFoundException("Condominium not found.");
+                throw new NotFoundException("Condomínio não encontrado.");
         }
 
         var cpfExists = await _context.Persons
             .AnyAsync(p => p.CPF == dto.CPF);
 
         if (cpfExists)
-            throw new ConflictException("CPF already registered.");
+            throw new ConflictException("Este CPF já está cadastrado no sistema.");
 
         var person = _mapper.Map<Person>(dto);
 
@@ -194,7 +194,7 @@ public class PersonService : IPersonService
         List<Person> persons;
 
         if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
-            throw new ForbiddenException("Master cannot access condominium residents.");
+            throw new ForbiddenException("O Master não tem acesso aos moradores do condomínio.");
 
         if (await _userManager.IsInRoleAsync(user, AppRoles.Admin) ||
             await _userManager.IsInRoleAsync(user, AppRoles.Syndic))
@@ -308,7 +308,7 @@ public class PersonService : IPersonService
             .AnyAsync(p => p.CPF == dto.CPF && p.Id != personId);
 
         if (cpfExists)
-            throw new ConflictException("CPF already registered.");
+            throw new ConflictException("Este CPF já está cadastrado no sistema.");
 
         _mapper.Map(dto, person);
         person.UpdatedAt = DateTime.UtcNow;
@@ -332,13 +332,13 @@ public class PersonService : IPersonService
             return false;
 
         if (person.CreatedByUserId != userId)
-            throw new ForbiddenException("Master can only update people created by themselves.");
+            throw new ForbiddenException("Você só pode editar pessoas cadastradas por você.");
 
         var cpfExists = await _context.Persons
             .AnyAsync(p => p.CPF == dto.CPF && p.Id != id);
 
         if (cpfExists)
-            throw new ConflictException("CPF already registered.");
+            throw new ConflictException("Este CPF já está cadastrado no sistema.");
 
         _mapper.Map(dto, person);
 
@@ -362,7 +362,7 @@ public class PersonService : IPersonService
             return false;
 
         if (person.CreatedByUserId != userId)
-            throw new ForbiddenException("Master can only delete people created by themselves.");
+            throw new ForbiddenException("Você só pode excluir pessoas cadastradas por você.");
 
         _context.Persons.Remove(person);
 
