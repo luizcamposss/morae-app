@@ -1,4 +1,6 @@
-import { Building, Building2, DoorOpen, FileText, House, Mail, Megaphone, Receipt, SlidersHorizontal, Users, Wrench } from "lucide-react";
+import { Building, Building2, DoorOpen, FileText, House, Mail, Megaphone, Receipt, SlidersHorizontal, Users, Vote, Wrench } from "lucide-react";
+import { AdminAssembliesPage } from "../../features/adminAssemblies/AdminAssembliesPage";
+import { AdminAssemblyDetailPage } from "../../features/adminAssemblies/AdminAssemblyDetailPage";
 import { AdminDashboardPage } from "../../features/adminDashboard/AdminDashboardPage";
 import { AdminNewsPage } from "../../features/adminNews/AdminNewsPage";
 import { BuildingsPage } from "../../features/buildings/BuildingsPage";
@@ -23,6 +25,8 @@ export const adminArea: RoleArea = {
     { path: "documents", component: DocumentsPage, nav: { label: "Documentos", icon: FileText } },
     { path: "payments", component: AdminPaymentsPage, nav: { label: "Pagamentos", icon: Receipt } },
     { path: "news", component: AdminNewsPage, nav: { label: "Avisos", icon: Megaphone } },
+    { path: "assemblies", component: AdminAssembliesPage, nav: { label: "Assembleias", icon: Vote } },
+    { path: "assemblies/:id", component: AdminAssemblyDetailPage },
     { path: "preventive-maintenance", component: PreventiveMaintenancePage, nav: { label: "Manutenção", icon: Wrench } },
     { path: "visitors", component: AdminVisitsPage, nav: { label: "Visitantes", icon: DoorOpen } },
     { path: "settings", component: AdminSettingsPage, nav: { label: "Ajustes", icon: SlidersHorizontal, placement: "footer" } },
