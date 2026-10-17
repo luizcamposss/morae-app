@@ -1,5 +1,6 @@
-import { Building, Building2, DoorOpen, FileText, House, Mail, Megaphone, Receipt, SlidersHorizontal, Users, Wrench } from "lucide-react";
+import { Briefcase, Building, Building2, DoorOpen, FileText, House, Mail, Megaphone, Receipt, SlidersHorizontal, Users, Wrench } from "lucide-react";
 import { AdminDashboardPage } from "../../features/adminDashboard/AdminDashboardPage";
+import { AdminPortfolioPage } from "../../features/adminPortfolio/AdminPortfolioPage";
 import { AdminNewsPage } from "../../features/adminNews/AdminNewsPage";
 import { BuildingsPage } from "../../features/buildings/BuildingsPage";
 import { UnitsPage } from "../../features/units/UnitsPage";
@@ -16,6 +17,7 @@ export const adminArea: RoleArea = {
   basePath: "/admin",
   routes: [
     { path: "dashboard", component: AdminDashboardPage, nav: { label: "Início", icon: House } },
+    { path: "portfolio", component: AdminPortfolioPage, nav: { label: "Carteira", icon: Briefcase } },
     { path: "buildings", component: BuildingsPage, nav: { label: "Prédios", icon: Building2 } },
     { path: "units", component: UnitsPage, nav: { label: "Unidades", icon: Building } },
     { path: "people", component: PeoplePage, nav: { label: "Moradores", icon: Users } },
