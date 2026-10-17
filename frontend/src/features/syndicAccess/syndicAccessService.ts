@@ -11,18 +11,12 @@ type PermissionResponse = {
   permissions: string[];
 };
 
-const permissionGroups: Record<SyndicAccessKey, string[]> = {
+// Which permissions open each area of the syndic menu (any one of them is enough).
+const areaPermissions: Record<SyndicAccessKey, string[]> = {
   residents: ["residents.view"],
   finance: ["charges.create", "charges.mark_as_paid", "delinquency.view"],
   communication: ["news.create", "news.edit"],
   maintenance: ["occurrences.manage"],
-};
-
-export const defaultSyndicAccess: SyndicAccessSettings = {
-  residents: true,
-  finance: true,
-  communication: true,
-  maintenance: true,
 };
 
 export const noSyndicAccess: SyndicAccessSettings = {
@@ -32,32 +26,60 @@ export const noSyndicAccess: SyndicAccessSettings = {
   maintenance: false,
 };
 
-export const syndicAccessOptions: Array<{
-  key: SyndicAccessKey;
-  label: string;
-  description: string;
+// The 11 syndic permissions the Admin can turn on/off, grouped by area for the settings screen.
+export const syndicPermissionGroups: Array<{
+  title: string;
+  permissions: Array<{ key: string; label: string; description: string }>;
 }> = [
   {
-    key: "residents",
-    label: "Moradores e unidades",
-    description: "Permite consultar moradores, vínculos e unidades do condomínio.",
+    title: "Moradores",
+    permissions: [
+      { key: "residents.view", label: "Ver moradores", description: "Consulta moradores, vínculos e unidades." },
+    ],
   },
   {
-    key: "finance",
-    label: "Financeiro",
-    description: "Permite acompanhar cobranças, recebimentos e pendências financeiras.",
+    title: "Financeiro",
+    permissions: [
+      { key: "charges.create", label: "Criar cobranças", description: "Lança taxas e cobranças para as unidades." },
+      { key: "charges.mark_as_paid", label: "Dar baixa em pagamentos", description: "Marca cobranças como pagas." },
+      { key: "delinquency.view", label: "Ver inadimplência", description: "Acompanha quem está com pagamento atrasado." },
+    ],
   },
   {
-    key: "communication",
-    label: "Comunicados",
-    description: "Permite acessar avisos e comunicações oficiais do condomínio.",
+    title: "Comunicados",
+    permissions: [
+      { key: "news.create", label: "Publicar comunicados", description: "Escreve avisos para os moradores." },
+      { key: "news.edit", label: "Editar comunicados", description: "Altera e remove avisos já publicados." },
+    ],
   },
   {
-    key: "maintenance",
-    label: "Manutenção",
-    description: "Permite acompanhar solicitações, ocorrências e rotinas operacionais.",
+    title: "Operação",
+    permissions: [
+      { key: "occurrences.manage", label: "Cuidar das ocorrências", description: "Acompanha e responde às ocorrências." },
+      { key: "maintenance.manage", label: "Manutenção preventiva", description: "Cadastra e registra as manutenções do prédio." },
+      { key: "visitors.manage", label: "Visitantes", description: "Libera e acompanha a entrada de visitantes." },
+    ],
+  },
+  {
+    title: "Gestão",
+    permissions: [
+      { key: "documents.manage", label: "Documentos", description: "Envia e organiza atas, regimentos e contratos." },
+      { key: "assemblies.manage", label: "Assembleias e votações", description: "Cria pautas, abre e encerra votações." },
+    ],
   },
 ];
+
+export const syndicPermissionCount = syndicPermissionGroups.reduce((total, group) => total + group.permissions.length, 0);
+
+export type SyndicBuildings = {
+  allBuildings: boolean;
+  buildingIds: number[];
+};
+
+type SyndicBuildingsResponse = {
+  allBuildings: boolean;
+  buildings: Array<{ id: number; name: string }>;
+};
 
 export async function getMySyndicAccess(condominiumId: number): Promise<SyndicAccessSettings> {
   const result = await apiRequest<PermissionResponse>(
@@ -68,52 +90,63 @@ export async function getMySyndicAccess(condominiumId: number): Promise<SyndicAc
   return mapPermissionsToAccess(result.permissions);
 }
 
-export async function getSyndicAccess(
-  condominiumId: number,
-  userId: number,
-): Promise<SyndicAccessSettings> {
+export async function getSyndicPermissions(condominiumId: number, userId: number): Promise<string[]> {
   const result = await apiRequest<PermissionResponse>(
     `/api/condominiums/${condominiumId}/syndics/${userId}/permissions`,
     { auth: true },
   );
 
-  return mapPermissionsToAccess(result.permissions);
+  return result.permissions;
 }
 
-export async function updateSyndicAccess(
+export async function updateSyndicPermissions(
   condominiumId: number,
   userId: number,
-  access: SyndicAccessSettings,
-): Promise<SyndicAccessSettings> {
+  permissions: string[],
+): Promise<string[]> {
   const result = await apiRequest<PermissionResponse>(
     `/api/condominiums/${condominiumId}/syndics/${userId}/permissions`,
-    {
-      method: "PUT",
-      auth: true,
-      body: {
-        permissions: mapAccessToPermissions(access),
-      },
-    },
+    { method: "PUT", auth: true, body: { permissions } },
   );
 
-  return mapPermissionsToAccess(result.permissions);
+  return result.permissions;
+}
+
+export async function getSyndicBuildings(condominiumId: number, userId: number): Promise<SyndicBuildings> {
+  const result = await apiRequest<SyndicBuildingsResponse>(
+    `/api/condominiums/${condominiumId}/syndics/${userId}/buildings`,
+    { auth: true },
+  );
+
+  return toSyndicBuildings(result);
+}
+
+export async function updateSyndicBuildings(
+  condominiumId: number,
+  userId: number,
+  buildings: SyndicBuildings,
+): Promise<SyndicBuildings> {
+  const result = await apiRequest<SyndicBuildingsResponse>(
+    `/api/condominiums/${condominiumId}/syndics/${userId}/buildings`,
+    { method: "PUT", auth: true, body: buildings },
+  );
+
+  return toSyndicBuildings(result);
+}
+
+function toSyndicBuildings(result: SyndicBuildingsResponse): SyndicBuildings {
+  return { allBuildings: result.allBuildings, buildingIds: result.buildings.map((building) => building.id) };
 }
 
 function mapPermissionsToAccess(permissions: string[]): SyndicAccessSettings {
   const permissionSet = new Set(permissions);
 
   return {
-    residents: permissionGroups.residents.some((permission) => permissionSet.has(permission)),
-    finance: permissionGroups.finance.some((permission) => permissionSet.has(permission)),
-    communication: permissionGroups.communication.some((permission) =>
+    residents: areaPermissions.residents.some((permission) => permissionSet.has(permission)),
+    finance: areaPermissions.finance.some((permission) => permissionSet.has(permission)),
+    communication: areaPermissions.communication.some((permission) =>
       permissionSet.has(permission),
     ),
-    maintenance: permissionGroups.maintenance.some((permission) => permissionSet.has(permission)),
+    maintenance: areaPermissions.maintenance.some((permission) => permissionSet.has(permission)),
   };
-}
-
-function mapAccessToPermissions(access: SyndicAccessSettings) {
-  return Object.entries(access).flatMap(([key, enabled]) =>
-    enabled ? permissionGroups[key as SyndicAccessKey] : [],
-  );
 }
