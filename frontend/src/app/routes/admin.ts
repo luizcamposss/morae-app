@@ -6,6 +6,7 @@ import { UnitsPage } from "../../features/units/UnitsPage";
 import { PeoplePage } from "../../features/persons/PeoplePage";
 import { InvitationsPage } from "../../features/invitations/InvitationsPage";
 import { AdminPaymentsPage } from "../../features/adminPayments/AdminPaymentsPage";
+import { PreventiveMaintenancePage } from "../../features/maintenance/PreventiveMaintenancePage";
 import { AdminSettingsPage } from "../../features/adminSettings/AdminSettingsPage";
 import { AdminVisitsPage } from "../../features/adminVisits/AdminVisitsPage";
 import { DocumentsPage } from "../../features/documents/DocumentsPage";
