@@ -77,8 +77,9 @@ export function Sidebar() {
         aria-label="Menu principal"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-linha bg-superficie/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-sm lg:hidden"
       >
+        {/* Footer items (Ajustes) live in the avatar's profile menu on mobile. */}
         <div className="flex gap-1 overflow-x-auto [scrollbar-width:none]">
-          {menuItems.map((item) => (
+          {mainItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
