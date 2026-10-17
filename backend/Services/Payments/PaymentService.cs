@@ -51,21 +51,21 @@ public class PaymentService : IPaymentService
             .FirstOrDefaultAsync(c => c.Id == chargeId);
 
         if (charge is null)
-            throw new NotFoundException("Charge not found.");
+            throw new NotFoundException("Cobrança não encontrada.");
 
         await EnsureCanRegisterPaymentAsync(userId, charge);
 
         if (charge.Status == ChargeStatus.Paid)
-            throw new BadRequestException("Charge is already paid.");
+            throw new BadRequestException("Esta cobrança já foi paga.");
 
         if (charge.Status == ChargeStatus.Canceled)
-            throw new BadRequestException("Canceled charges cannot be paid.");
+            throw new BadRequestException("Cobranças canceladas não podem ser pagas.");
 
         if (dto.PaymentMethod == PaymentMethod.Undefined)
-            throw new BadRequestException("Payment method is required.");
+            throw new BadRequestException("Informe a forma de pagamento.");
 
         if (dto.AmountPaid != charge.Value)
-            throw new BadRequestException("Manual payment amount must match charge value.");
+            throw new BadRequestException("O valor pago precisa ser igual ao valor da cobrança.");
 
         var payment = _mapper.Map<Payment>(dto);
 
@@ -96,7 +96,7 @@ public class PaymentService : IPaymentService
             .FirstOrDefaultAsync(c => c.Id == chargeId);
 
         if (charge is null)
-            throw new NotFoundException("Charge not found.");
+            throw new NotFoundException("Cobrança não encontrada.");
 
         await EnsureCanReadPaymentsAsync(userId, charge);
 
@@ -192,14 +192,14 @@ public class PaymentService : IPaymentService
         var user = await _userManager.FindByIdAsync(userId.ToString());
 
         if (user is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         if (charge.Scope == ChargeScope.Platform)
         {
             await _permissionService.EnsureMasterAsync(userId);
 
             if (!await IsMasterCondominiumOwnerAsync(userId, charge.CondominiumId))
-                throw new ForbiddenException("Master can only register platform payments for condominiums created by them.");
+                throw new ForbiddenException("Você só pode registrar pagamentos de condomínios cadastrados por você.");
 
             return;
         }
@@ -223,10 +223,10 @@ public class PaymentService : IPaymentService
                 return;
             }
 
-            throw new ForbiddenException("User cannot register this condominium payment.");
+            throw new ForbiddenException("Você não tem permissão para registrar pagamentos deste condomínio.");
         }
 
-        throw new BadRequestException("Invalid charge scope.");
+        throw new BadRequestException("Tipo de cobrança inválido.");
     }
 
     private async Task EnsureCanReadPaymentsAsync(int userId, Charge charge)
@@ -234,7 +234,7 @@ public class PaymentService : IPaymentService
         var user = await _userManager.FindByIdAsync(userId.ToString());
 
         if (user is null)
-            throw new NotFoundException("User not found.");
+            throw new NotFoundException("Usuário não encontrado.");
 
         if (charge.Scope == ChargeScope.Platform)
         {
@@ -247,7 +247,7 @@ public class PaymentService : IPaymentService
             if (await _permissionService.IsPlatformBillingAdminAsync(userId, charge.CondominiumId))
                 return;
 
-            throw new ForbiddenException("User cannot access this payment.");
+            throw new ForbiddenException("Você não tem acesso a este pagamento.");
         }
 
         if (charge.Scope == ChargeScope.Condominium)
@@ -256,7 +256,7 @@ public class PaymentService : IPaymentService
             return;
         }
 
-        throw new BadRequestException("Invalid charge scope.");
+        throw new BadRequestException("Tipo de cobrança inválido.");
     }
 
     private async Task<bool> IsMasterCondominiumOwnerAsync(int userId, int condominiumId)

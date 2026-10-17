@@ -76,7 +76,7 @@ public class PermissionService : IPermissionService
         var isMaster = await IsMasterAsync(userId);
 
         if (!isMaster)
-            throw new ForbiddenException("Only Master can perform this action.");
+            throw new ForbiddenException("Só o Master pode fazer isso.");
     }
 
     public async Task EnsureCondominiumAdminAsync(int userId, int condominiumId)
@@ -84,7 +84,7 @@ public class PermissionService : IPermissionService
         var isCondominiumAdmin = await IsCondominiumAdminAsync(userId, condominiumId);
 
         if (!isCondominiumAdmin)
-            throw new ForbiddenException("Only condominium admins can perform this action.");
+            throw new ForbiddenException("Só o administrador do condomínio pode fazer isso.");
     }
 
     public async Task<bool> HasCondominiumAccessAsync(int userId, int condominiumId)
@@ -283,7 +283,7 @@ public class PermissionService : IPermissionService
         var hasAccess = await HasCondominiumAccessAsync(userId, condominiumId);
 
         if (!hasAccess)
-            throw new ForbiddenException("You do not have access to this condominium.");
+            throw new ForbiddenException("Você não tem acesso a este condomínio.");
     }
 
     public async Task EnsureBuildingAccessAsync(int userId, int buildingId)
@@ -291,7 +291,7 @@ public class PermissionService : IPermissionService
         var hasAccess = await HasBuildingAccessAsync(userId, buildingId);
 
         if (!hasAccess)
-            throw new ForbiddenException("You do not have access to this building.");
+            throw new ForbiddenException("Você não tem acesso a este prédio.");
     }
 
     public async Task EnsureUnitAccessAsync(int userId, int unitId)
@@ -299,7 +299,7 @@ public class PermissionService : IPermissionService
         var hasAccess = await HasUnitAccessAsync(userId, unitId);
 
         if (!hasAccess)
-            throw new ForbiddenException("You do not have access to this unit.");
+            throw new ForbiddenException("Você não tem acesso a esta unidade.");
     }
 
     public async Task EnsurePersonAccessAsync(int userId, int personId)
@@ -307,7 +307,7 @@ public class PermissionService : IPermissionService
         var hasAccess = await HasPersonAccessAsync(userId, personId);
 
         if (!hasAccess)
-            throw new ForbiddenException("You do not have access to this person.");
+            throw new ForbiddenException("Você não tem acesso a esta pessoa.");
     }
 
     public async Task EnsureCondominiumPermissionAsync(int userId, int condominiumId, string permissionKey)
@@ -315,7 +315,7 @@ public class PermissionService : IPermissionService
         var hasPermission = await HasCondominiumPermissionAsync(userId, condominiumId, permissionKey);
 
         if (!hasPermission)
-            throw new ForbiddenException("You do not have permission to perform this action.");
+            throw new ForbiddenException("Você não tem permissão para fazer isso.");
     }
 
     public async Task<IReadOnlyCollection<int>?> GetManagedBuildingIdsAsync(int userId, int condominiumId)
@@ -416,7 +416,7 @@ public class PermissionService : IPermissionService
         IEnumerable<string> permissionKeys)
     {
         if (!await HasAnyCondominiumPermissionAsync(userId, condominiumId, permissionKeys))
-            throw new ForbiddenException("You do not have permission to perform this action.");
+            throw new ForbiddenException("Você não tem permissão para fazer isso.");
     }
 
     // Who may read a condominium charge and its payments: the unit's own residents (a syndic

@@ -102,7 +102,7 @@ public class NotificationService : INotificationService
                 item.UserId == userId);
 
         if (notification is null)
-            throw new NotFoundException("Notification not found.");
+            throw new NotFoundException("Notificação não encontrada.");
 
         notification.ReadAt ??= DateTime.UtcNow;
 
