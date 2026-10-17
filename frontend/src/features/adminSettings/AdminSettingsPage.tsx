@@ -1,1104 +1,184 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { svgIcone } from "@edusites/icons/core";
+import { useEffect, useMemo, useState } from "react";
+import { Bell, CreditCard, KeyRound, Lock, QrCode, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../app/providers/useAuth";
 import { useCondominium } from "../../app/providers/useCondominium";
-import {
-  getNotificationPreferences,
-  updateMyProfile,
-  updateNotificationPreferences,
-} from "../me/meService";
-import type { NotificationPreferences } from "../me/types";
-import { FinancialAccountForm } from "../financialAccounts/FinancialAccountForm";
-import {
-  getCondominiumFinancialAccount,
-  upsertCondominiumFinancialAccount,
-} from "../financialAccounts/financialAccountService";
-import type {
-  FinancialAccountResponse,
-  UpsertFinancialAccountRequest,
-} from "../financialAccounts/types";
-import { ProfilePhotoBlock } from "../profile/ProfilePhotoBlock";
-import {
-  defaultSyndicAccess,
-  getSyndicAccess,
-  syndicAccessOptions,
-  updateSyndicAccess,
-  type SyndicAccessKey,
-  type SyndicAccessSettings,
-} from "../syndicAccess/syndicAccessService";
-import { getPersonsByCondominium } from "../persons/personService";
-import type { PersonResponse } from "../persons/types";
+import { GroupedList, GroupedRow } from "../../shared/components/GroupedList";
+import { Modal } from "../../shared/components/Modal";
+import { PageHeader } from "../../shared/layout/PageHeader";
+import { ChangePasswordModal } from "../auth/ChangePasswordModal";
+import { getPlatformCharges } from "../charges/chargeService";
+import type { ChargeResponse } from "../charges/types";
+import { getCondominiumFinancialAccount, upsertCondominiumFinancialAccount } from "../financialAccounts/financialAccountService";
+import type { FinancialAccountResponse } from "../financialAccounts/types";
 import { MercadoPagoConnectionPanel } from "../mercadoPago/MercadoPagoConnectionPanel";
 import { describePaymentMethods, useMercadoPagoConnected } from "../mercadoPago/useMercadoPagoConnected";
-import { ChangePasswordModal } from "../auth/ChangePasswordModal";
+import { NotificationsModal, type NotificationOption } from "../settings/NotificationsModal";
+import { PixKeyModal } from "../settings/PixKeyModal";
+import { ProfileCard } from "../settings/ProfileCard";
+import { ProfileDataModal } from "../settings/ProfileDataModal";
+import { ReceivingStatus } from "../settings/ReceivingStatus";
+import { StatusChip } from "../settings/StatusChip";
+import { PlatformPlanCard } from "./PlatformPlanCard";
+import { summarizePlatformPlan } from "./platformPlan";
+import { SyndicAccessModal } from "./SyndicAccessModal";
 
-type ModalType = "profile" | "notifications" | "financial" | "syndicAccess" | "password" | null;
+type ModalType = "profile" | "notifications" | "password" | "syndicAccess" | "pix" | "mercadoPago" | null;
 
-const defaultNotificationPreferences: NotificationPreferences = {
-  noticesEnabled: true,
-  billsEnabled: true,
-  unitUpdatesEnabled: true,
-};
+// What was loaded and for which condominium, so switching condominiums shows "loading" again.
+type Loaded<T> = { condominiumId: number; data: T | null; error: string };
+
+const notificationOptions: NotificationOption[] = [
+  { key: "noticesEnabled", label: "Avisos", description: "Comunicados do condomínio e do Moraê" },
+  { key: "billsEnabled", label: "Cobranças", description: "Cobranças criadas, pagas e atrasadas" },
+  { key: "unitUpdatesEnabled", label: "Cadastros", description: "Moradores, unidades e convites" },
+];
+
+function errorText(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
 
 export function AdminSettingsPage() {
   const { user, refreshUser } = useAuth();
   const { activeCondominium, activeCondominiumId } = useCondominium();
   const [modal, setModal] = useState<ModalType>(null);
-  const [account, setAccount] = useState<FinancialAccountResponse | null>(null);
-  const [isLoadingAccount, setIsLoadingAccount] = useState(true);
-  const [accountError, setAccountError] = useState("");
-
-  async function loadAccount() {
-    if (!activeCondominiumId) {
-      setAccount(null);
-      setIsLoadingAccount(false);
-      return;
-    }
-
-    try {
-      setIsLoadingAccount(true);
-      setAccountError("");
-      setAccount(await getCondominiumFinancialAccount(activeCondominiumId));
-    } catch (error) {
-      setAccount(null);
-      setAccountError(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível carregar a chave Pix do condomínio.",
-      );
-    } finally {
-      setIsLoadingAccount(false);
-    }
-  }
+  const [account, setAccount] = useState<Loaded<FinancialAccountResponse> | null>(null);
+  const [platformCharges, setPlatformCharges] = useState<Loaded<ChargeResponse[]> | null>(null);
+  // Re-checks the condominium's Mercado Pago connection whenever a dialog closes.
+  const isMercadoPagoConnected = useMercadoPagoConnected(activeCondominiumId, { skip: !activeCondominiumId, refreshKey: modal });
 
   useEffect(() => {
-    void loadAccount();
+    if (!activeCondominiumId) return;
+    let isMounted = true;
+
+    getCondominiumFinancialAccount(activeCondominiumId)
+      .then((data) => isMounted && setAccount({ condominiumId: activeCondominiumId, data, error: "" }))
+      .catch(
+        (error) =>
+          isMounted &&
+          setAccount({ condominiumId: activeCondominiumId, data: null, error: errorText(error, "Não foi possível carregar a chave Pix do condomínio.") }),
+      );
+
+    // The Admin sees the platform charges of every condominium they manage; keep the active one.
+    getPlatformCharges()
+      .then(
+        (charges) =>
+          isMounted &&
+          setPlatformCharges({ condominiumId: activeCondominiumId, data: charges.filter((charge) => charge.condominiumId === activeCondominiumId), error: "" }),
+      )
+      .catch(
+        (error) =>
+          isMounted &&
+          setPlatformCharges({ condominiumId: activeCondominiumId, data: null, error: errorText(error, "Não foi possível carregar as mensalidades.") }),
+      );
+
+    return () => {
+      isMounted = false;
+    };
   }, [activeCondominiumId]);
 
+  const currentAccount = account?.condominiumId === activeCondominiumId ? account : null;
+  const currentCharges = platformCharges?.condominiumId === activeCondominiumId ? platformCharges : null;
+  const planSummary = useMemo(() => (currentCharges?.data ? summarizePlatformPlan(currentCharges.data) : null), [currentCharges]);
+
   const condominiumName = activeCondominium?.condominiumName ?? "Nenhum condomínio selecionado";
-  const hasPixKey = Boolean(account?.pixKey);
+  const pixKey = currentAccount?.data?.pixKey;
+  const receiving = describePaymentMethods(Boolean(pixKey), isMercadoPagoConnected, "cobranças do condomínio");
 
   return (
     <>
-      <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-5 shadow-sm sm:p-6 lg:p-7">
-        <div className="border-b border-[#E5E7EB] pb-6">
-          <p className="text-sm font-black uppercase tracking-[0.2em] text-[#16A34A]">
-            Configurações
-          </p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-[#111827] sm:text-4xl">
-            Preferências do Admin
-          </h1>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#6B7280]">
-            Ajuste seu perfil, notificações e o método de pagamento do condomínio ativo.
-          </p>
+      <PageHeader overline={condominiumName} title="Ajustes" />
+
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
+        <div className="flex flex-col gap-8">
+          <ProfileCard roleLabel="Admin do condomínio" onEdit={() => setModal("profile")} />
+
+          <GroupedList title="Segurança e avisos">
+            <GroupedRow icon={Lock} title="Senha" subtitle="Trocar a senha desconecta os outros aparelhos" onClick={() => setModal("password")} />
+            <GroupedRow icon={Bell} title="Notificações" subtitle="Avisos, cobranças e cadastros" onClick={() => setModal("notifications")} />
+          </GroupedList>
+
+          {activeCondominiumId && (
+            <GroupedList title="Condomínio">
+              <GroupedRow
+                icon={ShieldCheck}
+                title="Acessos do síndico"
+                subtitle="O que cada síndico pode ver e fazer"
+                onClick={() => setModal("syndicAccess")}
+              />
+            </GroupedList>
+          )}
         </div>
 
-        {accountError && <FeedbackMessage variant="error" message={accountError} />}
+        <div className="flex flex-col gap-8">
+          {activeCondominiumId && (
+            <PlatformPlanCard summary={planSummary} errorMessage={currentCharges?.error ?? ""} condominiumName={condominiumName} />
+          )}
 
-        <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-4">
-          <SettingsBlock
-            icon="usuario"
-            title="Perfil e dados pessoais"
-            description="Foto, nome, telefone e e-mail usados no seu acesso Admin."
-            action="Editar perfil"
-            onClick={() => setModal("profile")}
-          />
+          <div className="flex flex-col gap-4">
+            {activeCondominiumId && <ReceivingStatus title="Onde as cobranças do condomínio caem" isLoading={!currentAccount} summary={receiving} />}
 
-          <SettingsBlock
-            icon="sino"
-            title="Notificações"
-            description="Preferências de avisos, cobranças e atualizações do condomínio."
-            action="Configurar"
-            onClick={() => setModal("notifications")}
-          />
+            {currentAccount?.error && (
+              <p role="alert" className="rounded-field bg-vermelho-suave px-4 py-3 text-sm font-medium text-vermelho">
+                {currentAccount.error}
+              </p>
+            )}
 
-          <SettingsBlock
-            icon="cadeado"
-            title="Senha e segurança"
-            description="Troque sua senha; os outros aparelhos conectados são desconectados."
-            action="Alterar senha"
-            onClick={() => setModal("password")}
-          />
+            {activeCondominiumId ? (
+              <GroupedList
+                title="Recebimento do condomínio"
+                footer="O Mercado Pago recebe Pix, cartão e boleto pelo app e dá baixa sozinho. A chave Pix serve para pagamentos manuais."
+              >
+                <GroupedRow
+                  icon={CreditCard}
+                  tone={isMercadoPagoConnected ? "green" : "neutral"}
+                  title="Mercado Pago"
+                  subtitle={isMercadoPagoConnected ? "Pagamentos online com baixa automática" : "Conecte para receber online"}
+                  trailing={<StatusChip tone={isMercadoPagoConnected ? "success" : "warning"}>{isMercadoPagoConnected ? "Conectado" : "Não conectado"}</StatusChip>}
+                  onClick={() => setModal("mercadoPago")}
+                />
+                <GroupedRow
+                  icon={QrCode}
+                  tone={pixKey ? "green" : "neutral"}
+                  title="Chave Pix"
+                  subtitle={pixKey || "Para pagamentos manuais"}
+                  trailing={<StatusChip tone={pixKey ? "success" : "warning"}>{pixKey ? "Cadastrada" : "Não cadastrada"}</StatusChip>}
+                  onClick={currentAccount ? () => setModal("pix") : undefined}
+                />
+              </GroupedList>
+            ) : (
+              <p className="rounded-field bg-ambar-suave px-4 py-3 text-sm font-medium text-tinta">
+                Selecione um condomínio no menu para configurar o recebimento.
+              </p>
+            )}
+          </div>
 
-          <SettingsBlock
-            icon="escudo"
-            title="Acessos do síndico"
-            description="Defina quais áreas do condomínio ficam disponíveis para o síndico."
-            action="Gerenciar acessos"
-            onClick={() => setModal("syndicAccess")}
-          />
-
-          <SettingsBlock
-            icon="carteira"
-            title="Método de pagamento"
-            description={getFinancialCardDescription(isLoadingAccount, hasPixKey)}
-            action="Configurar"
-            onClick={() => setModal("financial")}
-          />
+          <GroupedList title="Acesso">
+            <GroupedRow icon={KeyRound} title="E-mail de acesso" subtitle={user?.email} />
+          </GroupedList>
         </div>
-      </section>
+      </div>
 
       {modal === "profile" && user && (
-        <ProfileDataModal
-          userName={user.personName}
-          email={user.email}
-          phoneNumber={user.phoneNumber ?? ""}
-          onClose={() => setModal(null)}
-          onSaved={async () => {
-            await refreshUser();
-          }}
-        />
+        <ProfileDataModal userName={user.personName} phoneNumber={user.phoneNumber ?? ""} onClose={() => setModal(null)} onSaved={refreshUser} />
       )}
-
-      {modal === "notifications" && <NotificationsModal onClose={() => setModal(null)} />}
-
-
+      {modal === "notifications" && <NotificationsModal options={notificationOptions} onClose={() => setModal(null)} />}
       {modal === "password" && <ChangePasswordModal onClose={() => setModal(null)} />}
-
-      {modal === "syndicAccess" && (
-        <SyndicAccessModal
-          condominiumId={activeCondominiumId}
+      {modal === "syndicAccess" && activeCondominiumId && <SyndicAccessModal condominiumId={activeCondominiumId} onClose={() => setModal(null)} />}
+      {modal === "pix" && activeCondominiumId && (
+        <PixKeyModal
+          title="Chave Pix do condomínio"
+          description={`Para cobranças do ${condominiumName} pagas fora do app.`}
+          account={currentAccount?.data ?? null}
+          save={(data) => upsertCondominiumFinancialAccount(activeCondominiumId, data)}
           onClose={() => setModal(null)}
+          onSaved={(data) => setAccount({ condominiumId: activeCondominiumId, data, error: "" })}
         />
       )}
-
-      {modal === "financial" && (
-        <FinancialAccountModal
-          account={account}
-          condominiumName={condominiumName}
-          isLoading={isLoadingAccount}
-          condominiumId={activeCondominiumId}
-          onClose={() => setModal(null)}
-          onSaved={async (result) => {
-            setAccount(result);
-            await loadAccount();
-          }}
-        />
+      {modal === "mercadoPago" && activeCondominiumId && (
+        <Modal title="Mercado Pago do condomínio" description="A conta onde as cobranças pagas online caem." onClose={() => setModal(null)}>
+          <MercadoPagoConnectionPanel contextLabel={condominiumName} condominiumId={activeCondominiumId} onBack={() => setModal(null)} />
+        </Modal>
       )}
     </>
   );
-}
-
-type SettingsBlockProps = {
-  icon: string;
-  title: string;
-  description: string;
-  action: string;
-  onClick: () => void;
-};
-
-function SettingsBlock({ icon, title, description, action, onClick }: SettingsBlockProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group min-h-56 cursor-pointer rounded-[1.7rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[#86EFAC] hover:bg-white hover:shadow-xl hover:shadow-[#0B3D2E]/8"
-    >
-      <div className="flex size-12 items-center justify-center rounded-2xl bg-[#DCFCE7] text-2xl text-[#16A34A] transition group-hover:bg-[#16A34A] group-hover:text-white">
-        <EduIcon nome={icon} />
-      </div>
-
-      <h2 className="mt-7 text-2xl font-black text-[#111827]">{title}</h2>
-      <p className="mt-3 min-h-12 text-sm font-semibold leading-6 text-[#6B7280]">
-        {description}
-      </p>
-
-      <span className="mt-6 inline-flex items-center gap-2 text-sm font-black text-[#16A34A]">
-        {action}
-        <span className="transition group-hover:translate-x-1">→</span>
-      </span>
-    </button>
-  );
-}
-
-type ModalProps = {
-  onClose: () => void;
-};
-
-function ModalShell({
-  title,
-  children,
-  onClose,
-}: ModalProps & { title: string; children: ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B3D2E]/30 px-4 py-8 backdrop-blur-sm">
-      <div className="max-h-[calc(100vh-4rem)] w-full max-w-3xl overflow-y-auto rounded-[2rem] border border-[#E5E7EB] bg-white shadow-2xl shadow-[#0B3D2E]/20">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#E5E7EB] bg-white px-6 py-5">
-          <h2 className="text-2xl font-black text-[#111827]">{title}</h2>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex size-10 cursor-pointer items-center justify-center rounded-full bg-[#F3F4F6] text-xl font-light text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="px-5 py-6 sm:px-8">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function ProfileDataModal({
-  userName,
-  email,
-  phoneNumber,
-  onClose,
-  onSaved,
-}: ModalProps & {
-  userName: string;
-  email: string;
-  phoneNumber: string;
-  onSaved: () => Promise<void>;
-}) {
-  const [form, setForm] = useState({
-    name: userName,
-    phoneNumber,
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const phoneDigits = onlyDigits(form.phoneNumber);
-
-    if (form.name.trim().length < 2) {
-      setErrorMessage("Informe um nome com pelo menos 2 caracteres.");
-      return;
-    }
-
-    if (phoneDigits.length < 10) {
-      setErrorMessage("Informe um telefone válido com DDD.");
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      setErrorMessage("");
-      setSuccessMessage("");
-
-      await updateMyProfile({
-        name: form.name.trim(),
-        phoneNumber: phoneDigits,
-      });
-      await onSaved();
-      setSuccessMessage("Dados pessoais atualizados.");
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível atualizar seus dados.",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  return (
-    <ModalShell title="Perfil e dados pessoais" onClose={onClose}>
-      <div className="space-y-6">
-        <ProfilePhotoBlock />
-
-        <form onSubmit={(event) => void handleSubmit(event)} className="space-y-6">
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            <TextField
-              label="Nome"
-              value={form.name}
-              onChange={(value) => setForm((current) => ({ ...current, name: value }))}
-            />
-            <TextField
-              label="Telefone"
-              value={form.phoneNumber}
-              onChange={(value) =>
-                setForm((current) => ({ ...current, phoneNumber: value }))
-              }
-            />
-            <TextField label="E-mail" value={email} disabled />
-          </div>
-
-          {(errorMessage || successMessage) && (
-            <FeedbackMessage
-              variant={errorMessage ? "error" : "success"}
-              message={errorMessage || successMessage}
-            />
-          )}
-
-          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="h-12 cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-black text-[#6B7280] transition hover:bg-[#F3F4F6]"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="h-12 cursor-pointer rounded-2xl bg-[#16A34A] px-6 text-sm font-black text-white shadow-sm shadow-[#16A34A]/25 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
-            >
-              {isSubmitting ? "Salvando..." : "Salvar alterações"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </ModalShell>
-  );
-}
-
-function NotificationsModal({ onClose }: ModalProps) {
-  const [preferences, setPreferences] = useState<NotificationPreferences>(
-    defaultNotificationPreferences,
-  );
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
-
-  useEffect(() => {
-    async function loadPreferences() {
-      try {
-        setIsLoading(true);
-        setErrorMessage("");
-        setPreferences(await getNotificationPreferences());
-      } catch (error) {
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Não foi possível carregar suas preferências.",
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    }
-
-    void loadPreferences();
-  }, []);
-
-  function updatePreference(key: keyof NotificationPreferences) {
-    setSuccessMessage("");
-    setPreferences((current) => ({
-      ...current,
-      [key]: !current[key],
-    }));
-  }
-
-  async function handleSave() {
-    try {
-      setIsSubmitting(true);
-      setErrorMessage("");
-      setSuccessMessage("");
-
-      const result = await updateNotificationPreferences(preferences);
-      setPreferences(result);
-      setSuccessMessage("Preferências de notificação atualizadas.");
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível salvar suas preferências.",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  return (
-    <ModalShell title="Notificações" onClose={onClose}>
-      <div className="space-y-4">
-        {isLoading ? (
-          <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 text-sm font-bold text-[#6B7280]">
-            Carregando preferências...
-          </div>
-        ) : (
-          <>
-            <ToggleRow
-              label="Avisos do condomínio"
-              description="Receber comunicados importantes da gestão."
-              checked={preferences.noticesEnabled}
-              onChange={() => updatePreference("noticesEnabled")}
-            />
-            <ToggleRow
-              label="Lembretes financeiros"
-              description="Exibir alertas sobre cobranças e recebimentos."
-              checked={preferences.billsEnabled}
-              onChange={() => updatePreference("billsEnabled")}
-            />
-            <ToggleRow
-              label="Atualizações de cadastro"
-              description="Receber avisos sobre moradores, unidades e convites."
-              checked={preferences.unitUpdatesEnabled}
-              onChange={() => updatePreference("unitUpdatesEnabled")}
-            />
-          </>
-        )}
-
-        {(errorMessage || successMessage) && (
-          <FeedbackMessage
-            variant={errorMessage ? "error" : "success"}
-            message={errorMessage || successMessage}
-          />
-        )}
-
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => void handleSave()}
-            disabled={isLoading || isSubmitting}
-            className="h-12 cursor-pointer rounded-2xl bg-[#16A34A] px-6 text-sm font-black text-white shadow-sm shadow-[#16A34A]/25 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {isSubmitting ? "Salvando..." : "Salvar preferências"}
-          </button>
-        </div>
-      </div>
-    </ModalShell>
-  );
-}
-
-function SyndicAccessModal({
-  condominiumId,
-  onClose,
-}: ModalProps & {
-  condominiumId: number | null;
-}) {
-  const [access, setAccess] = useState<SyndicAccessSettings>(defaultSyndicAccess);
-  const [syndics, setSyndics] = useState<PersonResponse[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isSyndicSelectOpen, setIsSyndicSelectOpen] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
-  const enabledCount = Object.values(access).filter(Boolean).length;
-  const selectedSyndic = syndics.find((syndic) => syndic.userId === selectedUserId);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadSyndics() {
-      if (!condominiumId) {
-        setSyndics([]);
-        setSelectedUserId(null);
-        setAccess(defaultSyndicAccess);
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        setIsLoading(true);
-        setErrorMessage("");
-        setSuccessMessage("");
-
-        const people = await getPersonsByCondominium(condominiumId);
-        const syndicPeople = people.filter(
-          (person) => person.accessRole === "Syndic" && person.userId,
-        );
-        const firstUserId = syndicPeople[0]?.userId ?? null;
-
-        if (!isMounted) {
-          return;
-        }
-
-        setSyndics(syndicPeople);
-        setSelectedUserId(firstUserId);
-
-        if (firstUserId) {
-          setAccess(await getSyndicAccess(condominiumId, firstUserId));
-        } else {
-          setAccess(defaultSyndicAccess);
-        }
-      } catch (error) {
-        if (isMounted) {
-          setSyndics([]);
-          setSelectedUserId(null);
-          setAccess(defaultSyndicAccess);
-          setErrorMessage(
-            error instanceof Error
-              ? error.message
-              : "Não foi possível carregar os acessos do síndico.",
-          );
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    void loadSyndics();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [condominiumId]);
-
-  async function handleSelectSyndic(userId: number) {
-    if (!condominiumId) {
-      return;
-    }
-
-    try {
-      setIsSyndicSelectOpen(false);
-      setSelectedUserId(userId);
-      setIsLoading(true);
-      setErrorMessage("");
-      setSuccessMessage("");
-      setAccess(await getSyndicAccess(condominiumId, userId));
-    } catch (error) {
-      setAccess(defaultSyndicAccess);
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível carregar os acessos deste síndico.",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  function updateAccess(key: SyndicAccessKey) {
-    setErrorMessage("");
-    setSuccessMessage("");
-    setAccess((current) => ({
-      ...current,
-      [key]: !current[key],
-    }));
-  }
-
-  async function handleSave() {
-    if (!condominiumId || !selectedUserId) {
-      return;
-    }
-
-    try {
-      setIsSaving(true);
-      setErrorMessage("");
-      setSuccessMessage("");
-
-      const result = await updateSyndicAccess(condominiumId, selectedUserId, access);
-      setAccess(result);
-      setSuccessMessage("Acessos do síndico atualizados.");
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível salvar os acessos do síndico.",
-      );
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  return (
-    <ModalShell title="Acessos do síndico" onClose={onClose}>
-      <div className="space-y-5">
-        {syndics.length > 0 && (
-          <div className="relative">
-            <span className="mb-2 block text-sm font-black text-[#111827]">Síndico</span>
-
-            <button
-              type="button"
-              disabled={isLoading}
-              onClick={() => setIsSyndicSelectOpen((current) => !current)}
-              className="flex h-12 w-full cursor-pointer items-center justify-between rounded-2xl border border-[#E5E7EB] bg-white px-4 text-left text-sm font-bold text-[#111827] outline-none transition hover:border-[#86EFAC] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30 disabled:cursor-not-allowed disabled:bg-[#F3F4F6] disabled:text-[#6B7280]"
-            >
-              <span>{selectedSyndic?.name ?? "Selecione um síndico"}</span>
-              <span
-                className={`text-xs text-[#6B7280] transition ${
-                  isSyndicSelectOpen ? "rotate-180" : ""
-                }`}
-              >
-                ▼
-              </span>
-            </button>
-
-            {isSyndicSelectOpen && (
-              <div className="absolute left-0 right-0 top-[4.7rem] z-20 overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white p-1 shadow-xl shadow-[#0B3D2E]/10">
-                {syndics.map((syndic) => {
-                  const isSelected = syndic.userId === selectedUserId;
-
-                  return (
-                    <button
-                      key={syndic.userId}
-                      type="button"
-                      onClick={() => void handleSelectSyndic(Number(syndic.userId))}
-                      className={`flex w-full cursor-pointer items-center justify-between rounded-xl px-4 py-3 text-left text-sm font-bold transition ${
-                        isSelected
-                          ? "bg-[#DCFCE7] text-[#0B3D2E]"
-                          : "text-[#111827] hover:bg-[#F3F4F6]"
-                      }`}
-                    >
-                      <span>{syndic.name}</span>
-                      {isSelected && <span className="text-[#16A34A]">Selecionado</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#6B7280]">
-              Áreas liberadas
-            </p>
-            <p className="mt-2 text-3xl font-black text-[#111827]">{enabledCount}</p>
-            <p className="mt-1 text-sm font-bold text-[#16A34A]">
-              De {syndicAccessOptions.length} módulos disponíveis
-            </p>
-          </div>
-
-          <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#6B7280]">
-              Aplicação
-            </p>
-            <p className="mt-2 text-lg font-black text-[#111827]">Controle por usuário</p>
-            <p className="mt-1 text-sm font-semibold leading-6 text-[#6B7280]">
-              Cada síndico pode ter uma configuração própria dentro do condomínio.
-            </p>
-          </div>
-        </div>
-
-        {isLoading ? (
-          <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 text-sm font-bold text-[#6B7280]">
-            Carregando acessos...
-          </div>
-        ) : syndics.length === 0 ? (
-          <div className="rounded-[1.5rem] border border-dashed border-[#CBD5E1] bg-[#F9FAFB] p-6 text-sm font-bold text-[#6B7280]">
-            Nenhum síndico com acesso ativo foi encontrado neste condomínio.
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {syndicAccessOptions.map((option) => (
-              <ToggleRow
-                key={option.key}
-                label={option.label}
-                description={option.description}
-                checked={access[option.key]}
-                onChange={() => updateAccess(option.key)}
-              />
-            ))}
-          </div>
-        )}
-
-        {(errorMessage || successMessage) && (
-          <FeedbackMessage
-            variant={errorMessage ? "error" : "success"}
-            message={errorMessage || successMessage}
-          />
-        )}
-
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-12 cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-black text-[#6B7280] transition hover:bg-[#F3F4F6]"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            disabled={!condominiumId || !selectedUserId || isLoading || isSaving}
-            onClick={() => void handleSave()}
-            className="h-12 cursor-pointer rounded-2xl bg-[#16A34A] px-6 text-sm font-black text-white shadow-sm shadow-[#16A34A]/25 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {isSaving ? "Salvando..." : "Salvar acessos"}
-          </button>
-        </div>
-      </div>
-    </ModalShell>
-  );
-}
-
-function FinancialAccountModal({
-  account,
-  condominiumName,
-  condominiumId,
-  isLoading,
-  onClose,
-  onSaved,
-}: ModalProps & {
-  account: FinancialAccountResponse | null;
-  condominiumName: string;
-  condominiumId: number | null;
-  isLoading: boolean;
-  onSaved: (account: FinancialAccountResponse) => Promise<void>;
-}) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
-  const [selectedMethod, setSelectedMethod] = useState<"choice" | "pix" | "mercadoPago">("choice");
-  const isMercadoPagoConnected = useMercadoPagoConnected(condominiumId, { skip: !condominiumId, refreshKey: selectedMethod });
-  const paymentMethodSummary = describePaymentMethods(Boolean(account?.pixKey), isMercadoPagoConnected, `cobranças internas do ${condominiumName}`);
-
-  async function handleSubmit(data: UpsertFinancialAccountRequest) {
-    if (!condominiumId) {
-      setErrorMessage("Selecione um condomínio antes de salvar a chave Pix.");
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      setErrorMessage("");
-      setSuccessMessage("");
-
-      const result = await upsertCondominiumFinancialAccount(condominiumId, data);
-      await onSaved(result);
-      setSuccessMessage("Chave Pix do condomínio atualizada.");
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível salvar a chave Pix.",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  if (selectedMethod === "choice") {
-    return (
-      <ModalShell title="Método de pagamento" onClose={onClose}>
-        <div className="space-y-5">
-          <PaymentMethodStatus
-            label="Método em uso"
-            value={paymentMethodSummary.value}
-            description={paymentMethodSummary.description}
-            tone={paymentMethodSummary.tone}
-          />
-
-          <PaymentMethodChoice
-            pixConfigured={Boolean(account?.pixKey)}
-            pixKey={account?.pixKey ?? ""}
-            onSelectPix={() => setSelectedMethod("pix")}
-            onSelectMercadoPago={() => setSelectedMethod("mercadoPago")}
-            mercadoPagoConnected={isMercadoPagoConnected}
-          />
-        </div>
-      </ModalShell>
-    );
-  }
-
-  if (selectedMethod === "mercadoPago") {
-    return (
-      <ModalShell title="Mercado Pago" onClose={onClose}>
-        {condominiumId ? (
-          <MercadoPagoConnectionPanel
-            contextLabel={condominiumName}
-            condominiumId={condominiumId}
-            onBack={() => setSelectedMethod("choice")}
-          />
-        ) : (
-          <p className="rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 text-sm font-bold text-[#92400E]">
-            Selecione um condomínio para configurar o Mercado Pago.
-          </p>
-        )}
-      </ModalShell>
-    );
-  }
-
-  return (
-    <ModalShell title="Pix normal" onClose={onClose}>
-      <div className="space-y-5">
-        <PaymentMethodStatus
-          label="Método selecionado"
-          value="Pix normal"
-          description={
-            account?.pixKey
-              ? "Este é o método em uso nas cobranças internas."
-              : "Cadastre a chave Pix para ativar este método."
-          }
-          tone={account?.pixKey ? "success" : "warning"}
-        />
-
-        <div className="rounded-2xl border border-[#BBF7D0] bg-[#DCFCE7] p-4">
-          <p className="text-sm font-extrabold text-[#0B3D2E]">
-            Configure a chave Pix do condomínio ativo.
-          </p>
-          <p className="mt-2 text-sm font-semibold leading-6 text-[#0D7A3A]">
-            Esses dados ficam vinculados ao {condominiumName} e organizam os recebimentos internos.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setSelectedMethod("choice")}
-          className="h-11 cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white px-5 text-sm font-black text-[#6B7280] transition hover:bg-[#F3F4F6] hover:text-[#111827]"
-        >
-          Trocar método
-        </button>
-
-        {isLoading ? (
-          <div className="rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 text-sm font-bold text-[#6B7280]">
-            Carregando chave Pix...
-          </div>
-        ) : (
-          <>
-            {account?.pixKey && <PixKeyPreview pixKey={account.pixKey} />}
-            <FinancialAccountForm
-              account={account}
-              isSubmitting={isSubmitting}
-              onSubmit={handleSubmit}
-            />
-          </>
-        )}
-
-        {(errorMessage || successMessage) && (
-          <FeedbackMessage
-            variant={errorMessage ? "error" : "success"}
-            message={errorMessage || successMessage}
-          />
-        )}
-      </div>
-    </ModalShell>
-  );
-}
-
-function PaymentMethodStatus({
-  label,
-  value,
-  description,
-  tone,
-}: {
-  label: string;
-  value: string;
-  description: string;
-  tone: "success" | "warning" | "info";
-}) {
-  const styles = {
-    success: "border-[#BBF7D0] bg-[#ECFDF5] text-[#065F46]",
-    warning: "border-[#FDE68A] bg-[#FFFBEB] text-[#92400E]",
-    info: "border-[#BAE6FD] bg-[#F0F9FF] text-[#075985]",
-  }[tone];
-
-  return (
-    <div className={`rounded-2xl border px-5 py-4 ${styles}`}>
-      <p className="text-xs font-black uppercase tracking-[0.16em]">{label}</p>
-      <p className="mt-1 text-lg font-black text-[#111827]">{value}</p>
-      <p className="mt-1 text-sm font-semibold leading-6">{description}</p>
-    </div>
-  );
-}
-
-function PaymentMethodChoice({
-  pixConfigured,
-  pixKey,
-  onSelectPix,
-  onSelectMercadoPago,
-  mercadoPagoConnected,
-}: {
-  pixConfigured: boolean;
-  pixKey: string;
-  onSelectPix: () => void;
-  onSelectMercadoPago: () => void;
-  mercadoPagoConnected: boolean;
-}) {
-  return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <button
-        type="button"
-        onClick={onSelectPix}
-        className="group min-h-48 cursor-pointer rounded-[1.5rem] border border-[#BBF7D0] bg-[#F9FAFB] p-5 text-left transition hover:-translate-y-0.5 hover:bg-white hover:shadow-xl hover:shadow-[#0B3D2E]/10"
-      >
-        <div className="flex size-12 items-center justify-center rounded-2xl bg-[#DCFCE7] text-2xl text-[#16A34A] transition group-hover:bg-[#16A34A] group-hover:text-white">
-          <EduIcon nome="carteira" />
-        </div>
-        <h3 className="mt-5 text-xl font-black text-[#111827]">Pix normal</h3>
-        <p className="mt-2 text-sm font-semibold leading-6 text-[#6B7280]">
-          Receba usando uma chave Pix cadastrada manualmente.
-        </p>
-        <span className="mt-5 inline-flex text-sm font-black text-[#16A34A]">
-          {pixConfigured ? "Editar chave Pix" : "Cadastrar chave Pix"} →
-        </span>
-        {pixConfigured && (
-          <div className="mt-4 rounded-2xl border border-[#BBF7D0] bg-white px-4 py-3">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#16A34A]">
-              Chave cadastrada
-            </p>
-            <p className="mt-1 break-all text-sm font-black text-[#111827]">{pixKey}</p>
-          </div>
-        )}
-      </button>
-
-      <button
-        type="button"
-        onClick={onSelectMercadoPago}
-        className="group min-h-48 cursor-pointer rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 text-left transition hover:-translate-y-0.5 hover:bg-white hover:shadow-xl hover:shadow-[#0B3D2E]/10"
-      >
-        <div className="flex size-12 items-center justify-center rounded-2xl bg-[#E0F2FE] text-2xl text-[#0284C7] transition group-hover:bg-[#0284C7] group-hover:text-white">
-          <EduIcon nome="cartao" />
-        </div>
-        <h3 className="mt-5 text-xl font-black text-[#111827]">Mercado Pago</h3>
-        <p className="mt-2 text-sm font-semibold leading-6 text-[#6B7280]">
-          Receba pagamentos online com Pix, cartão e boleto direto na conta Mercado Pago.
-        </p>
-        <span className="mt-5 inline-flex text-sm font-black text-[#0284C7]">
-          {mercadoPagoConnected ? "Conta conectada · gerenciar" : "Conectar conta"} →
-        </span>
-      </button>
-    </div>
-  );
-}
-
-function PixKeyPreview({ pixKey }: { pixKey: string }) {
-  return (
-    <div className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] px-5 py-4">
-      <p className="text-xs font-black uppercase tracking-[0.16em] text-[#16A34A]">
-        Chave Pix atual
-      </p>
-      <p className="mt-2 break-all text-base font-black text-[#111827]">{pixKey}</p>
-    </div>
-  );
-}
-
-type TextFieldProps = {
-  label: string;
-  value: string;
-  disabled?: boolean;
-  onChange?: (value: string) => void;
-};
-
-function TextField({ label, value, disabled = false, onChange }: TextFieldProps) {
-  return (
-    <label className="block">
-      <span className="mb-2 block text-sm font-black text-[#111827]">{label}</span>
-      <input
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange?.(event.target.value)}
-        className="h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30 disabled:bg-[#F3F4F6] disabled:text-[#6B7280]"
-      />
-    </label>
-  );
-}
-
-type ToggleRowProps = {
-  label: string;
-  description: string;
-  checked: boolean;
-  onChange: () => void;
-};
-
-function ToggleRow({ label, description, checked, onChange }: ToggleRowProps) {
-  return (
-    <button
-      type="button"
-      onClick={onChange}
-      className="flex w-full cursor-pointer items-center justify-between gap-4 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F9FAFB] p-5 text-left transition hover:border-[#86EFAC] hover:bg-white"
-    >
-      <span>
-        <span className="block text-base font-black text-[#111827]">{label}</span>
-        <span className="mt-1 block text-sm font-semibold leading-6 text-[#6B7280]">
-          {description}
-        </span>
-      </span>
-
-      <span
-        className={`flex h-8 w-14 shrink-0 items-center rounded-full p-1 transition ${
-          checked ? "bg-[#16A34A]" : "bg-[#E5E7EB]"
-        }`}
-      >
-        <span
-          className={`size-6 rounded-full bg-white shadow-sm transition ${
-            checked ? "translate-x-6" : "translate-x-0"
-          }`}
-        />
-      </span>
-    </button>
-  );
-}
-
-function FeedbackMessage({
-  message,
-  variant,
-}: {
-  message: string;
-  variant: "success" | "error";
-}) {
-  const classes =
-    variant === "success"
-      ? "border-[#BBF7D0] bg-[#DCFCE7] text-[#0B3D2E]"
-      : "border-[#FECACA] bg-[#FDECEC] text-[#B42318]";
-
-  return (
-    <div className={`mt-5 rounded-2xl border px-4 py-3 text-sm font-bold ${classes}`}>
-      {message}
-    </div>
-  );
-}
-
-function EduIcon({ nome }: { nome: string }) {
-  const [svg, setSvg] = useState<string | null>(() =>
-    svgIcone({
-      nome,
-      cor: "currentColor",
-      tamanho: "1em",
-    }) ?? null,
-  );
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadIcon() {
-      const icons = await import("@edusites/icons/core");
-      const loadedSvg = await (icons as typeof icons & {
-        svgIconeAsync?: (options: {
-          nome: string;
-          cor: string;
-          tamanho: string;
-        }) => Promise<string | null | undefined>;
-      }).svgIconeAsync?.({
-        nome,
-        cor: "currentColor",
-        tamanho: "1em",
-      });
-
-      if (isMounted) {
-        setSvg(loadedSvg ?? null);
-      }
-    }
-
-    if (!svg) {
-      void loadIcon();
-    }
-
-    return () => {
-      isMounted = false;
-    };
-  }, [nome, svg]);
-
-  if (!svg) {
-    return <span aria-hidden="true" className="inline-flex size-[1em]" />;
-  }
-
-  return (
-    <span
-      aria-hidden="true"
-      className="inline-flex leading-none"
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
-  );
-}
-
-function getFinancialCardDescription(
-  isLoading: boolean,
-  hasPixKey: boolean,
-) {
-  if (isLoading) {
-    return "Carregando método de pagamento do condomínio.";
-  }
-
-  if (hasPixKey) {
-    return "Pix normal configurado para recebimentos internos.";
-  }
-
-  return "Escolha Pix normal ou Mercado Pago para organizar recebimentos internos.";
-}
-
-function onlyDigits(value: string) {
-  return value.replace(/\D/g, "");
 }
