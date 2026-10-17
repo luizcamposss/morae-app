@@ -61,16 +61,18 @@ function expireSession(): never {
     throw new SessionExpiredError();
 }
 
-export async function apiRequest<T>(
-    path: string,
-    options: RequestOptions = {},
-): Promise<T> {
+// Sends the request (renewing the session once on 401) and throws on any error status.
+async function sendRequest(path: string, options: RequestOptions): Promise<Response> {
     const { method = "GET", body, auth = false, withCredentials = false } = options;
+    // Uploads go as multipart/form-data: the browser sets the Content-Type with the boundary.
+    const isForm = body instanceof FormData;
 
     async function send(token: string | null) {
-        const headers = new Headers({
-            "Content-Type": "application/json",
-        });
+        const headers = new Headers();
+
+        if (!isForm) {
+            headers.set("Content-Type", "application/json");
+        }
 
         if (token) {
             headers.set("Authorization", `Bearer ${token}`);
@@ -79,7 +81,7 @@ export async function apiRequest<T>(
         return fetch(`${API_BASE_URL}${path}`, {
             method,
             headers,
-            body: body ? JSON.stringify(body) : undefined,
+            body: isForm ? body : body ? JSON.stringify(body) : undefined,
             credentials: withCredentials ? "include" : "same-origin",
         });
     }
@@ -143,6 +145,22 @@ export async function apiRequest<T>(
 
         throw new Error(`Erro ao comunicar com a API. Status ${response.status}.`);
     }
+
+    return response;
+}
+
+// Files that need the token (attachments, receipts): fetched as a blob, never as a direct link.
+export async function apiDownload(path: string): Promise<Blob> {
+    const response = await sendRequest(path, { auth: true });
+    return response.blob();
+}
+
+export async function apiRequest<T>(
+    path: string,
+    options: RequestOptions = {},
+): Promise<T> {
+    const response = await sendRequest(path, options);
+    const isJsonResponse = response.headers.get("Content-Type")?.includes("application/json");
 
     if (response.status === 204) {
         return undefined as T;
