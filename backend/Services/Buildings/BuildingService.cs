@@ -135,11 +135,11 @@ public class BuildingService : IBuildingService
             .Where(b => b.CondominiumId == condominiumId)
             .AsQueryable();
 
-        if (await _permissionService.IsSyndicAsync(userId))
-        {
-            var linkedBuildingIds = await GetLinkedBuildingIdsAsync(userId, condominiumId);
-            query = query.Where(building => linkedBuildingIds.Contains(building.Id));
-        }
+        // A syndic only sees the buildings he manages (null = all of them; Admin also gets null).
+        var managedBuildingIds = await _permissionService.GetManagedBuildingIdsAsync(userId, condominiumId);
+
+        if (managedBuildingIds is not null)
+            query = query.Where(building => managedBuildingIds.Contains(building.Id));
 
         return await query.ToListAsync();
     }
@@ -205,23 +205,5 @@ public class BuildingService : IBuildingService
         await _context.SaveChangesAsync();
 
         return true;
-    }
-    private async Task<List<int>> GetLinkedBuildingIdsAsync(int userId, int condominiumId)
-    {
-        var user = await _context.Users
-            .AsNoTracking()
-            .FirstOrDefaultAsync(u => u.Id == userId);
-
-        if (user is null)
-            throw new NotFoundException("Usuário não encontrado.");
-
-        return await _context.PersonUnits
-            .AsNoTracking()
-            .Where(personUnit =>
-                personUnit.PersonId == user.PersonId &&
-                personUnit.Unit.Building.CondominiumId == condominiumId)
-            .Select(personUnit => personUnit.Unit.BuildingId)
-            .Distinct()
-            .ToListAsync();
     }
 }

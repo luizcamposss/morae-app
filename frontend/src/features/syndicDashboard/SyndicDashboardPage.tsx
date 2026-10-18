@@ -122,10 +122,10 @@ export function SyndicDashboardPage() {
           tone="red"
           title={plural(overdue.count, "cobrança atrasada", "cobranças atrasadas")}
           subtitle={listUnits(overdue.unitLabels) || formatCurrency(overdue.value)}
-          onClick={() => navigate("/syndic/finance")}
+          onClick={() => navigate("/syndic/payments")}
         />
       ) : (
-        <GroupedRow key="charges" icon={Receipt} tone="green" title="Cobranças em dia" subtitle="Nenhuma cobrança atrasada" onClick={() => navigate("/syndic/finance")} />
+        <GroupedRow key="charges" icon={Receipt} tone="green" title="Cobranças em dia" subtitle="Nenhuma cobrança atrasada" onClick={() => navigate("/syndic/payments")} />
       ),
     );
   }
@@ -139,10 +139,10 @@ export function SyndicDashboardPage() {
           tone="amber"
           title={plural(openOccurrences.length, "ocorrência aberta", "ocorrências abertas")}
           subtitle={openOccurrences.slice(0, 2).map((occurrence) => occurrence.title).join(" · ")}
-          onClick={() => navigate("/syndic/maintenance")}
+          onClick={() => navigate("/syndic/occurrences")}
         />
       ) : (
-        <GroupedRow key="occurrences" icon={TriangleAlert} tone="green" title="Nenhuma ocorrência aberta" subtitle="Tudo resolvido por aqui" onClick={() => navigate("/syndic/maintenance")} />
+        <GroupedRow key="occurrences" icon={TriangleAlert} tone="green" title="Nenhuma ocorrência aberta" subtitle="Tudo resolvido por aqui" onClick={() => navigate("/syndic/occurrences")} />
       ),
     );
   }
@@ -156,10 +156,10 @@ export function SyndicDashboardPage() {
           tone="green"
           title={`Aviso publicado ${describeDay(latestNews.createdAt)}`}
           subtitle={latestNews.title}
-          onClick={() => navigate("/syndic/communication")}
+          onClick={() => navigate("/syndic/news")}
         />
       ) : (
-        <GroupedRow key="news" icon={Megaphone} title="Nenhum aviso publicado" subtitle="Publique o primeiro aviso para os moradores" onClick={() => navigate("/syndic/communication")} />
+        <GroupedRow key="news" icon={Megaphone} title="Nenhum aviso publicado" subtitle="Publique o primeiro aviso para os moradores" onClick={() => navigate("/syndic/news")} />
       ),
     );
   }
