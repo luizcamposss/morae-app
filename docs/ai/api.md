@@ -12,13 +12,14 @@ Para os detalhes de cada rota (corpo, validações, quem pode chamar), leia o co
 - **Horários** (`TimeOnly`, visitas): `"HH:mm"` (aceita `"HH:mm:ss"` na entrada).
 - **Erros:** `{ "statusCode": 400, "message": "texto em português para mostrar ao usuário" }`. Erro inesperado: `"Ocorreu um erro inesperado. Tente novamente. Código: XXXXXXXX"`. Rate limit: 429.
 - **Sessão:** o access token dura 15 min. Em 401, `apiClient.ts` chama `POST /api/auth/refresh` (cookie HttpOnly em `/api/auth`, `credentials: "include"`) e repete. Se falhar → `/login?expired=1`.
-- **Uploads** (`multipart/form-data`): documentos (`file`, `title`, `description`, `category`, `visibility`) e execução de manutenção (`performedOn`, `providerName`, `notes`, `file` opcional). Limite de 20 MB; tipos PDF, JPG, PNG, DOCX, XLSX. Importação por planilha: campo `file` (CSV ou XLSX, até 2 MB e 2.000 linhas).
+- **Uploads** (`multipart/form-data`): documentos (`file`, `title`, `description`, `category`, `visibility`) e execução de manutenção (`performedOn`, `providerName`, `notes`, `file` opcional). Limite de 20 MB; tipos PDF, JPG, PNG, DOCX, XLSX. Ocorrência: até 5 `photos` (JPG ou PNG, 10 MB cada). Importação por planilha: campo `file` (CSV ou XLSX, até 2 MB e 2.000 linhas).
 - **Downloads** (documento, anexo de manutenção, comprovante): exigem o token, então baixe com `fetch` + `Authorization` e gere um blob/URL temporária (link direto não funciona).
 - **Recursos escondidos** aparecem como **404** (não 403) quando o usuário não pode nem saber que existem (documento "só gestão", rascunho de assembleia, visita/manutenção de outro prédio).
 
 ## Pontos de atenção por módulo
 
 - **Cobranças/pagamentos:** pagar com Mercado Pago = `payment-setup` (public key) → Payment Brick → `POST /api/charges/{id}/mercadopago/payments` com o `formData` do Brick (snake_case: `payment_method_id`, `token`, `issuer_id`, `payer`). Pix/boleto: acompanhar por `payment-status`.
+- **Lote, recorrência, multa e juros:** cada cobrança traz `finePercent`/`monthlyInterestPercent` (null = sem multa/juros), `daysLate`, `fineAmount`, `interestAmount` e `updatedAmount` (o que se paga hoje; é o valor usado no Mercado Pago). Lote e recorrência devolvem `skipped` (unidades sem ninguém vinculado). Detalhes em "Lote, recorrência e regras de cobrança".
 - **Síndico:** `GET /api/me/permissions?condominiumId=` diz o que ele pode naquele condomínio; esconda menus/ações sem permissão (a API também bloqueia). Prédios do síndico: `GET/PUT /api/condominiums/{id}/syndics/{userId}/buildings` (envio: `{ allBuildings, buildingIds }`).
 - **`GET /api/me`:** traz `isCondominiumInactive` e `isSuspended` (mostrar telas de bloqueio).
 - **Documentos:** `GET .../documents?category=`. Visibilidade 2 = só gestão.
@@ -157,12 +158,26 @@ GET    /api/condominiums/{condominiumId}/charges
 GET    /api/my/charges
 ```
 
+### Lote, recorrência e regras de cobrança
+```
+GET    /api/condominiums/{condominiumId}/billing-settings        (qualquer membro ativo)
+PUT    /api/condominiums/{condominiumId}/billing-settings        (só Admin)
+POST   /api/condominiums/{condominiumId}/charges/batch           (charges.create)
+GET    /api/condominiums/{condominiumId}/recurring-charges       (Admin ou síndico do Financeiro)
+POST   /api/condominiums/{condominiumId}/recurring-charges       (charges.create)
+PUT    /api/recurring-charges/{id}/pause | /resume | /end        (charges.create)
+```
+- Regras: `PUT billing-settings` `{ billingDueDay: 10, lateFeeEnabled: true, finePercent: 2, monthlyInterestPercent: 1 }` (dia 1–31, no mês curto vira o último dia; multa 0–2; juros 0–1 ao mês). A resposta traz também `maxFinePercent` e `maxMonthlyInterestPercent`.
+- Lote: `POST .../charges/batch` `{ buildingId?: 3, value: 500, dueDate?: "2026-11-10", description: "Taxa de novembro", unitValues?: [{ unitId: 12, value: 650 }] }`. Sem `buildingId` = todos os prédios (síndico limitado: só os dele). Sem `dueDate` = próximo dia `billingDueDay`. Resposta: `{ dueDate, createdCount, totalValue, charges: [...], skipped: [{ unitId, unitNumber, buildingName, reason }] }`.
+- Recorrência: `POST .../recurring-charges` `{ buildingId?, value: 500, dueDay?: 10, description, unitValues? }` (sem `dueDay` = o do condomínio; síndico limitado precisa escolher o prédio). A rotina gera **10 dias antes** do vencimento, uma vez por unidade e mês. Criar e retomar já geram o mês se estiver dentro da janela (vem em `generation`). Encerrada não volta.
+
 ### Pagamentos e comprovante
 ```
 GET    /api/charges/{chargeId}/payments
 POST   /api/charges/{chargeId}/payments/manual
 GET    /api/charges/{chargeId}/receipt
 ```
+- Pagamento manual aceita de `value` (gestão perdoa multa/juros) até o valor atualizado no dia do pagamento. O comprovante traz `originalValue` e `lateFeesPaid` (`amountPaid = originalValue + lateFeesPaid`).
 
 ### Inadimplência
 ```
@@ -208,8 +223,14 @@ GET    /api/condominiums/{condominiumId}/occurrences
 GET    /api/my/occurrences
 POST   /api/occurrences
 GET    /api/occurrences/{id}
+PUT    /api/occurrences/{id}/response
 PUT    /api/occurrences/{id}/status
+GET    /api/occurrence-photos/{id}
 ```
+- `POST /api/occurrences` aceita JSON (sem fotos) ou `multipart/form-data` com os mesmos campos + até 5 arquivos `photos` (só JPG ou PNG, conferidos pelo conteúdo; até 10 MB cada).
+- `PUT /api/occurrences/{id}/response` (Admin ou síndico com `occurrences.manage`): `{ "message": "..." }` (até 2000 caracteres). Grava `managementResponse`, `respondedAt` e `respondedByName` e avisa no sininho quem abriu (tipo `Occurrence`).
+- `GET /api/occurrence-photos/{id}` devolve o arquivo da foto (com o token; use `apiDownload`). Quem pode ver a ocorrência pode ver a foto.
+- A resposta das ocorrências traz também `buildingId`, `buildingName`, `unitNumber`, `createdByName` e `photos` (`id`, `fileName`, `contentType`, `sizeBytes`).
 
 ### Documentos (H)
 ```
@@ -281,6 +302,7 @@ POST   /api/condominiums/{condominiumId}/assemblies
 - `BankAccountType`: 1 Checking, 2 Savings, 3 Payment
 - `ChargeScope`: 1 Platform, 2 Condominium
 - `ChargeStatus`: 1 Pending, 2 Paid, 3 Overdue, 4 Canceled
+- `RecurringChargeStatus`: 1 Active, 2 Paused, 3 Ended
 - `DocumentCategory`: 1 Convention, 2 InternalRules, 3 Minutes, 4 Financial, 5 Contract, 6 Other
 - `DocumentVisibility`: 1 Everyone, 2 ManagementOnly
 - `FinancialAccountScope`: 1 Platform, 2 Condominium

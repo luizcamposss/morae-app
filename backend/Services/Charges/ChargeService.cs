@@ -70,6 +70,10 @@ public class ChargeService : IChargeService
             charge.TargetUserId = null;
             charge.UnitId = null;
         }
+        else
+        {
+            (charge.FinePercent, charge.MonthlyInterestPercent) = await GetLateFeeRuleAsync(charge.CondominiumId);
+        }
 
         _context.Charges.Add(charge);
         await _context.SaveChangesAsync();
@@ -206,6 +210,212 @@ public class ChargeService : IChargeService
 
         return true;
     }
+    public async Task<ChargeBatchResultDto> CreateBatchAsync(
+        int userId,
+        int condominiumId,
+        CreateChargeBatchDto dto)
+    {
+        await EnsureBatchTargetValidAsync(userId, condominiumId, dto.BuildingId, dto.UnitValues);
+
+        var condominium = await _context.Condominiums
+            .AsNoTracking()
+            .FirstAsync(c => c.Id == condominiumId);
+
+        var dueDate = dto.DueDate?.Date ?? ChargeLateFees.NextDueDate(condominium.BillingDueDay, AppTimeZone.Today);
+
+        if (dueDate < AppTimeZone.Today)
+            throw new BadRequestException("O vencimento não pode ser uma data passada.");
+
+        var result = await GenerateForUnitsAsync(new ChargeGenerationRequest(
+            condominiumId,
+            dto.BuildingId,
+            await _permissionService.GetManagedBuildingIdsAsync(userId, condominiumId),
+            dto.Value,
+            dto.UnitValues.ToDictionary(item => item.UnitId, item => item.Value),
+            dueDate,
+            dto.Description.Trim(),
+            userId));
+
+        if (result.CreatedCount == 0 && result.Skipped.Count == 0)
+            throw new BadRequestException("Nenhuma unidade encontrada para este lote.");
+
+        return result;
+    }
+
+    public async Task EnsureBatchTargetValidAsync(
+        int userId,
+        int condominiumId,
+        int? buildingId,
+        IEnumerable<ChargeUnitValueDto> unitValues)
+    {
+        if (await _permissionService.IsMasterAsync(userId))
+            throw new ForbiddenException("O Master não cria cobranças de condomínio.");
+
+        await _permissionService.EnsureCondominiumPermissionAsync(userId, condominiumId, AppPermissions.ChargesCreate);
+
+        if (buildingId.HasValue)
+        {
+            var buildingBelongs = await _context.Buildings
+                .AsNoTracking()
+                .AnyAsync(b => b.Id == buildingId.Value && b.CondominiumId == condominiumId);
+
+            if (!buildingBelongs)
+                throw new BadRequestException("Este prédio não pertence a este condomínio.");
+
+            // A syndic limited to some buildings can only bill those.
+            await _permissionService.EnsureBuildingAccessAsync(userId, buildingId.Value);
+        }
+
+        var unitValueList = unitValues.ToList();
+
+        if (unitValueList.Select(item => item.UnitId).Distinct().Count() != unitValueList.Count)
+            throw new BadRequestException("Cada unidade pode ter só um valor ajustado.");
+
+        if (unitValueList.Any(item => item.Value <= 0))
+            throw new BadRequestException("O valor ajustado precisa ser maior que zero.");
+
+        if (unitValueList.Count > 0)
+        {
+            var unitIds = unitValueList.Select(item => item.UnitId).ToList();
+            var managedBuildingIds = await _permissionService.GetManagedBuildingIdsAsync(userId, condominiumId);
+
+            var validCount = await _context.Units
+                .AsNoTracking()
+                .CountAsync(u =>
+                    unitIds.Contains(u.Id) &&
+                    u.Building.CondominiumId == condominiumId &&
+                    (!buildingId.HasValue || u.BuildingId == buildingId.Value) &&
+                    (managedBuildingIds == null || managedBuildingIds.Contains(u.BuildingId)));
+
+            if (validCount != unitIds.Count)
+                throw new BadRequestException("Uma das unidades com valor ajustado não faz parte deste lote.");
+        }
+
+        await EnsurePaymentMethodConfiguredAsync(FinancialAccountScope.Condominium, condominiumId);
+    }
+
+    public async Task<ChargeBatchResultDto> GenerateForUnitsAsync(ChargeGenerationRequest request)
+    {
+        var allowed = request.AllowedBuildingIds;
+
+        var units = await _context.Units
+            .AsNoTracking()
+            .Where(u =>
+                u.Building.CondominiumId == request.CondominiumId &&
+                (!request.BuildingId.HasValue || u.BuildingId == request.BuildingId.Value) &&
+                (allowed == null || allowed.Contains(u.BuildingId)))
+            .OrderBy(u => u.Building.Name)
+            .ThenBy(u => u.Number)
+            .Select(u => new
+            {
+                u.Id,
+                u.Number,
+                BuildingName = u.Building.Name,
+                // Residents/tenants get the charge; with no one living there, the owner does.
+                HasPeople = _context.PersonUnits.Any(pu => pu.UnitId == u.Id)
+            })
+            .ToListAsync();
+
+        // Units already billed by this recurrence for this month (the job may run more than once).
+        var alreadyBilled = new HashSet<int>();
+
+        if (request.RecurringChargeId.HasValue)
+        {
+            var billedIds = await _context.Charges
+                .AsNoTracking()
+                .Where(c =>
+                    c.RecurringChargeId == request.RecurringChargeId &&
+                    c.ReferenceMonth == request.ReferenceMonth &&
+                    c.UnitId != null)
+                .Select(c => c.UnitId!.Value)
+                .ToListAsync();
+
+            alreadyBilled = billedIds.ToHashSet();
+        }
+
+        var dueDate = DateTime.SpecifyKind(request.DueDate.Date, DateTimeKind.Unspecified);
+        var (finePercent, monthlyInterestPercent) = await GetLateFeeRuleAsync(request.CondominiumId);
+        var result = new ChargeBatchResultDto { DueDate = dueDate };
+        var charges = new List<Charge>();
+
+        foreach (var unit in units.Where(u => !alreadyBilled.Contains(u.Id)))
+        {
+            if (!unit.HasPeople)
+            {
+                result.Skipped.Add(new SkippedUnitDto
+                {
+                    UnitId = unit.Id,
+                    UnitNumber = unit.Number,
+                    BuildingName = unit.BuildingName,
+                    Reason = "Unidade sem morador ou proprietário vinculado."
+                });
+                continue;
+            }
+
+            var charge = new Charge
+            {
+                Scope = ChargeScope.Condominium,
+                CondominiumId = request.CondominiumId,
+                UnitId = unit.Id,
+                Value = request.UnitValues.TryGetValue(unit.Id, out var unitValue) ? unitValue : request.Value,
+                DueDate = dueDate,
+                Description = request.Description,
+                CreatedByUserId = request.CreatedByUserId,
+                Status = ChargeStatus.Pending,
+                CreatedAt = DateTime.UtcNow,
+                RecurringChargeId = request.RecurringChargeId,
+                ReferenceMonth = request.ReferenceMonth,
+                FinePercent = finePercent,
+                MonthlyInterestPercent = monthlyInterestPercent
+            };
+
+            charges.Add(charge);
+        }
+
+        if (charges.Count == 0)
+            return result;
+
+        _context.Charges.AddRange(charges);
+        await _context.SaveChangesAsync();
+
+        foreach (var charge in charges)
+        {
+            await CreateChargeNotificationsAsync(charge);
+            await _chargeEmailNotifier.QueueNewChargeAsync(charge);
+        }
+
+        var chargeIds = charges.Select(c => c.Id).ToList();
+        var created = await BuildChargeResponseQuery()
+            .Where(c => chargeIds.Contains(c.Id))
+            .OrderBy(c => c.Unit!.Building.Name)
+            .ThenBy(c => c.Unit!.Number)
+            .ToListAsync();
+
+        result.Charges = _mapper.Map<List<ChargeResponseDto>>(created);
+        result.CreatedCount = result.Charges.Count;
+        result.TotalValue = charges.Sum(c => c.Value);
+
+        return result;
+    }
+
+    // The condominium's fine/interest rule, copied onto each new charge so turning the rule on
+    // or changing it later never alters charges created before. (null, null) = rule off.
+    private async Task<(decimal? FinePercent, decimal? MonthlyInterestPercent)> GetLateFeeRuleAsync(int condominiumId)
+    {
+        var rule = await _context.Condominiums
+            .AsNoTracking()
+            .Where(c => c.Id == condominiumId)
+            .Select(c => new { c.LateFeeEnabled, c.FinePercent, c.MonthlyInterestPercent })
+            .FirstOrDefaultAsync();
+
+        if (rule is null || !rule.LateFeeEnabled)
+            return (null, null);
+
+        return (
+            Math.Min(rule.FinePercent, ChargeLateFees.MaxFinePercent),
+            Math.Min(rule.MonthlyInterestPercent, ChargeLateFees.MaxMonthlyInterestPercent));
+    }
+
     private async Task ValidateCreateAsync(int userId, CreateChargeDto dto)
     {
         if (IsPastDueDate(dto.DueDate))

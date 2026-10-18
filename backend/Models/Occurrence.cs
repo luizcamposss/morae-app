@@ -46,4 +46,15 @@ public class Occurrence
     public DateTime? UpdatedAt { get; set; }
 
     public DateTime? ResolvedAt { get; set; }
+
+    // Reply from the management, shown to whoever opened the occurrence.
+    [StringLength(2000)]
+    public string? ManagementResponse { get; set; }
+
+    public DateTime? RespondedAt { get; set; }
+
+    public int? RespondedByUserId { get; set; }
+    public ApplicationUser? RespondedByUser { get; set; }
+
+    public ICollection<OccurrencePhoto> Photos { get; set; } = [];
 }

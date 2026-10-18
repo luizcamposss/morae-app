@@ -57,4 +57,13 @@ public class Condominium
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+    // Billing rules, set by the Admin. The due day is used by batches and recurring charges
+    // (clamped to the last day of short months).
+    [Range(1, 31)]
+    public int BillingDueDay { get; set; } = 10;
+
+    // Fine and interest only apply to charges created while this is on (snapshot on the charge).
+    public bool LateFeeEnabled { get; set; }
+    public decimal FinePercent { get; set; } = 2m;
+    public decimal MonthlyInterestPercent { get; set; } = 1m;
 }

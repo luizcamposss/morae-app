@@ -63,13 +63,13 @@ function areaRoute(role: AreaRole) {
     );
 }
 
-function renderScreen({ component: Screen, syndicAccess }: AppRoute) {
+function renderScreen({ component: Screen, syndicAccess, nav }: AppRoute) {
     if (!syndicAccess) {
         return <Screen />;
     }
 
     return (
-        <SyndicAccessRoute accessKey={syndicAccess}>
+        <SyndicAccessRoute requirement={syndicAccess} screenName={nav?.label}>
             <Screen />
         </SyndicAccessRoute>
     );

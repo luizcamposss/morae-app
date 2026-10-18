@@ -11,6 +11,9 @@ public class PaymentReceiptDto
     public string? UnitLabel { get; set; }
     public string ReceiverName { get; set; } = string.Empty;
     public decimal AmountPaid { get; set; }
+    // AmountPaid = OriginalValue + LateFeesPaid (fine and interest of a late payment).
+    public decimal OriginalValue { get; set; }
+    public decimal LateFeesPaid { get; set; }
     public DateTime PaidAt { get; set; }
     public PaymentMethod PaymentMethod { get; set; }
     public PaymentSource Source { get; set; }

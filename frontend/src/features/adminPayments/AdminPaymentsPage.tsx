@@ -1,1193 +1,760 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { PaymentReceiptButton } from "../payments/PaymentReceiptButton";
+import { ChevronRight, Layers, Plus, Repeat, Search, TriangleAlert } from "lucide-react";
 import { useCondominium } from "../../app/providers/useCondominium";
-import { DatePickerField } from "../../shared/components/DatePickerField";
-import { MetricCard } from "../../shared/components/MetricCard";
-import { StatusBadge } from "../../shared/components/StatusBadge";
-import { getBuildingsByCondominium } from "../buildings/buildingService";
-import { cancelCharge, createCharge, getChargesByCondominium, getPlatformCharges } from "../charges/chargeService";
-import { PayWithMercadoPagoButton } from "../mercadoPago/PayWithMercadoPagoButton";
-import type { ChargeResponse } from "../charges/types";
-import { getPlatformFinancialAccount } from "../financialAccounts/financialAccountService";
-import type { FinancialAccountResponse } from "../financialAccounts/types";
-import { createManualPayment } from "../payments/paymentService";
-import type { PaymentMethod } from "../payments/types";
-import { getUnitsByBuilding } from "../units/unitService";
-import type { UnitResponse } from "../units/types";
+import { Button, ButtonLink } from "../../shared/components/Button";
+import { ConfirmDialog, type ConfirmRequest } from "../../shared/components/ConfirmDialog";
+import { SelectField } from "../../shared/components/SelectField";
+import { SummaryCard } from "../../shared/components/SummaryCard";
+import { PageHeader } from "../../shared/layout/PageHeader";
+import { formatCurrency } from "../../shared/lib/currency";
 import { formatCalendarDate, todayInputDate } from "../../shared/lib/date";
+import { getBuildingsByCondominium } from "../buildings/buildingService";
+import { changeRecurringCharge, createChargeBatch, createRecurringCharge, getBillingSettings, getRecurringCharges } from "../charges/billingService";
+import { cancelCharge, createCharge, getChargesByCondominium, getPlatformCharges } from "../charges/chargeService";
+import { CHARGE_STATUS, currentMonthName } from "../charges/platformRevenue";
+import type { ChargeBatchResult, ChargeResponse, RecurringChargeResponse } from "../charges/types";
+import { getCondominiumFinancialAccount, getPlatformFinancialAccount } from "../financialAccounts/financialAccountService";
+import { ChargeStatusChip, ChargeStatusTile } from "../masterPayments/ChargeStatus";
+import { MercadoPagoPaymentModal } from "../mercadoPago/MercadoPagoPaymentModal";
+import { getMercadoPagoConnectionStatus } from "../mercadoPago/mercadoPagoService";
+import { createManualPayment } from "../payments/paymentService";
+import { getUnitsByBuilding } from "../units/unitService";
+import { ChargeReceiptModal } from "./ChargeReceiptModal";
+import { BatchResultModal, CancelChargeModal, ChargeDetailsModal, GroupChargeModal, ManualPaymentModal, SingleChargeModal } from "./ChargeModals";
+import { RecurringChargesList } from "./RecurringChargesList";
+import {
+  amountDue,
+  chargeMonths,
+  formatMonthKey,
+  hasLateFees,
+  initialGroupForm,
+  initialSingleForm,
+  isOpenCharge,
+  normalizeSearch,
+  parseCurrencyInput,
+  toManualPaymentForm,
+  toUnitValues,
+  validateCancelForm,
+  validateGroupForm,
+  validateManualPayment,
+  validateSingleForm,
+  type CancelFormState,
+  type GroupChargeForm,
+  type ManualPaymentForm,
+  type SingleChargeForm,
+} from "./chargeForm";
 
-type PaymentsTab = "platform" | "condominium";
-type StatusFilter = "all" | "1" | "2" | "3" | "4";
+type View = "charges" | "recurring" | "platform";
+type Tab = "open" | "overdue" | "paid" | "canceled" | "all";
+type GroupModal = { mode: "batch" | "recurring"; form: GroupChargeForm } | null;
+type BatchResult = { title: string; result: ChargeBatchResult } | null;
 
-type FormState = {
-  target: "single" | "all";
-  unitId: string;
-  value: string;
-  dueDate: string;
-  description: string;
-};
-
-type PaymentFormState = {
-  chargeId: number;
-  amountPaid: string;
-  paymentMethod: PaymentMethod;
-  paidAt: string;
-  notes: string;
-};
-
-const initialFormState: FormState = {
-  target: "single",
-  unitId: "",
-  value: "",
-  dueDate: "",
-  description: "",
-};
-
-const statusFilterOptions: SelectOption<StatusFilter>[] = [
-  { value: "all", label: "Todos" },
-  { value: "1", label: "Pendentes" },
-  { value: "2", label: "Pagos" },
-  { value: "3", label: "Atrasados" },
-  { value: "4", label: "Cancelados" },
+const tabs: Array<{ key: Tab; label: string; statuses: number[] }> = [
+  { key: "open", label: "Em aberto", statuses: [CHARGE_STATUS.pending] },
+  { key: "overdue", label: "Atrasadas", statuses: [CHARGE_STATUS.overdue] },
+  { key: "paid", label: "Pagas", statuses: [CHARGE_STATUS.paid] },
+  { key: "canceled", label: "Canceladas", statuses: [CHARGE_STATUS.canceled] },
+  { key: "all", label: "Todas", statuses: [] },
 ];
 
-const paymentMethodOptions: SelectOption<PaymentMethod>[] = [
-  { value: 0, label: "Selecione" },
-  { value: 1, label: "Pix" },
-  { value: 2, label: "Cartão de crédito" },
-  { value: 3, label: "Cartão de débito" },
-  { value: 4, label: "Boleto" },
-];
+async function fetchPageData(condominiumId: number) {
+  const [charges, buildings, recurring, settings, platformCharges, platformAccount, account, mercadoPago] = await Promise.all([
+    getChargesByCondominium(condominiumId),
+    getBuildingsByCondominium(condominiumId),
+    getRecurringCharges(condominiumId).catch(() => []),
+    getBillingSettings(condominiumId).catch(() => null),
+    getPlatformCharges().catch(() => []),
+    getPlatformFinancialAccount().catch(() => null),
+    getCondominiumFinancialAccount(condominiumId).catch(() => null),
+    getMercadoPagoConnectionStatus(condominiumId).catch(() => null),
+  ]);
+  const unitsByBuilding = await Promise.all(buildings.map((building) => getUnitsByBuilding(building.id)));
+  const units = unitsByBuilding.flat().sort((a, b) => a.buildingName.localeCompare(b.buildingName, "pt-BR") || a.number.localeCompare(b.number, "pt-BR", { numeric: true }));
 
+  return {
+    condominiumId,
+    charges,
+    buildings,
+    units,
+    recurring,
+    settings,
+    // The Admin sees the platform fees of every condominium they manage; keep the active one.
+    platformCharges: platformCharges.filter((charge) => charge.condominiumId === condominiumId),
+    pixKey: platformAccount?.pixKey ?? "",
+    // Same rule the API uses to allow new charges: a Pix key or a connected Mercado Pago.
+    isReceivingReady: Boolean(account?.pixKey?.trim()) || Boolean(mercadoPago?.isConnected),
+    errorMessage: "",
+  };
+}
+
+type PageData = Awaited<ReturnType<typeof fetchPageData>>;
+
+const emptyData = (condominiumId: number | null, errorMessage = ""): PageData => ({
+  condominiumId: condominiumId ?? 0,
+  charges: [],
+  buildings: [],
+  units: [],
+  recurring: [],
+  settings: null,
+  platformCharges: [],
+  pixKey: "",
+  isReceivingReady: true,
+  errorMessage,
+});
+
+// Condominium charges (Admin): summary, filters, single and batch charges, recurring charges,
+// manual payment (with or without fine/interest), cancel, receipt/refund and the Moraê fee.
 export function AdminPaymentsPage() {
-  const { activeCondominium, activeCondominiumId } = useCondominium();
-  const [platformCharges, setPlatformCharges] = useState<ChargeResponse[]>([]);
-  const [condominiumCharges, setCondominiumCharges] = useState<ChargeResponse[]>([]);
-  const [units, setUnits] = useState<UnitResponse[]>([]);
-  const [platformAccount, setPlatformAccount] = useState<FinancialAccountResponse | null>(null);
-  const [activeTab, setActiveTab] = useState<PaymentsTab>("platform");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [paymentInfoCharge, setPaymentInfoCharge] = useState<ChargeResponse | null>(null);
-  const [paymentForm, setPaymentForm] = useState<PaymentFormState | null>(null);
-  const [cancelTarget, setCancelTarget] = useState<ChargeResponse | null>(null);
-  const [cancelReason, setCancelReason] = useState("");
-  const [form, setForm] = useState<FormState>(initialFormState);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { condominiums, activeCondominium, activeCondominiumId, setActiveCondominiumId } = useCondominium();
+  const [data, setData] = useState<PageData | null>(null);
+  const [view, setView] = useState<View>("charges");
+  const [tab, setTab] = useState<Tab>("open");
+  const [search, setSearch] = useState("");
+  const [buildingFilter, setBuildingFilter] = useState("");
+  const [monthFilter, setMonthFilter] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-
-  async function loadPage() {
-    if (!activeCondominiumId) {
-      setPlatformCharges([]);
-      setCondominiumCharges([]);
-      setUnits([]);
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setErrorMessage("");
-
-      const [buildings, condominiumResult, platformResult, platformFinancialAccount] = await Promise.all([
-        getBuildingsByCondominium(activeCondominiumId),
-        getChargesByCondominium(activeCondominiumId),
-        getPlatformCharges(),
-        getPlatformFinancialAccount(),
-      ]);
-
-      const unitsByBuilding = await Promise.all(
-        buildings.map((building) => getUnitsByBuilding(building.id)),
-      );
-
-      setUnits(unitsByBuilding.flat());
-      setCondominiumCharges(condominiumResult);
-      setPlatformAccount(platformFinancialAccount);
-      setPlatformCharges(
-        platformResult.filter((charge) => charge.condominiumId === activeCondominiumId),
-      );
-    } catch (error) {
-      setPlatformCharges([]);
-      setCondominiumCharges([]);
-      setUnits([]);
-      setPlatformAccount(null);
-      setErrorMessage(
-        error instanceof Error ? error.message : "Não foi possível carregar pagamentos.",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  async function handleCancelCharge(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!cancelTarget) {
-      return;
-    }
-
-    const reason = cancelReason.trim();
-
-    if (reason.length < 5) {
-      setErrorMessage("Informe um motivo com pelo menos 5 caracteres.");
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      setErrorMessage("");
-      setSuccessMessage("");
-
-      await cancelCharge(cancelTarget.id, reason);
-      setCancelTarget(null);
-      setCancelReason("");
-      setSuccessMessage("Cobrança cancelada com sucesso.");
-      await loadPage();
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Não foi possível cancelar a cobrança.",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
-
-  async function handleManualPayment(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!paymentForm) {
-      return;
-    }
-
-    const charge = condominiumCharges.find((item) => item.id === paymentForm.chargeId);
-    const validationMessage = validatePaymentForm(paymentForm, charge);
-
-    if (validationMessage) {
-      setErrorMessage(validationMessage);
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      setErrorMessage("");
-      setSuccessMessage("");
-
-      await createManualPayment(paymentForm.chargeId, {
-        amountPaid: parseCurrencyInput(paymentForm.amountPaid),
-        paymentMethod: paymentForm.paymentMethod,
-        paidAt: paymentForm.paidAt || null,
-        notes: paymentForm.notes.trim() || null,
-      });
-
-      setPaymentForm(null);
-      setSuccessMessage("Baixa registrada com sucesso.");
-      await loadPage();
-    } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Não foi possível registrar a baixa.",
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
+  const [modalError, setModalError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [singleForm, setSingleForm] = useState<SingleChargeForm | null>(null);
+  const [groupModal, setGroupModal] = useState<GroupModal>(null);
+  const [batchResult, setBatchResult] = useState<BatchResult>(null);
+  const [paymentForm, setPaymentForm] = useState<ManualPaymentForm | null>(null);
+  const [cancelForm, setCancelForm] = useState<CancelFormState | null>(null);
+  const [selectedChargeId, setSelectedChargeId] = useState<number | null>(null);
+  const [receiptChargeId, setReceiptChargeId] = useState<number | null>(null);
+  const [payingChargeId, setPayingChargeId] = useState<number | null>(null);
+  const [hasPaidOnline, setHasPaidOnline] = useState(false);
+  const [busyRecurringId, setBusyRecurringId] = useState<number | null>(null);
+  const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
 
   useEffect(() => {
-    void loadPage();
+    if (!activeCondominiumId) return;
+    let isMounted = true;
+
+    fetchPageData(activeCondominiumId)
+      .then((result) => isMounted && setData(result))
+      .catch(
+        (error) =>
+          isMounted && setData(emptyData(activeCondominiumId, error instanceof Error ? error.message : "Não foi possível carregar as cobranças.")),
+      );
+
+    return () => {
+      isMounted = false;
+    };
   }, [activeCondominiumId]);
 
-  async function handleCreateCharge(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  const isLoading = !data || data.condominiumId !== activeCondominiumId;
+  const page = isLoading ? emptyData(activeCondominiumId) : data;
+  const { charges, buildings, units, recurring, settings, platformCharges } = page;
+  const unitById = useMemo(() => new Map(units.map((unit) => [unit.id, unit])), [units]);
+  const shownError = errorMessage || page.errorMessage;
 
-    if (!activeCondominiumId) {
-      setErrorMessage("Selecione um condomínio antes de cadastrar cobranças.");
-      return;
+  async function reload() {
+    if (!activeCondominiumId) return;
+    try {
+      setData(await fetchPageData(activeCondominiumId));
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Não foi possível atualizar as cobranças.");
     }
+  }
 
-    const validationMessage = validateCreateForm(form, units);
+  const summary = useMemo(() => {
+    const month = todayInputDate().slice(0, 7);
+    const sum = (list: ChargeResponse[], pick: (charge: ChargeResponse) => number = (charge) => charge.value) =>
+      list.reduce((total, charge) => total + pick(charge), 0);
+    const pending = charges.filter((charge) => charge.status === CHARGE_STATUS.pending);
+    const overdue = charges.filter((charge) => charge.status === CHARGE_STATUS.overdue);
+    const lateUnitIds = new Set(overdue.map((charge) => charge.unitId).filter(Boolean));
 
-    if (validationMessage) {
-      setErrorMessage(validationMessage);
-      return;
-    }
+    return {
+      receivedThisMonth: sum(charges.filter((charge) => charge.status === CHARGE_STATUS.paid && charge.dueDate.startsWith(month))),
+      toReceive: sum(pending),
+      pendingCount: pending.length,
+      overdue: sum(overdue, amountDue),
+      lateFees: sum(overdue, (charge) => charge.fineAmount + charge.interestAmount),
+      lateUnits: lateUnitIds.size,
+      upToDateUnits: units.filter((unit) => !lateUnitIds.has(unit.id)).length,
+    };
+  }, [charges, units]);
 
-    setIsSubmitting(true);
+  const term = normalizeSearch(search.trim());
+  const inScope = charges.filter((charge) => {
+    const unit = charge.unitId ? unitById.get(charge.unitId) : undefined;
+    if (buildingFilter && String(unit?.buildingId ?? "") !== buildingFilter) return false;
+    if (monthFilter && !charge.dueDate.startsWith(monthFilter)) return false;
+    if (!term) return true;
+    return normalizeSearch([charge.description, charge.unitNumber, charge.buildingName, unit?.responsiblePersonName, `#${charge.id}`].filter(Boolean).join(" ")).includes(term);
+  });
+  const countFor = (key: Tab) => {
+    const statuses = tabs.find((item) => item.key === key)?.statuses ?? [];
+    return statuses.length ? inScope.filter((charge) => statuses.includes(charge.status)).length : inScope.length;
+  };
+  const activeStatuses = tabs.find((item) => item.key === tab)?.statuses ?? [];
+  const visibleCharges = (activeStatuses.length ? inScope.filter((charge) => activeStatuses.includes(charge.status)) : inScope).sort((a, b) =>
+    tab === "open" || tab === "overdue" ? a.dueDate.localeCompare(b.dueDate) : b.dueDate.localeCompare(a.dueDate),
+  );
+  const months = useMemo(() => chargeMonths(charges), [charges]);
+  const activeRecurring = recurring.filter((item) => item.status !== 3).length;
+  const openPlatform = platformCharges.filter(isOpenCharge).length;
+
+  const allCharges = [...charges, ...platformCharges];
+  const selectedCharge = allCharges.find((charge) => charge.id === selectedChargeId) ?? null;
+  const paymentCharge = paymentForm ? charges.find((charge) => charge.id === paymentForm.chargeId) : undefined;
+
+  function clearMessages() {
     setErrorMessage("");
     setSuccessMessage("");
+  }
+
+  function closeModals() {
+    setSingleForm(null);
+    setGroupModal(null);
+    setPaymentForm(null);
+    setCancelForm(null);
+    setModalError("");
+  }
+
+  function openGroup(mode: "batch" | "recurring") {
+    clearMessages();
+    setModalError("");
+    setGroupModal({ mode, form: initialGroupForm });
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>, validate: () => string, action: () => Promise<string | null>, fallback: string) {
+    event.preventDefault();
+    const validation = validate();
+
+    if (validation) {
+      setModalError(validation);
+      return;
+    }
 
     try {
-      const targetUnitIds =
-        form.target === "all" ? units.map((unit) => unit.id) : [Number(form.unitId)];
-
-      await Promise.all(
-        targetUnitIds.map((unitId) =>
-          createCharge({
-            scope: 2,
-            condominiumId: activeCondominiumId,
-            unitId,
-            targetUserId: null,
-            value: parseCurrencyInput(form.value),
-            dueDate: form.dueDate,
-            description: form.description.trim(),
-          }),
-        ),
-      );
-
-      setForm(initialFormState);
-      setIsCreateOpen(false);
-      setSuccessMessage(
-        form.target === "all"
-          ? `Cobranças cadastradas para ${targetUnitIds.length} unidades.`
-          : "Cobrança do condomínio cadastrada com sucesso.",
-      );
-      await loadPage();
+      setIsSubmitting(true);
+      clearMessages();
+      const success = await action();
+      closeModals();
+      setSelectedChargeId(null);
+      if (success) setSuccessMessage(success);
+      await reload();
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Não foi possível cadastrar cobrança.",
-      );
+      setModalError(error instanceof Error ? error.message : fallback);
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  const activeCharges = activeTab === "platform" ? platformCharges : condominiumCharges;
+  function groupRequest(form: GroupChargeForm) {
+    const scopedIds = (form.buildingId ? units.filter((unit) => String(unit.buildingId) === form.buildingId) : units).map((unit) => unit.id);
+    return {
+      buildingId: form.buildingId ? Number(form.buildingId) : null,
+      value: parseCurrencyInput(form.value),
+      description: form.description.trim(),
+      unitValues: toUnitValues(form, scopedIds),
+    };
+  }
 
-  const filteredCharges = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
+  async function submitGroup(modal: NonNullable<GroupModal>) {
+    if (!activeCondominiumId) return null;
 
-    return activeCharges.filter((charge) => {
-      const unit = units.find((item) => item.id === charge.unitId);
-      const searchableText = [
-        charge.description,
-        charge.condominiumName,
-        charge.id.toString(),
-        unit?.number,
-        unit?.buildingName,
-        unit?.responsiblePersonName,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
+    if (modal.mode === "batch") {
+      const result = await createChargeBatch(activeCondominiumId, { ...groupRequest(modal.form), dueDate: modal.form.dueDate || null });
+      setBatchResult({ title: "Lote gerado", result });
+      return null;
+    }
 
-      const matchesSearch =
-        normalizedSearch.length === 0 || searchableText.includes(normalizedSearch);
-      const matchesStatus =
-        statusFilter === "all" || charge.status.toString() === statusFilter;
+    const created = await createRecurringCharge(activeCondominiumId, { ...groupRequest(modal.form), dueDay: modal.form.dueDay ? Number(modal.form.dueDay) : null });
+    setView("recurring");
+    if (created.generation && created.generation.createdCount + created.generation.skipped.length > 0) {
+      setBatchResult({ title: "Recorrência criada", result: created.generation });
+      return null;
+    }
+    return `Recorrência criada. As cobranças saem sozinhas 10 dias antes de cada vencimento (dia ${created.effectiveDueDay}).`;
+  }
 
-      return matchesSearch && matchesStatus;
+  async function runRecurringAction(item: RecurringChargeResponse, action: "pause" | "resume" | "end") {
+    clearMessages();
+    setBusyRecurringId(item.id);
+    try {
+      const updated = await changeRecurringCharge(item.id, action);
+      if (action === "resume" && updated.generation && updated.generation.createdCount + updated.generation.skipped.length > 0) {
+        setBatchResult({ title: "Recorrência retomada", result: updated.generation });
+      } else {
+        setSuccessMessage(
+          action === "pause"
+            ? `"${item.description}" pausada. Nenhuma cobrança nova sai até você retomar.`
+            : action === "resume"
+              ? `"${item.description}" retomada.`
+              : `"${item.description}" encerrada.`,
+        );
+      }
+      await reload();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Não foi possível alterar a recorrência.");
+    } finally {
+      setBusyRecurringId(null);
+    }
+  }
+
+  function askEnd(item: RecurringChargeResponse) {
+    setConfirmRequest({
+      title: "Encerrar esta recorrência?",
+      description: `"${item.description}" para de gerar cobranças. As que já foram criadas continuam valendo. Uma recorrência encerrada não volta: para cobrar de novo, crie outra.`,
+      confirmLabel: "Encerrar recorrência",
+      tone: "danger",
+      onConfirm: () => runRecurringAction(item, "end"),
     });
-  }, [activeCharges, searchTerm, statusFilter, units]);
+  }
 
-  const pendingCharges = activeCharges.filter((charge) => charge.status === 1);
-  const paidCharges = activeCharges.filter((charge) => charge.status === 2);
-  const overdueCharges = activeCharges.filter((charge) => charge.status === 3);
+  function placeOf(charge: ChargeResponse) {
+    if (charge.scope === 1) return "Moraê";
+    return charge.unitNumber ? `${charge.buildingName} · ${charge.unitNumber}` : charge.condominiumName;
+  }
+
+  const overline = [activeCondominium?.condominiumName, isLoading ? null : `${charges.length} ${charges.length === 1 ? "cobrança" : "cobranças"}`]
+    .filter(Boolean)
+    .join(" · ");
+  const views: Array<{ key: View; label: string; count?: number }> = [
+    { key: "charges", label: "Cobranças" },
+    { key: "recurring", label: "Recorrências", count: activeRecurring },
+    { key: "platform", label: "Mensalidade Moraê", count: openPlatform || undefined },
+  ];
 
   return (
     <>
-      <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-[#111827]">
-              Pagamentos
-            </h1>
-            <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-              Acompanhe cobranças MORAÊ e cobranças internas do condomínio.
-            </p>
-            <p className="mt-2 text-sm font-bold text-[#16A34A]">
-              {activeCondominium?.condominiumName ?? "Nenhum condomínio selecionado"}
-            </p>
-          </div>
+      <PageHeader overline={overline || undefined} title="Pagamentos">
+        <Button variant="quiet" size="sm" onClick={() => {
+          clearMessages();
+          setModalError("");
+          setSingleForm(initialSingleForm);
+        }} disabled={isLoading || units.length === 0 || !page.isReceivingReady} className="bg-superficie shadow-whisper hover:bg-campo max-sm:px-3">
+          <Plus size={16} strokeWidth={2} aria-hidden />
+          <span className="max-sm:sr-only">Avulsa</span>
+        </Button>
+        <Button variant="accent" size="sm" onClick={() => openGroup("batch")} disabled={isLoading || units.length === 0 || !page.isReceivingReady} className="max-sm:px-3">
+          <Layers size={16} strokeWidth={2} aria-hidden />
+          <span className="max-sm:sr-only">Cobrança em lote</span>
+        </Button>
+      </PageHeader>
 
-          {activeTab === "condominium" && (
-            <button
-              type="button"
-              onClick={() => setIsCreateOpen(true)}
-              disabled={!activeCondominiumId || units.length === 0}
-              className="h-11 cursor-pointer rounded-2xl bg-[#16A34A] px-5 text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:bg-[#9CA3AF]"
-            >
-              + Nova cobrança interna
-            </button>
-          )}
-        </div>
+      {condominiums.length > 1 && (
+        <SelectField
+          label="Condomínio"
+          className="mb-6 lg:hidden"
+          value={String(activeCondominiumId ?? "")}
+          options={condominiums.map((item) => ({ value: String(item.condominiumId), label: item.condominiumName }))}
+          onChange={(event) => setActiveCondominiumId(Number(event.target.value))}
+        />
+      )}
 
-        {errorMessage && <FeedbackMessage variant="error" message={errorMessage} />}
-        {successMessage && <FeedbackMessage variant="success" message={successMessage} />}
-
-        <div className="mt-6 flex flex-col gap-2 rounded-2xl bg-[#F3F4F6] p-2 sm:flex-row">
-          <TabButton
-            label="Cobranças MORAÊ"
-            isActive={activeTab === "platform"}
-            onClick={() => setActiveTab("platform")}
-          />
-          <TabButton
-            label="Cobranças do condomínio"
-            isActive={activeTab === "condominium"}
-            onClick={() => setActiveTab("condominium")}
-          />
-        </div>
-
-        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label="Total lançado"
-            value={formatCurrency(sumCharges(activeCharges))}
-            helper={`${activeCharges.length} cobranças`}
-          />
-          <MetricCard
-            label="Recebido"
-            value={formatCurrency(sumCharges(paidCharges))}
-            helper="Pagamentos confirmados"
-          />
-          <MetricCard
-            label="Em aberto"
-            value={formatCurrency(sumCharges(pendingCharges))}
-            helper={`${pendingCharges.length} pendentes`}
-          />
-          <MetricCard
-            label="Atrasado"
-            value={formatCurrency(sumCharges(overdueCharges))}
-            helper={`${overdueCharges.length} atrasadas`}
-          />
-        </div>
-
-        <div className="mt-6 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-4">
-          <div className="mb-4 flex flex-col gap-3 xl:flex-row">
-            <input
-              type="search"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder={
-                activeTab === "platform"
-                  ? "Buscar por cobrança, condomínio ou ID..."
-                  : "Buscar por unidade, morador ou descrição..."
-              }
-              className="h-11 flex-1 rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-            />
-
-            <SelectField
-              value={statusFilter}
-              onChange={setStatusFilter}
-              options={statusFilterOptions}
-              className="xl:w-40"
-            />
-          </div>
-
-          <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left text-sm">
-                <thead className="bg-[#DCFCE7] text-xs uppercase tracking-wide text-[#0B3D2E]">
-                  <tr>
-                    <th className="px-4 py-3 font-extrabold">Descrição</th>
-                    <th className="px-4 py-3 font-extrabold">
-                      {activeTab === "platform" ? "Condomínio" : "Unidade"}
-                    </th>
-                    <th className="px-4 py-3 font-extrabold">
-                      {activeTab === "platform" ? "Origem" : "Responsável"}
-                    </th>
-                    <th className="px-4 py-3 font-extrabold">Valor</th>
-                    <th className="px-4 py-3 font-extrabold">Vencimento</th>
-                    <th className="px-4 py-3 font-extrabold">Status</th>
-                    <th className="px-4 py-3 font-extrabold">Ações</th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-[#E5E7EB]">
-                  {isLoading ? (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-10 text-center font-bold text-[#6B7280]">
-                        Carregando pagamentos...
-                      </td>
-                    </tr>
-                  ) : filteredCharges.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-10 text-center font-bold text-[#6B7280]">
-                        Nenhuma cobrança encontrada.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredCharges.map((charge) => {
-                      const unit = units.find((item) => item.id === charge.unitId);
-
-                      return (
-                        <tr key={charge.id} className="transition hover:bg-[#F3F4F6]">
-                          <td className="px-4 py-4 font-extrabold text-[#111827]">
-                            {charge.description}
-                          </td>
-                          <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                            {activeTab === "platform"
-                              ? charge.condominiumName
-                              : unit
-                                ? `${unit.buildingName} - ${unit.number}`
-                                : "-"}
-                          </td>
-                          <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                            {activeTab === "platform"
-                              ? "MORAÊ"
-                              : unit?.responsiblePersonName || "Sem responsável"}
-                          </td>
-                          <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                            {formatCurrency(charge.value)}
-                          </td>
-                          <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                            {formatCalendarDate(charge.dueDate)}
-                          </td>
-                          <td className="px-4 py-4">
-                            <StatusBadge
-                              label={getChargeStatusLabel(charge.status)}
-                              variant={getChargeStatusVariant(charge.status)}
-                            />
-                          </td>
-                          <td className="px-4 py-4">
-                            {activeTab === "platform" ? (
-                              <div className="flex flex-wrap items-start gap-2">
-                                {(charge.status === 1 || charge.status === 3) && (
-                                  <PayWithMercadoPagoButton chargeId={charge.id} onPaid={() => void loadPage()} />
-                                )}
-                                {charge.status === 2 && <PaymentReceiptButton chargeId={charge.id} />}
-                                <button
-                                  type="button"
-                                  onClick={() => setPaymentInfoCharge(charge)}
-                                  className="h-9 cursor-pointer rounded-xl border border-[#BBF7D0] bg-white px-3 text-xs font-extrabold text-[#16A34A] transition hover:bg-[#F0FDF4] hover:text-[#0B3D2E]"
-                                >
-                                  Ver pagamento
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="flex flex-wrap gap-2">
-                                {charge.status === 2 && (
-                                  <PaymentReceiptButton chargeId={charge.id} onRefunded={() => void loadPage()} />
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setPaymentForm({
-                                      chargeId: charge.id,
-                                      amountPaid: formatCurrencyInput(charge.value),
-                                      paymentMethod: 1,
-                                      paidAt: todayInputDate(),
-                                      notes: "",
-                                    });
-                                    setErrorMessage("");
-                                    setSuccessMessage("");
-                                  }}
-                                  disabled={charge.status === 2 || charge.status === 4}
-                                  className="h-9 cursor-pointer rounded-xl bg-[#16A34A] px-3 text-xs font-extrabold text-white shadow-sm shadow-[#16A34A]/20 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:bg-[#9CA3AF]"
-                                >
-                                  Baixar
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setCancelTarget(charge);
-                                    setCancelReason("");
-                                    setErrorMessage("");
-                                    setSuccessMessage("");
-                                  }}
-                                  disabled={charge.status === 2 || charge.status === 4}
-                                  className="h-9 cursor-pointer rounded-xl border border-[#FECACA] bg-white px-3 text-xs font-extrabold text-[#B42318] transition hover:bg-[#FDECEC] disabled:cursor-not-allowed disabled:border-[#E5E7EB] disabled:text-[#9CA3AF]"
-                                >
-                                  Cancelar
-                                </button>
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B3D2E]/30 px-6 py-8 backdrop-blur-sm">
-          <form
-            onSubmit={handleCreateCharge}
-            className="w-full max-w-3xl rounded-[2rem] border border-[#E5E7EB] bg-white shadow-2xl shadow-[#0B3D2E]/20"
-          >
-            <div className="flex items-start justify-between gap-5 rounded-t-[2rem] border-b border-[#E5E7EB] px-6 py-5">
-              <div>
-                <h2 className="text-2xl font-extrabold text-[#111827]">Nova cobrança interna</h2>
-                <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-                  Cadastre para uma unidade específica ou envie para todas as unidades.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsCreateOpen(false)}
-                className="flex size-10 cursor-pointer items-center justify-center rounded-full bg-[#F3F4F6] text-xl font-light text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="space-y-6 px-8 pt-7 pb-10">
-              <div className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-2">
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  <TargetButton
-                    title="Uma unidade"
-                    description="Criar cobrança para uma unidade selecionada."
-                    isActive={form.target === "single"}
-                    onClick={() =>
-                      setForm((current) => ({ ...current, target: "single" }))
-                    }
-                  />
-                  <TargetButton
-                    title="Todas as unidades"
-                    description={`Gerar ${units.length} cobranças com os mesmos dados.`}
-                    isActive={form.target === "all"}
-                    onClick={() =>
-                      setForm((current) => ({ ...current, target: "all", unitId: "" }))
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-                {form.target === "single" ? (
-                  <SelectField
-                    label="Unidade"
-                    value={form.unitId}
-                    onChange={(value) =>
-                      setForm((current) => ({ ...current, unitId: value }))
-                    }
-                    options={[
-                      { value: "", label: "Selecione uma unidade" },
-                      ...units.map((unit) => ({
-                        value: unit.id.toString(),
-                        label: `${unit.buildingName} - ${unit.number}`,
-                      })),
-                    ]}
-                    className="md:col-span-2"
-                  />
-                ) : (
-                  <div className="rounded-2xl border border-[#BBF7D0] bg-[#ECFDF5] px-5 py-4 md:col-span-2">
-                    <p className="text-sm font-black text-[#0B3D2E]">
-                      Todas as unidades serão cobradas
-                    </p>
-                    <p className="mt-1 text-sm font-semibold leading-6 text-[#047857]">
-                      O sistema vai criar uma cobrança separada para cada uma das {units.length} unidades do condomínio.
-                    </p>
-                  </div>
-                )}
-
-                <FormInput
-                  label="Valor"
-                  inputMode="decimal"
-                  placeholder="Ex.: 350,00"
-                  value={form.value}
-                  onChange={(value) => setForm((current) => ({ ...current, value }))}
-                />
-                <FormInput
-                  label="Vencimento"
-                  type="date"
-                  min={todayInputDate()}
-                  placeholder="dd/mm/aaaa"
-                  value={form.dueDate}
-                  onChange={(value) => setForm((current) => ({ ...current, dueDate: value }))}
-                />
-                <FormInput
-                  label="Descrição"
-                  placeholder="Ex.: Taxa de condomínio - agosto"
-                  value={form.description}
-                  onChange={(value) => setForm((current) => ({ ...current, description: value }))}
-                  className="md:col-span-2"
-                />
-              </div>
-            </div>
-
-            <div className="border-t border-[#E5E7EB] px-8 py-5">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="h-12 w-full cursor-pointer rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:bg-[#9CA3AF]"
-              >
-                {isSubmitting
-                  ? "Cadastrando..."
-                  : form.target === "all"
-                    ? `Cadastrar para ${units.length} unidades`
-                    : "Cadastrar cobrança"}
-              </button>
-            </div>
-          </form>
+      {!isLoading && !page.isReceivingReady && (
+        <div className="mb-5 flex flex-col gap-3 rounded-card bg-ambar-suave px-5 py-4 sm:flex-row sm:items-center">
+          <TriangleAlert size={20} strokeWidth={1.8} aria-hidden className="shrink-0 text-ambar" />
+          <p className="flex-1 text-sm text-tinta">
+            <span className="font-semibold">Configure onde o condomínio recebe.</span> Para criar cobranças, cadastre a chave Pix ou conecte o Mercado Pago do
+            condomínio.
+          </p>
+          <ButtonLink to="/admin/settings" size="sm">
+            Ir para Ajustes
+          </ButtonLink>
         </div>
       )}
 
-      {paymentInfoCharge && (
-        <PaymentInfoModal
-          charge={paymentInfoCharge}
-          account={platformAccount}
-          onClose={() => setPaymentInfoCharge(null)}
+      {shownError && <p role="alert" className="mb-5 rounded-field bg-vermelho-suave px-4 py-3 text-sm font-medium text-vermelho">{shownError}</p>}
+      {successMessage && <p role="status" className="mb-5 rounded-field bg-verde-suave px-4 py-3 text-sm font-medium text-verde-tinta">{successMessage}</p>}
+
+      <SummaryCard
+        items={[
+          { label: "Recebido no mês", value: isLoading ? "–" : formatCurrency(summary.receivedThisMonth), detail: `vencimentos de ${currentMonthName()}`, tone: "good" },
+          { label: "A receber", value: isLoading ? "–" : formatCurrency(summary.toReceive), detail: `${summary.pendingCount} em aberto` },
+          {
+            label: "Em atraso",
+            value: isLoading ? "–" : formatCurrency(summary.overdue),
+            detail: summary.overdue > 0 ? (summary.lateFees > 0 ? `inclui ${formatCurrency(summary.lateFees)} de multa e juros` : `${summary.lateUnits} ${summary.lateUnits === 1 ? "unidade" : "unidades"}`) : "nenhum atraso",
+            tone: summary.overdue > 0 ? "danger" : "neutral",
+          },
+          { label: "Unidades em dia", value: isLoading ? "–" : `${summary.upToDateUnits} de ${units.length}`, detail: summary.lateUnits ? `${summary.lateUnits} com atraso` : "sem atrasos" },
+        ]}
+      />
+
+      <div className="-mx-4 mb-4 mt-8 overflow-x-auto px-4 [scrollbar-width:none] lg:mx-0 lg:px-0">
+        <div role="tablist" aria-label="O que ver" className="inline-flex gap-1 rounded-block bg-menu p-1">
+          {views.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              role="tab"
+              aria-selected={view === item.key}
+              onClick={() => {
+                setSuccessMessage("");
+                setView(item.key);
+              }}
+              className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-field px-3.5 py-2 text-sm font-semibold transition-colors ${
+                view === item.key ? "bg-superficie text-tinta shadow-whisper" : "text-tinta-suave hover:text-tinta"
+              }`}
+            >
+              {item.label}
+              {item.count !== undefined && !isLoading && <span className="text-xs font-medium tabular-nums text-tinta-suave">{item.count}</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {view === "charges" && (
+        <>
+          <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] lg:mx-0 lg:px-0">
+              <div role="tablist" aria-label="Situação das cobranças" className="inline-flex gap-1">
+                {tabs.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === item.key}
+                    onClick={() => setTab(item.key)}
+                    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
+                      tab === item.key ? "bg-tinta text-white" : "text-tinta-suave hover:bg-menu hover:text-tinta"
+                    }`}
+                  >
+                    {item.label}
+                    <span className={`text-xs font-medium tabular-nums ${tab === item.key ? "text-white/75" : "text-tinta-suave"}`}>{isLoading ? "" : countFor(item.key)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:flex">
+              <SelectField
+                label="Prédio"
+                className="[&>label]:sr-only sm:w-44"
+                value={buildingFilter}
+                onChange={(event) => setBuildingFilter(event.target.value)}
+                placeholder="Todos os prédios"
+                options={buildings.map((building) => ({ value: String(building.id), label: building.name }))}
+              />
+              <SelectField
+                label="Mês de vencimento"
+                className="[&>label]:sr-only sm:w-48"
+                value={monthFilter}
+                onChange={(event) => setMonthFilter(event.target.value)}
+                placeholder="Todos os meses"
+                options={months.map((month) => ({ value: month, label: formatMonthKey(month) }))}
+              />
+              <label className="relative col-span-2 sm:w-60">
+                <span className="sr-only">Buscar cobrança</span>
+                <Search size={17} strokeWidth={1.8} aria-hidden className="pointer-events-none absolute inset-y-0 left-3.5 my-auto text-tinta-suave" />
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Unidade, morador ou descrição"
+                  className="w-full rounded-full bg-superficie py-2.5 pl-10 pr-4 text-sm text-tinta shadow-whisper outline-none placeholder:text-tinta-suave/80 focus:ring-2 focus:ring-verde focus-visible:outline-none"
+                />
+              </label>
+            </div>
+          </div>
+
+          <ul className="divide-y divide-linha overflow-hidden rounded-card bg-superficie shadow-whisper">
+            {visibleCharges.length === 0 ? (
+              <li className="px-5 py-10 text-center text-sm text-tinta-suave">
+                {isLoading
+                  ? "Carregando…"
+                  : charges.length === 0
+                    ? "Nenhuma cobrança ainda. Use “Cobrança em lote” para gerar a taxa do mês de todas as unidades."
+                    : term || buildingFilter || monthFilter
+                      ? "Nenhuma cobrança encontrada com esses filtros."
+                      : "Nenhuma cobrança nesta situação."}
+              </li>
+            ) : (
+              visibleCharges.map((charge) => {
+                const person = charge.unitId ? unitById.get(charge.unitId)?.responsiblePersonName : "";
+                const isOverdue = charge.status === CHARGE_STATUS.overdue;
+                return (
+                  <li key={charge.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSuccessMessage("");
+                        setSelectedChargeId(charge.id);
+                      }}
+                      className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-campo/60"
+                    >
+                      <ChargeStatusTile status={charge.status} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[15px] font-semibold text-tinta">{charge.description}</span>
+                        <span className="block truncate text-[13px] text-tinta-suave">
+                          {placeOf(charge)}
+                          {person ? ` · ${person}` : ""} · {isOverdue ? "venceu" : "vence"} {formatCalendarDate(charge.dueDate)}
+                        </span>
+                      </span>
+                      <span className="text-right">
+                        <span className={`block text-sm font-semibold tabular-nums ${isOverdue ? "text-vermelho" : "text-tinta"}`}>{formatCurrency(amountDue(charge))}</span>
+                        {isOverdue && hasLateFees(charge) ? (
+                          <span className="block text-xs tabular-nums text-tinta-suave">orig. {formatCurrency(charge.value)}</span>
+                        ) : (
+                          <span className="mt-1 hidden justify-end sm:flex">
+                            <ChargeStatusChip status={charge.status} />
+                          </span>
+                        )}
+                      </span>
+                      <ChevronRight size={18} strokeWidth={1.8} aria-hidden className="shrink-0 text-tinta-suave" />
+                    </button>
+                  </li>
+                );
+              })
+            )}
+          </ul>
+        </>
+      )}
+
+      {view === "recurring" && (
+        <>
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-tinta-suave">
+              Geradas sozinhas 10 dias antes do vencimento{settings ? ` · vencimento padrão dia ${settings.billingDueDay}` : ""}.
+            </p>
+            <Button variant="quiet" size="sm" onClick={() => openGroup("recurring")} disabled={isLoading || units.length === 0 || !page.isReceivingReady} className="self-start bg-superficie shadow-whisper hover:bg-campo">
+              <Repeat size={16} strokeWidth={2} aria-hidden />
+              Nova recorrência
+            </Button>
+          </div>
+          <RecurringChargesList
+            items={recurring}
+            isLoading={isLoading}
+            busyId={busyRecurringId}
+            onCreate={() => openGroup("recurring")}
+            onPause={(item) => void runRecurringAction(item, "pause")}
+            onResume={(item) => void runRecurringAction(item, "resume")}
+            onEnd={askEnd}
+          />
+        </>
+      )}
+
+      {view === "platform" && (
+        <>
+          <p className="mb-4 text-sm text-tinta-suave">O que o condomínio paga ao Moraê pelo uso da plataforma.</p>
+          <ul className="divide-y divide-linha overflow-hidden rounded-card bg-superficie shadow-whisper">
+            {platformCharges.length === 0 ? (
+              <li className="px-5 py-10 text-center text-sm text-tinta-suave">{isLoading ? "Carregando…" : "Nenhuma mensalidade lançada pelo Moraê."}</li>
+            ) : (
+              [...platformCharges]
+                .sort((a, b) => Number(isOpenCharge(b)) - Number(isOpenCharge(a)) || b.dueDate.localeCompare(a.dueDate))
+                .map((charge) => (
+                  <li key={charge.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSuccessMessage("");
+                        setSelectedChargeId(charge.id);
+                      }}
+                      className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-campo/60"
+                    >
+                      <ChargeStatusTile status={charge.status} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[15px] font-semibold text-tinta">{charge.description}</span>
+                        <span className="block truncate text-[13px] text-tinta-suave">
+                          {charge.status === CHARGE_STATUS.overdue ? "venceu" : "vence"} {formatCalendarDate(charge.dueDate)}
+                        </span>
+                      </span>
+                      <span className="text-right">
+                        <span className="block text-sm font-semibold tabular-nums text-tinta">{formatCurrency(amountDue(charge))}</span>
+                        <span className="mt-1 flex justify-end">
+                          <ChargeStatusChip status={charge.status} />
+                        </span>
+                      </span>
+                      <ChevronRight size={18} strokeWidth={1.8} aria-hidden className="shrink-0 text-tinta-suave" />
+                    </button>
+                  </li>
+                ))
+            )}
+          </ul>
+        </>
+      )}
+
+      {selectedCharge && !paymentForm && !cancelForm && !receiptChargeId && !payingChargeId && (
+        <ChargeDetailsModal
+          charge={selectedCharge}
+          place={placeOf(selectedCharge)}
+          person={selectedCharge.unitId ? unitById.get(selectedCharge.unitId)?.responsiblePersonName || undefined : undefined}
+          onClose={() => setSelectedChargeId(null)}
+          extra={
+            selectedCharge.scope === 1 && isOpenCharge(selectedCharge) ? (
+              <div className="mt-4 rounded-block bg-verde-suave px-4 py-3">
+                <p className="text-xs font-semibold text-verde-tinta">Chave Pix do Moraê</p>
+                <p className="mt-0.5 text-sm font-semibold text-tinta [overflow-wrap:anywhere]">{page.pixKey || "Ainda não cadastrada. Pague pelo Mercado Pago."}</p>
+              </div>
+            ) : undefined
+          }
+          footer={
+            selectedCharge.status === CHARGE_STATUS.canceled ? undefined : selectedCharge.status === CHARGE_STATUS.paid ? (
+              <Button variant="quiet" onClick={() => setReceiptChargeId(selectedCharge.id)}>
+                Ver comprovante
+              </Button>
+            ) : selectedCharge.scope === 1 ? (
+              <Button
+                variant="accent"
+                onClick={() => {
+                  setHasPaidOnline(false);
+                  setPayingChargeId(selectedCharge.id);
+                }}
+              >
+                Pagar agora
+              </Button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalError("");
+                    setCancelForm({ chargeId: selectedCharge.id, reason: "" });
+                  }}
+                  className="mr-auto rounded-full px-2 text-sm font-semibold text-vermelho hover:underline"
+                >
+                  Cancelar
+                </button>
+                <Button
+                  onClick={() => {
+                    setModalError("");
+                    setPaymentForm(toManualPaymentForm(selectedCharge));
+                  }}
+                >
+                  Dar baixa
+                </Button>
+              </>
+            )
+          }
+        />
+      )}
+
+      {singleForm && (
+        <SingleChargeModal
+          form={singleForm}
+          units={units}
+          error={modalError}
+          isSubmitting={isSubmitting}
+          onChange={setSingleForm}
+          onClose={closeModals}
+          onSubmit={(event) =>
+            void submit(
+              event,
+              () => validateSingleForm(singleForm),
+              async () => {
+                await createCharge({
+                  scope: 2,
+                  condominiumId: activeCondominiumId ?? 0,
+                  unitId: Number(singleForm.unitId),
+                  targetUserId: null,
+                  value: parseCurrencyInput(singleForm.value),
+                  dueDate: singleForm.dueDate,
+                  description: singleForm.description.trim(),
+                });
+                return "Cobrança criada.";
+              },
+              "Não foi possível criar a cobrança.",
+            )
+          }
+        />
+      )}
+
+      {groupModal && (
+        <GroupChargeModal
+          mode={groupModal.mode}
+          form={groupModal.form}
+          buildings={buildings}
+          units={units}
+          billingDueDay={settings?.billingDueDay ?? null}
+          error={modalError}
+          isSubmitting={isSubmitting}
+          onChange={(form) => setGroupModal({ ...groupModal, form })}
+          onClose={closeModals}
+          onSubmit={(event) =>
+            void submit(
+              event,
+              () => validateGroupForm(groupModal.form, groupModal.mode),
+              () => submitGroup(groupModal),
+              groupModal.mode === "batch" ? "Não foi possível gerar o lote." : "Não foi possível criar a recorrência.",
+            )
+          }
         />
       )}
 
       {paymentForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B3D2E]/30 px-6 py-8 backdrop-blur-sm">
-          <form
-            onSubmit={handleManualPayment}
-            className="w-full max-w-2xl overflow-hidden rounded-[2rem] border border-[#E5E7EB] bg-white shadow-2xl shadow-[#0B3D2E]/20"
-          >
-            <div className="flex items-start justify-between gap-5 border-b border-[#E5E7EB] px-6 py-5">
-              <div>
-                <h2 className="text-2xl font-extrabold text-[#111827]">Registrar baixa</h2>
-                <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-                  Confirme o pagamento recebido para a cobrança interna.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setPaymentForm(null)}
-                className="flex size-10 cursor-pointer items-center justify-center rounded-full bg-[#F3F4F6] text-xl font-light text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 gap-5 px-8 py-7 md:grid-cols-2">
-              <FormInput
-                label="Valor pago"
-                inputMode="decimal"
-                placeholder="Ex.: 350,00"
-                value={paymentForm.amountPaid}
-                onChange={(value) =>
-                  setPaymentForm((current) =>
-                    current ? { ...current, amountPaid: value } : current,
-                  )
-                }
-              />
-              <SelectField
-                label="Método"
-                value={paymentForm.paymentMethod}
-                onChange={(value) =>
-                  setPaymentForm((current) =>
-                    current ? { ...current, paymentMethod: value } : current,
-                  )
-                }
-                options={paymentMethodOptions}
-              />
-              <FormInput
-                label="Data do pagamento"
-                type="date"
-                max={todayInputDate()}
-                placeholder="dd/mm/aaaa"
-                value={paymentForm.paidAt}
-                onChange={(value) =>
-                  setPaymentForm((current) =>
-                    current ? { ...current, paidAt: value } : current,
-                  )
-                }
-              />
-              <FormInput
-                label="Observação"
-                placeholder="Ex.: Pagamento conferido via Pix"
-                value={paymentForm.notes}
-                onChange={(value) =>
-                  setPaymentForm((current) =>
-                    current ? { ...current, notes: value } : current,
-                  )
-                }
-              />
-            </div>
-
-            <div className="border-t border-[#E5E7EB] px-8 py-5">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="h-12 w-full cursor-pointer rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-sm shadow-[#16A34A]/30 transition hover:bg-[#0B3D2E] disabled:cursor-not-allowed disabled:bg-[#9CA3AF]"
-              >
-                {isSubmitting ? "Registrando..." : "Registrar baixa"}
-              </button>
-            </div>
-          </form>
-        </div>
+        <ManualPaymentModal
+          form={paymentForm}
+          charge={paymentCharge}
+          error={modalError}
+          isSubmitting={isSubmitting}
+          onChange={setPaymentForm}
+          onClose={closeModals}
+          onSubmit={(event) =>
+            void submit(
+              event,
+              () => validateManualPayment(paymentForm, paymentCharge),
+              async () => {
+                await createManualPayment(paymentForm.chargeId, {
+                  amountPaid: parseCurrencyInput(paymentForm.amountPaid),
+                  paymentMethod: paymentForm.paymentMethod,
+                  paidAt: paymentForm.paidAt || null,
+                  notes: paymentForm.notes.trim() || null,
+                });
+                return "Pagamento registrado.";
+              },
+              "Não foi possível registrar o pagamento.",
+            )
+          }
+        />
       )}
 
-      {cancelTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B3D2E]/30 px-6 py-8 backdrop-blur-sm">
-          <form
-            onSubmit={handleCancelCharge}
-            className="w-full max-w-xl overflow-hidden rounded-[2rem] border border-[#E5E7EB] bg-white shadow-2xl shadow-[#0B3D2E]/20"
-          >
-            <div className="flex items-start justify-between gap-5 border-b border-[#E5E7EB] px-6 py-5">
-              <div>
-                <h2 className="text-2xl font-extrabold text-[#111827]">Cancelar cobrança</h2>
-                <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-                  Informe o motivo do cancelamento.
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setCancelTarget(null);
-                  setCancelReason("");
-                }}
-                className="flex size-10 cursor-pointer items-center justify-center rounded-full bg-[#F3F4F6] text-xl font-light text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="space-y-5 px-8 py-7">
-              <div className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] px-5 py-4">
-                <p className="text-sm font-black text-[#111827]">{cancelTarget.description}</p>
-                <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-                  {formatCurrency(cancelTarget.value)} • vencimento {formatCalendarDate(cancelTarget.dueDate)}
-                </p>
-              </div>
-
-              <label className="block">
-                <span className="mb-2 block text-sm font-extrabold text-[#111827]">
-                  Motivo
-                </span>
-                <textarea
-                  value={cancelReason}
-                  onChange={(event) => setCancelReason(event.target.value)}
-                  placeholder="Ex.: Cobrança lançada em duplicidade"
-                  className="min-h-28 w-full resize-none rounded-2xl border border-[#E5E7EB] bg-white px-4 py-3 text-sm font-bold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-                />
-              </label>
-            </div>
-
-            <div className="border-t border-[#E5E7EB] px-8 py-5">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="h-12 w-full cursor-pointer rounded-2xl bg-[#B42318] text-sm font-extrabold text-white shadow-sm shadow-[#B42318]/30 transition hover:bg-[#7A271A] disabled:cursor-not-allowed disabled:bg-[#9CA3AF]"
-              >
-                {isSubmitting ? "Cancelando..." : "Confirmar cancelamento"}
-              </button>
-            </div>
-          </form>
-        </div>
+      {cancelForm && (
+        <CancelChargeModal
+          form={cancelForm}
+          error={modalError}
+          isSubmitting={isSubmitting}
+          onChange={setCancelForm}
+          onClose={closeModals}
+          onSubmit={(event) =>
+            void submit(
+              event,
+              () => validateCancelForm(cancelForm),
+              async () => {
+                await cancelCharge(cancelForm.chargeId, cancelForm.reason.trim());
+                return "Cobrança cancelada.";
+              },
+              "Não foi possível cancelar a cobrança.",
+            )
+          }
+        />
       )}
+
+      {receiptChargeId && (
+        <ChargeReceiptModal
+          chargeId={receiptChargeId}
+          onClose={() => setReceiptChargeId(null)}
+          onRefunded={() => {
+            setSelectedChargeId(null);
+            void reload();
+          }}
+        />
+      )}
+
+      {payingChargeId && (
+        <MercadoPagoPaymentModal
+          chargeId={payingChargeId}
+          onPaid={() => setHasPaidOnline(true)}
+          onClose={() => {
+            setPayingChargeId(null);
+            // Reload only after closing, so the payer sees the confirmation first.
+            if (hasPaidOnline) {
+              setSelectedChargeId(null);
+              void reload();
+            }
+          }}
+        />
+      )}
+
+      {batchResult && <BatchResultModal title={batchResult.title} result={batchResult.result} onClose={() => setBatchResult(null)} />}
+      {confirmRequest && <ConfirmDialog request={confirmRequest} onClose={() => setConfirmRequest(null)} />}
     </>
   );
-}
-
-type TabButtonProps = {
-  label: string;
-  isActive: boolean;
-  onClick: () => void;
-};
-
-function TabButton({ label, isActive, onClick }: TabButtonProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`h-11 flex-1 cursor-pointer rounded-xl px-4 text-sm font-extrabold transition ${
-        isActive
-          ? "bg-white text-[#0B3D2E] shadow-sm"
-          : "text-[#6B7280] hover:bg-white/70 hover:text-[#0B3D2E]"
-      }`}
-    >
-      {label}
-    </button>
-  );
-}
-
-type TargetButtonProps = {
-  title: string;
-  description: string;
-  isActive: boolean;
-  onClick: () => void;
-};
-
-function TargetButton({ title, description, isActive, onClick }: TargetButtonProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`min-h-24 cursor-pointer rounded-2xl border p-4 text-left transition ${
-        isActive
-          ? "border-[#16A34A] bg-white shadow-sm text-[#0B3D2E]"
-          : "border-transparent bg-transparent text-[#6B7280] hover:bg-white hover:text-[#111827]"
-      }`}
-    >
-      <span className="block text-sm font-black">{title}</span>
-      <span className="mt-1 block text-xs font-semibold leading-5">{description}</span>
-    </button>
-  );
-}
-
-type FeedbackMessageProps = {
-  message: string;
-  variant: "success" | "error";
-};
-
-function FeedbackMessage({ message, variant }: FeedbackMessageProps) {
-  const classes =
-    variant === "success"
-      ? "border-[#BBF7D0] bg-[#DCFCE7] text-[#0B3D2E]"
-      : "border-[#FECACA] bg-[#FDECEC] text-[#B42318]";
-
-  return (
-    <div className={`mt-5 rounded-2xl border px-4 py-3 text-sm font-bold ${classes}`}>
-      {message}
-    </div>
-  );
-}
-
-type PaymentInfoModalProps = {
-  charge: ChargeResponse;
-  account: FinancialAccountResponse | null;
-  onClose: () => void;
-};
-
-function PaymentInfoModal({ charge, account, onClose }: PaymentInfoModalProps) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B3D2E]/30 px-6 py-8 backdrop-blur-sm">
-      <div className="w-full max-w-xl overflow-hidden rounded-[2rem] border border-[#E5E7EB] bg-white shadow-2xl shadow-[#0B3D2E]/20">
-        <div className="flex items-start justify-between gap-5 border-b border-[#E5E7EB] px-6 py-5">
-          <div>
-            <h2 className="text-2xl font-extrabold text-[#111827]">Informações de pagamento</h2>
-            <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-              Dados para pagar a cobrança MORAÊ.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex size-10 cursor-pointer items-center justify-center rounded-full bg-[#F3F4F6] text-xl font-light text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="space-y-5 px-8 py-7">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <InfoItem label="Cobrança" value={charge.description} />
-            <InfoItem label="Valor" value={formatCurrency(charge.value)} />
-            <InfoItem label="Vencimento" value={formatCalendarDate(charge.dueDate)} />
-            <InfoItem label="Status" value={getChargeStatusLabel(charge.status)} />
-          </div>
-
-          <div className="rounded-2xl border border-[#BBF7D0] bg-[#ECFDF5] px-5 py-4">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#16A34A]">
-              Chave Pix MORAÊ
-            </p>
-            {account?.pixKey ? (
-              <p className="mt-2 break-all text-lg font-black text-[#111827]">
-                {account.pixKey}
-              </p>
-            ) : (
-              <p className="mt-2 text-sm font-bold text-[#047857]">
-                Chave Pix da plataforma ainda não configurada.
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function InfoItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#6B7280]">
-        {label}
-      </p>
-      <p className="mt-1 text-sm font-black text-[#111827]">{value}</p>
-    </div>
-  );
-}
-
-type SelectOption<T extends string | number> = {
-  value: T;
-  label: string;
-};
-
-type SelectFieldProps<T extends string | number> = {
-  label?: string;
-  value: T;
-  onChange: (value: T) => void;
-  options: SelectOption<T>[];
-  className?: string;
-};
-
-function SelectField<T extends string | number>({
-  label,
-  value,
-  onChange,
-  options,
-  className = "",
-}: SelectFieldProps<T>) {
-  const [isOpen, setIsOpen] = useState(false);
-  const selectedOption = options.find((option) => option.value === value);
-
-  function handleSelect(nextValue: T) {
-    onChange(nextValue);
-    setIsOpen(false);
-  }
-
-  return (
-    <div
-      className={`relative ${className}`}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) {
-          setIsOpen(false);
-        }
-      }}
-    >
-      {label && (
-        <span className="mb-2 block text-sm font-extrabold text-[#111827]">
-          {label}
-        </span>
-      )}
-
-      <button
-        type="button"
-        aria-expanded={isOpen}
-        onClick={() => setIsOpen((current) => !current)}
-        className={`flex h-12 w-full cursor-pointer items-center justify-between rounded-2xl border bg-white px-4 text-left text-sm font-bold outline-none transition ${
-          isOpen
-            ? "border-[#22C55E] text-[#111827] ring-4 ring-[#86EFAC]/30"
-            : "border-[#E5E7EB] text-[#6B7280] hover:border-[#BBF7D0] hover:text-[#0B3D2E]"
-        }`}
-      >
-        <span className="truncate">{selectedOption?.label ?? "Selecione"}</span>
-        <span
-          aria-hidden="true"
-          className={`ml-3 block size-2 shrink-0 border-r-2 border-b-2 border-current text-[#6B7280] transition-transform ${
-            isOpen ? "rotate-[225deg] translate-y-0.5" : "rotate-45 -translate-y-0.5"
-          }`}
-        />
-      </button>
-
-      {isOpen && (
-        <div className="absolute left-0 right-0 top-full z-[90] mt-2 max-h-60 overflow-y-auto rounded-2xl border border-[#E5E7EB] bg-white p-1 shadow-xl shadow-[#111827]/10">
-          {options.map((option) => {
-            const isSelected = option.value === value;
-
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => handleSelect(option.value)}
-                className={`flex min-h-10 w-full cursor-pointer items-center rounded-xl px-3 py-2 text-left text-sm font-extrabold transition ${
-                  isSelected
-                    ? "bg-[#DCFCE7] text-[#0B3D2E]"
-                    : "text-[#6B7280] hover:bg-[#F0FDF4] hover:text-[#0B3D2E]"
-                }`}
-              >
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-type FormInputProps = {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  type?: string;
-  min?: string;
-  max?: string;
-  step?: string;
-  placeholder?: string;
-  inputMode?: "decimal" | "numeric" | "text";
-  className?: string;
-};
-
-function FormInput({
-  label,
-  value,
-  onChange,
-  type = "text",
-  min,
-  max,
-  step,
-  placeholder,
-  inputMode,
-  className = "",
-}: FormInputProps) {
-  const isDate = type === "date";
-
-  if (isDate) {
-    return (
-      <DatePickerField
-        label={label}
-        value={value}
-        onChange={onChange}
-        min={min}
-        max={max}
-        placeholder={placeholder}
-        className={className}
-      />
-    );
-  }
-
-  return (
-    <label className={`block ${className}`}>
-      <span className="mb-2 block text-sm font-extrabold text-[#111827]">{label}</span>
-      <input
-        type={type}
-        lang="pt-BR"
-        min={min}
-        max={max}
-        step={step}
-        inputMode={inputMode}
-        placeholder={placeholder}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-12 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 text-sm font-bold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-      />
-    </label>
-  );
-}
-
-function validateCreateForm(form: FormState, units: UnitResponse[]) {
-  const unitId = Number(form.unitId);
-  const value = parseCurrencyInput(form.value);
-  const description = form.description.trim();
-
-  if (units.length === 0) {
-    return "Cadastre uma unidade antes de criar cobranças.";
-  }
-
-  if (form.target === "single" && (!form.unitId || Number.isNaN(unitId))) {
-    return "Selecione uma unidade.";
-  }
-
-  if (form.target === "single" && !units.some((unit) => unit.id === unitId)) {
-    return "A unidade selecionada não está disponível.";
-  }
-
-  if (!form.value || !Number.isFinite(value) || value <= 0) {
-    return "Informe um valor maior que zero.";
-  }
-
-  if (!Number.isInteger(value * 100)) {
-    return "Informe o valor com no máximo duas casas decimais.";
-  }
-
-  if (!form.dueDate) {
-    return "Informe a data de vencimento.";
-  }
-
-  if (!isValidInputDate(form.dueDate)) {
-    return "Informe uma data de vencimento válida.";
-  }
-
-  if (form.dueDate < todayInputDate()) {
-    return "O vencimento não pode ser anterior a hoje.";
-  }
-
-  if (!description) {
-    return "Informe a descrição da cobrança.";
-  }
-
-  if (description.length < 3) {
-    return "A descrição precisa ter pelo menos 3 caracteres.";
-  }
-
-  if (description.length > 255) {
-    return "A descrição deve ter no máximo 255 caracteres.";
-  }
-
-  return "";
-}
-
-function validatePaymentForm(form: PaymentFormState, charge?: ChargeResponse) {
-  const amountPaid = parseCurrencyInput(form.amountPaid);
-
-  if (!charge) {
-    return "Cobrança não encontrada para registrar a baixa.";
-  }
-
-  if (!form.amountPaid || !Number.isFinite(amountPaid) || amountPaid <= 0) {
-    return "Informe um valor pago maior que zero.";
-  }
-
-  if (!Number.isInteger(amountPaid * 100)) {
-    return "Informe o valor pago com no máximo duas casas decimais.";
-  }
-
-  if (toCents(amountPaid) !== toCents(charge.value)) {
-    return `O valor pago precisa ser igual ao valor da cobrança (${formatCurrency(charge.value)}).`;
-  }
-
-  if (form.paymentMethod === 0) {
-    return "Selecione o método de pagamento.";
-  }
-
-  if (!form.paidAt) {
-    return "Informe a data do pagamento.";
-  }
-
-  if (!isValidInputDate(form.paidAt)) {
-    return "Informe uma data de pagamento válida.";
-  }
-
-  if (form.paidAt > todayInputDate()) {
-    return "A data do pagamento não pode ser futura.";
-  }
-
-  if (form.notes.trim().length > 255) {
-    return "A observação deve ter no máximo 255 caracteres.";
-  }
-
-  return "";
-}
-
-function parseCurrencyInput(value: string) {
-  return Number(value.trim().replace(/\./g, "").replace(",", "."));
-}
-
-function formatCurrencyInput(value: number) {
-  return value.toFixed(2).replace(".", ",");
-}
-
-function toCents(value: number) {
-  return Math.round(value * 100);
-}
-
-function isValidInputDate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return false;
-  }
-
-  const date = new Date(`${value}T00:00:00`);
-
-  return !Number.isNaN(date.getTime());
-}
-
-function sumCharges(charges: ChargeResponse[]) {
-  return charges.reduce((total, charge) => total + charge.value, 0);
-}
-
-function getChargeStatusLabel(status: ChargeResponse["status"]) {
-  if (status === 1) return "Pendente";
-  if (status === 2) return "Pago";
-  if (status === 3) return "Atrasado";
-  if (status === 4) return "Cancelado";
-  return "Indefinido";
-}
-
-function getChargeStatusVariant(status: ChargeResponse["status"]) {
-  if (status === 2) return "success";
-  if (status === 1) return "warning";
-  if (status === 3) return "danger";
-  return "neutral";
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  }).format(value);
 }

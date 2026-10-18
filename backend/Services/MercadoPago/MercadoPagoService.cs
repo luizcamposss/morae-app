@@ -8,6 +8,7 @@ using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
 using backend.Services.Email;
+using backend.Services.Charges;
 using backend.Services.Notifications;
 using backend.Services.Permissions;
 using backend.Settings;
@@ -201,7 +202,7 @@ public class MercadoPagoService : IMercadoPagoService
         return new MercadoPagoPaymentSetupDto
         {
             ChargeId = charge.Id,
-            Amount = charge.Value,
+            Amount = GetAmountDueToday(charge),
             Description = charge.Description,
             PublicKey = account.PublicKey,
             PendingPayment = await GetPendingPaymentAsync(charge, account)
@@ -475,7 +476,7 @@ public class MercadoPagoService : IMercadoPagoService
         }
 
         if (!string.Equals(mercadoPagoPayment.CurrencyId, "BRL", StringComparison.OrdinalIgnoreCase) ||
-            mercadoPagoPayment.TransactionAmount != trackedPayment.Charge.Value)
+            !IsAcceptedAmount(trackedPayment.Charge, mercadoPagoPayment.TransactionAmount))
         {
             await MarkForReviewAsync(
                 trackedPayment,
@@ -548,7 +549,7 @@ public class MercadoPagoService : IMercadoPagoService
         await NotifyReceiversAsync(
             trackedPayment,
             "Pagamento recebido",
-            $"Recebido pelo Mercado Pago o pagamento de {trackedPayment.Charge.Value.ToString("C", PtBr)} " +
+            $"Recebido pelo Mercado Pago o pagamento de {mercadoPagoPayment.TransactionAmount.ToString("C", PtBr)} " +
             $"da cobrança \"{trackedPayment.Charge.Description}\".");
     }
 
@@ -1082,9 +1083,11 @@ public class MercadoPagoService : IMercadoPagoService
             ? "Cobrança da plataforma MORAÊ"
             : "Cobrança condominial";
 
+        var amount = GetAmountDueToday(charge);
+
         return new PaymentCreateRequest
         {
-            TransactionAmount = charge.Value,
+            TransactionAmount = amount,
             Description = charge.Description,
             PaymentMethodId = dto.PaymentMethodId,
             Token = isCard ? dto.Token : null,
@@ -1132,7 +1135,7 @@ public class MercadoPagoService : IMercadoPagoService
                         Description = itemDescription,
                         CategoryId = "services",
                         Quantity = 1,
-                        UnitPrice = charge.Value
+                        UnitPrice = amount
                     }
                 ],
                 Payer = new PaymentAdditionalInfoPayerRequest
@@ -1189,7 +1192,11 @@ public class MercadoPagoService : IMercadoPagoService
                 details.Status is "pending" or "in_process" &&
                 (details.DateOfExpiration is null || details.DateOfExpiration > DateTime.UtcNow);
 
-            return isStillOpen ? BuildPaymentResult(details, charge.Status) : null;
+            // A Pix/boleto issued on an earlier day has an outdated amount once interest grows;
+            // hiding it makes the payer generate a new one with today's amount.
+            return isStillOpen && details.TransactionAmount == GetAmountDueToday(charge)
+                ? BuildPaymentResult(details, charge.Status)
+                : null;
         }
         catch (BadRequestException)
         {
@@ -1197,6 +1204,15 @@ public class MercadoPagoService : IMercadoPagoService
             return null;
         }
     }
+
+    // The charge value plus fine and interest as of today (São Paulo).
+    private static decimal GetAmountDueToday(Charge charge) =>
+        ChargeLateFees.Calculate(charge, AppTimeZone.Today).Total;
+
+    // An approved amount is accepted from the original value up to today's updated amount: a
+    // Pix/boleto issued days ago carries less interest than today, and that is fine.
+    private static bool IsAcceptedAmount(Charge charge, decimal amount) =>
+        amount >= charge.Value && amount <= GetAmountDueToday(charge);
 
     private static MercadoPagoPaymentResultDto BuildPaymentResult(
         MercadoPagoPaymentDetailsDto details,

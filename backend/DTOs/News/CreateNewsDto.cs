@@ -15,7 +15,7 @@ public class CreateNewsDto
     public int? BuildingId { get; set; }
 
     [Required]
-    [StringLength(100)]
+    [StringLength(100, MinimumLength = 3, ErrorMessage = "O título deve ter entre 3 e 100 caracteres.")]
     public string Title { get; set; } = string.Empty;
     
     [Required]
