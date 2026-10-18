@@ -4,6 +4,7 @@ import { ChevronDown, LogOut, Menu, type LucideIcon } from "lucide-react";
 import { useAuth } from "../../app/providers/useAuth";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { useSyndicAccess } from "../../features/syndicAccess/useSyndicAccess";
+import { hasSyndicAccess } from "../../features/syndicAccess/syndicAccessService";
 import { getPrimaryRole, roleAreas, type AreaRole } from "../../app/routes";
 import { MoraeMark } from "../components/MoraeMark";
 import { Modal } from "../components/Modal";
@@ -20,8 +21,8 @@ type MenuItem = {
 function getMenuItems(role: AreaRole, syndicAccess: ReturnType<typeof useSyndicAccess>): MenuItem[] {
   const area = roleAreas[role];
 
-  return area.routes.flatMap(({ path, nav, syndicAccess: accessKey }) => {
-    if (!nav || (accessKey && !syndicAccess?.[accessKey])) {
+  return area.routes.flatMap(({ path, nav, syndicAccess: requirement }) => {
+    if (!nav || (requirement && !hasSyndicAccess(syndicAccess, requirement))) {
       return [];
     }
 
