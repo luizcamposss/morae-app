@@ -41,6 +41,7 @@ public static partial class ValidationMessageTranslator
         ["PaymentMethod"] = "forma de pagamento",
         ["PhoneNumber"] = "telefone",
         ["PixKey"] = "chave Pix",
+        ["PixKeyType"] = "tipo da chave Pix",
         ["Priority"] = "prioridade",
         ["Reason"] = "motivo",
         ["SuspensionReason"] = "motivo",

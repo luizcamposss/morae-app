@@ -1,3 +1,5 @@
+import type { PixKeyType } from "../financialAccounts/pixKey";
+
 export type ChargeStatus = 0 | 1 | 2 | 3 | 4;
 
 export type ChargeScope = 1 | 2;
@@ -61,7 +63,7 @@ export type ChargePixInfo = {
   description: string;
   condominiumName: string;
   pixKey: string;
-  pixKeyType: number;
+  pixKeyType: PixKeyType;
   holderName?: string | null;
   amount: number;
 };

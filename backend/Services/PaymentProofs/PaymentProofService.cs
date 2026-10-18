@@ -9,6 +9,7 @@ using backend.Services.FinancialAccounts;
 using backend.Services.Notifications;
 using backend.Services.Permissions;
 using backend.Services.Storage;
+using backend.Services.Validation;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services.PaymentProofs;
@@ -59,7 +60,7 @@ public class PaymentProofService : IPaymentProofService
             Description = charge.Description,
             CondominiumName = charge.Condominium.Name,
             PixKey = account.PixKey,
-            PixKeyType = account.PixKeyType,
+            PixKeyType = PixKeyValidator.ResolveType(account.PixKeyType, account.PixKey),
             // The account form today saves only the key; "Pix" is its placeholder for the holder.
             HolderName = string.IsNullOrWhiteSpace(account.HolderName) || account.HolderName == "Pix" ? null : account.HolderName,
             Amount = ChargeLateFees.Calculate(charge, AppTimeZone.Today).Total

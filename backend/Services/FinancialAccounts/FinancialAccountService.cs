@@ -6,6 +6,7 @@ using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
 using backend.Services.Permissions;
+using backend.Services.Validation;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services.FinancialAccounts;
@@ -165,8 +166,8 @@ public class FinancialAccountService : IFinancialAccountService
         account.AccountNumber = "0";
         account.AccountDigit = null;
         account.AccountType = BankAccountType.Checking;
-        account.PixKeyType = PixKeyType.Random;
-        account.PixKey = dto.PixKey.Trim();
+        account.PixKeyType = dto.PixKeyType!.Value;
+        account.PixKey = PixKeyValidator.Normalize(dto.PixKeyType.Value, dto.PixKey);
         account.UpdatedByUserId = userId;
         account.UpdatedAt = DateTime.UtcNow;
     }
@@ -175,5 +176,11 @@ public class FinancialAccountService : IFinancialAccountService
     {
         if (string.IsNullOrWhiteSpace(dto.PixKey))
             throw new BadRequestException("Informe a chave Pix.");
+
+        if (dto.PixKeyType is null || !Enum.IsDefined(dto.PixKeyType.Value))
+            throw new BadRequestException("Escolha o tipo da chave Pix.");
+
+        // Throws with a friendly message when the key does not match its type.
+        PixKeyValidator.Normalize(dto.PixKeyType.Value, dto.PixKey);
     }
 }

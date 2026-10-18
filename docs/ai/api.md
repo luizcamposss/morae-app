@@ -210,6 +210,8 @@ PUT    /api/condominiums/{condominiumId}/financial-account
 GET    /api/financial-accounts/platform
 PUT    /api/financial-accounts/platform
 ```
+- Só a chave Pix. `PUT` → `{ pixKeyType, pixKey }` (`pixKeyType` obrigatório, enum `PixKeyType`). A chave é validada pelo tipo (400 com mensagem em português) e guardada normalizada: CPF/CNPJ só números (com dígito verificador), celular `+55DDD9XXXXXXXX`, e-mail em minúsculas (até 77 caracteres), aleatória = UUID em minúsculas.
+- Resposta (e `pix-info`): `{ id, condominiumId, condominiumName, pixKeyType, pixKey, updatedByUserId, createdAt, updatedAt }`. Chaves antigas, salvas antes do tipo, têm `pixKeyType` deduzido pelo formato (se não der, vem 5 Random).
 
 ### Mercado Pago
 ```

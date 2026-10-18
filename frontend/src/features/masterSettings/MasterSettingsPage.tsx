@@ -6,6 +6,7 @@ import { Modal } from "../../shared/components/Modal";
 import { PageHeader } from "../../shared/layout/PageHeader";
 import { ChangePasswordModal } from "../auth/ChangePasswordModal";
 import { getPlatformFinancialAccount, upsertPlatformFinancialAccount } from "../financialAccounts/financialAccountService";
+import { describePixKey } from "../financialAccounts/pixKey";
 import type { FinancialAccountResponse } from "../financialAccounts/types";
 import { MercadoPagoConnectionPanel } from "../mercadoPago/MercadoPagoConnectionPanel";
 import { describePaymentMethods, useMercadoPagoConnected } from "../mercadoPago/useMercadoPagoConnected";
@@ -88,7 +89,7 @@ export function MasterSettingsPage() {
               icon={QrCode}
               tone={hasPixKey ? "green" : "neutral"}
               title="Chave Pix"
-              subtitle={hasPixKey ? account?.pixKey : "Para pagamentos manuais"}
+              subtitle={account?.pixKey ? describePixKey(account.pixKeyType, account.pixKey) : "Para pagamentos manuais"}
               trailing={<StatusChip tone={hasPixKey ? "success" : "warning"}>{hasPixKey ? "Cadastrada" : "Não cadastrada"}</StatusChip>}
               onClick={() => setModal("pix")}
             />
