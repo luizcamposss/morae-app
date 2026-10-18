@@ -1,5 +1,5 @@
 import { apiRequest } from "../../shared/lib/api/apiClient";
-import type { AssemblyResponse, AssemblyResults, SaveAssemblyRequest } from "./types";
+import type { AssemblyResponse, AssemblyResults, CastVotesRequest, MyBallot, SaveAssemblyRequest } from "./types";
 
 export async function getAssemblies(condominiumId: number): Promise<AssemblyResponse[]> {
   return apiRequest<AssemblyResponse[]>(`/api/condominiums/${condominiumId}/assemblies`, { auth: true });
@@ -36,4 +36,14 @@ export async function getAssemblyResults(id: number): Promise<AssemblyResults> {
 // Null removes the link.
 export async function setAssemblyMinutes(id: number, documentId: number | null): Promise<AssemblyResponse> {
   return apiRequest<AssemblyResponse>(`/api/assemblies/${id}/minutes`, { method: "PUT", body: { documentId }, auth: true });
+}
+
+// The units the user can vote for and their current votes.
+export async function getMyBallot(id: number): Promise<MyBallot> {
+  return apiRequest<MyBallot>(`/api/assemblies/${id}/my-ballot`, { auth: true });
+}
+
+// Votes (or changes the votes) of one unit; returns the updated ballot.
+export async function castVotes(id: number, data: CastVotesRequest): Promise<MyBallot> {
+  return apiRequest<MyBallot>(`/api/assemblies/${id}/votes`, { method: "PUT", body: data, auth: true });
 }

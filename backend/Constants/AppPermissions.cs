@@ -17,6 +17,10 @@ public static class AppPermissions
     // Any of these gives a syndic access to the condominium's charges and payments (the "Financeiro" area).
     public static readonly IReadOnlyList<string> FinanceAccess = [ChargesCreate, ChargesMarkAsPaid, DelinquencyView];
 
+    // Any of these lets a syndic list the buildings and units he manages (finance needs them to pick a unit).
+    // Residents' personal data still requires ResidentsView.
+    public static readonly IReadOnlyList<string> BuildingsAndUnitsAccess = [ResidentsView, .. FinanceAccess];
+
     public static readonly IReadOnlySet<string> All = new HashSet<string>
     {
         ResidentsView,

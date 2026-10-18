@@ -7,6 +7,7 @@ import { GroupedList, GroupedRow } from "../../shared/components/GroupedList";
 import { SelectField } from "../../shared/components/SelectField";
 import { PageHeader } from "../../shared/layout/PageHeader";
 import { formatDate } from "../../shared/lib/date";
+import { useIsSyndicArea, useSyndicCan } from "../syndicAccess/useSyndicAccess";
 import { getBuildingsByCondominium } from "../buildings/buildingService";
 import type { BuildingResponse } from "../buildings/types";
 import { NewsDetailsModal } from "../news/NewsDetailsModal";
@@ -37,12 +38,16 @@ export function AdminNewsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
   const formSectionRef = useRef<HTMLElement>(null);
+  // Reused by the syndic: platform news are only for the administration, actions follow his permissions.
+  const isSyndic = useIsSyndicArea();
+  const canCreate = useSyndicCan("news.create");
+  const canEdit = useSyndicCan("news.edit");
 
   useEffect(() => {
     if (!activeCondominiumId) return;
     let isMounted = true;
 
-    Promise.all([getNewsByCondominium(activeCondominiumId), getBuildingsByCondominium(activeCondominiumId)])
+    Promise.all([getNewsByCondominium(activeCondominiumId), getBuildingsByCondominium(activeCondominiumId).catch(() => [])])
       .then(([news, buildings]) => {
         if (!isMounted) return;
         setData({ condominiumId: activeCondominiumId, news, buildings });
@@ -60,6 +65,7 @@ export function AdminNewsPage() {
   }, [activeCondominiumId]);
 
   useEffect(() => {
+    if (isSyndic) return;
     let isMounted = true;
 
     getPlatformNews()
@@ -69,7 +75,7 @@ export function AdminNewsPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isSyndic]);
 
   // Data from a previous condominium counts as "still loading" for the new one.
   const isLoading = Boolean(activeCondominiumId) && data?.condominiumId !== activeCondominiumId;
@@ -165,7 +171,7 @@ export function AdminNewsPage() {
   return (
     <>
       <PageHeader overline={`${condominiumName} · o morador recebe no app e no sininho`} title="Avisos">
-        <span className="lg:hidden">
+        <span className={canCreate ? "lg:hidden" : "hidden"}>
           <Button
             variant="accent"
             size="sm"
@@ -263,7 +269,7 @@ export function AdminNewsPage() {
             </GroupedList>
           </section>
 
-          <section>
+          {!isSyndic && <section>
             <h2 className="font-display text-[21px] font-bold tracking-[-0.01em] text-tinta">Do Moraê para você</h2>
             <p className="mb-4 mt-1 text-[13px] text-tinta-suave">Novidades e comunicados da plataforma para a administração. Só leitura.</p>
 
@@ -292,7 +298,7 @@ export function AdminNewsPage() {
                 ))}
               </GroupedList>
             )}
-          </section>
+          </section>}
         </div>
 
         <section ref={formSectionRef} aria-labelledby="admin-news-form-title" className="scroll-mt-6 lg:sticky lg:top-10">
@@ -305,7 +311,7 @@ export function AdminNewsPage() {
             buildings={buildings}
             errorMessage={formError}
             isSubmitting={isSubmitting}
-            disabled={!activeCondominiumId || isLoading}
+            disabled={!activeCondominiumId || isLoading || (!editingNews && !canCreate)}
             onCancelEdit={cancelEdit}
             onSubmit={handleSubmit}
           />
@@ -317,8 +323,8 @@ export function AdminNewsPage() {
           news={selected.news}
           audienceLabel={selected.isPlatform ? "do Moraê para a administração" : detailsAudience(selected.news)}
           onClose={() => setSelected(null)}
-          onEdit={selected.isPlatform ? undefined : () => startEdit(selected.news)}
-          onDelete={selected.isPlatform ? undefined : () => askDelete(selected.news)}
+          onEdit={selected.isPlatform || !canEdit ? undefined : () => startEdit(selected.news)}
+          onDelete={selected.isPlatform || !canEdit ? undefined : () => askDelete(selected.news)}
         />
       )}
 
