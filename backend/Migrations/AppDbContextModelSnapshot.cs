@@ -1353,11 +1353,21 @@ namespace backend.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("varchar(1000)");
 
+                    b.Property<string>("ManagementResponse")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
                     b.Property<int>("Priority")
                         .HasColumnType("int");
 
                     b.Property<DateTime?>("ResolvedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("RespondedByUserId")
+                        .HasColumnType("int");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -1384,9 +1394,50 @@ namespace backend.Migrations
 
                     b.HasIndex("CreatedByUserId");
 
+                    b.HasIndex("RespondedByUserId");
+
                     b.HasIndex("UnitId");
 
                     b.ToTable("Occurrences");
+                });
+
+            modelBuilder.Entity("backend.Models.OccurrencePhoto", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("varchar(160)");
+
+                    b.Property<int>("OccurrenceId")
+                        .HasColumnType("int");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OccurrenceId");
+
+                    b.ToTable("OccurrencePhotos");
                 });
 
             modelBuilder.Entity("backend.Models.Payment", b =>
@@ -2298,6 +2349,11 @@ namespace backend.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("backend.Models.ApplicationUser", "RespondedByUser")
+                        .WithMany()
+                        .HasForeignKey("RespondedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("backend.Models.Unit", "Unit")
                         .WithMany()
                         .HasForeignKey("UnitId")
@@ -2308,7 +2364,20 @@ namespace backend.Migrations
 
                     b.Navigation("CreatedByUser");
 
+                    b.Navigation("RespondedByUser");
+
                     b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("backend.Models.OccurrencePhoto", b =>
+                {
+                    b.HasOne("backend.Models.Occurrence", "Occurrence")
+                        .WithMany("Photos")
+                        .HasForeignKey("OccurrenceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Occurrence");
                 });
 
             modelBuilder.Entity("backend.Models.Payment", b =>
@@ -2539,6 +2608,11 @@ namespace backend.Migrations
                     b.Navigation("PersonCondominiums");
 
                     b.Navigation("UserCondominiums");
+                });
+
+            modelBuilder.Entity("backend.Models.Occurrence", b =>
+                {
+                    b.Navigation("Photos");
                 });
 
             modelBuilder.Entity("backend.Models.Person", b =>

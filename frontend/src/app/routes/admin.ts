@@ -1,4 +1,4 @@
-import { Briefcase, Building, Building2, DoorOpen, FileText, House, Mail, Megaphone, Receipt, SlidersHorizontal, Users, Vote, Wrench } from "lucide-react";
+import { Briefcase, Building, Building2, DoorOpen, FileText, House, Mail, Megaphone, Receipt, SlidersHorizontal, TriangleAlert, Users, Vote, Wrench } from "lucide-react";
 import { AdminAssembliesPage } from "../../features/adminAssemblies/AdminAssembliesPage";
 import { AdminAssemblyDetailPage } from "../../features/adminAssemblies/AdminAssemblyDetailPage";
 import { AdminDashboardPage } from "../../features/adminDashboard/AdminDashboardPage";
@@ -13,6 +13,7 @@ import { PreventiveMaintenancePage } from "../../features/maintenance/Preventive
 import { AdminSettingsPage } from "../../features/adminSettings/AdminSettingsPage";
 import { AdminVisitsPage } from "../../features/adminVisits/AdminVisitsPage";
 import { DocumentsPage } from "../../features/documents/DocumentsPage";
+import { AdminOccurrencesPage } from "../../features/adminOccurrences/AdminOccurrencesPage";
 import type { RoleArea } from "./types";
 
 export const adminArea: RoleArea = {
@@ -26,6 +27,7 @@ export const adminArea: RoleArea = {
     { path: "invitations", component: InvitationsPage, nav: { label: "Convites", icon: Mail } },
     { path: "documents", component: DocumentsPage, nav: { label: "Documentos", icon: FileText } },
     { path: "payments", component: AdminPaymentsPage, nav: { label: "Pagamentos", icon: Receipt } },
+    { path: "occurrences", component: AdminOccurrencesPage, nav: { label: "Ocorrências", icon: TriangleAlert } },
     { path: "news", component: AdminNewsPage, nav: { label: "Avisos", icon: Megaphone } },
     { path: "assemblies", component: AdminAssembliesPage, nav: { label: "Assembleias", icon: Vote } },
     { path: "assemblies/:id", component: AdminAssemblyDetailPage },

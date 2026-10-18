@@ -20,4 +20,12 @@ public class OccurrenceResponseDto
     public DateTime CreatedAt { get; set; }
     public DateTime? UpdatedAt { get; set; }
     public DateTime? ResolvedAt { get; set; }
+    public int BuildingId { get; set; }
+    public string BuildingName { get; set; } = string.Empty;
+    public string UnitNumber { get; set; } = string.Empty;
+    public string CreatedByName { get; set; } = string.Empty;
+    public string? ManagementResponse { get; set; }
+    public DateTime? RespondedAt { get; set; }
+    public string? RespondedByName { get; set; }
+    public List<OccurrencePhotoDto> Photos { get; set; } = [];
 }

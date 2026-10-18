@@ -9,7 +9,9 @@ using backend.DTOs.Occurrence;
 using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
+using backend.Services.Notifications;
 using backend.Services.Permissions;
+using backend.Services.Storage;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -17,25 +19,45 @@ namespace backend.Services.Occurrences;
 
 public class OccurrenceService : IOccurrenceService
 {
+    public const int MaxPhotos = 5;
+    public const long MaxPhotoSizeBytes = 10 * 1024 * 1024;
+
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
     private readonly IPermissionService _permissionService;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly INotificationService _notificationService;
+    private readonly IFileStorage _fileStorage;
+    private readonly ILogger<OccurrenceService> _logger;
 
     public OccurrenceService(
         AppDbContext context,
         IMapper mapper,
         IPermissionService permissionService,
-        UserManager<ApplicationUser> userManager)
+        UserManager<ApplicationUser> userManager,
+        INotificationService notificationService,
+        IFileStorage fileStorage,
+        ILogger<OccurrenceService> logger)
     {
         _context = context;
         _mapper = mapper;
         _permissionService = permissionService;
         _userManager = userManager;
+        _notificationService = notificationService;
+        _fileStorage = fileStorage;
+        _logger = logger;
     }
 
-    public async Task<OccurrenceResponseDto> CreateAsync(int userId, CreateOccurrenceDto dto)
+    public async Task<OccurrenceResponseDto> CreateAsync(
+        int userId,
+        CreateOccurrenceDto dto,
+        IReadOnlyList<IFormFile>? photos = null)
     {
+        var files = (photos ?? []).Where(file => file.Length > 0).ToList();
+
+        if (files.Count > MaxPhotos)
+            throw new BadRequestException($"Envie no máximo {MaxPhotos} fotos.");
+
         await ValidateCreateAsync(userId, dto);
 
         var occurrence = _mapper.Map<Occurrence>(dto);
@@ -44,10 +66,23 @@ public class OccurrenceService : IOccurrenceService
         occurrence.Status = OccurrenceStatus.Open;
         occurrence.CreatedAt = DateTime.UtcNow;
 
-        _context.Occurrences.Add(occurrence);
-        await _context.SaveChangesAsync();
+        try
+        {
+            foreach (var file in files)
+                occurrence.Photos.Add(await SavePhotoAsync(file, dto.CondominiumId));
 
-        return _mapper.Map<OccurrenceResponseDto>(occurrence);
+            _context.Occurrences.Add(occurrence);
+            await _context.SaveChangesAsync();
+        }
+        catch
+        {
+            // Nothing was recorded: the files already saved would be orphans.
+            foreach (var photo in occurrence.Photos)
+                await DeleteFileQuietlyAsync(photo.StorageKey);
+            throw;
+        }
+
+        return await GetResponseAsync(occurrence.Id);
     }
 
     public async Task<IEnumerable<OccurrenceResponseDto>> GetByCondominiumAsync(
@@ -56,10 +91,8 @@ public class OccurrenceService : IOccurrenceService
     {
         await EnsureCanManageCondominiumOccurrencesAsync(userId, condominiumId);
 
-        var query = _context.Occurrences
-            .AsNoTracking()
-            .Where(o => o.CondominiumId == condominiumId)
-            .AsQueryable();
+        var query = QueryWithDetails()
+            .Where(o => o.CondominiumId == condominiumId);
 
         var managedBuildingIds = await _permissionService.GetManagedBuildingIdsAsync(userId, condominiumId);
 
@@ -78,8 +111,7 @@ public class OccurrenceService : IOccurrenceService
 
     public async Task<IEnumerable<OccurrenceResponseDto>> GetMineAsync(int userId)
     {
-        var occurrences = await _context.Occurrences
-            .AsNoTracking()
+        var occurrences = await QueryWithDetails()
             .Where(o => o.CreatedByUserId == userId && o.Condominium.Status == Status.Active)
             .OrderByDescending(o => o.CreatedAt)
             .ToListAsync();
@@ -89,8 +121,7 @@ public class OccurrenceService : IOccurrenceService
 
     public async Task<OccurrenceResponseDto?> GetByIdAsync(int userId, int id)
     {
-        var occurrence = await _context.Occurrences
-            .AsNoTracking()
+        var occurrence = await QueryWithDetails()
             .FirstOrDefaultAsync(o => o.Id == id);
 
         if (occurrence is null)
@@ -126,6 +157,140 @@ public class OccurrenceService : IOccurrenceService
         await _context.SaveChangesAsync();
 
         return true;
+    }
+
+    public async Task<OccurrenceResponseDto> RespondAsync(int userId, int id, RespondOccurrenceDto dto)
+    {
+        var occurrence = await _context.Occurrences
+            .FirstOrDefaultAsync(o => o.Id == id)
+            ?? throw new NotFoundException("Ocorrência não encontrada.");
+
+        await EnsureCanManageOccurrenceAsync(userId, occurrence);
+
+        var message = dto.Message?.Trim() ?? string.Empty;
+
+        if (message.Length == 0)
+            throw new BadRequestException("Escreva a resposta.");
+
+        if (message.Length > 2000)
+            throw new BadRequestException("A resposta pode ter no máximo 2000 caracteres.");
+
+        occurrence.ManagementResponse = message;
+        occurrence.RespondedAt = DateTime.UtcNow;
+        occurrence.RespondedByUserId = userId;
+        occurrence.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        if (occurrence.CreatedByUserId != userId)
+            await NotifyCreatorAsync(occurrence);
+
+        return await GetResponseAsync(occurrence.Id);
+    }
+
+    public async Task<OccurrencePhotoDownload> DownloadPhotoAsync(int userId, int photoId)
+    {
+        var photo = await _context.OccurrencePhotos
+            .AsNoTracking()
+            .Include(item => item.Occurrence)
+            .FirstOrDefaultAsync(item => item.Id == photoId)
+            ?? throw new NotFoundException("Foto não encontrada.");
+
+        await EnsureCanReadAsync(userId, photo.Occurrence);
+
+        var content = await _fileStorage.OpenReadAsync(photo.StorageKey);
+
+        if (content is null)
+        {
+            _logger.LogError("Photo {PhotoId} of an occurrence is missing from storage.", photoId);
+            throw new NotFoundException("A foto não está disponível.");
+        }
+
+        return new OccurrencePhotoDownload(content, photo.ContentType, photo.FileName);
+    }
+
+    private IQueryable<Occurrence> QueryWithDetails()
+    {
+        return _context.Occurrences
+            .AsNoTracking()
+            .Include(o => o.Unit).ThenInclude(unit => unit.Building)
+            .Include(o => o.CreatedByUser).ThenInclude(user => user.Person)
+            .Include(o => o.RespondedByUser).ThenInclude(user => user!.Person)
+            .Include(o => o.Photos)
+            .AsSplitQuery();
+    }
+
+    private async Task<OccurrenceResponseDto> GetResponseAsync(int id)
+    {
+        var occurrence = await QueryWithDetails().FirstAsync(o => o.Id == id);
+
+        return _mapper.Map<OccurrenceResponseDto>(occurrence);
+    }
+
+    // Only photos (JPG or PNG), checked by content like every other upload.
+    private async Task<OccurrencePhoto> SavePhotoAsync(IFormFile file, int condominiumId)
+    {
+        if (file.Length > MaxPhotoSizeBytes)
+            throw new BadRequestException("Cada foto pode ter no máximo 10 MB.");
+
+        await using var content = file.OpenReadStream();
+
+        var detected = UploadedFileInspector.Detect(content);
+
+        if (detected is null || !detected.ContentType.StartsWith("image/", StringComparison.Ordinal))
+            throw new BadRequestException("Envie fotos em JPG ou PNG.");
+
+        var photo = new OccurrencePhoto
+        {
+            FileName = UploadedFileInspector.BuildFileName(file.FileName, detected, "foto"),
+            ContentType = detected.ContentType,
+            SizeBytes = file.Length,
+            StorageKey = $"occurrences/{condominiumId}/{Guid.NewGuid():N}",
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _fileStorage.SaveAsync(photo.StorageKey, content);
+
+        return photo;
+    }
+
+    private async Task DeleteFileQuietlyAsync(string key)
+    {
+        try
+        {
+            await _fileStorage.DeleteAsync(key);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Could not delete occurrence photo {StorageKey}.", key);
+        }
+    }
+
+    private async Task NotifyCreatorAsync(Occurrence occurrence)
+    {
+        var role = await _context.UserCondominiums
+            .AsNoTracking()
+            .Where(link =>
+                link.UserId == occurrence.CreatedByUserId &&
+                link.CondominiumId == occurrence.CondominiumId)
+            .Select(link => link.Role)
+            .FirstOrDefaultAsync();
+
+        // Each role has its own occurrences page.
+        var link = role switch
+        {
+            AppRoles.Admin => "/admin/occurrences",
+            AppRoles.Syndic => "/syndic/maintenance",
+            _ => "/resident/occurrences"
+        };
+
+        await _notificationService.CreateAsync(
+            occurrence.CreatedByUserId,
+            NotificationType.Occurrence,
+            "Resposta da gestão",
+            $"A gestão respondeu à sua ocorrência \"{occurrence.Title}\".",
+            link,
+            occurrence.CondominiumId);
     }
 
     private async Task ValidateCreateAsync(int userId, CreateOccurrenceDto dto)

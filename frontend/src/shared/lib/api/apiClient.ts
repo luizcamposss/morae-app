@@ -170,6 +170,12 @@ export async function apiRequest<T>(
     return response.json() as Promise<T>;
 }
 
+// Authenticated file as a Blob, e.g. to show a photo with URL.createObjectURL.
+export async function apiBlob(path: string): Promise<Blob> {
+    const response = await sendRequest(path, { auth: true });
+    return response.blob();
+}
+
 // Authenticated file download: protected files cannot be opened by a plain link,
 // so the file comes as a blob and is saved through a temporary URL.
 export async function apiDownload(path: string, fallbackFileName: string): Promise<void> {
