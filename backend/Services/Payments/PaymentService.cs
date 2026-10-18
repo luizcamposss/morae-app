@@ -93,6 +93,18 @@ public class PaymentService : IPaymentService
 
         charge.Status = ChargeStatus.Paid;
 
+        // Settling the charge is how the management accepts the Pix receipts sent by the payer.
+        var pendingProofs = await _context.PaymentProofs
+            .Where(proof => proof.ChargeId == charge.Id && proof.Status == PaymentProofStatus.Pending)
+            .ToListAsync();
+
+        foreach (var proof in pendingProofs)
+        {
+            proof.Status = PaymentProofStatus.Accepted;
+            proof.ReviewedByUserId = userId;
+            proof.ReviewedAt = DateTime.UtcNow;
+        }
+
         await _context.SaveChangesAsync();
         await CreatePaymentNotificationsAsync(charge);
         await _chargeEmailNotifier.QueuePaymentConfirmedAsync(charge, payment);

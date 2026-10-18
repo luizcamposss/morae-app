@@ -70,6 +70,16 @@ public class FinancialAccountService : IFinancialAccountService
         return await GetResponseOrThrowAsync(account.Id);
     }
 
+    public async Task<FinancialAccount?> GetCondominiumPixAccountAsync(int condominiumId)
+    {
+        return await _context.FinancialAccounts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(account =>
+                account.Scope == FinancialAccountScope.Condominium &&
+                account.CondominiumId == condominiumId &&
+                account.PixKey != string.Empty);
+    }
+
     public async Task<FinancialAccountResponseDto?> GetByCondominiumAsync(
         int userId,
         int condominiumId)

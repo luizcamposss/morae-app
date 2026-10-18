@@ -40,6 +40,7 @@ using backend.Services.News;
 using backend.Services.Charges;
 using backend.Services.Me;
 using backend.Services.Payments;
+using backend.Services.PaymentProofs;
 using backend.Services.Delinquency;
 using backend.Services.Occurrences;
 using backend.Services.FinancialAccounts;
@@ -194,6 +195,7 @@ builder.Services.AddScoped<IMercadoPagoWebhookValidator, MercadoPagoWebhookValid
 builder.Services.AddSingleton<IMercadoPagoTokenProtector, MercadoPagoTokenProtector>();
 builder.Services.AddScoped<IMercadoPagoService, MercadoPagoService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IPaymentProofService, PaymentProofService>();
 builder.Services.AddScoped<IFinancialAccountService, FinancialAccountService>();
 builder.Services.AddScoped<IPersonService, PersonService>();
 builder.Services.AddScoped<IPersonUnitService, PersonUnitService>();

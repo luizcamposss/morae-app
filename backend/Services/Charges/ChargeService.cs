@@ -96,7 +96,7 @@ public class ChargeService : IChargeService
                 .OrderByDescending(c => c.CreatedAt)
                 .ToListAsync();
 
-            return _mapper.Map<IEnumerable<ChargeResponseDto>>(charges);
+            return await MapWithPaymentInfoAsync(charges);
         }
 
         if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
@@ -110,7 +110,7 @@ public class ChargeService : IChargeService
                 .OrderByDescending(c => c.CreatedAt)
                 .ToListAsync();
 
-            return _mapper.Map<IEnumerable<ChargeResponseDto>>(charges);
+            return await MapWithPaymentInfoAsync(charges);
         }
 
         throw new ForbiddenException("Você não tem acesso às mensalidades da plataforma.");
@@ -147,7 +147,7 @@ public class ChargeService : IChargeService
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
 
-        return _mapper.Map<IEnumerable<ChargeResponseDto>>(charges);
+        return await MapWithPaymentInfoAsync(charges);
     }
     public async Task<IEnumerable<ChargeResponseDto>> GetMineAsync(int userId)
     {
@@ -169,7 +169,7 @@ public class ChargeService : IChargeService
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
 
-        return _mapper.Map<IEnumerable<ChargeResponseDto>>(charges);
+        return await MapWithPaymentInfoAsync(charges);
     }
     public async Task<ChargeResponseDto?> GetByIdAsync(int userId, int id)
     {
@@ -181,7 +181,7 @@ public class ChargeService : IChargeService
 
         await EnsureCanReadAsync(userId, charge);
 
-        return _mapper.Map<ChargeResponseDto>(charge);
+        return (await MapWithPaymentInfoAsync([charge]))[0];
     }
     public async Task<bool> CancelAsync(int userId, int id, CancelChargeDto dto)
     {
@@ -601,7 +601,52 @@ public class ChargeService : IChargeService
         if (charge is null)
             throw new NotFoundException("Cobrança não encontrada.");
 
-        return _mapper.Map<ChargeResponseDto>(charge);
+        return (await MapWithPaymentInfoAsync([charge]))[0];
+    }
+
+    // Adds what the payment screens need besides the charge itself: whether Mercado Pago is
+    // connected for the receiver and the state of the Pix receipts. Two queries for the whole list.
+    private async Task<List<ChargeResponseDto>> MapWithPaymentInfoAsync(IReadOnlyCollection<Charge> charges)
+    {
+        var responses = _mapper.Map<List<ChargeResponseDto>>(charges);
+
+        if (responses.Count == 0)
+            return responses;
+
+        var chargeIds = responses.Select(charge => charge.Id).ToList();
+        var condominiumIds = responses.Select(charge => charge.CondominiumId).Distinct().ToList();
+
+        // CondominiumId null is the platform account (receives the MORAÊ invoices).
+        var connectedReceivers = await _context.MercadoPagoAccounts
+            .AsNoTracking()
+            .Where(account =>
+                account.AccessToken != string.Empty &&
+                (account.CondominiumId == null || condominiumIds.Contains(account.CondominiumId.Value)))
+            .Select(account => account.CondominiumId)
+            .ToListAsync();
+
+        var proofs = await _context.PaymentProofs
+            .AsNoTracking()
+            .Where(proof => chargeIds.Contains(proof.ChargeId))
+            .Select(proof => new { proof.Id, proof.ChargeId, proof.Status, proof.RejectionReason })
+            .ToListAsync();
+
+        var proofsByCharge = proofs.ToLookup(proof => proof.ChargeId);
+
+        foreach (var response in responses)
+        {
+            int? receiver = response.Scope == ChargeScope.Platform ? null : response.CondominiumId;
+            response.OnlinePaymentAvailable = connectedReceivers.Contains(receiver);
+
+            var chargeProofs = proofsByCharge[response.Id].ToList();
+            var latest = chargeProofs.MaxBy(proof => proof.Id);
+
+            response.PendingProofCount = chargeProofs.Count(proof => proof.Status == PaymentProofStatus.Pending);
+            response.LatestProofStatus = latest?.Status;
+            response.LatestProofRejectionReason = latest?.Status == PaymentProofStatus.Rejected ? latest.RejectionReason : null;
+        }
+
+        return responses;
     }
 
     private async Task<bool> IsMasterCondominiumOwnerAsync(int userId, int condominiumId)
