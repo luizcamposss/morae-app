@@ -111,19 +111,7 @@ const names = (list: string[]) => (list.length > 2 ? `${list.slice(0, 2).join(",
 // What needs attention today, most urgent first. Only rows with something to do.
 export function buildTodayItems(data: DashboardData): TodayItem[] {
   const items: TodayItem[] = [];
-  const overdue = data.charges.filter((charge) => charge.status === CHARGE_STATUS.overdue);
-
-  if (overdue.length) {
-    const total = overdue.reduce((sum, charge) => sum + (charge.updatedAmount || charge.value), 0);
-    items.push({
-      key: "overdue",
-      tone: "red",
-      title: plural(overdue.length, "cobrança atrasada", "cobranças atrasadas"),
-      subtitle: `${formatCurrency(total)} com multa e juros · ${plural(new Set(overdue.map((charge) => charge.unitId)).size, "unidade", "unidades")}`,
-      to: "/admin/payments",
-    });
-  }
-
+  // Late charges are not repeated here: the summary and "Unidades em atraso" already show them.
   const lateMaintenance = data.maintenance.filter((plan) => plan.status === MAINTENANCE_STATUS.overdue);
   const dueMaintenance = data.maintenance.filter((plan) => plan.status === MAINTENANCE_STATUS.dueSoon);
   if (lateMaintenance.length || dueMaintenance.length) {

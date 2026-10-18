@@ -163,7 +163,7 @@ export function AdminDashboardPage() {
               {isLoading ? (
                 <EmptyRow text="Carregando…" />
               ) : todayItems.length === 0 ? (
-                <GroupedRow icon={CircleCheck} tone="green" title="Tudo em ordem" subtitle="Sem atrasos, manutenções vencendo, ocorrências abertas ou visitas hoje." />
+                <GroupedRow icon={CircleCheck} tone="green" title="Tudo em ordem" subtitle="Sem manutenções vencendo, ocorrências abertas ou visitas hoje." />
               ) : (
                 todayItems.map((item) => <TodayRow key={item.key} item={item} onOpen={(to) => navigate(to)} />)
               )}
@@ -196,8 +196,8 @@ export function AdminDashboardPage() {
           </div>
 
           <section className="relative mt-10 overflow-hidden rounded-card bg-superficie p-6 shadow-whisper">
-            <h2 className="font-display text-[19px] font-bold tracking-[-0.01em] text-tinta">Recebido × atrasado</h2>
-            <p className="mb-5 text-[13px] text-tinta-suave">cobranças das unidades por mês de vencimento, até o próximo mês</p>
+            <h2 className="font-display text-[19px] font-bold tracking-[-0.01em] text-tinta">Receita por mês</h2>
+            <p className="mb-5 text-[13px] text-tinta-suave">recebido, em aberto e atrasado, por vencimento até o próximo mês</p>
             {hasRevenue ? (
               <RevenueChart data={revenueByMonth} caption="Cobranças do condomínio por mês de vencimento" />
             ) : (
