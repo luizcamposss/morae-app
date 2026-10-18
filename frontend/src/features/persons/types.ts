@@ -6,6 +6,7 @@ export type PersonResponse = {
   name: string;
   cpf: string;
   phoneNumber: string;
+  email?: string | null;
   hasRegisteredUser: boolean;
   accessRole: PersonAccessRole | "";
   unitCount: number;
@@ -20,6 +21,7 @@ export type CreatePersonRequest = {
   name: string;
   cpf: string;
   phoneNumber: string;
+  email?: string | null;
 };
 
 export type UpdatePersonRequest = CreatePersonRequest;

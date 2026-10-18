@@ -16,7 +16,11 @@ public class CreatePersonDto
     [RegularExpression(@"^\d{11}$", ErrorMessage = "Informe um CPF válido com 11 números.")]
     public string CPF { get; set; } = string.Empty;
 
-    [Required]
+    // Optional; the format is only checked when it is filled in.
     [RegularExpression(@"^\d{10,20}$", ErrorMessage = "Informe um telefone válido com DDD.")]
-    public string PhoneNumber { get; set; } = string.Empty;
+    public string? PhoneNumber { get; set; }
+
+    [StringLength(256)]
+    [EmailAddress(ErrorMessage = "Informe um e-mail válido.")]
+    public string? Email { get; set; }
 }

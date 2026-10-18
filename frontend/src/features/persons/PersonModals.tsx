@@ -29,7 +29,7 @@ export function PersonFormModal({ title, submitLabel, initialForm, onClose, onSu
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const payload = { ...form, name: form.name.trim() };
+    const payload = { ...form, name: form.name.trim(), email: form.email?.trim() || null };
     const problem = validatePersonForm(payload);
     setErrorMessage(problem);
     if (problem) return;
@@ -82,9 +82,16 @@ export function PersonFormModal({ title, submitLabel, initialForm, onClose, onSu
             inputMode="tel"
             value={form.phoneNumber}
             onChange={(event) => updateField("phoneNumber", onlyDigits(event.target.value, 20))}
-            placeholder="11999999999"
+            placeholder="Opcional"
           />
         </div>
+        <TextField
+          label="E-mail"
+          type="email"
+          value={form.email ?? ""}
+          onChange={(event) => updateField("email", event.target.value)}
+          placeholder="Opcional"
+        />
       </form>
     </Modal>
   );
@@ -133,6 +140,7 @@ export function PersonDetailsModal({ person, invitation, canInvite, onClose, onE
         <dl className="grid grid-cols-2 gap-4 rounded-block bg-campo px-4 py-4 text-sm">
           <Info label="CPF" value={formatCpf(person.cpf)} />
           <Info label="Telefone" value={formatPhone(person.phoneNumber)} />
+          {person.email && <Info label="E-mail" value={person.email} />}
         </dl>
 
         <section>

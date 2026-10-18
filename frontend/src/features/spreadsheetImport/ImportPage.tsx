@@ -20,7 +20,7 @@ type Step =
 
 type GroupKey = "errors" | "units" | "persons" | "links" | "charges";
 
-type ListItem = { key: string; line: number; title: string; detail: string; action: ImportAction | null; errors?: string[] };
+type ListItem = { key: string; line: number; title: string; detail: string; action: ImportAction | null; errors?: string[]; warnings?: string[] };
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024;
 const ACCEPT = ".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -317,6 +317,7 @@ function buildGroups(rows: ImportRow[]): Record<GroupKey, ListItem[]> {
         title: `${formatCurrency(row.chargeValue)} · ${unitLabel}`,
         detail: `${row.chargeDescription ?? ""} · vence ${formatCalendarDate(row.chargeDueDate)}`,
         action: row.chargeAction,
+        warnings: row.warnings,
       });
     }
   }
@@ -434,6 +435,9 @@ function PreviewItem({ item }: { item: ListItem }) {
       <span className="min-w-0 flex-1">
         <span className="block break-words text-[15px] font-semibold text-tinta">{item.title}</span>
         {item.detail && <span className="block break-words text-[13px] text-tinta-suave">{item.detail}</span>}
+        {item.warnings && item.warnings.length > 0 && (
+          <span className="block text-[13px] font-medium text-ambar">{item.warnings.join(" ")}</span>
+        )}
         {isError && (
           <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[13px] text-vermelho">
             {item.errors!.map((error) => (

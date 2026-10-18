@@ -61,6 +61,7 @@ public class PersonService : IPersonService
                     Name = person.Name,
                     CPF = person.CPF,
                     PhoneNumber = person.PhoneNumber,
+                    Email = person.Email,
                     HasRegisteredUser = _context.Users.Any(user =>
                         user.PersonId == person.Id),
                     AccessRole = _context.UserCondominiums
@@ -100,6 +101,7 @@ public class PersonService : IPersonService
             Name = personCondominium.Person.Name,
             CPF = personCondominium.Person.CPF,
             PhoneNumber = personCondominium.Person.PhoneNumber,
+            Email = personCondominium.Person.Email,
             HasRegisteredUser = _context.Users.Any(user =>
                 user.PersonId == personCondominium.PersonId),
             AccessRole = _context.UserCondominiums
