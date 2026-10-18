@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { ChevronRight, Layers, Plus, Repeat, Search, TriangleAlert } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { ChevronRight, Layers, Plus, Repeat, Search, TriangleAlert, X } from "lucide-react";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { Button, ButtonLink } from "../../shared/components/Button";
 import { ConfirmDialog, type ConfirmRequest } from "../../shared/components/ConfirmDialog";
@@ -112,8 +113,11 @@ const emptyData = (condominiumId: number | null, errorMessage = ""): PageData =>
 export function AdminPaymentsPage() {
   const { condominiums, activeCondominium, activeCondominiumId, setActiveCondominiumId } = useCondominium();
   const [data, setData] = useState<PageData | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  // ?unit=<id> (from the dashboard grid): only that unit's charges, every status.
+  const unitFilter = Number(searchParams.get("unit")) || null;
   const [view, setView] = useState<View>("charges");
-  const [tab, setTab] = useState<Tab>("open");
+  const [tab, setTab] = useState<Tab>(unitFilter ? "all" : "open");
   const [search, setSearch] = useState("");
   const [buildingFilter, setBuildingFilter] = useState("");
   const [monthFilter, setMonthFilter] = useState("");
@@ -157,6 +161,7 @@ export function AdminPaymentsPage() {
   const { charges, buildings, units, recurring, settings, platformCharges } = page;
   const unitById = useMemo(() => new Map(units.map((unit) => [unit.id, unit])), [units]);
   const shownError = errorMessage || page.errorMessage;
+  const filteredUnit = unitFilter ? unitById.get(unitFilter) : undefined;
 
   async function reload() {
     if (!activeCondominiumId) return;
@@ -189,6 +194,7 @@ export function AdminPaymentsPage() {
   const term = normalizeSearch(search.trim());
   const inScope = charges.filter((charge) => {
     const unit = charge.unitId ? unitById.get(charge.unitId) : undefined;
+    if (unitFilter && charge.unitId !== unitFilter) return false;
     if (buildingFilter && String(unit?.buildingId ?? "") !== buildingFilter) return false;
     if (monthFilter && !charge.dueDate.startsWith(monthFilter)) return false;
     if (!term) return true;
@@ -465,6 +471,26 @@ export function AdminPaymentsPage() {
             </div>
           </div>
 
+          {unitFilter && (
+            <div className="mb-4 flex">
+              <span className="inline-flex items-center gap-1 rounded-full bg-tinta py-1 pl-3.5 pr-1 text-sm font-semibold text-white">
+                Unidade {filteredUnit ? `${filteredUnit.buildingName} · ${filteredUnit.number}` : `#${unitFilter}`}
+                <button
+                  type="button"
+                  aria-label="Tirar filtro da unidade"
+                  onClick={() => {
+                    const next = new URLSearchParams(searchParams);
+                    next.delete("unit");
+                    setSearchParams(next, { replace: true });
+                  }}
+                  className="grid size-6 place-items-center rounded-full text-white/80 transition-colors hover:bg-white/15 hover:text-white"
+                >
+                  <X size={14} strokeWidth={2} aria-hidden />
+                </button>
+              </span>
+            </div>
+          )}
+
           <ul className="divide-y divide-linha overflow-hidden rounded-card bg-superficie shadow-whisper">
             {visibleCharges.length === 0 ? (
               <li className="px-5 py-10 text-center text-sm text-tinta-suave">
@@ -472,7 +498,7 @@ export function AdminPaymentsPage() {
                   ? "Carregando…"
                   : charges.length === 0
                     ? "Nenhuma cobrança ainda. Use “Cobrança em lote” para gerar a taxa do mês de todas as unidades."
-                    : term || buildingFilter || monthFilter
+                    : term || buildingFilter || monthFilter || unitFilter
                       ? "Nenhuma cobrança encontrada com esses filtros."
                       : "Nenhuma cobrança nesta situação."}
               </li>
@@ -593,6 +619,7 @@ export function AdminPaymentsPage() {
           charge={selectedCharge}
           place={placeOf(selectedCharge)}
           person={selectedCharge.unitId ? unitById.get(selectedCharge.unitId)?.responsiblePersonName || undefined : undefined}
+          showTimeline
           onClose={() => setSelectedChargeId(null)}
           extra={
             selectedCharge.scope === 1 && isOpenCharge(selectedCharge) ? (

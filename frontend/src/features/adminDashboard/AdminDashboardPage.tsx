@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronRight, CircleCheck, DoorOpen, Receipt, TriangleAlert, Vote, Wrench, type LucideIcon } from "lucide-react";
+import { Bell, ChevronRight, CircleCheck, DoorOpen, Receipt, TriangleAlert, Vote, Wrench, type LucideIcon } from "lucide-react";
 import { useAuth } from "../../app/providers/useAuth";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { GroupedRow } from "../../shared/components/GroupedList";
@@ -11,6 +11,7 @@ import { PageHeader } from "../../shared/layout/PageHeader";
 import { formatCurrency } from "../../shared/lib/currency";
 import { formatDateTime, formatTodayHeading, getGreeting, todayInputDate } from "../../shared/lib/date";
 import { CHARGE_STATUS, buildRevenueByMonth, currentMonthName } from "../charges/platformRevenue";
+import { UnitBillingGrid } from "../billingGrid/UnitBillingGrid";
 import { RevenueChart } from "../masterDashboard/MasterCharts";
 import { buildActivities, buildLateUnits, buildTodayItems, emptyDashboard, fetchDashboard, type DashboardData, type TodayItem } from "./dashboardData";
 
@@ -22,6 +23,7 @@ const todayIcons: Array<[string, LucideIcon]> = [
   ["occurrences", TriangleAlert],
   ["assembly", Vote],
   ["visits", DoorOpen],
+  ["reminders", Bell],
 ];
 
 const chipTones = {
@@ -115,8 +117,6 @@ export function AdminDashboardPage() {
   const visibleActivities = activities.filter((activity) => !clearedActivityIds.has(activity.id));
 
   const totalUnits = dashboard.units.length;
-  const upToDate = totalUnits - lateUnits.length;
-  const upToDatePercent = totalUnits ? Math.round((upToDate / totalUnits) * 100) : 0;
   const firstName = (user?.personName || user?.userName || "").trim().split(/\s+/)[0];
   const overline = [formatTodayHeading() + (temperature !== null ? `, ${temperature}°` : ""), activeCondominium?.condominiumName].filter(Boolean).join(" · ");
 
@@ -170,37 +170,29 @@ export function AdminDashboardPage() {
             </Section>
 
             <Section
-              title="Unidades em dia"
+              title="Unidades em atraso"
+              note={isLoading || !lateUnits.length ? undefined : `${lateUnits.length} de ${totalUnits}`}
               footer={lateUnits.length > 0 && <SectionLink to="/admin/payments">Ver cobranças atrasadas</SectionLink>}
             >
-              <li className="px-5 py-4">
-                <p className="font-display text-[30px] font-bold leading-none tabular-nums text-tinta">
-                  {isLoading ? "–" : upToDate}
-                  <span className="ml-1.5 font-sans text-sm font-normal text-tinta-suave">de {totalUnits} unidades</span>
-                </p>
-                <div
-                  className="mt-3 h-2 overflow-hidden rounded-full bg-vermelho-suave"
-                  role="progressbar"
-                  aria-label="Unidades em dia"
-                  aria-valuenow={upToDatePercent}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                >
-                  <div className="h-full rounded-full bg-verde" style={{ width: `${isLoading ? 0 : upToDatePercent}%` }} />
-                </div>
-                <p className="mt-2 text-[13px] text-tinta-suave">
-                  {isLoading ? "" : lateUnits.length ? `${lateUnits.length} com cobrança atrasada` : "Nenhuma unidade com atraso."}
-                </p>
-              </li>
-              {lateUnits.slice(0, 4).map((unit) => (
-                <Row
-                  key={unit.unitId}
-                  title={unit.label}
-                  subtitle={unit.person || `${unit.count} ${unit.count === 1 ? "cobrança" : "cobranças"}`}
-                  trailing={<span className="text-sm font-semibold tabular-nums text-vermelho">{formatCurrency(unit.total)}</span>}
-                />
-              ))}
+              {isLoading ? (
+                <EmptyRow text="Carregando…" />
+              ) : lateUnits.length === 0 ? (
+                <GroupedRow icon={CircleCheck} tone="green" title="Nenhuma unidade com atraso" subtitle={`${totalUnits} ${totalUnits === 1 ? "unidade em dia" : "unidades em dia"}`} />
+              ) : (
+                lateUnits.slice(0, 4).map((unit) => (
+                  <Row
+                    key={unit.unitId}
+                    title={unit.label}
+                    subtitle={unit.person || `${unit.count} ${unit.count === 1 ? "cobrança" : "cobranças"}`}
+                    trailing={<span className="text-sm font-semibold tabular-nums text-vermelho">{formatCurrency(unit.total)}</span>}
+                  />
+                ))
+              )}
             </Section>
+          </div>
+
+          <div className="mt-10">
+            <UnitBillingGrid units={dashboard.units} charges={dashboard.charges} paymentsPath="/admin/payments" isLoading={isLoading} />
           </div>
 
           <section className="relative mt-10 overflow-hidden rounded-card bg-superficie p-6 shadow-whisper">
