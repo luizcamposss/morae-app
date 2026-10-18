@@ -6,7 +6,8 @@ import type { SyndicAccessKey } from "../../features/syndicAccess/syndicAccessSe
 export type AppRoute = {
   path: string;
   component: ComponentType;
-  nav?: { label: string; icon: LucideIcon; placement?: "footer" };
+  // `shortLabel` replaces the label in the phone tab bar, where space is tight.
+  nav?: { label: string; shortLabel?: string; icon: LucideIcon; placement?: "footer" };
   // Syndic only: permission group needed to open the screen and to see it in the menu.
   syndicAccess?: SyndicAccessKey;
 };

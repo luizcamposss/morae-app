@@ -8,6 +8,7 @@ import { MoraeMark } from "../components/MoraeMark";
 
 type MenuItem = {
   label: string;
+  shortLabel?: string;
   icon: LucideIcon;
   to: string;
   placement?: "footer";
@@ -90,7 +91,7 @@ export function Sidebar() {
               }
             >
               <item.icon size={20} strokeWidth={1.6} aria-hidden />
-              <span className="max-w-full truncate">{item.label}</span>
+              <span className="max-w-full truncate">{item.shortLabel ?? item.label}</span>
             </NavLink>
           ))}
         </div>
