@@ -28,6 +28,11 @@ const occurrencePriorities: Record<number, { label: string; tone: string }> = {
   4: { label: "Urgente", tone: "text-vermelho" },
 };
 
+// Choices of the "new occurrence" form, in the order of the enum.
+export const occurrenceTypeOptions = Object.entries(occurrenceTypes).map(([value, label]) => ({ value: Number(value) as OccurrenceType, label }));
+
+export const occurrencePriorityOptions = Object.entries(occurrencePriorities).map(([value, meta]) => ({ value: Number(value) as OccurrencePriority, label: meta.label }));
+
 export function statusMeta(status: OccurrenceStatus) {
   return occurrenceStatuses.find((item) => item.value === status) ?? occurrenceStatuses[0];
 }

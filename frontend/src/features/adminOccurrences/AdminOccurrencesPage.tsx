@@ -9,7 +9,8 @@ import { formatDate } from "../../shared/lib/date";
 import { OCCURRENCE_STATUS, formatPlace, isPending, matchesSearch, occurrenceStatuses, priorityMeta, statusMeta, typeLabel } from "../occurrences/occurrenceMeta";
 import { getOccurrencesByCondominium, respondToOccurrence, updateOccurrenceStatus } from "../occurrences/occurrenceService";
 import type { OccurrenceResponse, OccurrenceStatus } from "../occurrences/types";
-import { OccurrenceDetailsModal, StatusChip } from "./OccurrenceModals";
+import { StatusChip } from "../occurrences/OccurrenceParts";
+import { OccurrenceDetailsModal } from "./OccurrenceModals";
 
 type LoadedOccurrences = { condominiumId: number | null; occurrences: OccurrenceResponse[]; errorMessage: string };
 type Filters = { condominiumId: number | null; status: OccurrenceStatus | null; buildingId: string; search: string };

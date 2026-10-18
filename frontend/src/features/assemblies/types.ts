@@ -89,6 +89,30 @@ export type AssemblyResults = {
   minutesDocumentTitle: string | null;
 };
 
+export type BallotUnit = {
+  unitId: number;
+  unitLabel: string;
+  canVote: boolean;
+  // Why the unit cannot vote (not an owner, overdue charge...).
+  blockReason: string | null;
+  // The unit's current choice per item (itemId → optionId), whoever of the household voted.
+  votes: Record<number, number>;
+  lastVotedByName: string | null;
+  lastVotedAt: string | null;
+};
+
+export type MyBallot = {
+  assemblyId: number;
+  votingOpen: boolean;
+  units: BallotUnit[];
+};
+
+// Items left out keep their current vote.
+export type CastVotesRequest = {
+  unitId: number;
+  votes: Array<{ itemId: number; optionId: number }>;
+};
+
 export type SaveAssemblyItemRequest = {
   title: string;
   description: string | null;

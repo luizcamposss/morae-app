@@ -6,11 +6,12 @@ import { Button } from "../../shared/components/Button";
 import { MoraeMark } from "../../shared/components/MoraeMark";
 import { SelectField } from "../../shared/components/SelectField";
 import { PageHeader } from "../../shared/layout/PageHeader";
-import { assemblyTypeLabel } from "../assemblies/assemblyMeta";
+import { assemblyTypeLabel, describeVoting } from "../assemblies/assemblyMeta";
 import { createAssembly, getAssemblies } from "../assemblies/assemblyService";
 import type { AssemblyResponse, SaveAssemblyRequest } from "../assemblies/types";
-import { AssemblyFormModal, PhaseChip } from "./AssemblyModals";
-import { describeVoting, filterAssemblies, sortAssemblies, type AssemblyFilter } from "./assemblyList";
+import { PhaseChip } from "../assemblies/AssemblyParts";
+import { AssemblyFormModal } from "./AssemblyModals";
+import { filterAssemblies, sortAssemblies, type AssemblyFilter } from "./assemblyList";
 
 type LoadedAssemblies = { condominiumId: number | null; assemblies: AssemblyResponse[]; errorMessage: string };
 
