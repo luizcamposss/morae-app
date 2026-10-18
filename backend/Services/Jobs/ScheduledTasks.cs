@@ -5,6 +5,7 @@ using backend.Enums;
 using backend.Models;
 using backend.Services.Email;
 using backend.Services.Assemblies;
+using backend.Services.Charges;
 using backend.Services.Maintenance;
 using backend.Services.Notifications;
 using Microsoft.EntityFrameworkCore;
@@ -32,6 +33,7 @@ public class ScheduledTasks : IScheduledTasks
     private readonly ILogger<ScheduledTasks> _logger;
     private readonly IMaintenanceReminderService _maintenanceReminderService;
     private readonly IAssemblyService _assemblyService;
+    private readonly IChargeBillingService _chargeBillingService;
 
     public ScheduledTasks(
         AppDbContext context,
@@ -39,8 +41,10 @@ public class ScheduledTasks : IScheduledTasks
         INotificationService notificationService,
         ILogger<ScheduledTasks> logger,
         IMaintenanceReminderService maintenanceReminderService,
-        IAssemblyService assemblyService)
+        IAssemblyService assemblyService,
+        IChargeBillingService chargeBillingService)
     {
+        _chargeBillingService = chargeBillingService;
         _assemblyService = assemblyService;
         _maintenanceReminderService = maintenanceReminderService;
         _context = context;
@@ -61,6 +65,8 @@ public class ScheduledTasks : IScheduledTasks
 
         if (saoPauloNow.Hour >= ReminderHour)
         {
+            // New charges notify residents (bell + e-mail), so they are generated in the daytime too.
+            await RunSafelyAsync("generate recurring charges", _chargeBillingService.GenerateDueRecurringChargesAsync, cancellationToken);
             await RunSafelyAsync("send due-soon reminders", SendDueSoonRemindersAsync, cancellationToken);
             await RunSafelyAsync("send overdue reminders", SendOverdueRemindersAsync, cancellationToken);
             await RunSafelyAsync("send maintenance reminders", _maintenanceReminderService.SendRemindersAsync, cancellationToken);

@@ -36,6 +36,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<UserCondominium> UserCondominiums { get; set; }
     public DbSet<UserCondominiumPermission> UserCondominiumPermissions { get; set; }
     public DbSet<Occurrence> Occurrences { get; set; }
+    public DbSet<OccurrencePhoto> OccurrencePhotos { get; set; }
     public DbSet<RefreshToken> RefreshTokens { get; set; }
     public DbSet<UserCondominiumBuilding> UserCondominiumBuildings { get; set; }
     public DbSet<Document> Documents { get; set; }
@@ -46,6 +47,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<AssemblyItem> AssemblyItems { get; set; }
     public DbSet<AssemblyItemOption> AssemblyItemOptions { get; set; }
     public DbSet<AssemblyVote> AssemblyVotes { get; set; }
+    public DbSet<RecurringCharge> RecurringCharges { get; set; }
+    public DbSet<RecurringChargeUnitValue> RecurringChargeUnitValues { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -189,6 +192,75 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .Property(c => c.Value)
             .HasPrecision(10, 2);
 
+        builder.Entity<Charge>()
+            .Property(c => c.FinePercent)
+            .HasPrecision(5, 2);
+
+        builder.Entity<Charge>()
+            .Property(c => c.MonthlyInterestPercent)
+            .HasPrecision(5, 2);
+
+        builder.Entity<Charge>()
+            .HasOne(c => c.RecurringCharge)
+            .WithMany()
+            .HasForeignKey(c => c.RecurringChargeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Safety net for the recurring generation: one charge per recurrence, unit and month.
+        builder.Entity<Charge>()
+            .HasIndex(c => new { c.RecurringChargeId, c.UnitId, c.ReferenceMonth })
+            .IsUnique();
+
+        builder.Entity<Condominium>()
+            .Property(c => c.FinePercent)
+            .HasPrecision(5, 2);
+
+        builder.Entity<Condominium>()
+            .Property(c => c.MonthlyInterestPercent)
+            .HasPrecision(5, 2);
+
+        builder.Entity<RecurringCharge>()
+            .Property(r => r.Value)
+            .HasPrecision(10, 2);
+
+        builder.Entity<RecurringCharge>()
+            .HasOne(r => r.Condominium)
+            .WithMany()
+            .HasForeignKey(r => r.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<RecurringCharge>()
+            .HasOne(r => r.Building)
+            .WithMany()
+            .HasForeignKey(r => r.BuildingId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<RecurringCharge>()
+            .HasOne(r => r.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(r => r.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<RecurringChargeUnitValue>()
+            .Property(v => v.Value)
+            .HasPrecision(10, 2);
+
+        builder.Entity<RecurringChargeUnitValue>()
+            .HasOne(v => v.RecurringCharge)
+            .WithMany(r => r.UnitValues)
+            .HasForeignKey(v => v.RecurringChargeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<RecurringChargeUnitValue>()
+            .HasOne(v => v.Unit)
+            .WithMany()
+            .HasForeignKey(v => v.UnitId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<RecurringChargeUnitValue>()
+            .HasIndex(v => new { v.RecurringChargeId, v.UnitId })
+            .IsUnique();
+
         builder.Entity<Payment>()
             .HasOne(p => p.RegisteredByUser)
             .WithMany()
@@ -270,6 +342,18 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .WithMany()
             .HasForeignKey(o => o.CreatedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Occurrence>()
+            .HasOne(o => o.RespondedByUser)
+            .WithMany()
+            .HasForeignKey(o => o.RespondedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<OccurrencePhoto>()
+            .HasOne(photo => photo.Occurrence)
+            .WithMany(occurrence => occurrence.Photos)
+            .HasForeignKey(photo => photo.OccurrenceId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.Entity<MercadoPagoAccount>()
             .HasIndex(account => account.UserId);

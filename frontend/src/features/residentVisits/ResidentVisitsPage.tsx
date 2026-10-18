@@ -135,6 +135,7 @@ export function ResidentVisitsPage() {
       title: "Cancelar esta visita?",
       description: `A visita de ${visit.visitorName} é cancelada${isRecurring(visit) ? " em todos os dias do período" : ""}. Ela fica no histórico e não pode ser reativada.`,
       confirmLabel: "Cancelar visita",
+      cancelLabel: "Voltar",
       tone: "danger",
       onConfirm: async () => {
         try {

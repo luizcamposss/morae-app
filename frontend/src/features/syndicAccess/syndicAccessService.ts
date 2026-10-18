@@ -2,7 +2,25 @@ import { apiRequest } from "../../shared/lib/api/apiClient";
 
 export type SyndicAccessKey = "residents" | "finance" | "communication" | "maintenance";
 
-export type SyndicAccessSettings = Record<SyndicAccessKey, boolean>;
+// The 11 permissions the Admin can grant to a syndic (Constants/AppPermissions.cs).
+export type SyndicPermission =
+  | "residents.view"
+  | "charges.create"
+  | "charges.mark_as_paid"
+  | "delinquency.view"
+  | "news.create"
+  | "news.edit"
+  | "occurrences.manage"
+  | "maintenance.manage"
+  | "visitors.manage"
+  | "documents.manage"
+  | "assemblies.manage";
+
+// What a syndic screen asks for: one of the 4 menu areas or a single raw permission.
+export type SyndicAccessRequirement = SyndicAccessKey | SyndicPermission;
+
+// The 4 menu areas plus the raw permission list, for screens guarded by a single permission.
+export type SyndicAccessSettings = Record<SyndicAccessKey, boolean> & { permissions: string[] };
 
 type PermissionResponse = {
   userId?: number;
@@ -24,12 +42,23 @@ export const noSyndicAccess: SyndicAccessSettings = {
   finance: false,
   communication: false,
   maintenance: false,
+  permissions: [],
 };
+
+export function hasSyndicAccess(access: SyndicAccessSettings | null | undefined, requirement: SyndicAccessRequirement) {
+  if (!access) {
+    return false;
+  }
+
+  return requirement in areaPermissions
+    ? access[requirement as SyndicAccessKey]
+    : access.permissions.includes(requirement);
+}
 
 // The 11 syndic permissions the Admin can turn on/off, grouped by area for the settings screen.
 export const syndicPermissionGroups: Array<{
   title: string;
-  permissions: Array<{ key: string; label: string; description: string }>;
+  permissions: Array<{ key: SyndicPermission; label: string; description: string }>;
 }> = [
   {
     title: "Moradores",
@@ -148,5 +177,6 @@ function mapPermissionsToAccess(permissions: string[]): SyndicAccessSettings {
       permissionSet.has(permission),
     ),
     maintenance: areaPermissions.maintenance.some((permission) => permissionSet.has(permission)),
+    permissions,
   };
 }

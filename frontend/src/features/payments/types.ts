@@ -29,6 +29,9 @@ export type PaymentReceipt = {
   unitLabel?: string | null;
   receiverName: string;
   amountPaid: number;
+  // amountPaid = originalValue + lateFeesPaid (fine and interest of a late payment).
+  originalValue: number;
+  lateFeesPaid: number;
   paidAt: string;
   paymentMethod: PaymentMethod;
   source: PaymentSource;
