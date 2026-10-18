@@ -102,7 +102,7 @@ export function AdminSettingsPage() {
               <GroupedRow
                 icon={ShieldCheck}
                 title="Acessos do síndico"
-                subtitle="O que cada síndico pode ver e fazer"
+                subtitle="Permissões e prédios de cada síndico"
                 onClick={() => setModal("syndicAccess")}
               />
             </GroupedList>
