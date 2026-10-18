@@ -1,9 +1,10 @@
-import { DoorOpen, House, Megaphone, Receipt, SlidersHorizontal, TriangleAlert } from "lucide-react";
+import { DoorOpen, House, Megaphone, Receipt, SlidersHorizontal, TriangleAlert, UserPlus } from "lucide-react";
 import { ResidentDashboardPage } from "../../features/residentDashboard/ResidentDashboardPage";
 import { ResidentUnitPage } from "../../features/residentUnit/ResidentUnitPage";
 import { ResidentBillsPage } from "../../features/residentBills/ResidentBillsPage";
 import { ResidentInspectionsPage } from "../../features/residentInspections/ResidentInspectionsPage";
 import { ResidentNoticesPage } from "../../features/residentNotices/ResidentNoticesPage";
+import { ResidentVisitsPage } from "../../features/residentVisits/ResidentVisitsPage";
 import { ResidentSettingsPage } from "../../features/residentSettings/ResidentSettingsPage";
 import type { RoleArea } from "./types";
 
@@ -14,6 +15,7 @@ export const residentArea: RoleArea = {
     { path: "unit", component: ResidentUnitPage, nav: { label: "Minha unidade", icon: DoorOpen } },
     { path: "bills", component: ResidentBillsPage, nav: { label: "Boletos", icon: Receipt } },
     { path: "occurrences", component: ResidentInspectionsPage, nav: { label: "Ocorrências", icon: TriangleAlert } },
+    { path: "visits", component: ResidentVisitsPage, nav: { label: "Visitas", icon: UserPlus } },
     { path: "notices", component: ResidentNoticesPage, nav: { label: "Avisos", icon: Megaphone } },
     { path: "settings", component: ResidentSettingsPage, nav: { label: "Ajustes", icon: SlidersHorizontal, placement: "footer" } },
   ],
