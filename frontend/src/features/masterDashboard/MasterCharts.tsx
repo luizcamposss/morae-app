@@ -56,7 +56,7 @@ function isTopSegment(month: RevenueMonth, seriesIndex: number) {
   return revenueSeries.slice(seriesIndex + 1).every((series) => month[series.key] === 0);
 }
 
-export function RevenueChart({ data }: { data: RevenueMonth[] }) {
+export function RevenueChart({ data, caption = "Mensalidades por mês de vencimento" }: { data: RevenueMonth[]; caption?: string }) {
   return (
     <figure className="[&_*:focus]:outline-none">
       <ul className="mb-4 flex flex-wrap gap-4 text-[13px] text-tinta-suave">
@@ -95,7 +95,7 @@ export function RevenueChart({ data }: { data: RevenueMonth[] }) {
       </div>
 
       <table className="sr-only">
-        <caption>Mensalidades por mês de vencimento</caption>
+        <caption>{caption}</caption>
         <thead>
           <tr>
             <th>Mês</th>
