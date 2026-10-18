@@ -7,7 +7,7 @@ import { MoraeMark } from "../../shared/components/MoraeMark";
 import { SummaryCard, type SummaryItem } from "../../shared/components/SummaryCard";
 import { PageHeader } from "../../shared/layout/PageHeader";
 import { formatDate, formatDateTime, formatTime } from "../../shared/lib/date";
-import { ASSEMBLY_PHASE, assemblyTypeLabel, describeVoting, participationPercent, voterRuleLabel } from "../assemblies/assemblyMeta";
+import { ASSEMBLY_PHASE, VOTE_TYPE, assemblyTypeLabel, describeVoting, participationPercent, voterRuleLabel } from "../assemblies/assemblyMeta";
 import { ItemCard, PhaseChip, ResultCard } from "../assemblies/AssemblyParts";
 import {
   cancelAssembly,
@@ -18,11 +18,12 @@ import {
   setAssemblyMinutes,
   updateAssembly,
 } from "../assemblies/assemblyService";
-import type { AssemblyResponse, AssemblyResults, SaveAssemblyRequest } from "../assemblies/types";
+import type { AssemblyOptionResponse, AssemblyResponse, AssemblyResults, SaveAssemblyRequest } from "../assemblies/types";
 import { DOCUMENT_CATEGORY } from "../documents/documentMeta";
 import { downloadDocument, getDocuments } from "../documents/documentService";
 import type { DocumentResponse } from "../documents/types";
 import { AssemblyFormModal, CancelAssemblyModal, MinutesModal } from "./AssemblyModals";
+import { OptionAttachmentControl } from "./OptionAttachmentControl";
 
 type Loaded = { id: number; assembly: AssemblyResponse | null; results: AssemblyResults | null; errorMessage: string };
 type ModalKind = "edit" | "cancel" | "minutes" | null;
@@ -220,6 +221,25 @@ export function AdminAssemblyDetailPage() {
     { label: "Votação fecha", value: formatDate(assembly.votingEndsAt), detail: `às ${formatTime(assembly.votingEndsAt)}` },
   ];
   const minutesId = results?.minutesDocumentId ?? assembly.minutesDocumentId;
+  const hasMultipleChoice = items.some((item) => item.voteType === VOTE_TYPE.multipleChoice);
+
+  // Attachments answer with the whole draft, so the page updates without reloading.
+  function renderAttachmentControl(option: AssemblyOptionResponse) {
+    return (
+      <OptionAttachmentControl
+        option={option}
+        onChanged={(next, message) => {
+          setLoaded({ id, assembly: next, results: null, errorMessage: "" });
+          setErrorMessage("");
+          setSuccessMessage(message);
+        }}
+        onError={(message) => {
+          setSuccessMessage("");
+          setErrorMessage(message);
+        }}
+      />
+    );
+  }
 
   return (
     <>
@@ -263,10 +283,15 @@ export function AdminAssemblyDetailPage() {
             </h2>
             {results && !results.isFinal && <span className="text-[13px] text-tinta-suave">Os votos só aparecem quando a votação fechar.</span>}
           </div>
+          {isDraft && hasMultipleChoice && (
+            <p className="mb-3 text-[13px] text-tinta-suave">
+              Anexe um arquivo em cada opção, como o orçamento de cada empresa (PDF, JPG, PNG, Word ou Excel, até 20 MB). Quem vota abre o anexo na cédula. Se você mudar o texto de uma opção em Editar, o anexo dela sai.
+            </p>
+          )}
           <ol className="flex flex-col gap-3">
             {results?.isFinal
               ? results.items.map((item) => <ResultCard key={item.itemId} item={item} />)
-              : items.map((item) => <ItemCard key={item.id} item={item} />)}
+              : items.map((item) => <ItemCard key={item.id} item={item} optionAction={isDraft ? renderAttachmentControl : undefined} />)}
           </ol>
         </section>
 

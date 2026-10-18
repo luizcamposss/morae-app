@@ -12,6 +12,10 @@ export type AssemblyOptionResponse = {
   order: number;
   text: string;
   isAbstention: boolean;
+  // Optional file of the option (e.g. a company's budget).
+  hasAttachment: boolean;
+  attachmentFileName: string | null;
+  attachmentSizeBytes: number | null;
 };
 
 export type AssemblyItemResponse = {
@@ -55,6 +59,8 @@ export type AssemblyOptionResult = {
   optionId: number;
   text: string;
   isAbstention: boolean;
+  hasAttachment: boolean;
+  attachmentFileName: string | null;
   votes: number;
   // How each unit voted; null on secret items.
   units: string[] | null;

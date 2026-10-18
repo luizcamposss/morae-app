@@ -304,6 +304,7 @@ function ItemCard({ item, index, errors, canRemove, onChange, onRemove }: ItemCa
       {isMultiple && (
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-2 text-sm font-semibold text-tinta">Opções</legend>
+          <p className="-mt-1 mb-1 text-[13px] text-tinta-suave">Para anexar um arquivo a uma opção (ex.: um orçamento), salve o rascunho e use “Anexar” na página da assembleia.</p>
           {item.options.map((option, position) => (
             <div key={position} className="flex items-center gap-2">
               <input
