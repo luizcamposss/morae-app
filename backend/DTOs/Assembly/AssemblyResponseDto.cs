@@ -47,4 +47,7 @@ public class AssemblyOptionResponseDto
     public int Order { get; set; }
     public string Text { get; set; } = string.Empty;
     public bool IsAbstention { get; set; }
+    public bool HasAttachment { get; set; }
+    public string? AttachmentFileName { get; set; }
+    public long? AttachmentSizeBytes { get; set; }
 }

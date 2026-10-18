@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using backend.DTOs.Assembly;
 using backend.Services.Assemblies;
+using backend.Services.Storage;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,6 +11,9 @@ namespace backend.Controllers;
 [Authorize]
 public class AssembliesController : ControllerBase
 {
+    // 5 MB of room above the 20 MB file limit: a slightly larger file gets a clear message.
+    private const long UploadRequestLimitBytes = UploadedFileInspector.MaxFileSizeBytes + 5 * 1024 * 1024;
+
     private readonly IAssemblyService _assemblyService;
 
     public AssembliesController(IAssemblyService assemblyService)
@@ -89,6 +93,31 @@ public class AssembliesController : ControllerBase
     public async Task<IActionResult> SetMinutes([FromRoute] int id, [FromBody] SetMinutesDto dto)
     {
         return Ok(await _assemblyService.SetMinutesAsync(GetUserId(), id, dto));
+    }
+
+    // multipart/form-data: file. Sends or replaces the attachment of one option (drafts only).
+    [HttpPut("api/assembly-options/{optionId}/attachment")]
+    [RequestSizeLimit(UploadRequestLimitBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = UploadRequestLimitBytes)]
+    public async Task<IActionResult> SetOptionAttachment([FromRoute] int optionId, IFormFile? file)
+    {
+        return Ok(await _assemblyService.SetOptionAttachmentAsync(GetUserId(), optionId, file));
+    }
+
+    [HttpDelete("api/assembly-options/{optionId}/attachment")]
+    public async Task<IActionResult> RemoveOptionAttachment([FromRoute] int optionId)
+    {
+        return Ok(await _assemblyService.RemoveOptionAttachmentAsync(GetUserId(), optionId));
+    }
+
+    [HttpGet("api/assembly-options/{optionId}/attachment")]
+    public async Task<IActionResult> DownloadOptionAttachment([FromRoute] int optionId)
+    {
+        var download = await _assemblyService.DownloadOptionAttachmentAsync(GetUserId(), optionId);
+
+        Response.Headers["X-Content-Type-Options"] = "nosniff";
+
+        return File(download.Content, download.ContentType, download.FileName);
     }
 
     private int GetUserId()

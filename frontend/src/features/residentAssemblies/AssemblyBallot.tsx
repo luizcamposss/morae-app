@@ -3,7 +3,7 @@ import { CircleCheck, Lock, TriangleAlert } from "lucide-react";
 import { Button } from "../../shared/components/Button";
 import { Modal } from "../../shared/components/Modal";
 import { formatDateTime } from "../../shared/lib/date";
-import { ItemCard, ItemHeading, ItemRules } from "../assemblies/AssemblyParts";
+import { ItemCard, ItemHeading, ItemRules, OptionAttachmentLink } from "../assemblies/AssemblyParts";
 import { castVotes } from "../assemblies/assemblyService";
 import type { AssemblyItemResponse, BallotUnit, MyBallot } from "../assemblies/types";
 
@@ -223,23 +223,31 @@ function BallotItem({
         <div className="mt-4 flex flex-col gap-2">
           {item.options.map((option) => {
             const isSelected = option.id === chosenId;
+            // The attachment link sits beside the label, never inside it (a button in a label is invalid).
             return (
-              <label
+              <div
                 key={option.id}
-                className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-field px-4 py-2.5 text-[15px] transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-verde ${
+                className={`flex items-center rounded-field text-[15px] transition-colors has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-verde ${
                   isSelected ? "bg-verde-suave font-semibold text-verde-tinta" : option.isAbstention ? "bg-campo text-tinta-suave hover:bg-menu" : "bg-campo text-tinta hover:bg-menu"
                 }`}
               >
-                <input type="radio" name={`item-${item.id}`} className="sr-only" checked={isSelected} onChange={() => onChoose(option.id)} />
-                <span
-                  aria-hidden
-                  className={`grid size-5 shrink-0 place-items-center rounded-full border-2 ${isSelected ? "border-verde-tinta" : "border-linha bg-superficie"}`}
-                >
-                  {isSelected && <span className="size-2.5 rounded-full bg-verde-tinta" />}
-                </span>
-                <span className="min-w-0 flex-1">{option.text}</span>
-                {option.id === savedId && <span className="shrink-0 text-xs font-medium text-tinta-suave">seu voto</span>}
-              </label>
+                <label className="flex min-h-12 min-w-0 flex-1 cursor-pointer items-center gap-3 px-4 py-2.5">
+                  <input type="radio" name={`item-${item.id}`} className="sr-only" checked={isSelected} onChange={() => onChoose(option.id)} />
+                  <span
+                    aria-hidden
+                    className={`grid size-5 shrink-0 place-items-center rounded-full border-2 ${isSelected ? "border-verde-tinta" : "border-linha bg-superficie"}`}
+                  >
+                    {isSelected && <span className="size-2.5 rounded-full bg-verde-tinta" />}
+                  </span>
+                  <span className="min-w-0 flex-1">{option.text}</span>
+                  {option.id === savedId && <span className="shrink-0 text-xs font-medium text-tinta-suave">seu voto</span>}
+                </label>
+                {option.hasAttachment && (
+                  <span className="pr-2">
+                    <OptionAttachmentLink optionId={option.id} fileName={option.attachmentFileName} />
+                  </span>
+                )}
+              </div>
             );
           })}
         </div>

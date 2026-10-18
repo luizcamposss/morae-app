@@ -39,6 +39,8 @@ public class AssemblyOptionResultDto
     public int OptionId { get; set; }
     public string Text { get; set; } = string.Empty;
     public bool IsAbstention { get; set; }
+    public bool HasAttachment { get; set; }
+    public string? AttachmentFileName { get; set; }
     public int Votes { get; set; }
     // How each unit voted; null on secret items.
     public List<string>? Units { get; set; }

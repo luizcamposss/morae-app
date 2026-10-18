@@ -1,4 +1,4 @@
-import { apiRequest } from "../../shared/lib/api/apiClient";
+import { apiDownload, apiRequest } from "../../shared/lib/api/apiClient";
 import type { AssemblyResponse, AssemblyResults, CastVotesRequest, MyBallot, SaveAssemblyRequest } from "./types";
 
 export async function getAssemblies(condominiumId: number): Promise<AssemblyResponse[]> {
@@ -46,4 +46,19 @@ export async function getMyBallot(id: number): Promise<MyBallot> {
 // Votes (or changes the votes) of one unit; returns the updated ballot.
 export async function castVotes(id: number, data: CastVotesRequest): Promise<MyBallot> {
   return apiRequest<MyBallot>(`/api/assemblies/${id}/votes`, { method: "PUT", body: data, auth: true });
+}
+
+// Sends or replaces the file of one option (drafts only); returns the assembly.
+export async function setOptionAttachment(optionId: number, file: File): Promise<AssemblyResponse> {
+  const body = new FormData();
+  body.append("file", file);
+  return apiRequest<AssemblyResponse>(`/api/assembly-options/${optionId}/attachment`, { method: "PUT", body, auth: true });
+}
+
+export async function removeOptionAttachment(optionId: number): Promise<AssemblyResponse> {
+  return apiRequest<AssemblyResponse>(`/api/assembly-options/${optionId}/attachment`, { method: "DELETE", auth: true });
+}
+
+export async function downloadOptionAttachment(optionId: number, fileName: string | null): Promise<void> {
+  await apiDownload(`/api/assembly-options/${optionId}/attachment`, fileName ?? "anexo");
 }

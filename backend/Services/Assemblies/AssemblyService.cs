@@ -7,6 +7,7 @@ using backend.Models;
 using backend.Services.Email;
 using backend.Services.Notifications;
 using backend.Services.Permissions;
+using backend.Services.Storage;
 using backend.Settings;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -28,19 +29,25 @@ public class AssemblyService : IAssemblyService
     private readonly INotificationService _notificationService;
     private readonly IEmailQueue _emailQueue;
     private readonly AppSettings _appSettings;
+    private readonly IFileStorage _fileStorage;
+    private readonly ILogger<AssemblyService> _logger;
 
     public AssemblyService(
         AppDbContext context,
         IPermissionService permissionService,
         INotificationService notificationService,
         IEmailQueue emailQueue,
-        IOptions<AppSettings> appSettings)
+        IOptions<AppSettings> appSettings,
+        IFileStorage fileStorage,
+        ILogger<AssemblyService> logger)
     {
         _context = context;
         _permissionService = permissionService;
         _notificationService = notificationService;
         _emailQueue = emailQueue;
         _appSettings = appSettings.Value;
+        _fileStorage = fileStorage;
+        _logger = logger;
     }
 
     public async Task<AssemblyResponseDto> CreateAsync(int userId, int condominiumId, SaveAssemblyDto dto)
@@ -107,11 +114,39 @@ public class AssemblyService : IAssemblyService
 
         Validate(dto);
 
+        var previousOptions = assembly.Items
+            .SelectMany(item => item.Options.Select(option => (ItemOrder: item.Order, Option: option)))
+            .Where(entry => entry.Option.AttachmentStorageKey != null)
+            .ToList();
+
         _context.AssemblyItems.RemoveRange(assembly.Items);
         assembly.Items.Clear();
         Apply(assembly, dto);
 
+        // The items are recreated on every save: an option that is still there (same item
+        // position and same text) keeps its attachment; the files of the others are deleted.
+        foreach (var item in assembly.Items)
+        {
+            foreach (var option in item.Options.Where(option => !option.IsAbstention))
+            {
+                var previous = previousOptions.FirstOrDefault(entry =>
+                    entry.ItemOrder == item.Order && entry.Option.Text == option.Text);
+
+                if (previous.Option is null)
+                    continue;
+
+                option.AttachmentFileName = previous.Option.AttachmentFileName;
+                option.AttachmentContentType = previous.Option.AttachmentContentType;
+                option.AttachmentSizeBytes = previous.Option.AttachmentSizeBytes;
+                option.AttachmentStorageKey = previous.Option.AttachmentStorageKey;
+                previousOptions.Remove(previous);
+            }
+        }
+
         await _context.SaveChangesAsync();
+
+        foreach (var entry in previousOptions)
+            await DeleteFileQuietlyAsync(entry.Option.AttachmentStorageKey!);
 
         return await GetDetailsAsync(assembly.Id);
     }
@@ -120,8 +155,14 @@ public class AssemblyService : IAssemblyService
     {
         var assembly = await FindDraftAsync(userId, assemblyId);
 
+        var attachmentKeys = GetAttachmentKeys(assembly);
+
+        // Items and options go with the assembly (cascade), and then their files.
         _context.Assemblies.Remove(assembly);
         await _context.SaveChangesAsync();
+
+        foreach (var key in attachmentKeys)
+            await DeleteFileQuietlyAsync(key);
     }
 
     public async Task<AssemblyResponseDto> PublishAsync(int userId, int assemblyId)
@@ -358,6 +399,8 @@ public class AssemblyService : IAssemblyService
                             OptionId = option.Id,
                             Text = option.Text,
                             IsAbstention = option.IsAbstention,
+                            HasAttachment = option.AttachmentStorageKey != null,
+                            AttachmentFileName = option.AttachmentFileName,
                             Votes = optionVotes.Count,
                             Units = item.IsSecret ? null : optionVotes.Select(vote => vote.UnitLabel).OrderBy(label => label).ToList()
                         };
@@ -409,6 +452,103 @@ public class AssemblyService : IAssemblyService
         await _context.SaveChangesAsync();
 
         return await GetDetailsAsync(assembly.Id);
+    }
+
+    public async Task<AssemblyResponseDto> SetOptionAttachmentAsync(int userId, int optionId, IFormFile? file)
+    {
+        if (file is null || file.Length == 0)
+            throw new BadRequestException("Escolha o arquivo do anexo.");
+
+        if (file.Length > UploadedFileInspector.MaxFileSizeBytes)
+            throw new BadRequestException("O anexo pode ter no máximo 20 MB.");
+
+        var (option, assembly) = await FindDraftOptionAsync(userId, optionId);
+        var previousKey = option.AttachmentStorageKey;
+
+        await using var content = file.OpenReadStream();
+
+        var detected = UploadedFileInspector.Detect(content)
+            ?? throw new BadRequestException(UploadedFileInspector.AcceptedTypesMessage);
+
+        option.AttachmentFileName = UploadedFileInspector.BuildFileName(file.FileName, detected, "anexo");
+        option.AttachmentContentType = detected.ContentType;
+        option.AttachmentSizeBytes = file.Length;
+        option.AttachmentStorageKey = $"assemblies/{assembly.CondominiumId}/{Guid.NewGuid():N}";
+        assembly.UpdatedAt = DateTime.UtcNow;
+
+        await _fileStorage.SaveAsync(option.AttachmentStorageKey, content);
+
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch
+        {
+            await DeleteFileQuietlyAsync(option.AttachmentStorageKey);
+            throw;
+        }
+
+        // Replacing: the old file goes only after the new one is saved.
+        if (previousKey is not null)
+            await DeleteFileQuietlyAsync(previousKey);
+
+        return await GetDetailsAsync(assembly.Id);
+    }
+
+    public async Task<AssemblyResponseDto> RemoveOptionAttachmentAsync(int userId, int optionId)
+    {
+        var (option, assembly) = await FindDraftOptionAsync(userId, optionId);
+        var key = option.AttachmentStorageKey;
+
+        if (key is null)
+            return await GetDetailsAsync(assembly.Id);
+
+        option.AttachmentFileName = null;
+        option.AttachmentContentType = null;
+        option.AttachmentSizeBytes = null;
+        option.AttachmentStorageKey = null;
+        assembly.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        await DeleteFileQuietlyAsync(key);
+
+        return await GetDetailsAsync(assembly.Id);
+    }
+
+    // Whoever can see the assembly (drafts: the management only).
+    public async Task<AssemblyOptionAttachmentDownload> DownloadOptionAttachmentAsync(int userId, int optionId)
+    {
+        var row = await _context.AssemblyItemOptions
+            .AsNoTracking()
+            .Where(option => option.Id == optionId)
+            .Select(option => new
+            {
+                option.AttachmentFileName,
+                option.AttachmentContentType,
+                option.AttachmentStorageKey,
+                option.AssemblyItem.Assembly.CondominiumId,
+                option.AssemblyItem.Assembly.Status
+            })
+            .FirstOrDefaultAsync()
+            ?? throw new NotFoundException("Opção não encontrada.");
+
+        await _permissionService.EnsureCondominiumAccessAsync(userId, row.CondominiumId);
+
+        if (row.Status == AssemblyStatus.Draft && !await CanManageAsync(userId, row.CondominiumId))
+            throw new NotFoundException("Opção não encontrada.");
+
+        if (row.AttachmentStorageKey is null)
+            throw new NotFoundException("Esta opção não tem anexo.");
+
+        var content = await _fileStorage.OpenReadAsync(row.AttachmentStorageKey);
+
+        if (content is null)
+        {
+            _logger.LogError("Attachment of assembly option {OptionId} is missing from storage.", optionId);
+            throw new NotFoundException("O anexo não está disponível.");
+        }
+
+        return new AssemblyOptionAttachmentDownload(content, row.AttachmentContentType!, row.AttachmentFileName!);
     }
 
     public async Task CloseDueAssembliesAsync(CancellationToken cancellationToken)
@@ -759,6 +899,49 @@ public class AssemblyService : IAssemblyService
     }
 
     // A date without offset is São Paulo time (what users type); others are converted to UTC.
+    private async Task<(AssemblyItemOption Option, Assembly Assembly)> FindDraftOptionAsync(int userId, int optionId)
+    {
+        var option = await _context.AssemblyItemOptions
+            .Include(item => item.AssemblyItem)
+            .ThenInclude(item => item.Assembly)
+            .FirstOrDefaultAsync(item => item.Id == optionId)
+            ?? throw new NotFoundException("Opção não encontrada.");
+
+        var assembly = option.AssemblyItem.Assembly;
+
+        await _permissionService.EnsureCondominiumPermissionAsync(userId, assembly.CondominiumId, AppPermissions.AssembliesManage);
+
+        if (assembly.Status != AssemblyStatus.Draft)
+            throw new BadRequestException("Depois de publicada, a assembleia não pode mais ser alterada.");
+
+        if (option.IsAbstention)
+            throw new BadRequestException("A opção \"Abstenção\" não leva anexo.");
+
+        return (option, assembly);
+    }
+
+    private static List<string> GetAttachmentKeys(Assembly assembly)
+    {
+        return assembly.Items
+            .SelectMany(item => item.Options)
+            .Where(option => option.AttachmentStorageKey != null)
+            .Select(option => option.AttachmentStorageKey!)
+            .ToList();
+    }
+
+    private async Task DeleteFileQuietlyAsync(string key)
+    {
+        try
+        {
+            await _fileStorage.DeleteAsync(key);
+        }
+        catch (Exception exception)
+        {
+            // The option is already gone for users; a leftover file only takes disk space.
+            _logger.LogError(exception, "Could not delete assembly option attachment {StorageKey}.", key);
+        }
+    }
+
     private static DateTime? ToUtc(DateTime? value)
     {
         if (value is null)
@@ -1009,7 +1192,10 @@ public class AssemblyService : IAssemblyService
                     Id = option.Id,
                     Order = option.Order,
                     Text = option.Text,
-                    IsAbstention = option.IsAbstention
+                    IsAbstention = option.IsAbstention,
+                    HasAttachment = option.AttachmentStorageKey != null,
+                    AttachmentFileName = option.AttachmentFileName,
+                    AttachmentSizeBytes = option.AttachmentSizeBytes
                 })
                 .ToList()
         }).ToList());
