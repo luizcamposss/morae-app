@@ -13,7 +13,8 @@ type ChargeReceiptModalProps = {
   chargeId: number;
   onClose: () => void;
   // Called once after a refund, so the page reloads its list when the modal closes.
-  onRefunded: () => void;
+  // Without it the receipt is read-only (e.g. the resident's own receipt).
+  onRefunded?: () => void;
 };
 
 function receiptRows(receipt: PaymentReceipt): Array<[string, string]> {
@@ -62,7 +63,7 @@ function ReceiptBody({ receipt }: { receipt: PaymentReceipt }) {
   );
 }
 
-// Payment receipt with print/PDF (browser print of the receipt area) and the Mercado Pago refund.
+// Payment receipt with print/PDF (browser print of the receipt area) and, for management, the Mercado Pago refund.
 export function ChargeReceiptModal({ chargeId, onClose, onRefunded }: ChargeReceiptModalProps) {
   const [receipt, setReceipt] = useState<PaymentReceipt | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
@@ -89,7 +90,7 @@ export function ChargeReceiptModal({ chargeId, onClose, onRefunded }: ChargeRece
       await refundMercadoPagoPayment(chargeId);
       setIsRefunded(true);
       setIsConfirmingRefund(false);
-      onRefunded();
+      onRefunded?.();
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Não foi possível estornar o pagamento.");
     } finally {
@@ -97,7 +98,7 @@ export function ChargeReceiptModal({ chargeId, onClose, onRefunded }: ChargeRece
     }
   }
 
-  const canRefund = Boolean(receipt?.canRefund) && !isRefunded;
+  const canRefund = Boolean(onRefunded) && Boolean(receipt?.canRefund) && !isRefunded;
 
   return (
     <Modal
