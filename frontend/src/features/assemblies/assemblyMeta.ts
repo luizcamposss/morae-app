@@ -1,4 +1,5 @@
-import type { AssemblyItemOutcome, AssemblyPhase, AssemblyQuorum, AssemblyType, AssemblyVoteType, AssemblyVoterRule } from "./types";
+import { formatDateTime } from "../../shared/lib/date";
+import type { AssemblyItemOutcome, AssemblyPhase, AssemblyQuorum, AssemblyResponse, AssemblyType, AssemblyVoteType, AssemblyVoterRule } from "./types";
 
 export const ASSEMBLY_PHASE = { draft: 1, scheduled: 2, open: 3, closed: 4, canceled: 5 } as const satisfies Record<string, AssemblyPhase>;
 export const VOTE_TYPE = { yesNo: 1, multipleChoice: 2 } as const satisfies Record<string, AssemblyVoteType>;
@@ -56,4 +57,20 @@ export function quorumLabel(quorum: AssemblyQuorum) {
 // Share of the eligible units that already voted, from 0 to 100.
 export function participationPercent(voted: number, eligible: number) {
   return eligible > 0 ? Math.round((voted / eligible) * 100) : 0;
+}
+
+// One line about the voting period, in the words of each phase.
+export function describeVoting(assembly: Pick<AssemblyResponse, "phase" | "votingStartsAt" | "votingEndsAt" | "closedAt" | "canceledAt">) {
+  switch (assembly.phase) {
+    case ASSEMBLY_PHASE.scheduled:
+      return `Votação abre ${formatDateTime(assembly.votingStartsAt)}`;
+    case ASSEMBLY_PHASE.open:
+      return `Votação até ${formatDateTime(assembly.votingEndsAt)}`;
+    case ASSEMBLY_PHASE.closed:
+      return `Encerrada em ${formatDateTime(assembly.closedAt ?? assembly.votingEndsAt)}`;
+    case ASSEMBLY_PHASE.canceled:
+      return `Cancelada em ${formatDateTime(assembly.canceledAt)}`;
+    default:
+      return `Votação ${formatDateTime(assembly.votingStartsAt)} a ${formatDateTime(assembly.votingEndsAt)}`;
+  }
 }

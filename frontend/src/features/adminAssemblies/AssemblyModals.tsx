@@ -7,8 +7,8 @@ import { Switch } from "../../shared/components/Switch";
 import { TextAreaField } from "../../shared/components/TextAreaField";
 import { TextField } from "../../shared/components/TextField";
 import { formatDate } from "../../shared/lib/date";
-import { VOTE_TYPE, assemblyTypes, phaseMeta, quorums, voteTypes, voterRules } from "../assemblies/assemblyMeta";
-import type { AssemblyPhase, AssemblyResponse, SaveAssemblyRequest } from "../assemblies/types";
+import { VOTE_TYPE, assemblyTypes, quorums, voteTypes, voterRules } from "../assemblies/assemblyMeta";
+import type { AssemblyResponse, SaveAssemblyRequest } from "../assemblies/types";
 import type { DocumentResponse } from "../documents/types";
 import {
   DESCRIPTION_MAX,
@@ -27,11 +27,6 @@ import {
   type AssemblyFormErrors,
   type ItemForm,
 } from "./assemblyForm";
-
-export function PhaseChip({ phase }: { phase: AssemblyPhase }) {
-  const meta = phaseMeta[phase];
-  return <span className={`shrink-0 whitespace-nowrap rounded-chip px-2 py-0.5 text-xs font-semibold ${meta.tone}`}>{meta.label}</span>;
-}
 
 function FormSection({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
