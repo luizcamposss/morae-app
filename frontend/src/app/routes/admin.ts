@@ -1,4 +1,4 @@
-import { Briefcase, Building, Building2, DoorOpen, FileText, House, Mail, Megaphone, Receipt, SlidersHorizontal, TriangleAlert, Users, Vote, Wrench } from "lucide-react";
+import { Briefcase, Building, Building2, DoorOpen, FileSpreadsheet, FileText, House, Mail, Megaphone, Receipt, SlidersHorizontal, TriangleAlert, Users, Vote, Wrench } from "lucide-react";
 import { AdminAssembliesPage } from "../../features/adminAssemblies/AdminAssembliesPage";
 import { AdminAssemblyDetailPage } from "../../features/adminAssemblies/AdminAssemblyDetailPage";
 import { AdminDashboardPage } from "../../features/adminDashboard/AdminDashboardPage";
@@ -13,6 +13,7 @@ import { PreventiveMaintenancePage } from "../../features/maintenance/Preventive
 import { AdminSettingsPage } from "../../features/adminSettings/AdminSettingsPage";
 import { AdminVisitsPage } from "../../features/adminVisits/AdminVisitsPage";
 import { DocumentsPage } from "../../features/documents/DocumentsPage";
+import { ImportPage } from "../../features/spreadsheetImport/ImportPage";
 import { AdminOccurrencesPage } from "../../features/adminOccurrences/AdminOccurrencesPage";
 import type { RoleArea } from "./types";
 
@@ -33,6 +34,7 @@ export const adminArea: RoleArea = {
     { path: "assemblies/:id", component: AdminAssemblyDetailPage },
     { path: "preventive-maintenance", component: PreventiveMaintenancePage, nav: { label: "Manutenção", icon: Wrench } },
     { path: "visitors", component: AdminVisitsPage, nav: { label: "Visitantes", icon: DoorOpen } },
+    { path: "import", component: ImportPage, nav: { label: "Importar", icon: FileSpreadsheet, placement: "footer" } },
     { path: "settings", component: AdminSettingsPage, nav: { label: "Ajustes", icon: SlidersHorizontal, placement: "footer" } },
   ],
 };

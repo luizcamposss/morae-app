@@ -12,6 +12,9 @@ namespace backend.Services.PersonUnits;
 
 public class PersonUnitService : IPersonUnitService
 {
+    // Shared with the spreadsheet import, which applies the same rule.
+    public const string OtherCondominiumLinkMessage = "Esta pessoa já está vinculada a uma unidade de outro condomínio.";
+
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
     private readonly IPermissionService _permissionService;
@@ -56,7 +59,7 @@ public class PersonUnitService : IPersonUnitService
                 personUnit.Unit.Building.CondominiumId != unit.Building.CondominiumId);
 
         if (personHasLinksInAnotherCondominium)
-            throw new ConflictException("Esta pessoa já está vinculada a uma unidade de outro condomínio.");
+            throw new ConflictException(OtherCondominiumLinkMessage);
 
         var relationshipExists = await _context.PersonUnits.AnyAsync(pu =>
             pu.UnitId == unitId &&
