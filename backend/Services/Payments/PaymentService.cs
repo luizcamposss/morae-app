@@ -1,3 +1,4 @@
+using System.Globalization;
 
 using AutoMapper;
 using backend.Constants;
@@ -7,6 +8,7 @@ using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
 using backend.Services.MercadoPago;
+using backend.Services.Charges;
 using backend.Services.Email;
 using backend.Services.Notifications;
 using backend.Services.Permissions;
@@ -64,15 +66,27 @@ public class PaymentService : IPaymentService
         if (dto.PaymentMethod == PaymentMethod.Undefined)
             throw new BadRequestException("Informe a forma de pagamento.");
 
-        if (dto.AmountPaid != charge.Value)
-            throw new BadRequestException("O valor pago precisa ser igual ao valor da cobrança.");
+        var paidAt = ResolveManualPaidAt(dto.PaidAt);
+
+        // With fine/interest, the amount due depends on the day it was paid. The manager may
+        // waive part or all of the late fees, but never take less than the original value.
+        var amountDue = ChargeLateFees.Calculate(
+            charge,
+            TimeZoneInfo.ConvertTimeFromUtc(paidAt, AppTimeZone.SaoPaulo).Date).Total;
+
+        if (dto.AmountPaid < charge.Value || dto.AmountPaid > amountDue)
+        {
+            throw new BadRequestException(amountDue == charge.Value
+                ? "O valor pago precisa ser igual ao valor da cobrança."
+                : $"O valor pago precisa ficar entre o valor original ({charge.Value.ToString("C", CultureInfo.GetCultureInfo("pt-BR"))}) e o valor com multa e juros ({amountDue.ToString("C", CultureInfo.GetCultureInfo("pt-BR"))}).");
+        }
 
         var payment = _mapper.Map<Payment>(dto);
 
         payment.ChargeId = charge.Id;
         payment.RegisteredByUserId = userId;
         payment.Source = PaymentSource.Manual;
-        payment.PaidAt = ResolveManualPaidAt(dto.PaidAt);
+        payment.PaidAt = paidAt;
         payment.CreatedAt = DateTime.UtcNow;
 
         _context.Payments.Add(payment);
@@ -176,6 +190,8 @@ public class PaymentService : IPaymentService
             UnitLabel = charge.Unit is null ? null : $"{charge.Unit.Building.Name} · Unidade {charge.Unit.Number}",
             ReceiverName = charge.Scope == ChargeScope.Platform ? "MORAÊ" : charge.Condominium.Name,
             AmountPaid = payment.AmountPaid,
+            OriginalValue = charge.Value,
+            LateFeesPaid = Math.Max(payment.AmountPaid - charge.Value, 0m),
             PaidAt = payment.PaidAt,
             PaymentMethod = payment.PaymentMethod,
             Source = payment.Source,

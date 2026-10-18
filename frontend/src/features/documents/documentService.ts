@@ -37,6 +37,6 @@ export async function deleteDocument(id: number): Promise<void> {
   });
 }
 
-export async function downloadDocument(document: DocumentResponse): Promise<void> {
+export async function downloadDocument(document: Pick<DocumentResponse, "id" | "fileName">): Promise<void> {
   await apiDownload(`/api/documents/${document.id}/download`, document.fileName);
 }

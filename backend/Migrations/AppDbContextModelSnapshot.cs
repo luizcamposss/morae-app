@@ -570,8 +570,22 @@ namespace backend.Migrations
                     b.Property<DateTime?>("DueSoonReminderSentAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<decimal?>("FinePercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<decimal?>("MonthlyInterestPercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
                     b.Property<DateTime?>("OverdueReminderSentAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("RecurringChargeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly?>("ReferenceMonth")
+                        .HasColumnType("date");
 
                     b.Property<int>("Scope")
                         .HasColumnType("int");
@@ -599,6 +613,9 @@ namespace backend.Migrations
 
                     b.HasIndex("UnitId");
 
+                    b.HasIndex("RecurringChargeId", "UnitId", "ReferenceMonth")
+                        .IsUnique();
+
                     b.ToTable("Charges");
                 });
 
@@ -614,6 +631,9 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
+
+                    b.Property<int>("BillingDueDay")
+                        .HasColumnType("int");
 
                     b.Property<string>("CEP")
                         .IsRequired()
@@ -640,6 +660,17 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("varchar(150)");
+
+                    b.Property<decimal>("FinePercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<bool>("LateFeeEnabled")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<decimal>("MonthlyInterestPercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -1504,6 +1535,86 @@ namespace backend.Migrations
                     b.ToTable("PersonUnits");
                 });
 
+            modelBuilder.Entity("backend.Models.RecurringCharge", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BuildingId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CondominiumId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int?>("DueDay")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("EndedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal>("Value")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuildingId");
+
+                    b.HasIndex("CondominiumId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.ToTable("RecurringCharges");
+                });
+
+            modelBuilder.Entity("backend.Models.RecurringChargeUnitValue", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("RecurringChargeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UnitId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Value")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UnitId");
+
+                    b.HasIndex("RecurringChargeId", "UnitId")
+                        .IsUnique();
+
+                    b.ToTable("RecurringChargeUnitValues");
+                });
+
             modelBuilder.Entity("backend.Models.RefreshToken", b =>
                 {
                     b.Property<int>("Id")
@@ -1932,6 +2043,11 @@ namespace backend.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("backend.Models.RecurringCharge", "RecurringCharge")
+                        .WithMany()
+                        .HasForeignKey("RecurringChargeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("backend.Models.ApplicationUser", "TargetUser")
                         .WithMany()
                         .HasForeignKey("TargetUserId")
@@ -1945,6 +2061,8 @@ namespace backend.Migrations
                     b.Navigation("Condominium");
 
                     b.Navigation("CreatedByUser");
+
+                    b.Navigation("RecurringCharge");
 
                     b.Navigation("TargetUser");
 
@@ -2260,6 +2378,51 @@ namespace backend.Migrations
                     b.Navigation("Unit");
                 });
 
+            modelBuilder.Entity("backend.Models.RecurringCharge", b =>
+                {
+                    b.HasOne("backend.Models.Building", "Building")
+                        .WithMany()
+                        .HasForeignKey("BuildingId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("backend.Models.Condominium", "Condominium")
+                        .WithMany()
+                        .HasForeignKey("CondominiumId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.ApplicationUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Building");
+
+                    b.Navigation("Condominium");
+
+                    b.Navigation("CreatedByUser");
+                });
+
+            modelBuilder.Entity("backend.Models.RecurringChargeUnitValue", b =>
+                {
+                    b.HasOne("backend.Models.RecurringCharge", "RecurringCharge")
+                        .WithMany("UnitValues")
+                        .HasForeignKey("RecurringChargeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("RecurringCharge");
+
+                    b.Navigation("Unit");
+                });
+
             modelBuilder.Entity("backend.Models.RefreshToken", b =>
                 {
                     b.HasOne("backend.Models.ApplicationUser", "User")
@@ -2383,6 +2546,11 @@ namespace backend.Migrations
                     b.Navigation("PersonCondominiums");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("backend.Models.RecurringCharge", b =>
+                {
+                    b.Navigation("UnitValues");
                 });
 
             modelBuilder.Entity("backend.Models.UserCondominium", b =>

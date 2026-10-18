@@ -3,7 +3,7 @@ import { ResidentDashboardPage } from "../../features/residentDashboard/Resident
 import { ResidentUnitPage } from "../../features/residentUnit/ResidentUnitPage";
 import { ResidentBillsPage } from "../../features/residentBills/ResidentBillsPage";
 import { ResidentInspectionsPage } from "../../features/residentInspections/ResidentInspectionsPage";
-import { ResidentNoticesPage } from "../../features/residentNotices/ResidentNoticesPage";
+import { ResidentDocumentsRedirect, ResidentNoticeBoardPage } from "../../features/residentNoticeBoard/ResidentNoticeBoardPage";
 import { ResidentSettingsPage } from "../../features/residentSettings/ResidentSettingsPage";
 import type { RoleArea } from "./types";
 
@@ -14,7 +14,8 @@ export const residentArea: RoleArea = {
     { path: "unit", component: ResidentUnitPage, nav: { label: "Minha unidade", icon: DoorOpen } },
     { path: "bills", component: ResidentBillsPage, nav: { label: "Boletos", icon: Receipt } },
     { path: "occurrences", component: ResidentInspectionsPage, nav: { label: "Ocorrências", icon: TriangleAlert } },
-    { path: "notices", component: ResidentNoticesPage, nav: { label: "Avisos", icon: Megaphone } },
+    { path: "notices", component: ResidentNoticeBoardPage, nav: { label: "Avisos e documentos", shortLabel: "Avisos", icon: Megaphone } },
+    { path: "documents", component: ResidentDocumentsRedirect },
     { path: "settings", component: ResidentSettingsPage, nav: { label: "Ajustes", icon: SlidersHorizontal, placement: "footer" } },
   ],
 };
