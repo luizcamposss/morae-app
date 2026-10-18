@@ -1,6 +1,14 @@
 import { apiRequest } from "../../shared/lib/api/apiClient";
 import type { SaveVisitRequest, VisitAgendaFilters, VisitResponse } from "./types";
 
+// Visits of the user's own units (and the ones they announced). With includePast, also the
+// canceled and past ones.
+export async function getMyVisits(condominiumId: number, includePast = false): Promise<VisitResponse[]> {
+  return apiRequest<VisitResponse[]>(`/api/condominiums/${condominiumId}/my-visits${includePast ? "?includePast=true" : ""}`, {
+    auth: true,
+  });
+}
+
 // Management agenda: up to 31 days per request.
 export async function getVisitAgenda(condominiumId: number, filters: VisitAgendaFilters): Promise<VisitResponse[]> {
   const params = new URLSearchParams({ from: filters.from, to: filters.to });

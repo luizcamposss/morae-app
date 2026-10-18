@@ -13,6 +13,9 @@ namespace backend.Services.Persons;
 
 public class PersonService : IPersonService
 {
+    // Shared with the spreadsheet import, which applies the same rule.
+    public const string CpfTakenMessage = "Este CPF já está cadastrado no sistema.";
+
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
     private readonly UserManager<ApplicationUser> _userManager;
@@ -58,6 +61,7 @@ public class PersonService : IPersonService
                     Name = person.Name,
                     CPF = person.CPF,
                     PhoneNumber = person.PhoneNumber,
+                    Email = person.Email,
                     HasRegisteredUser = _context.Users.Any(user =>
                         user.PersonId == person.Id),
                     AccessRole = _context.UserCondominiums
@@ -97,6 +101,7 @@ public class PersonService : IPersonService
             Name = personCondominium.Person.Name,
             CPF = personCondominium.Person.CPF,
             PhoneNumber = personCondominium.Person.PhoneNumber,
+            Email = personCondominium.Person.Email,
             HasRegisteredUser = _context.Users.Any(user =>
                 user.PersonId == personCondominium.PersonId),
             AccessRole = _context.UserCondominiums
@@ -155,7 +160,7 @@ public class PersonService : IPersonService
             .AnyAsync(p => p.CPF == dto.CPF);
 
         if (cpfExists)
-            throw new ConflictException("Este CPF já está cadastrado no sistema.");
+            throw new ConflictException(CpfTakenMessage);
 
         var person = _mapper.Map<Person>(dto);
 
@@ -308,7 +313,7 @@ public class PersonService : IPersonService
             .AnyAsync(p => p.CPF == dto.CPF && p.Id != personId);
 
         if (cpfExists)
-            throw new ConflictException("Este CPF já está cadastrado no sistema.");
+            throw new ConflictException(CpfTakenMessage);
 
         _mapper.Map(dto, person);
         person.UpdatedAt = DateTime.UtcNow;
@@ -338,7 +343,7 @@ public class PersonService : IPersonService
             .AnyAsync(p => p.CPF == dto.CPF && p.Id != id);
 
         if (cpfExists)
-            throw new ConflictException("Este CPF já está cadastrado no sistema.");
+            throw new ConflictException(CpfTakenMessage);
 
         _mapper.Map(dto, person);
 

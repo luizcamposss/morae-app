@@ -7,7 +7,7 @@ import { TextAreaField } from "../../shared/components/TextAreaField";
 import { TextField } from "../../shared/components/TextField";
 import { formatDateTime } from "../../shared/lib/date";
 import type { BuildingResponse } from "../buildings/types";
-import type { SaveVisitRequest, VisitResponse } from "../visits/types";
+import type { SaveVisitRequest, VisitResponse } from "./types";
 import {
   VISIT_STATUS,
   WEEKDAYS,
@@ -17,7 +17,7 @@ import {
   formatVisitPlace,
   visitorTypeMeta,
   visitorTypes,
-} from "../visits/visitMeta";
+} from "./visitMeta";
 import { useBuildingUnits } from "./useBuildingUnits";
 import {
   COMPANY_MAX,
@@ -52,9 +52,15 @@ function VisitorTypeTile({ visit }: { visit: Pick<VisitResponse, "visitorType" |
   );
 }
 
+// A unit the resident lives in: the only places a resident can announce a visit for.
+export type OwnUnitOption = { unitId: number; buildingId: number; label: string };
+
 type VisitFormModalProps = {
   visit: VisitResponse | null;
-  buildings: BuildingResponse[];
+  // Management: any building/unit of the condominium (or the condominium itself).
+  buildings?: BuildingResponse[];
+  // Resident: only their own units; the "Para onde" choice shows only with more than one.
+  ownUnits?: OwnUnitOption[];
   defaultDate: string;
   today: string;
   errorMessage: string;
@@ -63,10 +69,17 @@ type VisitFormModalProps = {
   onSubmit: (request: SaveVisitRequest) => Promise<void>;
 };
 
-export function VisitFormModal({ visit, buildings, defaultDate, today, errorMessage, isSubmitting, onClose, onSubmit }: VisitFormModalProps) {
-  const [form, setForm] = useState<VisitForm>(() => toVisitForm(visit, defaultDate));
+export function VisitFormModal({ visit, buildings = [], ownUnits, defaultDate, today, errorMessage, isSubmitting, onClose, onSubmit }: VisitFormModalProps) {
+  const isResident = Boolean(ownUnits);
+  const [form, setForm] = useState<VisitForm>(() =>
+    toVisitForm(
+      visit,
+      defaultDate,
+      ownUnits?.length ? { buildingId: String(ownUnits[0].buildingId), unitId: String(ownUnits[0].unitId), visitorType: 1 } : {},
+    ),
+  );
   const [errors, setErrors] = useState<VisitFormErrors>({});
-  const units = useBuildingUnits(form.buildingId);
+  const units = useBuildingUnits(isResident ? "" : form.buildingId);
   function set<K extends keyof VisitForm>(field: K, value: VisitForm[K]) {
     setForm((current) => ({ ...current, [field]: value }));
     // A fixed field drops its old message right away (both times share one message).
@@ -90,8 +103,14 @@ export function VisitFormModal({ visit, buildings, defaultDate, today, errorMess
 
   return (
     <Modal
-      title={visit ? "Editar visita" : "Visita do condomínio"}
-      description={visit ? `Avisada por ${visit.createdByName}.` : "Para quem vem a serviço do condomínio ou de uma unidade."}
+      title={visit ? "Editar visita" : isResident ? "Avisar visita" : "Visita do condomínio"}
+      description={
+        visit
+          ? `Avisada por ${visit.createdByName}.`
+          : isResident
+            ? "Deixe registrado quem vem e quando, para o condomínio saber."
+            : "Para quem vem a serviço do condomínio ou de uma unidade."
+      }
       size="lg"
       onClose={onClose}
       footer={
@@ -157,32 +176,48 @@ export function VisitFormModal({ visit, buildings, defaultDate, today, errorMess
               autoComplete="off"
               onChange={(event) => set("documentLastDigits", event.target.value.toUpperCase())}
               placeholder="4 últimos dígitos"
-              hint={errors.documentLastDigits ? undefined : "Só os 4 últimos, para a portaria conferir."}
+              hint={errors.documentLastDigits ? undefined : isResident ? "Só os 4 últimos, para conferir na entrada." : "Só os 4 últimos, para a portaria conferir."}
               error={errors.documentLastDigits}
             />
           </div>
         </FormSection>
 
-        <FormSection title="Para onde">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <SelectField
-              label="Prédio"
-              value={form.buildingId}
-              onChange={(event) => setForm((current) => ({ ...current, buildingId: event.target.value, unitId: "" }))}
-              placeholder="Condomínio (área comum)"
-              options={buildings.map((building) => ({ value: String(building.id), label: building.name }))}
-            />
-            <SelectField
-              label="Unidade"
-              value={form.unitId}
-              disabled={!form.buildingId}
-              onChange={(event) => set("unitId", event.target.value)}
-              placeholder={form.buildingId ? "Selecione a unidade" : "Não se aplica"}
-              options={units.map((unit) => ({ value: String(unit.id), label: unit.number }))}
-              error={errors.unitId}
-            />
-          </div>
-        </FormSection>
+        {isResident ? (
+          ownUnits && ownUnits.length > 1 && (
+            <FormSection title="Para onde">
+              <SelectField
+                label="Unidade"
+                value={form.unitId}
+                onChange={(event) => {
+                  const unit = ownUnits.find((item) => String(item.unitId) === event.target.value);
+                  if (unit) setForm((current) => ({ ...current, buildingId: String(unit.buildingId), unitId: String(unit.unitId) }));
+                }}
+                options={ownUnits.map((unit) => ({ value: String(unit.unitId), label: unit.label }))}
+              />
+            </FormSection>
+          )
+        ) : (
+          <FormSection title="Para onde">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <SelectField
+                label="Prédio"
+                value={form.buildingId}
+                onChange={(event) => setForm((current) => ({ ...current, buildingId: event.target.value, unitId: "" }))}
+                placeholder="Condomínio (área comum)"
+                options={buildings.map((building) => ({ value: String(building.id), label: building.name }))}
+              />
+              <SelectField
+                label="Unidade"
+                value={form.unitId}
+                disabled={!form.buildingId}
+                onChange={(event) => set("unitId", event.target.value)}
+                placeholder={form.buildingId ? "Selecione a unidade" : "Não se aplica"}
+                options={units.map((unit) => ({ value: String(unit.id), label: unit.number }))}
+                error={errors.unitId}
+              />
+            </div>
+          </FormSection>
+        )}
 
         <FormSection title="Quando">
           <div className="grid gap-4 sm:grid-cols-2">

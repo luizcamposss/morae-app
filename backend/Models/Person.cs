@@ -21,9 +21,12 @@ public class Person
     [StringLength(11)]
     public string CPF { get; set; } = string.Empty;
 
-    [Required]
+    // Optional: an empty string means no phone.
     [StringLength(20)]
     public string PhoneNumber { get; set; } = string.Empty;
+
+    [StringLength(256)]
+    public string? Email { get; set; }
     public string? ProfilePhotoUrl { get; set; }
     public int? CreatedByUserId { get; set; }
     public ApplicationUser? CreatedByUser { get; set; }

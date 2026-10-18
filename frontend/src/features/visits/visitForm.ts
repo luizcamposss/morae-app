@@ -1,5 +1,5 @@
-import { addDays } from "../visits/visitMeta";
-import type { SaveVisitRequest, VisitResponse, VisitorType } from "../visits/types";
+import { addDays } from "./visitMeta";
+import type { SaveVisitRequest, VisitResponse, VisitorType } from "./types";
 
 // Limits from VisitService.Validate.
 export const NAME_MAX = 100;
@@ -27,12 +27,13 @@ export type VisitForm = {
 
 export type VisitFormErrors = Partial<Record<"unitId" | "visitorName" | "documentLastDigits" | "startDate" | "endDate" | "daysOfWeek" | "time", string>>;
 
-export function toVisitForm(visit: VisitResponse | null, defaultDate: string): VisitForm {
+// New visits start from the given defaults (e.g. the resident's unit and "Visitante").
+export function toVisitForm(visit: VisitResponse | null, defaultDate: string, defaults: Partial<VisitForm> = {}): VisitForm {
   return {
-    buildingId: visit?.buildingId ? String(visit.buildingId) : "",
-    unitId: visit?.unitId ? String(visit.unitId) : "",
+    buildingId: visit?.buildingId ? String(visit.buildingId) : (defaults.buildingId ?? ""),
+    unitId: visit?.unitId ? String(visit.unitId) : (defaults.unitId ?? ""),
     visitorName: visit?.visitorName ?? "",
-    visitorType: visit?.visitorType ?? 2,
+    visitorType: visit?.visitorType ?? defaults.visitorType ?? 2,
     companyName: visit?.companyName ?? "",
     documentLastDigits: visit?.documentLastDigits ?? "",
     notes: visit?.notes ?? "",

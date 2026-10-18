@@ -1,6 +1,6 @@
 import type { CreatePersonRequest, PersonResponse } from "./types";
 
-export const emptyPersonForm: CreatePersonRequest = { name: "", cpf: "", phoneNumber: "" };
+export const emptyPersonForm: CreatePersonRequest = { name: "", cpf: "", phoneNumber: "", email: "" };
 
 export const PERSON_FILTERS = [
   { value: "all", label: "Todas" },
@@ -19,7 +19,7 @@ export function matchesPersonFilter(person: PersonResponse, filter: PersonFilter
 }
 
 export function toPersonForm(person: PersonResponse): CreatePersonRequest {
-  return { name: person.name, cpf: person.cpf, phoneNumber: person.phoneNumber };
+  return { name: person.name, cpf: person.cpf, phoneNumber: person.phoneNumber, email: person.email ?? "" };
 }
 
 export function onlyDigits(value: string, maxLength: number) {
@@ -30,7 +30,9 @@ export function onlyDigits(value: string, maxLength: number) {
 export function validatePersonForm(form: CreatePersonRequest) {
   if (form.name.trim().length < 2) return "Informe o nome completo do morador.";
   if (form.cpf.length !== 11) return "Informe um CPF válido com 11 números.";
-  if (form.phoneNumber.length < 10) return "Informe um telefone válido com DDD.";
+  // Phone and e-mail are optional; their format is only checked when filled in.
+  if (form.phoneNumber && form.phoneNumber.length < 10) return "Informe um telefone válido com DDD.";
+  if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return "Informe um e-mail válido.";
   return "";
 }
 

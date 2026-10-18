@@ -14,6 +14,13 @@ public interface IChargeService
     Task<IEnumerable<ChargeResponseDto>> GetMineAsync(int userId);
     Task<ChargeResponseDto?> GetByIdAsync(int userId, int id);
     Task<bool> CancelAsync(int userId, int id, CancelChargeDto dto);
+
+    // Throws when the condominium has neither a Pix key nor a connected Mercado Pago account.
+    Task EnsureCondominiumPaymentMethodAsync(int condominiumId);
+
+    // The condominium's fine/interest rule to copy onto a new charge. (null, null) = rule off.
+    Task<(decimal? FinePercent, decimal? MonthlyInterestPercent)> GetLateFeeRuleAsync(int condominiumId);
+
     Task<ChargeBatchResultDto> CreateBatchAsync(int userId, int condominiumId, CreateChargeBatchDto dto);
 
     // Creates one charge per unit with someone linked to it. No access check: callers check it.
