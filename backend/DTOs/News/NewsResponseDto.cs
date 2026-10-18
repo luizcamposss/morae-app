@@ -18,4 +18,8 @@ public class NewsResponseDto
     public NewsTargetAudience TargetAudience { get; set; }
     public Priority Priority { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    // Only for whoever manages the notices (null for readers).
+    public int? RecipientCount { get; set; }
+    public int? ReadCount { get; set; }
 }

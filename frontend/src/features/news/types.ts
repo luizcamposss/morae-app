@@ -15,6 +15,16 @@ export type NewsResponse = {
   targetAudience: NewsTargetAudience;
   priority: NewsPriority;
   createdAt: string;
+  // Only for whoever manages the notices (null for readers).
+  recipientCount?: number | null;
+  readCount?: number | null;
+};
+
+// Who has not opened a notice yet: only the name and the unit (privacy).
+export type NewsUnreadRecipient = {
+  name: string;
+  buildingName?: string | null;
+  unitNumber?: string | null;
 };
 
 export type CreateNewsRequest = {

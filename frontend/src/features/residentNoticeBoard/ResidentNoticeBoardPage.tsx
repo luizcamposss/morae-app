@@ -14,7 +14,7 @@ import type { DocumentCategory, DocumentResponse } from "../documents/types";
 import { NewsDetailsModal } from "../news/NewsDetailsModal";
 import { newsAudienceLabel } from "../news/newsAudience";
 import { NEWS_PRIORITY } from "../news/newsPriority";
-import { getNewsByCondominium } from "../news/newsService";
+import { getNewsByCondominium, markNewsAsRead } from "../news/newsService";
 import { PriorityChip } from "../news/PriorityChip";
 import type { NewsResponse } from "../news/types";
 
@@ -180,7 +180,11 @@ export function ResidentNoticeBoardPage() {
                     </span>
                   ) : undefined
                 }
-                onClick={() => setSelectedNews(item)}
+                onClick={() => {
+                  setSelectedNews(item);
+                  // Tells the administration this notice was read (only the first time counts).
+                  markNewsAsRead(item.id).catch(() => undefined);
+                }}
               />
             ))
           )}

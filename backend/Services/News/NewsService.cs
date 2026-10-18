@@ -38,7 +38,15 @@ public class NewsService : INewsService
         _context.News.Add(news);
         await _context.SaveChangesAsync();
 
-        return _mapper.Map<NewsResponseDto>(news);
+        var response = _mapper.Map<NewsResponseDto>(news);
+
+        if (news.Scope == NewsScope.Condominium)
+        {
+            await SyncRecipientsAsync(news);
+            await FillReadCountsAsync(userId, news.CondominiumId!.Value, [response]);
+        }
+
+        return response;
     }
     public async Task<IEnumerable<NewsResponseDto>> GetPlatformAsync(int userId)
     {
@@ -75,7 +83,12 @@ public class NewsService : INewsService
             .OrderByDescending(n => n.CreatedAt)
             .ToListAsync();
 
-        return _mapper.Map<IEnumerable<NewsResponseDto>>(news.Where(reader.CanSee));
+        var response = _mapper.Map<List<NewsResponseDto>>(news.Where(reader.CanSee));
+
+        if (reader.CanManage)
+            await FillReadCountsAsync(userId, condominiumId, response);
+
+        return response;
     }
     public async Task<NewsResponseDto?> GetByIdAsync(int userId, int id)
     {
@@ -88,7 +101,113 @@ public class NewsService : INewsService
 
         await EnsureCanReadAsync(userId, news);
 
-        return _mapper.Map<NewsResponseDto>(news);
+        var response = _mapper.Map<NewsResponseDto>(news);
+
+        if (news.Scope == NewsScope.Condominium &&
+            await CanManageAsync(userId, news.CondominiumId!.Value))
+            await FillReadCountsAsync(userId, news.CondominiumId.Value, [response]);
+
+        return response;
+    }
+
+    // Idempotent: only the first opening is saved. Opening a notice the user was not sent
+    // (e.g. moved in after it was published) changes nothing.
+    public async Task MarkAsReadAsync(int userId, int id)
+    {
+        var news = await _context.News
+            .AsNoTracking()
+            .FirstOrDefaultAsync(n => n.Id == id)
+            ?? throw new NotFoundException("Aviso não encontrado.");
+
+        await EnsureCanReadAsync(userId, news);
+
+        var recipient = await _context.NewsRecipients
+            .FirstOrDefaultAsync(item =>
+                item.NewsId == id &&
+                item.UserId == userId &&
+                item.ReadAt == null);
+
+        if (recipient is null)
+            return;
+
+        recipient.ReadAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<IEnumerable<NewsUnreadRecipientDto>> GetUnreadAsync(int userId, int id)
+    {
+        var news = await _context.News
+            .AsNoTracking()
+            .FirstOrDefaultAsync(n => n.Id == id)
+            ?? throw new NotFoundException("Aviso não encontrado.");
+
+        if (news.Scope != NewsScope.Condominium)
+            throw new BadRequestException("Só avisos do condomínio têm leitura registrada.");
+
+        var condominiumId = news.CondominiumId!.Value;
+
+        await EnsureCanReadAsync(userId, news);
+
+        if (!await CanManageAsync(userId, condominiumId))
+            throw new ForbiddenException("Você não tem permissão para ver quem leu este aviso.");
+
+        var managedBuildingIds = await GetManagedScopeAsync(userId, condominiumId);
+
+        var unread = await _context.NewsRecipients
+            .AsNoTracking()
+            .Where(recipient => recipient.NewsId == id && recipient.ReadAt == null)
+            .Select(recipient => new { recipient.User.PersonId, recipient.User.Person.Name })
+            .ToListAsync();
+
+        var personIds = unread.Select(item => item.PersonId).ToList();
+
+        var units = await _context.PersonUnits
+            .AsNoTracking()
+            .Where(personUnit =>
+                personIds.Contains(personUnit.PersonId) &&
+                personUnit.Unit.Building.CondominiumId == condominiumId)
+            .Select(personUnit => new
+            {
+                personUnit.PersonId,
+                personUnit.Unit.BuildingId,
+                BuildingName = personUnit.Unit.Building.Name,
+                personUnit.Unit.Number
+            })
+            .ToListAsync();
+
+        var result = new List<NewsUnreadRecipientDto>();
+
+        foreach (var person in unread)
+        {
+            var personUnits = units
+                .Where(unit => unit.PersonId == person.PersonId)
+                .Where(unit => managedBuildingIds is null || managedBuildingIds.Contains(unit.BuildingId))
+                .Select(unit => new { unit.BuildingName, unit.Number })
+                .Distinct()
+                .ToList();
+
+            if (personUnits.Count > 0)
+            {
+                result.AddRange(personUnits.Select(unit => new NewsUnreadRecipientDto
+                {
+                    Name = person.Name,
+                    BuildingName = unit.BuildingName,
+                    UnitNumber = unit.Number
+                }));
+            }
+            // People without a unit (e.g. management) are listed only to whoever manages every building.
+            else if (managedBuildingIds is null)
+            {
+                result.Add(new NewsUnreadRecipientDto { Name = person.Name });
+            }
+        }
+
+        return result
+            .OrderBy(item => item.BuildingName is null)
+            .ThenBy(item => item.BuildingName)
+            .ThenBy(item => item.UnitNumber?.Length)
+            .ThenBy(item => item.UnitNumber)
+            .ThenBy(item => item.Name);
     }
     public async Task<bool> UpdateAsync(int userId, int id, UpdateNewsDto dto)
     {
@@ -106,9 +225,17 @@ public class NewsService : INewsService
         if (news.Scope == NewsScope.Condominium && dto.BuildingId is not null)
             await EnsureBuildingBelongsToCondominiumAsync(dto.BuildingId.Value, news.CondominiumId!.Value);
 
+        var audienceChanged =
+            news.TargetAudience != dto.TargetAudience ||
+            news.BuildingId != dto.BuildingId;
+
         _mapper.Map(dto, news);
 
         await _context.SaveChangesAsync();
+
+        // A notice moved to another audience is sent to the new people; reads are kept.
+        if (audienceChanged && news.Scope == NewsScope.Condominium)
+            await SyncRecipientsAsync(news);
 
         return true;
     }
@@ -201,7 +328,15 @@ public class NewsService : INewsService
                 userId, condominiumId, [AppPermissions.NewsCreate, AppPermissions.NewsEdit]);
 
         if (canManage)
-            return new NewsReader(true, [], []);
+        {
+            var managedBuildingIds = await GetManagedScopeAsync(userId, condominiumId);
+
+            return new NewsReader(
+                true,
+                [],
+                managedBuildingIds is null ? [] : new HashSet<int>(managedBuildingIds),
+                managedBuildingIds is null);
+        }
 
         var audiences = new HashSet<NewsTargetAudience> { NewsTargetAudience.Everyone };
         var role = await _permissionService.GetCondominiumRoleAsync(userId, condominiumId);
@@ -251,21 +386,161 @@ public class NewsService : INewsService
             }
         }
 
-        return new NewsReader(false, audiences, buildingIds);
+        return new NewsReader(false, audiences, buildingIds, false);
     }
 
-    private record NewsReader(bool CanManage, HashSet<NewsTargetAudience> Audiences, HashSet<int> BuildingIds)
+    private record NewsReader(
+        bool CanManage,
+        HashSet<NewsTargetAudience> Audiences,
+        HashSet<int> BuildingIds,
+        bool AllBuildings)
     {
         public bool CanSee(backend.Models.News news)
         {
+            // A syndic limited to some buildings manages only their notices (and the condominium-wide ones).
             if (CanManage)
-                return true;
+                return AllBuildings || news.BuildingId is null || BuildingIds.Contains(news.BuildingId.Value);
 
             if (!Audiences.Contains(news.TargetAudience))
                 return false;
 
             return news.BuildingId is null || BuildingIds.Contains(news.BuildingId.Value);
         }
+    }
+
+    private async Task<bool> CanManageAsync(int userId, int condominiumId)
+    {
+        return await _permissionService.IsMasterAsync(userId) ||
+            await _permissionService.HasAnyCondominiumPermissionAsync(
+                userId, condominiumId, [AppPermissions.NewsCreate, AppPermissions.NewsEdit]);
+    }
+
+    // Buildings whose people a manager can see (null = all of them).
+    private async Task<IReadOnlyCollection<int>?> GetManagedScopeAsync(int userId, int condominiumId)
+    {
+        if (await _permissionService.IsMasterAsync(userId))
+            return null;
+
+        return await _permissionService.GetManagedBuildingIdsAsync(userId, condominiumId);
+    }
+
+    // "X of Y notified · Z read". A syndic limited to some buildings only counts their people.
+    private async Task FillReadCountsAsync(int userId, int condominiumId, IReadOnlyCollection<NewsResponseDto> items)
+    {
+        if (items.Count == 0)
+            return;
+
+        var newsIds = items.Select(item => item.Id).ToList();
+        var managedBuildingIds = await GetManagedScopeAsync(userId, condominiumId);
+
+        var query = _context.NewsRecipients
+            .AsNoTracking()
+            .Where(recipient => newsIds.Contains(recipient.NewsId));
+
+        if (managedBuildingIds is not null)
+        {
+            query = query.Where(recipient => _context.PersonUnits.Any(personUnit =>
+                personUnit.PersonId == recipient.User.PersonId &&
+                managedBuildingIds.Contains(personUnit.Unit.BuildingId)));
+        }
+
+        var counts = await query
+            .GroupBy(recipient => recipient.NewsId)
+            .Select(group => new
+            {
+                NewsId = group.Key,
+                Total = group.Count(),
+                Read = group.Count(recipient => recipient.ReadAt != null)
+            })
+            .ToDictionaryAsync(count => count.NewsId);
+
+        foreach (var item in items)
+        {
+            var count = counts.GetValueOrDefault(item.Id);
+            item.RecipientCount = count?.Total ?? 0;
+            item.ReadCount = count?.Read ?? 0;
+        }
+    }
+
+    // The people a condominium notice is sent to, by the same rule readers see it
+    // (audience and building), except its author. Saved at publication and when the
+    // audience changes; whoever is no longer in the audience is removed.
+    private async Task SyncRecipientsAsync(backend.Models.News news)
+    {
+        var condominiumId = news.CondominiumId!.Value;
+
+        var links = await _context.UserCondominiums
+            .AsNoTracking()
+            .Where(link =>
+                link.CondominiumId == condominiumId &&
+                link.Status == UserCondominiumStatus.Active &&
+                link.UserId != news.UserId)
+            .Select(link => new
+            {
+                link.UserId,
+                link.User.PersonId,
+                link.Role,
+                link.ManagesAllBuildings,
+                BuildingIds = link.Buildings.Select(managed => managed.BuildingId).ToList()
+            })
+            .ToListAsync();
+
+        var personIds = links.Select(link => link.PersonId).ToList();
+
+        var homeBuildings = (await _context.PersonUnits
+            .AsNoTracking()
+            .Where(personUnit =>
+                personIds.Contains(personUnit.PersonId) &&
+                personUnit.Unit.Building.CondominiumId == condominiumId)
+            .Select(personUnit => new { personUnit.PersonId, personUnit.Unit.BuildingId })
+            .ToListAsync())
+            .ToLookup(item => item.PersonId, item => item.BuildingId);
+
+        var recipientIds = links
+            .Where(link =>
+            {
+                var home = homeBuildings[link.PersonId].ToHashSet();
+
+                var inAudience = news.TargetAudience switch
+                {
+                    NewsTargetAudience.Everyone => true,
+                    NewsTargetAudience.Admins => link.Role == AppRoles.Admin,
+                    NewsTargetAudience.Syndics => link.Role == AppRoles.Syndic,
+                    NewsTargetAudience.Residents => link.Role == AppRoles.Resident || home.Count > 0,
+                    _ => false
+                };
+
+                if (!inAudience)
+                    return false;
+
+                if (news.BuildingId is null)
+                    return true;
+
+                return home.Contains(news.BuildingId.Value) ||
+                    (link.Role == AppRoles.Syndic &&
+                     (link.ManagesAllBuildings || link.BuildingIds.Contains(news.BuildingId.Value)));
+            })
+            .Select(link => link.UserId)
+            .ToHashSet();
+
+        var existing = await _context.NewsRecipients
+            .Where(recipient => recipient.NewsId == news.Id)
+            .ToListAsync();
+
+        _context.NewsRecipients.RemoveRange(existing.Where(recipient => !recipientIds.Contains(recipient.UserId)));
+
+        var existingIds = existing.Select(recipient => recipient.UserId).ToHashSet();
+
+        _context.NewsRecipients.AddRange(recipientIds
+            .Where(recipientId => !existingIds.Contains(recipientId))
+            .Select(recipientId => new NewsRecipient
+            {
+                NewsId = news.Id,
+                UserId = recipientId,
+                CreatedAt = DateTime.UtcNow
+            }));
+
+        await _context.SaveChangesAsync();
     }
 
     private async Task EnsureCanEditAsync(int userId, backend.Models.News news)

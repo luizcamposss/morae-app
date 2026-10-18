@@ -13,7 +13,8 @@ import type { BuildingResponse } from "../buildings/types";
 import { NewsDetailsModal } from "../news/NewsDetailsModal";
 import { NEWS_AUDIENCE, newsAudienceLabel } from "../news/newsAudience";
 import { NEWS_PRIORITY } from "../news/newsPriority";
-import { createNews, deleteNews, getNewsByCondominium, getPlatformNews, updateNews } from "../news/newsService";
+import { createNews, deleteNews, getNewsByCondominium, getPlatformNews, markNewsAsRead, updateNews } from "../news/newsService";
+import { newsReadSummary } from "../news/newsReads";
 import { PriorityChip } from "../news/PriorityChip";
 import type { NewsResponse } from "../news/types";
 import { AdminNewsForm, type CondominiumNewsForm } from "./AdminNewsForm";
@@ -253,7 +254,7 @@ export function AdminNewsPage() {
                     icon={Megaphone}
                     tone={item.priority === NEWS_PRIORITY.high ? "red" : "green"}
                     title={item.title}
-                    subtitle={`${item.description} · ${formatDate(item.createdAt)}`}
+                    subtitle={[newsReadSummary(item), formatDate(item.createdAt), item.description].filter(Boolean).join(" · ")}
                     trailing={
                       <span className="hidden max-w-40 shrink-0 truncate rounded-chip bg-campo px-2 py-0.5 text-xs font-semibold text-tinta-suave sm:inline-block">
                         {targetLabel(item)}
@@ -262,6 +263,8 @@ export function AdminNewsPage() {
                     onClick={() => {
                       setSuccessMessage("");
                       setSelected({ news: item, isPlatform: false });
+                      // A syndic can also be one of the people the notice was sent to.
+                      markNewsAsRead(item.id).catch(() => undefined);
                     }}
                   />
                 ))

@@ -1,5 +1,5 @@
 import { apiRequest } from "../../shared/lib/api/apiClient";
-import type { CreateNewsRequest, NewsResponse, UpdateNewsRequest } from "./types";
+import type { CreateNewsRequest, NewsResponse, NewsUnreadRecipient, UpdateNewsRequest } from "./types";
 
 export async function getPlatformNews(): Promise<NewsResponse[]> {
   return apiRequest<NewsResponse[]>("/api/news/platform", {
@@ -34,6 +34,20 @@ export async function updateNews(id: number, data: UpdateNewsRequest): Promise<v
 export async function deleteNews(id: number): Promise<void> {
   await apiRequest<void>(`/api/news/${id}`, {
     method: "DELETE",
+    auth: true,
+  });
+}
+
+// Saves that the user opened the notice (only the first time counts).
+export async function markNewsAsRead(id: number): Promise<void> {
+  await apiRequest<void>(`/api/news/${id}/read`, {
+    method: "POST",
+    auth: true,
+  });
+}
+
+export async function getNewsUnread(id: number): Promise<NewsUnreadRecipient[]> {
+  return apiRequest<NewsUnreadRecipient[]>(`/api/news/${id}/unread`, {
     auth: true,
   });
 }
