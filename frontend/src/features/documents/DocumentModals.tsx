@@ -263,8 +263,9 @@ type DocumentDetailsModalProps = {
   isDownloading: boolean;
   onClose: () => void;
   onDownload: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+  // Without these the document is read-only (e.g. a resident).
+  onEdit?: () => void;
+  onDelete?: () => void;
 };
 
 export function DocumentDetailsModal({ document, isDownloading, onClose, onDownload, onEdit, onDelete }: DocumentDetailsModalProps) {
@@ -284,12 +285,16 @@ export function DocumentDetailsModal({ document, isDownloading, onClose, onDownl
       onClose={onClose}
       footer={
         <>
-          <button type="button" onClick={onDelete} className="mr-auto rounded-full px-3 text-sm font-semibold text-vermelho hover:underline">
-            Apagar
-          </button>
-          <Button variant="quiet" onClick={onEdit}>
-            Editar
-          </Button>
+          {onDelete && (
+            <button type="button" onClick={onDelete} className="mr-auto rounded-full px-3 text-sm font-semibold text-vermelho hover:underline">
+              Apagar
+            </button>
+          )}
+          {onEdit && (
+            <Button variant="quiet" onClick={onEdit}>
+              Editar
+            </Button>
+          )}
           <Button onClick={onDownload} isLoading={isDownloading} loadingText="Baixando…">
             Baixar
           </Button>
