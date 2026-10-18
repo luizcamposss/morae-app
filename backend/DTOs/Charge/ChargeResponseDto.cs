@@ -36,4 +36,13 @@ public class ChargeResponseDto
 
     public int? RecurringChargeId { get; set; }
     public DateOnly? ReferenceMonth { get; set; }
+
+    // True when the receiver (the condominium, or the platform for MORAÊ invoices) has Mercado Pago
+    // connected; otherwise the payer transfers by Pix and sends a receipt.
+    public bool OnlinePaymentAvailable { get; set; }
+
+    // Pix receipts sent by the payer: how many wait for the management and the latest one's result.
+    public int PendingProofCount { get; set; }
+    public PaymentProofStatus? LatestProofStatus { get; set; }
+    public string? LatestProofRejectionReason { get; set; }
 }

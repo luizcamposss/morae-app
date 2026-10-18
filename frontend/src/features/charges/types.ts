@@ -28,6 +28,39 @@ export type ChargeResponse = {
   updatedAmount: number;
   recurringChargeId?: number | null;
   referenceMonth?: string | null;
+  // Mercado Pago connected for the receiver; without it the payer transfers by Pix and sends a receipt.
+  onlinePaymentAvailable: boolean;
+  pendingProofCount: number;
+  latestProofStatus?: PaymentProofStatus | null;
+  latestProofRejectionReason?: string | null;
+};
+
+// 1 Pending, 2 Accepted, 3 Rejected
+export type PaymentProofStatus = 1 | 2 | 3;
+
+export type PaymentProof = {
+  id: number;
+  chargeId: number;
+  uploadedByUserId: number;
+  uploadedByName: string;
+  fileName: string;
+  contentType: string;
+  note?: string | null;
+  status: PaymentProofStatus;
+  rejectionReason?: string | null;
+  reviewedByName?: string | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+};
+
+export type ChargePixInfo = {
+  chargeId: number;
+  description: string;
+  condominiumName: string;
+  pixKey: string;
+  pixKeyType: number;
+  holderName?: string | null;
+  amount: number;
 };
 
 export type CreateChargeRequest = {

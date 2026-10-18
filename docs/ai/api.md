@@ -181,6 +181,20 @@ GET    /api/charges/{chargeId}/receipt
 ```
 - Pagamento manual aceita de `value` (gestão perdoa multa/juros) até o valor atualizado no dia do pagamento. O comprovante traz `originalValue` e `lateFeesPaid` (`amountPaid = originalValue + lateFeesPaid`).
 
+### Pix com comprovante (condomínio sem Mercado Pago)
+```
+GET    /api/charges/{chargeId}/pix-info          (quem pode pagar: Admin ou morador da unidade)
+POST   /api/charges/{chargeId}/payment-proofs    (quem pode pagar; multipart: file + note?)
+GET    /api/charges/{chargeId}/payment-proofs    (gestão com charges.mark_as_paid ou quem pode pagar)
+GET    /api/payment-proofs/{id}/file             (idem; download com token)
+PUT    /api/payment-proofs/{id}/reject           (gestão com charges.mark_as_paid) { reason }
+```
+- Só cobranças do condomínio (`scope` 2) em aberto. `pix-info` → `{ chargeId, description, condominiumName, pixKey, pixKeyType, holderName, amount }` (`amount` = valor atualizado hoje); 404 se o condomínio não tem chave Pix.
+- Comprovante: PDF, JPG ou PNG até 10 MB (conferido pelo conteúdo), `note` até 500. Um pendente por vez (400 se já houver). Notifica no sininho os Admins e os síndicos com `charges.mark_as_paid` no prédio da unidade.
+- Aceitar = dar baixa com `POST .../payments/manual`: os comprovantes pendentes da cobrança viram `Accepted`. Recusar notifica quem enviou.
+- Resposta do comprovante: `{ id, chargeId, uploadedByUserId, uploadedByName, fileName, contentType, note, status, rejectionReason, reviewedByName, reviewedAt, createdAt }`.
+- Toda cobrança (listas e `GET /api/charges/{id}`) traz `onlinePaymentAvailable` (Mercado Pago conectado para quem recebe; se `false`, mostrar "Pagar com Pix"), `pendingProofCount`, `latestProofStatus` e `latestProofRejectionReason` (só quando o último foi recusado).
+
 ### Inadimplência
 ```
 GET    /api/condominiums/{condominiumId}/delinquency
@@ -318,6 +332,7 @@ POST   /api/condominiums/{condominiumId}/assemblies
 - `OccurrenceStatus`: 1 Open, 2 InProgress, 3 Resolved, 4 Canceled
 - `OccurrenceType`: 1 Maintenance, 2 Security, 3 Cleaning, 4 Noise, 5 CommonArea, 6 Other
 - `PaymentMethod`: 1 Pix, 2 CreditCard, 3 DebitCard, 4 BankSlip, 5 BankTransfer, 6 AccountBalance, 7 PrepaidCard, 8 DigitalWallet, 9 Other
+- `PaymentProofStatus`: 1 Pending, 2 Accepted, 3 Rejected
 - `PaymentSource`: 1 Manual, 2 MercadoPago
 - `PixKeyType`: 1 Cpf, 2 Cnpj, 3 Email, 4 Phone, 5 Random
 - `Priority`: 1 High, 2 Normal, 3 Low

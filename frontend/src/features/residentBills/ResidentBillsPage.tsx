@@ -11,11 +11,14 @@ import { amountDue, hasLateFees, isOpenCharge } from "../adminPayments/chargeFor
 import { ChargeDetailsModal } from "../adminPayments/ChargeModals";
 import { ChargeReceiptModal } from "../adminPayments/ChargeReceiptModal";
 import { getMyCharges } from "../charges/chargeService";
+import { PaymentProofChip } from "../charges/PaymentProofChip";
+import { proofState } from "../charges/paymentProof";
 import { CHARGE_STATUS } from "../charges/platformRevenue";
 import type { ChargeResponse } from "../charges/types";
 import { ChargeStatusChip, ChargeStatusTile } from "../masterPayments/ChargeStatus";
 import { MercadoPagoPaymentModal } from "../mercadoPago/MercadoPagoPaymentModal";
 import { NextChargeCard } from "./NextChargeCard";
+import { PixPaymentModal } from "./PixPaymentModal";
 import { billPlace, billsTabs, filterBills, nextOpenCharge, sortBills, type BillsLocationState, type BillsTab } from "./residentBills";
 
 type LoadedBills = { charges: ChargeResponse[]; errorMessage: string };
@@ -64,6 +67,9 @@ export function ResidentBillsPage() {
   const nextCharge = nextOpenCharge(charges);
   const visibleCharges = sortBills(filterBills(charges, tab));
   const selectedCharge = charges.find((charge) => charge.id === selectedChargeId);
+  // Without Mercado Pago the payment is a Pix to the condominium's key plus a receipt.
+  const payingCharge = (loaded?.charges ?? []).find((charge) => charge.id === payingChargeId);
+  const paysByPix = charges.length > 0 && !charges[0].onlinePaymentAvailable;
   const openTotal = openCharges.reduce((total, charge) => total + amountDue(charge), 0);
 
   function countFor(key: BillsTab) {
@@ -73,6 +79,15 @@ export function ResidentBillsPage() {
   function pay(charge: ChargeResponse) {
     setHasPaidOnline(false);
     setPayingChargeId(charge.id);
+  }
+
+  function closePayment() {
+    setPayingChargeId(null);
+    // Reload only after closing, so the payer sees the confirmation first.
+    if (hasPaidOnline) {
+      setSelectedChargeId(null);
+      setReloadKey((key) => key + 1);
+    }
   }
 
   return (
@@ -144,6 +159,11 @@ export function ResidentBillsPage() {
                     <span className="block truncate text-[13px] text-tinta-suave">
                       {billPlace(charge)} · {isOverdue ? "venceu" : isOpenCharge(charge) ? "vence" : "vencimento"} {formatCalendarDate(charge.dueDate)}
                     </span>
+                    {proofState(charge) && (
+                      <span className="mt-1.5 flex">
+                        <PaymentProofChip charge={charge} />
+                      </span>
+                    )}
                   </span>
                   <span className="text-right">
                     <span className={`block text-sm font-semibold tabular-nums ${isOverdue ? "text-vermelho" : "text-tinta"}`}>{formatCurrency(amountDue(charge))}</span>
@@ -164,7 +184,9 @@ export function ResidentBillsPage() {
       </ul>
 
       <p className="mt-6 px-1 text-[13px] text-tinta-suave">
-        O pagamento é feito pelo Mercado Pago, direto para a conta do condomínio. Com Pix, a baixa acontece sozinha em instantes.
+        {paysByPix
+          ? "O condomínio recebe por Pix: pague pela chave no app do seu banco e envie o comprovante. A gestão confere e dá baixa."
+          : "O pagamento é feito pelo Mercado Pago, direto para a conta do condomínio. Com Pix, a baixa acontece sozinha em instantes."}
       </p>
 
       {selectedCharge && !payingChargeId && !receiptChargeId && (
@@ -172,6 +194,19 @@ export function ResidentBillsPage() {
           charge={selectedCharge}
           place={billPlace(selectedCharge)}
           onClose={() => setSelectedChargeId(null)}
+          extra={
+            proofState(selectedCharge) ? (
+              <p className={`mt-4 rounded-field px-4 py-3 text-sm ${proofState(selectedCharge) === "sent" ? "bg-verde-suave text-verde-tinta" : "bg-vermelho-suave text-vermelho"}`}>
+                {proofState(selectedCharge) === "sent" ? (
+                  "Comprovante enviado. A gestão vai conferir e dar baixa."
+                ) : (
+                  <>
+                    <span className="font-semibold">Comprovante recusado:</span> {selectedCharge.latestProofRejectionReason || "sem motivo informado"}
+                  </>
+                )}
+              </p>
+            ) : undefined
+          }
           footer={
             selectedCharge.status === CHARGE_STATUS.paid ? (
               <Button variant="quiet" onClick={() => setReceiptChargeId(selectedCharge.id)}>
@@ -179,7 +214,7 @@ export function ResidentBillsPage() {
               </Button>
             ) : isOpenCharge(selectedCharge) ? (
               <Button variant="accent" onClick={() => pay(selectedCharge)}>
-                Pagar com Pix ou cartão
+                {selectedCharge.onlinePaymentAvailable ? "Pagar com Pix ou cartão" : "Pagar com Pix"}
               </Button>
             ) : undefined
           }
@@ -188,20 +223,12 @@ export function ResidentBillsPage() {
 
       {receiptChargeId && <ChargeReceiptModal chargeId={receiptChargeId} onClose={() => setReceiptChargeId(null)} />}
 
-      {payingChargeId && (
-        <MercadoPagoPaymentModal
-          chargeId={payingChargeId}
-          onPaid={() => setHasPaidOnline(true)}
-          onClose={() => {
-            setPayingChargeId(null);
-            // Reload only after closing, so the payer sees the confirmation first.
-            if (hasPaidOnline) {
-              setSelectedChargeId(null);
-              setReloadKey((key) => key + 1);
-            }
-          }}
-        />
-      )}
+      {payingCharge &&
+        (payingCharge.onlinePaymentAvailable ? (
+          <MercadoPagoPaymentModal chargeId={payingCharge.id} onPaid={() => setHasPaidOnline(true)} onClose={closePayment} />
+        ) : (
+          <PixPaymentModal charge={payingCharge} onSent={() => setHasPaidOnline(true)} onClose={closePayment} />
+        ))}
     </>
   );
 }

@@ -27,6 +27,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<Invitation> Invitations { get; set; }
     public DbSet<Charge> Charges { get; set; }
     public DbSet<Payment> Payments { get; set; }
+    public DbSet<PaymentProof> PaymentProofs { get; set; }
     public DbSet<FinancialAccount> FinancialAccounts { get; set; }
     public DbSet<MercadoPagoAccount> MercadoPagoAccounts { get; set; }
     public DbSet<MercadoPagoOAuthState> MercadoPagoOAuthStates { get; set; }
@@ -274,6 +275,24 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
         builder.Entity<Payment>()
             .HasIndex(payment => payment.ChargeId)
             .IsUnique();
+
+        builder.Entity<PaymentProof>()
+            .HasOne(proof => proof.Charge)
+            .WithMany()
+            .HasForeignKey(proof => proof.ChargeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<PaymentProof>()
+            .HasOne(proof => proof.UploadedByUser)
+            .WithMany()
+            .HasForeignKey(proof => proof.UploadedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<PaymentProof>()
+            .HasOne(proof => proof.ReviewedByUser)
+            .WithMany()
+            .HasForeignKey(proof => proof.ReviewedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.Entity<FinancialAccount>()
             .HasIndex(account => new { account.Scope, account.CondominiumId })

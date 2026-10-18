@@ -3,6 +3,8 @@ import { Button } from "../../shared/components/Button";
 import { formatCurrency } from "../../shared/lib/currency";
 import { formatCalendarDate } from "../../shared/lib/date";
 import { amountDue, hasLateFees } from "../adminPayments/chargeForm";
+import { PaymentProofChip } from "../charges/PaymentProofChip";
+import { proofState } from "../charges/paymentProof";
 import { CHARGE_STATUS } from "../charges/platformRevenue";
 import type { ChargeResponse } from "../charges/types";
 import { billPlace, describeDue } from "./residentBills";
@@ -65,10 +67,17 @@ export function NextChargeCard({ charge, isLoading, otherOpenCount = 0, onPay, o
         </p>
       )}
 
+      {proofState(charge) && (
+        <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-tinta-suave">
+          <PaymentProofChip charge={charge} />
+          {proofState(charge) === "sent" ? "A gestão vai conferir e dar baixa." : charge.latestProofRejectionReason}
+        </div>
+      )}
+
       <div className="mt-5 flex flex-col gap-2 sm:flex-row">
         <Button variant="accent" onClick={() => onPay(charge)} className="sm:px-7">
           <QrCode size={18} strokeWidth={1.8} aria-hidden />
-          Pagar com Pix ou cartão
+          {charge.onlinePaymentAvailable ? "Pagar com Pix ou cartão" : "Pagar com Pix"}
         </Button>
         {onDetails && (
           <Button variant="quiet" onClick={() => onDetails(charge)}>

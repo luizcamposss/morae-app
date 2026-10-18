@@ -11,6 +11,8 @@ import { formatCalendarDate, todayInputDate } from "../../shared/lib/date";
 import { getBuildingsByCondominium } from "../buildings/buildingService";
 import { changeRecurringCharge, createChargeBatch, createRecurringCharge, getBillingSettings, getRecurringCharges } from "../charges/billingService";
 import { cancelCharge, createCharge, getChargesByCondominium, getPlatformCharges } from "../charges/chargeService";
+import { PaymentProofChip } from "../charges/PaymentProofChip";
+import { proofState } from "../charges/paymentProof";
 import { CHARGE_STATUS, currentMonthName } from "../charges/platformRevenue";
 import type { ChargeBatchResult, ChargeResponse, RecurringChargeResponse } from "../charges/types";
 import { getCondominiumFinancialAccount, getPlatformFinancialAccount } from "../financialAccounts/financialAccountService";
@@ -20,6 +22,7 @@ import { getMercadoPagoConnectionStatus } from "../mercadoPago/mercadoPagoServic
 import { createManualPayment } from "../payments/paymentService";
 import { getUnitsByBuilding } from "../units/unitService";
 import { ChargeReceiptModal } from "./ChargeReceiptModal";
+import { PaymentProofsPanel } from "./PaymentProofsPanel";
 import { BatchResultModal, CancelChargeModal, ChargeDetailsModal, GroupChargeModal, ManualPaymentModal, SingleChargeModal } from "./ChargeModals";
 import { RecurringChargesList } from "./RecurringChargesList";
 import { useIsSyndicArea, useSyndicCan } from "../syndicAccess/useSyndicAccess";
@@ -494,6 +497,11 @@ export function AdminPaymentsPage() {
                           {placeOf(charge)}
                           {person ? ` · ${person}` : ""} · {isOverdue ? "venceu" : "vence"} {formatCalendarDate(charge.dueDate)}
                         </span>
+                        {proofState(charge) === "sent" && (
+                          <span className="mt-1.5 flex">
+                            <PaymentProofChip charge={charge} />
+                          </span>
+                        )}
                       </span>
                       <span className="text-right">
                         <span className={`block text-sm font-semibold tabular-nums ${isOverdue ? "text-vermelho" : "text-tinta"}`}>{formatCurrency(amountDue(charge))}</span>
@@ -592,6 +600,8 @@ export function AdminPaymentsPage() {
                 <p className="text-xs font-semibold text-verde-tinta">Chave Pix do Moraê</p>
                 <p className="mt-0.5 text-sm font-semibold text-tinta [overflow-wrap:anywhere]">{page.pixKey || "Ainda não cadastrada. Pague pelo Mercado Pago."}</p>
               </div>
+            ) : selectedCharge.scope === 2 && selectedCharge.latestProofStatus ? (
+              <PaymentProofsPanel chargeId={selectedCharge.id} canReview={canMarkPaid && isOpenCharge(selectedCharge)} onRejected={() => void reload()} />
             ) : undefined
           }
           footer={
@@ -627,7 +637,7 @@ export function AdminPaymentsPage() {
                     setPaymentForm(toManualPaymentForm(selectedCharge));
                   }}
                 >
-                  Dar baixa
+                  {selectedCharge.pendingProofCount > 0 ? "Aceitar e dar baixa" : "Dar baixa"}
                 </Button>}
               </>
             )
