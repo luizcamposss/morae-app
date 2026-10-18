@@ -22,6 +22,7 @@ import { getUnitsByBuilding } from "../units/unitService";
 import { ChargeReceiptModal } from "./ChargeReceiptModal";
 import { BatchResultModal, CancelChargeModal, ChargeDetailsModal, GroupChargeModal, ManualPaymentModal, SingleChargeModal } from "./ChargeModals";
 import { RecurringChargesList } from "./RecurringChargesList";
+import { useIsSyndicArea, useSyndicCan } from "../syndicAccess/useSyndicAccess";
 import {
   amountDue,
   chargeMonths,
@@ -57,16 +58,17 @@ const tabs: Array<{ key: Tab; label: string; statuses: number[] }> = [
   { key: "all", label: "Todas", statuses: [] },
 ];
 
-async function fetchPageData(condominiumId: number) {
+// The syndic skips what only the Admin can read (Moraê fee, receiving accounts); the API still checks his charges.
+async function fetchPageData(condominiumId: number, isSyndic: boolean) {
   const [charges, buildings, recurring, settings, platformCharges, platformAccount, account, mercadoPago] = await Promise.all([
     getChargesByCondominium(condominiumId),
-    getBuildingsByCondominium(condominiumId),
+    getBuildingsByCondominium(condominiumId).catch(() => []),
     getRecurringCharges(condominiumId).catch(() => []),
     getBillingSettings(condominiumId).catch(() => null),
-    getPlatformCharges().catch(() => []),
-    getPlatformFinancialAccount().catch(() => null),
-    getCondominiumFinancialAccount(condominiumId).catch(() => null),
-    getMercadoPagoConnectionStatus(condominiumId).catch(() => null),
+    isSyndic ? [] : getPlatformCharges().catch(() => []),
+    isSyndic ? null : getPlatformFinancialAccount().catch(() => null),
+    isSyndic ? null : getCondominiumFinancialAccount(condominiumId).catch(() => null),
+    isSyndic ? null : getMercadoPagoConnectionStatus(condominiumId).catch(() => null),
   ]);
   const unitsByBuilding = await Promise.all(buildings.map((building) => getUnitsByBuilding(building.id)));
   const units = unitsByBuilding.flat().sort((a, b) => a.buildingName.localeCompare(b.buildingName, "pt-BR") || a.number.localeCompare(b.number, "pt-BR", { numeric: true }));
@@ -82,7 +84,7 @@ async function fetchPageData(condominiumId: number) {
     platformCharges: platformCharges.filter((charge) => charge.condominiumId === condominiumId),
     pixKey: platformAccount?.pixKey ?? "",
     // Same rule the API uses to allow new charges: a Pix key or a connected Mercado Pago.
-    isReceivingReady: Boolean(account?.pixKey?.trim()) || Boolean(mercadoPago?.isConnected),
+    isReceivingReady: isSyndic || Boolean(account?.pixKey?.trim()) || Boolean(mercadoPago?.isConnected),
     errorMessage: "",
   };
 }
@@ -127,12 +129,15 @@ export function AdminPaymentsPage() {
   const [hasPaidOnline, setHasPaidOnline] = useState(false);
   const [busyRecurringId, setBusyRecurringId] = useState<number | null>(null);
   const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
+  const isSyndic = useIsSyndicArea();
+  const canCreate = useSyndicCan("charges.create");
+  const canMarkPaid = useSyndicCan("charges.mark_as_paid");
 
   useEffect(() => {
     if (!activeCondominiumId) return;
     let isMounted = true;
 
-    fetchPageData(activeCondominiumId)
+    fetchPageData(activeCondominiumId, isSyndic)
       .then((result) => isMounted && setData(result))
       .catch(
         (error) =>
@@ -142,7 +147,7 @@ export function AdminPaymentsPage() {
     return () => {
       isMounted = false;
     };
-  }, [activeCondominiumId]);
+  }, [activeCondominiumId, isSyndic]);
 
   const isLoading = !data || data.condominiumId !== activeCondominiumId;
   const page = isLoading ? emptyData(activeCondominiumId) : data;
@@ -153,7 +158,7 @@ export function AdminPaymentsPage() {
   async function reload() {
     if (!activeCondominiumId) return;
     try {
-      setData(await fetchPageData(activeCondominiumId));
+      setData(await fetchPageData(activeCondominiumId, isSyndic));
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Não foi possível atualizar as cobranças.");
     }
@@ -318,12 +323,13 @@ export function AdminPaymentsPage() {
   const views: Array<{ key: View; label: string; count?: number }> = [
     { key: "charges", label: "Cobranças" },
     { key: "recurring", label: "Recorrências", count: activeRecurring },
-    { key: "platform", label: "Mensalidade Moraê", count: openPlatform || undefined },
+    ...(isSyndic ? [] : [{ key: "platform" as const, label: "Mensalidade Moraê", count: openPlatform || undefined }]),
   ];
 
   return (
     <>
       <PageHeader overline={overline || undefined} title="Pagamentos">
+        {canCreate && <>
         <Button variant="quiet" size="sm" onClick={() => {
           clearMessages();
           setModalError("");
@@ -336,6 +342,7 @@ export function AdminPaymentsPage() {
           <Layers size={16} strokeWidth={2} aria-hidden />
           <span className="max-sm:sr-only">Cobrança em lote</span>
         </Button>
+        </>}
       </PageHeader>
 
       {condominiums.length > 1 && (
@@ -514,10 +521,10 @@ export function AdminPaymentsPage() {
             <p className="text-sm text-tinta-suave">
               Geradas sozinhas 10 dias antes do vencimento{settings ? ` · vencimento padrão dia ${settings.billingDueDay}` : ""}.
             </p>
-            <Button variant="quiet" size="sm" onClick={() => openGroup("recurring")} disabled={isLoading || units.length === 0 || !page.isReceivingReady} className="self-start bg-superficie shadow-whisper hover:bg-campo">
+            {canCreate && <Button variant="quiet" size="sm" onClick={() => openGroup("recurring")} disabled={isLoading || units.length === 0 || !page.isReceivingReady} className="self-start bg-superficie shadow-whisper hover:bg-campo">
               <Repeat size={16} strokeWidth={2} aria-hidden />
               Nova recorrência
-            </Button>
+            </Button>}
           </div>
           <RecurringChargesList
             items={recurring}
@@ -527,6 +534,7 @@ export function AdminPaymentsPage() {
             onPause={(item) => void runRecurringAction(item, "pause")}
             onResume={(item) => void runRecurringAction(item, "resume")}
             onEnd={askEnd}
+            canManage={canCreate}
           />
         </>
       )}
@@ -603,7 +611,7 @@ export function AdminPaymentsPage() {
               </Button>
             ) : (
               <>
-                <button
+                {!isSyndic && <button
                   type="button"
                   onClick={() => {
                     setModalError("");
@@ -612,15 +620,15 @@ export function AdminPaymentsPage() {
                   className="mr-auto rounded-full px-2 text-sm font-semibold text-vermelho hover:underline"
                 >
                   Cancelar
-                </button>
-                <Button
+                </button>}
+                {canMarkPaid && <Button
                   onClick={() => {
                     setModalError("");
                     setPaymentForm(toManualPaymentForm(selectedCharge));
                   }}
                 >
                   Dar baixa
-                </Button>
+                </Button>}
               </>
             )
           }

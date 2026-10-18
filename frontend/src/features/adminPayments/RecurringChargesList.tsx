@@ -13,12 +13,14 @@ type RecurringChargesListProps = {
   onPause: (item: RecurringChargeResponse) => void;
   onResume: (item: RecurringChargeResponse) => void;
   onEnd: (item: RecurringChargeResponse) => void;
+  // False hides create/pause/resume/end (syndic without permission to create charges).
+  canManage?: boolean;
 };
 
 const STATUS_ORDER = { 1: 0, 2: 1, 3: 2 } as const;
 
 // Monthly charges the scheduled job generates by itself: active first, ended at the bottom.
-export function RecurringChargesList({ items, isLoading, busyId, onCreate, onPause, onResume, onEnd }: RecurringChargesListProps) {
+export function RecurringChargesList({ items, isLoading, busyId, onCreate, onPause, onResume, onEnd, canManage = true }: RecurringChargesListProps) {
   const sorted = [...items].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.description.localeCompare(b.description, "pt-BR"));
 
   if (sorted.length === 0) {
@@ -35,9 +37,11 @@ export function RecurringChargesList({ items, isLoading, busyId, onCreate, onPau
             <span className="mt-1 max-w-sm text-sm text-tinta-suave">
               Crie a taxa do condomínio uma vez e o Moraê gera as cobranças de cada unidade todo mês, 10 dias antes do vencimento.
             </span>
-            <Button variant="quiet" size="sm" className="mt-5" onClick={onCreate}>
-              Criar recorrência
-            </Button>
+            {canManage && (
+              <Button variant="quiet" size="sm" className="mt-5" onClick={onCreate}>
+                Criar recorrência
+              </Button>
+            )}
           </>
         )}
       </div>
@@ -71,7 +75,7 @@ export function RecurringChargesList({ items, isLoading, busyId, onCreate, onPau
               <span className="text-sm font-semibold tabular-nums text-tinta">{formatCurrency(item.value)}</span>
             </span>
 
-            {!isEnded && (
+            {!isEnded && canManage && (
               <span className="flex gap-2 sm:shrink-0">
                 {item.status === 1 ? (
                   <Button variant="quiet" size="sm" onClick={() => onPause(item)} disabled={isBusy}>
