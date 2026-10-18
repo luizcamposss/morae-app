@@ -96,16 +96,20 @@ public class UnitService : IUnitService
         if (building is null)
             throw new NotFoundException("Prédio não encontrado.");
 
-        await _permissionService.EnsureCondominiumPermissionAsync(
+        await _permissionService.EnsureAnyCondominiumPermissionAsync(
             userId,
             building.CondominiumId,
-            AppPermissions.ResidentsView);
+            AppPermissions.BuildingsAndUnitsAccess);
 
         await _permissionService.EnsureBuildingAccessAsync(userId, buildingId);
 
-        return await BuildUnitResponseQuery()
+        var units = await BuildUnitResponseQuery()
             .Where(unit => unit.BuildingId == buildingId)
             .ToListAsync();
+
+        await HideResidentNamesUnlessAllowedAsync(userId, building.CondominiumId, units);
+
+        return units;
     }
 
     public async Task<UnitResponseDto?> GetByIdAsync(int userId,int unitId)
@@ -123,15 +127,30 @@ public class UnitService : IUnitService
             .Select(u => u.Building.CondominiumId)
             .FirstAsync();
 
-        await _permissionService.EnsureCondominiumPermissionAsync(
+        await _permissionService.EnsureAnyCondominiumPermissionAsync(
             userId,
             condominiumId,
-            AppPermissions.ResidentsView);
+            AppPermissions.BuildingsAndUnitsAccess);
 
         await _permissionService.EnsureUnitAccessAsync(userId, unitId);
 
-        return await BuildUnitResponseQuery()
-            .FirstOrDefaultAsync(unitResponse => unitResponse.Id == unitId);
+        var unitResponse = await BuildUnitResponseQuery()
+            .FirstOrDefaultAsync(response => response.Id == unitId);
+
+        if (unitResponse is not null)
+            await HideResidentNamesUnlessAllowedAsync(userId, condominiumId, [unitResponse]);
+
+        return unitResponse;
+    }
+
+    // Syndics who reach units only through finance permissions don't get residents' names.
+    private async Task HideResidentNamesUnlessAllowedAsync(int userId, int condominiumId, IEnumerable<UnitResponseDto> units)
+    {
+        if (await _permissionService.HasCondominiumPermissionAsync(userId, condominiumId, AppPermissions.ResidentsView))
+            return;
+
+        foreach (var unit in units)
+            unit.ResponsiblePersonName = string.Empty;
     }
 
     public async Task<bool> UpdateAsync(int userId,int unitId,UpdateUnitDto dto)

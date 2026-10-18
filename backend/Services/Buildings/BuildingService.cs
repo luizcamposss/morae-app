@@ -126,10 +126,10 @@ public class BuildingService : IBuildingService
             throw new NotFoundException("Condominium wasn't registered");
         }
 
-        await _permissionService.EnsureCondominiumPermissionAsync(
+        await _permissionService.EnsureAnyCondominiumPermissionAsync(
             userId,
             condominiumId,
-            AppPermissions.ResidentsView);
+            AppPermissions.BuildingsAndUnitsAccess);
 
         var query = BuildBuildingResponseQuery()
             .Where(b => b.CondominiumId == condominiumId)
@@ -153,10 +153,10 @@ public class BuildingService : IBuildingService
         if (building is null)
             return null;
 
-        await _permissionService.EnsureCondominiumPermissionAsync(
+        await _permissionService.EnsureAnyCondominiumPermissionAsync(
             userId,
             building.CondominiumId,
-            AppPermissions.ResidentsView);
+            AppPermissions.BuildingsAndUnitsAccess);
 
         await _permissionService.EnsureBuildingAccessAsync(userId, buildingId);
 
