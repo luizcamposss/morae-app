@@ -21,6 +21,11 @@ namespace backend.Services.Charges;
 
 public class ChargeService : IChargeService
 {
+    // Shared with the spreadsheet import, which applies the same rules.
+    public const string PastDueDateMessage = "O vencimento não pode ser uma data passada.";
+
+    public static bool IsPastDueDate(DateTime dueDate) => dueDate.Date < AppTimeZone.Today;
+
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
     private readonly IPermissionService _permissionService;
@@ -203,8 +208,8 @@ public class ChargeService : IChargeService
     }
     private async Task ValidateCreateAsync(int userId, CreateChargeDto dto)
     {
-        if (dto.DueDate.Date < AppTimeZone.Today)
-            throw new BadRequestException("O vencimento não pode ser uma data passada.");
+        if (IsPastDueDate(dto.DueDate))
+            throw new BadRequestException(PastDueDateMessage);
 
         var condominiumExists = await _context.Condominiums
             .AsNoTracking()
@@ -275,6 +280,11 @@ public class ChargeService : IChargeService
             throw new BadRequestException("Esta unidade não pertence a este condomínio.");
 
         await EnsurePaymentMethodConfiguredAsync(FinancialAccountScope.Condominium, dto.CondominiumId);
+    }
+
+    public Task EnsureCondominiumPaymentMethodAsync(int condominiumId)
+    {
+        return EnsurePaymentMethodConfiguredAsync(FinancialAccountScope.Condominium, condominiumId);
     }
 
     // A charge needs a way to be paid: a Pix key for manual transfer or a connected

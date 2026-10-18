@@ -12,7 +12,7 @@ Para os detalhes de cada rota (corpo, validações, quem pode chamar), leia o co
 - **Horários** (`TimeOnly`, visitas): `"HH:mm"` (aceita `"HH:mm:ss"` na entrada).
 - **Erros:** `{ "statusCode": 400, "message": "texto em português para mostrar ao usuário" }`. Erro inesperado: `"Ocorreu um erro inesperado. Tente novamente. Código: XXXXXXXX"`. Rate limit: 429.
 - **Sessão:** o access token dura 15 min. Em 401, `apiClient.ts` chama `POST /api/auth/refresh` (cookie HttpOnly em `/api/auth`, `credentials: "include"`) e repete. Se falhar → `/login?expired=1`.
-- **Uploads** (`multipart/form-data`): documentos (`file`, `title`, `description`, `category`, `visibility`) e execução de manutenção (`performedOn`, `providerName`, `notes`, `file` opcional). Limite de 20 MB; tipos PDF, JPG, PNG, DOCX, XLSX.
+- **Uploads** (`multipart/form-data`): documentos (`file`, `title`, `description`, `category`, `visibility`) e execução de manutenção (`performedOn`, `providerName`, `notes`, `file` opcional). Limite de 20 MB; tipos PDF, JPG, PNG, DOCX, XLSX. Importação por planilha: campo `file` (CSV ou XLSX, até 2 MB e 2.000 linhas).
 - **Downloads** (documento, anexo de manutenção, comprovante): exigem o token, então baixe com `fetch` + `Authorization` e gere um blob/URL temporária (link direto não funciona).
 - **Recursos escondidos** aparecem como **404** (não 403) quando o usuário não pode nem saber que existem (documento "só gestão", rascunho de assembleia, visita/manutenção de outro prédio).
 
@@ -24,6 +24,7 @@ Para os detalhes de cada rota (corpo, validações, quem pode chamar), leia o co
 - **Documentos:** `GET .../documents?category=`. Visibilidade 2 = só gestão.
 - **Manutenção:** lista com `?status=&buildingId=`, ordenada pela mais urgente; cada item traz `status`, `daysUntilDue` (negativo = atrasada) e `lastPerformedOn`. `POST .../maintenance-plans/defaults` cria as manutenções comuns.
 - **Visitantes:** `daysOfWeek` = 0 (domingo) a 6 (sábado); vazio = todos os dias do período. A agenda (`?from=&to=&unitId=&buildingId=&visitorType=&includeCanceled=`, até 31 dias) devolve `dates` com os dias em que cada visita acontece. `my-visits?includePast=true` inclui canceladas e passadas.
+- **Importação por planilha (só Admin):** baixe o modelo (`?format=csv` ou `xlsx`), envie em `preview` (nada é gravado) e, se `canConfirm`, envie **o mesmo arquivo** em `confirm` (valida tudo de novo e grava numa transação: tudo ou nada; com qualquer linha com erro devolve 400). Cada linha = uma unidade, com pessoa e cobrança em aberto opcionais. Colunas casadas pelo cabeçalho, sem acento/maiúsculas: Prédio (nome ou código; cria se não existir), Unidade, Tipo da unidade, Quartos, Banheiros, Metragem, Nome, CPF, Telefone, Vínculo (Proprietário/Morador/Inquilino; vazio = Morador), Valor, Vencimento (DD/MM/AAAA), Descrição. Colunas desconhecidas vêm em `ignoredColumns`. O que já existe é reaproveitado (`action: "existing"`, conta em `skipped`). Não envia e-mails, convites nem notificações. A prévia traz `summary` (`created`/`skipped` por tipo: buildings, units, persons, links, charges) e `rows` (`line`, `errors`, e `buildingAction`/`unitAction`/`personAction`/`linkAction`/`chargeAction` = `create`/`existing`/null).
 - **Assembleias:** `phase` é o que a tela deve usar (rascunho/agendada/aberta/encerrada/cancelada). Cédula: `GET /my-ballot` (unidades do usuário, `canVote`, `blockReason`, `votes` por item). Votar: `PUT /votes` `{ unitId, votes: [{ itemId, optionId }] }`. Resultado: `GET /results` (com `isFinal=false`, a gestão vê só a participação). Cada pauta traz `summary` pronto em português.
 
 ## Rotas
@@ -217,6 +218,13 @@ POST   /api/condominiums/{condominiumId}/documents
 DELETE /api/documents/{id}
 PUT    /api/documents/{id}
 GET    /api/documents/{id}/download
+```
+
+### Importação por planilha
+```
+POST   /api/condominiums/{condominiumId}/imports/confirm
+POST   /api/condominiums/{condominiumId}/imports/preview
+GET    /api/condominiums/{condominiumId}/imports/template?format=csv|xlsx
 ```
 
 ### Manutenção preventiva (I)

@@ -45,6 +45,7 @@ using backend.Services.Occurrences;
 using backend.Services.FinancialAccounts;
 using backend.Services.Notifications;
 using backend.Services.MercadoPago;
+using backend.Services.Imports;
 
 DotEnv.Load();
 
@@ -203,6 +204,7 @@ builder.Services.AddScoped<IMaintenancePlanService, MaintenancePlanService>();
 builder.Services.AddScoped<IMaintenanceReminderService, MaintenanceReminderService>();
 builder.Services.AddScoped<IVisitService, VisitService>();
 builder.Services.AddScoped<IAssemblyService, AssemblyService>();
+builder.Services.AddScoped<ISpreadsheetImportService, SpreadsheetImportService>();
 builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
 builder.Services.AddScoped<IUserCondominiumPermissionService, UserCondominiumPermissionService>();
 builder.Services.AddScoped<IUserCondominiumAccessService, UserCondominiumAccessService>();

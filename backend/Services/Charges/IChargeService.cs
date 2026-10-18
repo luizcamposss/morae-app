@@ -14,5 +14,7 @@ public interface IChargeService
     Task<IEnumerable<ChargeResponseDto>> GetMineAsync(int userId);
     Task<ChargeResponseDto?> GetByIdAsync(int userId, int id);
     Task<bool> CancelAsync(int userId, int id, CancelChargeDto dto);
-    
+
+    // Throws when the condominium has neither a Pix key nor a connected Mercado Pago account.
+    Task EnsureCondominiumPaymentMethodAsync(int condominiumId);
 }
