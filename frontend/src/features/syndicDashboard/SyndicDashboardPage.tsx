@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Building2, Megaphone, Receipt, TriangleAlert, Users, X } from "lucide-react";
+import { Bell, Building2, Megaphone, Receipt, TriangleAlert, Users, X } from "lucide-react";
 import { useAuth } from "../../app/providers/useAuth";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { GroupedList, GroupedRow } from "../../shared/components/GroupedList";
@@ -11,8 +11,11 @@ import { formatCurrency } from "../../shared/lib/currency";
 import { getGreeting } from "../../shared/lib/date";
 import { getBuildingsByCondominium } from "../buildings/buildingService";
 import { getChargesByCondominium } from "../charges/chargeService";
+import { countRemindersToday, describeReminders } from "../charges/reminders";
 import { getNewsByCondominium } from "../news/newsService";
 import { getOccurrencesByCondominium } from "../occurrences/occurrenceService";
+import { getUnitsByBuilding } from "../units/unitService";
+import { UnitBillingGrid } from "../billingGrid/UnitBillingGrid";
 import { useSyndicAccess } from "../syndicAccess/useSyndicAccess";
 import {
   describeBuildings,
@@ -47,13 +50,17 @@ export function SyndicDashboardPage() {
     let isMounted = true;
 
     // Each list is only requested when the syndic may see it (the API would answer 403).
+    // Finance also lists his buildings and units (for the charges grid).
     Promise.all([
-      access.residents ? getBuildingsByCondominium(activeCondominiumId) : null,
+      access.residents || access.finance ? getBuildingsByCondominium(activeCondominiumId) : null,
       access.finance ? getChargesByCondominium(activeCondominiumId) : null,
       access.maintenance ? getOccurrencesByCondominium(activeCondominiumId) : null,
       access.communication ? getNewsByCondominium(activeCondominiumId) : null,
     ])
-      .then(([buildings, charges, occurrences, news]) => ({ data: { buildings, charges, occurrences, news }, errorMessage: "" }))
+      .then(async ([buildings, charges, occurrences, news]) => {
+        const units = access.finance && buildings ? (await Promise.all(buildings.map((building) => getUnitsByBuilding(building.id)))).flat() : null;
+        return { data: { buildings: access.residents ? buildings : null, charges, occurrences, news, units }, errorMessage: "" };
+      })
       .catch((error) => ({
         data: emptyDashboard,
         errorMessage: error instanceof Error ? error.message : "Não foi possível carregar o início.",
@@ -68,7 +75,7 @@ export function SyndicDashboardPage() {
   }, [activeCondominiumId, access]);
 
   const isLoading = !loaded || loaded.condominiumId !== activeCondominiumId;
-  const { buildings, charges, occurrences, news } = isLoading ? emptyDashboard : loaded.data;
+  const { buildings, charges, occurrences, news, units } = isLoading ? emptyDashboard : loaded.data;
   const scope = buildings ? describeBuildings(buildings) : "";
   const totals = buildings ? summarizeBuildings(buildings) : null;
   const overdue = charges ? summarizeOverdue(charges, (buildings?.length ?? 0) !== 1) : null;
@@ -80,11 +87,12 @@ export function SyndicDashboardPage() {
   const summaryItems: SummaryItem[] = [];
 
   if (access?.finance) {
-    if (totals?.units) {
+    const unitTotal = units?.length ?? totals?.units ?? 0;
+    if (unitTotal) {
       const overdueUnits = overdue?.unitLabels.length ?? 0;
       summaryItems.push({
         label: "Unidades em dia",
-        value: isLoading ? dash : `${totals.units - overdueUnits} de ${totals.units}`,
+        value: isLoading ? dash : `${unitTotal - overdueUnits} de ${unitTotal}`,
         detail: scope || "unidades",
         tone: "good",
       });
@@ -127,6 +135,19 @@ export function SyndicDashboardPage() {
       ) : (
         <GroupedRow key="charges" icon={Receipt} tone="green" title="Cobranças em dia" subtitle="Nenhuma cobrança atrasada" onClick={() => navigate("/syndic/payments")} />
       ),
+    );
+  }
+
+  const reminders = charges ? countRemindersToday(charges) : null;
+  if (reminders?.total) {
+    todayRows.push(
+      <GroupedRow
+        key="reminders"
+        icon={Bell}
+        title={`${plural(reminders.total, "lembrete enviado", "lembretes enviados")} hoje`}
+        subtitle={describeReminders(reminders)}
+        onClick={() => navigate("/syndic/payments")}
+      />,
     );
   }
 
@@ -221,7 +242,7 @@ export function SyndicDashboardPage() {
       {summaryItems.length > 0 && <SummaryCard items={summaryItems} />}
 
       <div className={`mt-10 grid gap-x-6 gap-y-10 ${buildings ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]" : ""}`}>
-        <section>
+        <section className="min-w-0">
           <SectionTitle title="Hoje" note={scope} />
           {!activeCondominiumId ? (
             <EmptyCard text="Seu usuário ainda não tem acesso ativo a um condomínio." />
@@ -255,6 +276,12 @@ export function SyndicDashboardPage() {
           </section>
         )}
       </div>
+
+      {access?.finance && activeCondominiumId && (
+        <div className="mt-10">
+          <UnitBillingGrid units={units ?? []} charges={charges ?? []} paymentsPath="/syndic/payments" isLoading={isLoading} />
+        </div>
+      )}
 
       <p className="mt-8 text-[13px] text-tinta-suave">O menu mostra só o que a administração liberou para você.</p>
     </>

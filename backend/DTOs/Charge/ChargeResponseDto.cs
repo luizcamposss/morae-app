@@ -25,6 +25,10 @@ public class ChargeResponseDto
     public DateTime CreatedAt { get; set; }
     public DateTime? CanceledAt { get; set; }
 
+    // When the scheduled job e-mailed the "due soon" and "overdue" reminders (null = not sent).
+    public DateTime? DueSoonReminderSentAt { get; set; }
+    public DateTime? OverdueReminderSentAt { get; set; }
+
     // Late fee rule of this charge (null = no fine/interest) and the amounts as of today
     // (São Paulo). UpdatedAmount is what the payer pays now; for paid/canceled charges it is Value.
     public decimal? FinePercent { get; set; }

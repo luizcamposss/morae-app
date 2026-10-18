@@ -3,6 +3,7 @@ import type { BuildingResponse } from "../buildings/types";
 import type { ChargeResponse } from "../charges/types";
 import type { NewsResponse } from "../news/types";
 import type { OccurrenceResponse } from "../occurrences/types";
+import type { UnitResponse } from "../units/types";
 
 const CHARGE_STATUS_OVERDUE = 3;
 const OCCURRENCE_STATUS_OPEN = 1;
@@ -14,9 +15,11 @@ export type SyndicDashboardData = {
   charges: ChargeResponse[] | null;
   occurrences: OccurrenceResponse[] | null;
   news: NewsResponse[] | null;
+  // Units of the buildings he manages, for the charges grid (finance area only).
+  units: UnitResponse[] | null;
 };
 
-export const emptyDashboard: SyndicDashboardData = { buildings: null, charges: null, occurrences: null, news: null };
+export const emptyDashboard: SyndicDashboardData = { buildings: null, charges: null, occurrences: null, news: null, units: null };
 
 // "Torre A", "Torre A e Torre B" or "3 prédios".
 export function describeBuildings(buildings: BuildingResponse[]) {

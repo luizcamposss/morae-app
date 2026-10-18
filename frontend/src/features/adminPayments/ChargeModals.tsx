@@ -12,6 +12,7 @@ import type { ChargeBatchResult, ChargeResponse } from "../charges/types";
 import { ChargeStatusChip } from "../masterPayments/ChargeStatus";
 import type { PaymentMethod } from "../payments/types";
 import type { UnitResponse } from "../units/types";
+import { ChargeTimeline } from "./ChargeTimeline";
 import {
   amountDue,
   formatMonthKey,
@@ -352,11 +353,13 @@ type ChargeDetailsModalProps = {
   footer?: ReactNode;
   // Extra block under the amounts (e.g. the platform Pix key).
   extra?: ReactNode;
+  // Management view: full history (reminders, receipts, payment) instead of the creation line.
+  showTimeline?: boolean;
   onClose: () => void;
 };
 
 // Original value + fine + interest = updated amount, plus where the charge came from.
-export function ChargeDetailsModal({ charge, place, person, footer, extra, onClose }: ChargeDetailsModalProps) {
+export function ChargeDetailsModal({ charge, place, person, footer, extra, showTimeline = false, onClose }: ChargeDetailsModalProps) {
   const isOpen = isOpenCharge(charge);
   const isOverdue = charge.status === CHARGE_STATUS.overdue;
   const hasRule = charge.finePercent != null || charge.monthlyInterestPercent != null;
@@ -416,11 +419,17 @@ export function ChargeDetailsModal({ charge, place, person, footer, extra, onClo
         </div>
       </dl>
 
-      <p className="mt-4 text-[13px] text-tinta-suave">Criada em {formatDateTime(charge.createdAt)}</p>
-      {charge.cancelReason && (
-        <p className="mt-2 rounded-field bg-campo px-4 py-3 text-sm text-tinta">
-          <span className="font-semibold">Motivo do cancelamento:</span> {charge.cancelReason}
-        </p>
+      {showTimeline ? (
+        <ChargeTimeline charge={charge} />
+      ) : (
+        <>
+          <p className="mt-4 text-[13px] text-tinta-suave">Criada em {formatDateTime(charge.createdAt)}</p>
+          {charge.cancelReason && (
+            <p className="mt-2 rounded-field bg-campo px-4 py-3 text-sm text-tinta">
+              <span className="font-semibold">Motivo do cancelamento:</span> {charge.cancelReason}
+            </p>
+          )}
+        </>
       )}
     </Modal>
   );
