@@ -67,6 +67,28 @@ public class NewsController : ControllerBase
         return Ok(news);
     }
 
+    // Saves that the current user opened the notice (only the first time).
+    [HttpPost("{id}/read")]
+    public async Task<IActionResult> MarkAsRead([FromRoute] int id)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        await _newsService.MarkAsReadAsync(userId, id);
+
+        return NoContent();
+    }
+
+    // Management only: who was sent the notice and has not opened it yet (name and unit).
+    [HttpGet("{id}/unread")]
+    public async Task<IActionResult> GetUnread([FromRoute] int id)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var unread = await _newsService.GetUnreadAsync(userId, id);
+
+        return Ok(unread);
+    }
+
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(
         [FromRoute] int id,

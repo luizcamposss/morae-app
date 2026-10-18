@@ -231,7 +231,15 @@ GET    /api/news/platform
 DELETE /api/news/{id}
 GET    /api/news/{id}
 PUT    /api/news/{id}
+POST   /api/news/{id}/read
+GET    /api/news/{id}/unread
 ```
+
+- **Leitura:** ao publicar um aviso do condomínio, os destinatários (público + prédio, mesma regra de quem vê o aviso, sem o autor) ficam gravados em `NewsRecipients`. Mudar público ou prédio na edição recalcula a lista (quem continua mantém a leitura). Avisos antigos (antes da tabela) ficam com 0 destinatários.
+- `POST /api/news/{id}/read`: marca que o usuário abriu o aviso; idempotente (só a primeira vez vale), `204`. Quem não estava na lista não muda nada.
+- `recipientCount` / `readCount` em `NewsResponseDto`: só para quem gerencia avisos (Master, Admin, síndico com `news.create`/`news.edit`); `null` para morador.
+- `GET /api/news/{id}/unread`: só gestão (`403` para os demais). Lista `{ name, buildingName, unitNumber }` de quem ainda não leu (uma linha por unidade; sem unidade = `buildingName`/`unitNumber` nulos).
+- Síndico limitado a alguns prédios: só vê avisos do condomínio todo e dos seus prédios; contagens e lista só com pessoas que têm unidade nesses prédios.
 
 ### Ocorrências
 ```

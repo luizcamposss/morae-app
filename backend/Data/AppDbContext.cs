@@ -24,6 +24,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<Unit> Units { get; set; }
     public DbSet<PersonUnit> PersonUnits { get; set; }
     public DbSet<News> News { get; set; }
+    public DbSet<NewsRecipient> NewsRecipients { get; set; }
     public DbSet<Invitation> Invitations { get; set; }
     public DbSet<Charge> Charges { get; set; }
     public DbSet<Payment> Payments { get; set; }
@@ -635,6 +636,22 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .WithMany()
             .HasForeignKey(vote => vote.VotedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<NewsRecipient>()
+            .HasIndex(recipient => new { recipient.NewsId, recipient.UserId })
+            .IsUnique();
+
+        builder.Entity<NewsRecipient>()
+            .HasOne(recipient => recipient.News)
+            .WithMany()
+            .HasForeignKey(recipient => recipient.NewsId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<NewsRecipient>()
+            .HasOne(recipient => recipient.User)
+            .WithMany()
+            .HasForeignKey(recipient => recipient.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         ApplyUtcDateTimeConvention(builder);
     }

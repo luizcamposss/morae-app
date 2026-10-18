@@ -1285,6 +1285,36 @@ namespace backend.Migrations
                     b.ToTable("News");
                 });
 
+            modelBuilder.Entity("backend.Models.NewsRecipient", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("NewsId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("NewsId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("NewsRecipients");
+                });
+
             modelBuilder.Entity("backend.Models.Notification", b =>
                 {
                     b.Property<int>("Id")
@@ -2377,6 +2407,25 @@ namespace backend.Migrations
                     b.Navigation("Building");
 
                     b.Navigation("Condominium");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("backend.Models.NewsRecipient", b =>
+                {
+                    b.HasOne("backend.Models.News", "News")
+                        .WithMany()
+                        .HasForeignKey("NewsId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.ApplicationUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("News");
 
                     b.Navigation("User");
                 });

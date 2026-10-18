@@ -14,4 +14,6 @@ public interface INewsService
     Task<NewsResponseDto?> GetByIdAsync(int userId, int id);
     Task<bool> UpdateAsync(int userId, int id, UpdateNewsDto dto);
     Task<bool> DeleteAsync(int userId, int id);
+    Task MarkAsReadAsync(int userId, int id);
+    Task<IEnumerable<NewsUnreadRecipientDto>> GetUnreadAsync(int userId, int id);
 }
