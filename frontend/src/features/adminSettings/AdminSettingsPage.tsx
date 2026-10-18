@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { Bell, CreditCard, KeyRound, Lock, QrCode, ShieldCheck } from "lucide-react";
+import { Bell, CalendarClock, CreditCard, KeyRound, Lock, QrCode, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../app/providers/useAuth";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { GroupedList, GroupedRow } from "../../shared/components/GroupedList";
 import { Modal } from "../../shared/components/Modal";
 import { PageHeader } from "../../shared/layout/PageHeader";
 import { ChangePasswordModal } from "../auth/ChangePasswordModal";
+import { getBillingSettings } from "../charges/billingService";
 import { getPlatformCharges } from "../charges/chargeService";
-import type { ChargeResponse } from "../charges/types";
+import type { BillingSettings, ChargeResponse } from "../charges/types";
 import { getCondominiumFinancialAccount, upsertCondominiumFinancialAccount } from "../financialAccounts/financialAccountService";
 import type { FinancialAccountResponse } from "../financialAccounts/types";
 import { MercadoPagoConnectionPanel } from "../mercadoPago/MercadoPagoConnectionPanel";
@@ -18,11 +19,13 @@ import { ProfileCard } from "../settings/ProfileCard";
 import { ProfileDataModal } from "../settings/ProfileDataModal";
 import { ReceivingStatus } from "../settings/ReceivingStatus";
 import { StatusChip } from "../settings/StatusChip";
+import { BillingRulesModal } from "./BillingRulesModal";
+import { describeBillingRules } from "./billingRules";
 import { PlatformPlanCard } from "./PlatformPlanCard";
 import { summarizePlatformPlan } from "./platformPlan";
 import { SyndicAccessModal } from "./SyndicAccessModal";
 
-type ModalType = "profile" | "notifications" | "password" | "syndicAccess" | "pix" | "mercadoPago" | null;
+type ModalType = "profile" | "notifications" | "password" | "syndicAccess" | "pix" | "mercadoPago" | "billingRules" | null;
 
 // What was loaded and for which condominium, so switching condominiums shows "loading" again.
 type Loaded<T> = { condominiumId: number; data: T | null; error: string };
@@ -43,6 +46,7 @@ export function AdminSettingsPage() {
   const [modal, setModal] = useState<ModalType>(null);
   const [account, setAccount] = useState<Loaded<FinancialAccountResponse> | null>(null);
   const [platformCharges, setPlatformCharges] = useState<Loaded<ChargeResponse[]> | null>(null);
+  const [billingSettings, setBillingSettings] = useState<Loaded<BillingSettings> | null>(null);
   // Re-checks the condominium's Mercado Pago connection whenever a dialog closes.
   const isMercadoPagoConnected = useMercadoPagoConnected(activeCondominiumId, { skip: !activeCondominiumId, refreshKey: modal });
 
@@ -71,6 +75,14 @@ export function AdminSettingsPage() {
           setPlatformCharges({ condominiumId: activeCondominiumId, data: null, error: errorText(error, "Não foi possível carregar as mensalidades.") }),
       );
 
+    getBillingSettings(activeCondominiumId)
+      .then((data) => isMounted && setBillingSettings({ condominiumId: activeCondominiumId, data, error: "" }))
+      .catch(
+        (error) =>
+          isMounted &&
+          setBillingSettings({ condominiumId: activeCondominiumId, data: null, error: errorText(error, "Não foi possível carregar as regras de cobrança.") }),
+      );
+
     return () => {
       isMounted = false;
     };
@@ -78,6 +90,7 @@ export function AdminSettingsPage() {
 
   const currentAccount = account?.condominiumId === activeCondominiumId ? account : null;
   const currentCharges = platformCharges?.condominiumId === activeCondominiumId ? platformCharges : null;
+  const currentBilling = billingSettings?.condominiumId === activeCondominiumId ? billingSettings : null;
   const planSummary = useMemo(() => (currentCharges?.data ? summarizePlatformPlan(currentCharges.data) : null), [currentCharges]);
 
   const condominiumName = activeCondominium?.condominiumName ?? "Nenhum condomínio selecionado";
@@ -104,6 +117,12 @@ export function AdminSettingsPage() {
                 title="Acessos do síndico"
                 subtitle="O que cada síndico pode ver e fazer"
                 onClick={() => setModal("syndicAccess")}
+              />
+              <GroupedRow
+                icon={CalendarClock}
+                title="Regras de cobrança"
+                subtitle={currentBilling?.data ? describeBillingRules(currentBilling.data) : currentBilling?.error || "Vencimento, multa e juros"}
+                onClick={() => setModal("billingRules")}
               />
             </GroupedList>
           )}
@@ -164,6 +183,13 @@ export function AdminSettingsPage() {
       {modal === "notifications" && <NotificationsModal options={notificationOptions} onClose={() => setModal(null)} />}
       {modal === "password" && <ChangePasswordModal onClose={() => setModal(null)} />}
       {modal === "syndicAccess" && activeCondominiumId && <SyndicAccessModal condominiumId={activeCondominiumId} onClose={() => setModal(null)} />}
+      {modal === "billingRules" && activeCondominiumId && (
+        <BillingRulesModal
+          condominiumId={activeCondominiumId}
+          onClose={() => setModal(null)}
+          onSaved={(data) => setBillingSettings({ condominiumId: activeCondominiumId, data, error: "" })}
+        />
+      )}
       {modal === "pix" && activeCondominiumId && (
         <PixKeyModal
           title="Chave Pix do condomínio"
