@@ -99,14 +99,19 @@ public class InvitationService : IInvitationService
         if (personAlreadyHasUser)
             throw new ConflictException("Esta pessoa ja possui acesso cadastrado no sistema.");
 
-        var pendingInvitationExists = await _context.Invitations
-            .AnyAsync(i =>
+        var pendingInvitations = await _context.Invitations
+            .Where(i =>
                 i.PersonId == dto.PersonId &&
                 i.CondominiumId == dto.CondominiumId &&
-                i.InvitationStatus == InvitationStatus.Pending);
+                i.InvitationStatus == InvitationStatus.Pending)
+            .ToListAsync();
 
-        if (pendingInvitationExists)
-            throw new ConflictException("Já existe um convite pendente para esta pessoa.");
+        if (pendingInvitations.Any(i => i.ExpiresAt >= DateTime.UtcNow))
+            throw new ConflictException("Já existe um convite pendente para esta pessoa. Copie o link do convite atual ou cancele-o antes de criar outro.");
+
+        // Pending invitations past their expiry (the hourly job has not run yet) are closed so they don't linger as duplicates.
+        foreach (var expiredInvitation in pendingInvitations)
+            expiredInvitation.InvitationStatus = InvitationStatus.Expired;
 
         var emailAlreadyUsed = await _userManager.FindByEmailAsync(dto.Email);
 
@@ -193,32 +198,31 @@ public class InvitationService : IInvitationService
         if (emailAlreadyUsed is not null)
             throw new ConflictException("Este e-mail já está cadastrado.");
 
-        await using var transaction = await _context.Database.BeginTransactionAsync();
+        var otherPendingInvitationExists = await _context.Invitations
+            .AnyAsync(i =>
+                i.Id != invitation.Id &&
+                i.PersonId == invitation.PersonId &&
+                i.CondominiumId == invitation.CondominiumId &&
+                i.InvitationStatus == InvitationStatus.Pending &&
+                i.ExpiresAt >= DateTime.UtcNow);
 
-        invitation.InvitationStatus = InvitationStatus.Expired;
+        if (otherPendingInvitationExists)
+            throw new ConflictException("Já existe um convite pendente para esta pessoa. Copie o link do convite atual ou cancele-o antes de reenviar.");
 
-        var renewedInvitation = new Invitation
-        {
-            CondominiumId = invitation.CondominiumId,
-            PersonId = invitation.PersonId,
-            CreatedByUserId = userId,
-            Email = invitation.Email,
-            Role = invitation.Role,
-            Token = Guid.NewGuid().ToString("N"),
-            InvitationStatus = InvitationStatus.Pending,
-            ExpiresAt = DateTime.UtcNow.AddDays(7),
-            CreatedAt = DateTime.UtcNow
-        };
+        // Reuse the same record with a fresh token, so the list never shows the old and the new invitation side by side.
+        invitation.CreatedByUserId = userId;
+        invitation.Token = Guid.NewGuid().ToString("N");
+        invitation.InvitationStatus = InvitationStatus.Pending;
+        invitation.ExpiresAt = DateTime.UtcNow.AddDays(7);
+        invitation.CreatedAt = DateTime.UtcNow;
 
-        _context.Invitations.Add(renewedInvitation);
         await _context.SaveChangesAsync();
-        await transaction.CommitAsync();
 
         var result = await _context.Invitations
             .AsNoTracking()
             .Include(i => i.Person)
             .Include(i => i.Condominium)
-            .FirstAsync(i => i.Id == renewedInvitation.Id);
+            .FirstAsync(i => i.Id == invitation.Id);
 
         await _invitationEmailNotifier.QueueInvitationAsync(result);
 

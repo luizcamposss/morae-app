@@ -179,6 +179,7 @@ builder.Services.AddAutoMapper(
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IBuildingService, BuildingService>();
 builder.Services.AddScoped<IChargeService, ChargeService>();
+builder.Services.AddScoped<IChargeBillingService, ChargeBillingService>();
 builder.Services.AddScoped<ICondominiumService, CondominiumService>();
 builder.Services.AddScoped<IDelinquencyService, DelinquencyService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();

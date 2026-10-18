@@ -6,6 +6,8 @@ export type ConfirmRequest = {
   title: string;
   description: string;
   confirmLabel: string;
+  // Label of the button that closes without acting (defaults to "Cancelar").
+  cancelLabel?: string;
   tone?: "default" | "danger";
   onConfirm: () => Promise<void> | void;
 };
@@ -31,7 +33,7 @@ export function ConfirmDialog({ request, onClose }: { request: ConfirmRequest; o
       footer={
         <>
           <Button variant="quiet" onClick={onClose} disabled={isRunning}>
-            Cancelar
+            {request.cancelLabel ?? "Cancelar"}
           </Button>
           <Button
             onClick={() => void handleConfirm()}

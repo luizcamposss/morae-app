@@ -19,6 +19,7 @@ Para os detalhes de cada rota (corpo, validações, quem pode chamar), leia o co
 ## Pontos de atenção por módulo
 
 - **Cobranças/pagamentos:** pagar com Mercado Pago = `payment-setup` (public key) → Payment Brick → `POST /api/charges/{id}/mercadopago/payments` com o `formData` do Brick (snake_case: `payment_method_id`, `token`, `issuer_id`, `payer`). Pix/boleto: acompanhar por `payment-status`.
+- **Lote, recorrência, multa e juros:** cada cobrança traz `finePercent`/`monthlyInterestPercent` (null = sem multa/juros), `daysLate`, `fineAmount`, `interestAmount` e `updatedAmount` (o que se paga hoje; é o valor usado no Mercado Pago). Lote e recorrência devolvem `skipped` (unidades sem ninguém vinculado). Detalhes em "Lote, recorrência e regras de cobrança".
 - **Síndico:** `GET /api/me/permissions?condominiumId=` diz o que ele pode naquele condomínio; esconda menus/ações sem permissão (a API também bloqueia). Prédios do síndico: `GET/PUT /api/condominiums/{id}/syndics/{userId}/buildings` (envio: `{ allBuildings, buildingIds }`).
 - **`GET /api/me`:** traz `isCondominiumInactive` e `isSuspended` (mostrar telas de bloqueio).
 - **Documentos:** `GET .../documents?category=`. Visibilidade 2 = só gestão.
@@ -156,12 +157,26 @@ GET    /api/condominiums/{condominiumId}/charges
 GET    /api/my/charges
 ```
 
+### Lote, recorrência e regras de cobrança
+```
+GET    /api/condominiums/{condominiumId}/billing-settings        (qualquer membro ativo)
+PUT    /api/condominiums/{condominiumId}/billing-settings        (só Admin)
+POST   /api/condominiums/{condominiumId}/charges/batch           (charges.create)
+GET    /api/condominiums/{condominiumId}/recurring-charges       (Admin ou síndico do Financeiro)
+POST   /api/condominiums/{condominiumId}/recurring-charges       (charges.create)
+PUT    /api/recurring-charges/{id}/pause | /resume | /end        (charges.create)
+```
+- Regras: `PUT billing-settings` `{ billingDueDay: 10, lateFeeEnabled: true, finePercent: 2, monthlyInterestPercent: 1 }` (dia 1–31, no mês curto vira o último dia; multa 0–2; juros 0–1 ao mês). A resposta traz também `maxFinePercent` e `maxMonthlyInterestPercent`.
+- Lote: `POST .../charges/batch` `{ buildingId?: 3, value: 500, dueDate?: "2026-11-10", description: "Taxa de novembro", unitValues?: [{ unitId: 12, value: 650 }] }`. Sem `buildingId` = todos os prédios (síndico limitado: só os dele). Sem `dueDate` = próximo dia `billingDueDay`. Resposta: `{ dueDate, createdCount, totalValue, charges: [...], skipped: [{ unitId, unitNumber, buildingName, reason }] }`.
+- Recorrência: `POST .../recurring-charges` `{ buildingId?, value: 500, dueDay?: 10, description, unitValues? }` (sem `dueDay` = o do condomínio; síndico limitado precisa escolher o prédio). A rotina gera **10 dias antes** do vencimento, uma vez por unidade e mês. Criar e retomar já geram o mês se estiver dentro da janela (vem em `generation`). Encerrada não volta.
+
 ### Pagamentos e comprovante
 ```
 GET    /api/charges/{chargeId}/payments
 POST   /api/charges/{chargeId}/payments/manual
 GET    /api/charges/{chargeId}/receipt
 ```
+- Pagamento manual aceita de `value` (gestão perdoa multa/juros) até o valor atualizado no dia do pagamento. O comprovante traz `originalValue` e `lateFeesPaid` (`amountPaid = originalValue + lateFeesPaid`).
 
 ### Inadimplência
 ```
@@ -279,6 +294,7 @@ POST   /api/condominiums/{condominiumId}/assemblies
 - `BankAccountType`: 1 Checking, 2 Savings, 3 Payment
 - `ChargeScope`: 1 Platform, 2 Condominium
 - `ChargeStatus`: 1 Pending, 2 Paid, 3 Overdue, 4 Canceled
+- `RecurringChargeStatus`: 1 Active, 2 Paused, 3 Ended
 - `DocumentCategory`: 1 Convention, 2 InternalRules, 3 Minutes, 4 Financial, 5 Contract, 6 Other
 - `DocumentVisibility`: 1 Everyone, 2 ManagementOnly
 - `FinancialAccountScope`: 1 Platform, 2 Condominium

@@ -22,6 +22,12 @@ const dateTimeFormatter = new Intl.DateTimeFormat("pt-BR", {
   minute: "2-digit",
 });
 
+const timeFormatter = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: APP_TIME_ZONE,
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
 const longDateFormatter = new Intl.DateTimeFormat("pt-BR", {
   timeZone: APP_TIME_ZONE,
   day: "2-digit",
@@ -41,6 +47,16 @@ const isoDateFormatter = new Intl.DateTimeFormat("en-CA", {
   year: "numeric",
   month: "2-digit",
   day: "2-digit",
+});
+
+const inputDateTimeFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: APP_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
 });
 
 const hourFormatter = new Intl.DateTimeFormat("en-US", {
@@ -64,6 +80,12 @@ export function formatDate(value?: string | Date | null, fallback = "-") {
 export function formatDateTime(value?: string | Date | null, fallback = "-") {
   const date = value ? toDate(value) : null;
   return date ? dateTimeFormatter.format(date) : fallback;
+}
+
+// Instant → "20:18".
+export function formatTime(value?: string | Date | null, fallback = "-") {
+  const date = value ? toDate(value) : null;
+  return date ? timeFormatter.format(date) : fallback;
 }
 
 // Instant → "28 de setembro de 2026".
@@ -93,6 +115,14 @@ export function toAppDateString(value: string | Date) {
 // Today's São Paulo date as "YYYY-MM-DD" (the value date inputs use).
 export function todayInputDate() {
   return isoDateFormatter.format(new Date());
+}
+
+// Instant → its São Paulo time as "YYYY-MM-DDTHH:mm" (the value datetime-local inputs use).
+export function toAppDateTimeInput(value?: string | Date | null) {
+  const date = value ? toDate(value) : null;
+  if (!date) return "";
+  const parts = Object.fromEntries(inputDateTimeFormatter.formatToParts(date).map((part) => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
 }
 
 // Today's São Paulo date as a local-midnight Date (for calendars).

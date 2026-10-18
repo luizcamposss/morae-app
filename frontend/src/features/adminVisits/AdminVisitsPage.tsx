@@ -167,6 +167,7 @@ export function AdminVisitsPage() {
       title: "Cancelar esta visita?",
       description: `A visita de ${visit.visitorName} sai da agenda${visit.startDate !== visit.endDate ? " em todos os dias do período" : ""}. Ela fica no histórico e não pode ser reativada.`,
       confirmLabel: "Cancelar visita",
+      cancelLabel: "Voltar",
       tone: "danger",
       onConfirm: async () => {
         try {
@@ -192,7 +193,7 @@ export function AdminVisitsPage() {
 
   return (
     <>
-      <PageHeader overline={activeCondominium ? `${activeCondominium.condominiumName} · avisadas pelos moradores` : undefined} title="Visitantes">
+      <PageHeader overline={activeCondominium ? `${activeCondominium.condominiumName} · agendadas no condomínio` : undefined} title="Visitantes">
         <Button variant="quiet" size="sm" onClick={() => openForm(null)} disabled={!activeCondominiumId} className="bg-superficie shadow-whisper hover:bg-campo">
           <Plus size={16} strokeWidth={2} aria-hidden />
           <span className="max-sm:sr-only">Visita do condomínio</span>
