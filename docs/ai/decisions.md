@@ -32,6 +32,7 @@ Decisões já tomadas com o Luiz. Siga sem perguntar de novo; se algo novo contr
 ## Rotinas automáticas (de hora em hora)
 
 - Cobrança pendente vencida → **Atrasado**.
+- Cobranças recorrentes: gera o mês 10 dias antes do vencimento (a partir das 9h de SP, junto com os lembretes).
 - Lembrete de cobrança: até **3 dias antes** e **1 dia depois** de vencer (só para vencidas há até 3 dias, para não mandar e-mail de dívidas antigas). Cobrança criada hoje não recebe lembrete hoje.
 - Convites vencidos → Expirado. Limpeza: sessões vencidas, tentativas de conexão do MP, notificações **lidas** com mais de 90 dias, visitas com mais de 12 meses (LGPD).
 
@@ -77,7 +78,14 @@ Decisões já tomadas com o Luiz. Siga sem perguntar de novo; se algo novo contr
 
 - **Cobrança em lote e recorrente** (backlog 3.1): gerar a taxa do mês para todas as unidades (ou por prédio) de uma vez, e a opção de gerar sozinho todo mês.
 - **Multa e juros** (backlog 3.2): configuráveis por condomínio, multa de até 2% e juros de até 1% ao mês (Código Civil), com o valor atualizado no pagamento.
-- Os detalhes (regras, telas) são definidos com o Luiz no início do módulo Financeiro.
+- **Lote:** mesmo valor para todas as unidades (do condomínio ou de um prédio), com a opção de ajustar o valor de unidades específicas antes de gerar.
+- **Vencimento:** dia fixo configurado no condomínio (padrão dia 10; no mês curto vira o último dia), que pode ser trocado em cada lote/recorrência.
+- **Unidade sem morador:** cobra do proprietário (a cobrança é da unidade). Unidade sem ninguém vinculado é pulada e volta na lista `skipped`.
+- **Recorrência:** a rotina de hora em hora gera sozinha todo mês, **10 dias antes do vencimento**, sem duplicar (uma por recorrência, unidade e mês), até a gestão pausar ou encerrar. Nunca gera mês com vencimento já passado. Unidades novas entram no mês seguinte.
+- **Multa:** até 2% (teto do Código Civil); o Admin pode configurar menos, nunca mais. **Juros:** até 1% ao mês, pro rata por dia de atraso (1/30 por dia), sobre o valor original.
+- Multa/juros valem **só para cobranças criadas depois** que a regra for ligada (a cobrança guarda uma cópia das taxas). **Desligado por padrão**; só o Admin liga nos ajustes do condomínio (e só ele muda o dia de vencimento).
+- O valor atualizado é o cobrado no Mercado Pago. Pix/boleto gerado num dia anterior continua válido (é aceito entre o valor original e o atualizado de hoje), mas a tela de pagamento passa a oferecer um novo com o valor do dia. No pagamento manual, a gestão pode perdoar multa/juros (aceita do valor original até o atualizado).
+- Criar lote/recorrência, pausar e encerrar = permissão `charges.create` (síndico limitado só nos prédios dele).
 
 ## Ficou de fora (não implementar sem o Luiz pedir)
 
