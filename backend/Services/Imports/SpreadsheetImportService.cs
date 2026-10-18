@@ -162,6 +162,13 @@ public class SpreadsheetImportService : ISpreadsheetImportService
             CreatedAt = now
         }));
         _context.PersonUnits.AddRange(plan.NewLinks);
+        // Imported charges follow the condominium's fine/interest rule, like charges created by hand.
+        var (finePercent, monthlyInterestPercent) = await _chargeService.GetLateFeeRuleAsync(condominiumId);
+        foreach (var charge in plan.NewCharges)
+        {
+            charge.FinePercent = finePercent;
+            charge.MonthlyInterestPercent = monthlyInterestPercent;
+        }
         _context.Charges.AddRange(plan.NewCharges);
 
         await _context.SaveChangesAsync();

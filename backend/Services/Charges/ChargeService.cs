@@ -400,7 +400,7 @@ public class ChargeService : IChargeService
 
     // The condominium's fine/interest rule, copied onto each new charge so turning the rule on
     // or changing it later never alters charges created before. (null, null) = rule off.
-    private async Task<(decimal? FinePercent, decimal? MonthlyInterestPercent)> GetLateFeeRuleAsync(int condominiumId)
+    public async Task<(decimal? FinePercent, decimal? MonthlyInterestPercent)> GetLateFeeRuleAsync(int condominiumId)
     {
         var rule = await _context.Condominiums
             .AsNoTracking()
