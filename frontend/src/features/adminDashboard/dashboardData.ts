@@ -5,6 +5,7 @@ import { getBuildingsByCondominium } from "../buildings/buildingService";
 import type { BuildingResponse } from "../buildings/types";
 import { getChargesByCondominium } from "../charges/chargeService";
 import { CHARGE_STATUS } from "../charges/platformRevenue";
+import { countRemindersToday, describeReminders } from "../charges/reminders";
 import type { ChargeResponse } from "../charges/types";
 import { getInvitationsByCondominium } from "../invitations/invitationService";
 import type { InvitationResponse } from "../invitations/types";
@@ -159,6 +160,18 @@ export function buildTodayItems(data: DashboardData): TodayItem[] {
       title: plural(data.visitsToday.length, "visita prevista hoje", "visitas previstas hoje"),
       subtitle: names(data.visitsToday.map((visit) => visit.visitorName)),
       to: "/admin/visitors",
+    });
+  }
+
+  // What Moraê did on its own today: the charge reminders e-mailed by the scheduled job.
+  const reminders = countRemindersToday(data.charges);
+  if (reminders.total) {
+    items.push({
+      key: "reminders",
+      tone: "neutral",
+      title: `${plural(reminders.total, "lembrete enviado", "lembretes enviados")} hoje`,
+      subtitle: describeReminders(reminders),
+      to: "/admin/payments",
     });
   }
 

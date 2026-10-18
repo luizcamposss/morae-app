@@ -19,6 +19,9 @@ export type ChargeResponse = {
   status: ChargeStatus;
   createdAt: string;
   canceledAt?: string | null;
+  // When the scheduled job e-mailed the "due soon" and "overdue" reminders (null = not sent).
+  dueSoonReminderSentAt?: string | null;
+  overdueReminderSentAt?: string | null;
   // Late fee rule copied into the charge (null = no fine/interest) and today's amounts.
   finePercent?: number | null;
   monthlyInterestPercent?: number | null;

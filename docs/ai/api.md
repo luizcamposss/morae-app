@@ -160,6 +160,8 @@ GET    /api/condominiums/{condominiumId}/charges
 GET    /api/my/charges
 ```
 
+- Toda cobrança traz `dueSoonReminderSentAt` e `overdueReminderSentAt` (instantes UTC; null = lembrete ainda não enviado): quando a rotina mandou o e-mail de "vence em breve" e o de atraso. Usados na linha do tempo da cobrança e no contador "lembretes enviados hoje" do painel (contado pelo dia de São Paulo no front).
+
 ### Lote, recorrência e regras de cobrança
 ```
 GET    /api/condominiums/{condominiumId}/billing-settings        (qualquer membro ativo)
