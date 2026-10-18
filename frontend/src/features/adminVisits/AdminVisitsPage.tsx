@@ -11,8 +11,8 @@ import type { BuildingResponse } from "../buildings/types";
 import type { SaveVisitRequest, VisitResponse, VisitorType } from "../visits/types";
 import { cancelVisit, createVisit, getVisitAgenda, updateVisit } from "../visits/visitService";
 import { VISIT_STATUS, addDays, formatDayHeading, formatShortDay, formatVisitPlace, visitorTypes } from "../visits/visitMeta";
-import { useBuildingUnits } from "./useBuildingUnits";
-import { VisitDetailsModal, VisitFormModal, VisitorTypeChip } from "./VisitModals";
+import { useBuildingUnits } from "../visits/useBuildingUnits";
+import { VisitDetailsModal, VisitFormModal, VisitorTypeChip } from "../visits/VisitModals";
 
 // Days shown in the side panel and fetched in one request (the API allows up to 31).
 const WINDOW_DAYS = 7;
