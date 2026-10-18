@@ -16,8 +16,10 @@ export type SyndicPermission =
   | "documents.manage"
   | "assemblies.manage";
 
-// What a syndic screen asks for: one of the 4 menu areas or a single raw permission.
-export type SyndicAccessRequirement = SyndicAccessKey | SyndicPermission;
+// What a syndic screen asks for: one of the 4 menu areas or a single raw permission,
+// or a list of them when any one is enough (e.g. the agenda, which mixes several modules).
+type SingleSyndicRequirement = SyndicAccessKey | SyndicPermission;
+export type SyndicAccessRequirement = SingleSyndicRequirement | SingleSyndicRequirement[];
 
 // The 4 menu areas plus the raw permission list, for screens guarded by a single permission.
 export type SyndicAccessSettings = Record<SyndicAccessKey, boolean> & { permissions: string[] };
@@ -45,9 +47,13 @@ export const noSyndicAccess: SyndicAccessSettings = {
   permissions: [],
 };
 
-export function hasSyndicAccess(access: SyndicAccessSettings | null | undefined, requirement: SyndicAccessRequirement) {
+export function hasSyndicAccess(access: SyndicAccessSettings | null | undefined, requirement: SyndicAccessRequirement): boolean {
   if (!access) {
     return false;
+  }
+
+  if (Array.isArray(requirement)) {
+    return requirement.some((item) => hasSyndicAccess(access, item));
   }
 
   return requirement in areaPermissions
