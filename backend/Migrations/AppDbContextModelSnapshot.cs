@@ -1503,6 +1503,10 @@ namespace backend.Migrations
                     b.Property<int?>("CreatedByUserId")
                         .HasColumnType("int");
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("varchar(256)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)

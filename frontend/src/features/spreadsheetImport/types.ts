@@ -13,6 +13,7 @@ export type ImportSummary = {
 export type ImportRow = {
   line: number;
   errors: string[];
+  warnings: string[];
   building: string;
   buildingAction: ImportAction | null;
   unit: string;
@@ -21,6 +22,7 @@ export type ImportRow = {
   personName: string | null;
   cpf: string | null;
   phoneNumber: string | null;
+  email: string | null;
   personAction: ImportAction | null;
   relationshipLabel: string | null;
   linkAction: ImportAction | null;

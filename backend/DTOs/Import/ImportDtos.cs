@@ -27,6 +27,7 @@ public class ImportRowDto
 {
     public int Line { get; set; }
     public List<string> Errors { get; set; } = [];
+    public List<string> Warnings { get; set; } = [];
 
     public string Building { get; set; } = string.Empty;
     public string? BuildingAction { get; set; }
@@ -37,6 +38,7 @@ public class ImportRowDto
     public string? PersonName { get; set; }
     public string? CPF { get; set; }
     public string? PhoneNumber { get; set; }
+    public string? Email { get; set; }
     public string? PersonAction { get; set; }
 
     public string? RelationshipLabel { get; set; }
