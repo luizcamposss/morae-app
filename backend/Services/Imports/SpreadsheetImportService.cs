@@ -44,7 +44,7 @@ public class SpreadsheetImportService : ISpreadsheetImportService
 
     // ---- Columns ----
 
-    private enum Column { Building, Unit, UnitType, Rooms, Bathrooms, SquareMeters, Name, CPF, Phone, Relationship, Value, DueDate, Description }
+    private enum Column { Building, Unit, UnitType, Rooms, Bathrooms, SquareMeters, Name, CPF, Phone, Email, Relationship, Value, DueDate, Description }
 
     // Header names are compared without accents, spaces, punctuation or case.
     private static readonly Dictionary<string, Column> HeaderAliases = BuildAliases(new()
@@ -58,6 +58,7 @@ public class SpreadsheetImportService : ISpreadsheetImportService
         [Column.Name] = ["nome", "morador", "nomemorador", "nomedomorador", "nomecompleto", "pessoa", "nomepessoa"],
         [Column.CPF] = ["cpf", "cpfmorador", "cpfdomorador"],
         [Column.Phone] = ["telefone", "celular", "whatsapp", "fone", "tel", "telefonecelular"],
+        [Column.Email] = ["email", "emailmorador", "emaildomorador"],
         [Column.Relationship] = ["vinculo", "relacao", "tipovinculo", "tipodevinculo", "tiporelacao", "relacionamento"],
         [Column.Value] = ["valor", "valorcobranca", "valordacobranca", "valoremaberto", "valorr", "debito"],
         [Column.DueDate] = ["vencimento", "datavencimento", "datadevencimento", "vence"],
@@ -68,7 +69,7 @@ public class SpreadsheetImportService : ISpreadsheetImportService
     {
         [Column.Building] = "Prédio", [Column.Unit] = "Unidade", [Column.UnitType] = "Tipo da unidade",
         [Column.Rooms] = "Quartos", [Column.Bathrooms] = "Banheiros", [Column.SquareMeters] = "Metragem",
-        [Column.Name] = "Nome", [Column.CPF] = "CPF", [Column.Phone] = "Telefone", [Column.Relationship] = "Vínculo",
+        [Column.Name] = "Nome", [Column.CPF] = "CPF", [Column.Phone] = "Telefone", [Column.Email] = "E-mail", [Column.Relationship] = "Vínculo",
         [Column.Value] = "Valor", [Column.DueDate] = "Vencimento", [Column.Description] = "Descrição",
     };
 
@@ -101,7 +102,7 @@ public class SpreadsheetImportService : ISpreadsheetImportService
     };
 
     private static readonly string[] TemplateHeader =
-        ["Prédio", "Unidade", "Tipo da unidade", "Quartos", "Banheiros", "Metragem", "Nome", "CPF", "Telefone", "Vínculo", "Valor", "Vencimento", "Descrição"];
+        ["Prédio", "Unidade", "Tipo da unidade", "Quartos", "Banheiros", "Metragem", "Nome", "CPF", "Telefone", "E-mail", "Vínculo", "Valor", "Vencimento", "Descrição"];
 
     // ---- Public API ----
 
@@ -115,9 +116,9 @@ public class SpreadsheetImportService : ISpreadsheetImportService
         string[][] rows =
         [
             TemplateHeader,
-            ["Bloco A", "101", "Apartamento", "2", "1", "58", "Maria da Silva", "123.456.789-09", "(11) 98888-7777", "Proprietário", "450,00", dueDate, "Taxa condominial"],
-            ["Bloco A", "101", "Apartamento", "2", "1", "58", "João da Silva", "987.654.321-00", "(11) 97777-6666", "Morador", "", "", ""],
-            ["Bloco A", "102", "Apartamento", "3", "2", "72", "", "", "", "", "", "", ""],
+            ["Bloco A", "101", "Apartamento", "2", "1", "58", "Maria da Silva", "123.456.789-09", "(11) 98888-7777", "maria@email.com", "Proprietário", "450,00", dueDate, "Taxa condominial"],
+            ["Bloco A", "101", "Apartamento", "2", "1", "58", "João da Silva", "987.654.321-00", "", "", "Morador", "", "", ""],
+            ["Bloco A", "102", "Apartamento", "3", "2", "72", "", "", "", "", "", "", "", ""],
         ];
 
         return format.Equals("xlsx", StringComparison.OrdinalIgnoreCase)
@@ -359,8 +360,9 @@ public class SpreadsheetImportService : ISpreadsheetImportService
             var personName = Get(Column.Name);
             var cpf = DigitsOnly(Get(Column.CPF));
             var phone = DigitsOnly(Get(Column.Phone));
+            var email = Get(Column.Email);
             var relationshipText = Get(Column.Relationship);
-            var hasPerson = personName.Length > 0 || cpf.Length > 0 || phone.Length > 0 || relationshipText.Length > 0;
+            var hasPerson = personName.Length > 0 || cpf.Length > 0 || phone.Length > 0 || email.Length > 0 || relationshipText.Length > 0;
 
             Ref<Person>? personRef = null;
             CreatePersonDto? newPersonDto = null;
@@ -371,6 +373,7 @@ public class SpreadsheetImportService : ISpreadsheetImportService
                 result.PersonName = personName;
                 result.CPF = cpf;
                 result.PhoneNumber = phone;
+                result.Email = email.Length > 0 ? email : null;
 
                 if (relationshipText.Length > 0 && RelationshipAliases.TryGetValue(Normalize(relationshipText), out var parsedRelationship))
                     relationship = parsedRelationship;
@@ -389,7 +392,7 @@ public class SpreadsheetImportService : ISpreadsheetImportService
                 }
                 else if (!personByCpf.TryGetValue(cpf, out personRef))
                 {
-                    newPersonDto = new CreatePersonDto { Name = personName, CPF = cpf, PhoneNumber = phone };
+                    newPersonDto = new CreatePersonDto { Name = personName, CPF = cpf, PhoneNumber = phone.Length > 0 ? phone : null, Email = email.Length > 0 ? email : null };
                     Validate(newPersonDto, errors);
                 }
             }
@@ -413,8 +416,9 @@ public class SpreadsheetImportService : ISpreadsheetImportService
                 if (valueText.Length == 0)
                     errors.Add("Preencha o valor da cobrança.");
 
+                // Old debts may be imported: they are saved as pending and the hourly job marks them overdue.
                 if (dueDate is not null && ChargeService.IsPastDueDate(dueDate.Value))
-                    errors.Add(ChargeService.PastDueDateMessage);
+                    result.Warnings.Add($"Vencida em {dueDate.Value:dd/MM}.");
 
                 if (!paymentMethodChecked)
                 {
@@ -503,7 +507,8 @@ public class SpreadsheetImportService : ISpreadsheetImportService
                     {
                         Name = newPersonDto!.Name,
                         CPF = newPersonDto.CPF,
-                        PhoneNumber = newPersonDto.PhoneNumber,
+                        PhoneNumber = newPersonDto.PhoneNumber ?? string.Empty,
+                        Email = newPersonDto.Email,
                         CreatedByUserId = userId,
                     };
                     personRef = new Ref<Person>(null, person, ++tempId);
