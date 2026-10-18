@@ -99,6 +99,18 @@ public class AssemblyItemOption
 
     // "Abstenção": counts as participation, never for or against.
     public bool IsAbstention { get; set; }
+
+    // Optional attachment (e.g. a company's budget) in the file storage, sent while a draft.
+    [StringLength(200)]
+    public string? AttachmentFileName { get; set; }
+
+    [StringLength(100)]
+    public string? AttachmentContentType { get; set; }
+
+    public long? AttachmentSizeBytes { get; set; }
+
+    [StringLength(200)]
+    public string? AttachmentStorageKey { get; set; }
 }
 
 // One unit's vote on one agenda item (unique per item and unit; changing the vote updates it).

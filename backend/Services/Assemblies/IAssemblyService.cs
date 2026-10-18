@@ -15,6 +15,9 @@ public interface IAssemblyService
     Task<MyBallotDto> CastVotesAsync(int userId, int assemblyId, CastVotesDto dto);
     Task<AssemblyResultsDto> GetResultsAsync(int userId, int assemblyId);
     Task<AssemblyResponseDto> SetMinutesAsync(int userId, int assemblyId, SetMinutesDto dto);
+    Task<AssemblyResponseDto> SetOptionAttachmentAsync(int userId, int optionId, IFormFile? file);
+    Task<AssemblyResponseDto> RemoveOptionAttachmentAsync(int userId, int optionId);
+    Task<AssemblyOptionAttachmentDownload> DownloadOptionAttachmentAsync(int userId, int optionId);
 
     // Hourly job.
     Task CloseDueAssembliesAsync(CancellationToken cancellationToken);
