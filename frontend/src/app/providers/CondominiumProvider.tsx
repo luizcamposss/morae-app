@@ -3,7 +3,32 @@ import { getMyCondominiums } from "../../features/me/meService";
 import { CondominiumContext, type CondominiumContextValue } from "./CondominiumContext";
 import { useAuth } from "./useAuth";
 
+// Per user, so another account on the same browser does not inherit the choice. It is kept on
+// logout and while the session is still loading on a reload (user still null).
 const ACTIVE_CONDOMINIUM_STORAGE_KEY = "morae.active.condominium";
+
+function storageKey(userId: number) {
+  return `${ACTIVE_CONDOMINIUM_STORAGE_KEY}.${userId}`;
+}
+
+function readStoredCondominiumId(userId: number) {
+  try {
+    return Number(localStorage.getItem(storageKey(userId)));
+  } catch {
+    return null;
+  }
+}
+
+function storeCondominiumId(userId: number | undefined, condominiumId: number | null) {
+  if (userId === undefined) return;
+
+  try {
+    if (condominiumId === null) localStorage.removeItem(storageKey(userId));
+    else localStorage.setItem(storageKey(userId), condominiumId.toString());
+  } catch {
+    // Storage blocked (private mode): the choice just lasts until the next reload.
+  }
+}
 
 type CondominiumProviderProps = {
   children: ReactNode;
@@ -24,7 +49,7 @@ export function CondominiumProvider({ children }: CondominiumProviderProps) {
 
   function setActiveCondominiumId(condominiumId: number) {
     setActiveCondominiumIdState(condominiumId);
-    localStorage.setItem(ACTIVE_CONDOMINIUM_STORAGE_KEY, condominiumId.toString());
+    storeCondominiumId(user?.userId, condominiumId);
   }
 
   async function refreshCondominiums() {
@@ -33,7 +58,6 @@ export function CondominiumProvider({ children }: CondominiumProviderProps) {
       setActiveCondominiumIdState(null);
       setErrorMessage("");
       setIsLoading(false);
-      localStorage.removeItem(ACTIVE_CONDOMINIUM_STORAGE_KEY);
       return;
     }
 
@@ -46,11 +70,11 @@ export function CondominiumProvider({ children }: CondominiumProviderProps) {
 
       if (result.length === 0) {
         setActiveCondominiumIdState(null);
-        localStorage.removeItem(ACTIVE_CONDOMINIUM_STORAGE_KEY);
+        storeCondominiumId(user?.userId, null);
         return;
       }
 
-      const storedCondominiumId = Number(localStorage.getItem(ACTIVE_CONDOMINIUM_STORAGE_KEY));
+      const storedCondominiumId = user ? readStoredCondominiumId(user.userId) : null;
       const hasStoredCondominium = result.some(
         (condominium) => condominium.condominiumId === storedCondominiumId,
       );
@@ -63,10 +87,7 @@ export function CondominiumProvider({ children }: CondominiumProviderProps) {
         : preferredCondominium.condominiumId;
 
       setActiveCondominiumIdState(nextActiveCondominiumId);
-      localStorage.setItem(
-        ACTIVE_CONDOMINIUM_STORAGE_KEY,
-        nextActiveCondominiumId.toString(),
-      );
+      storeCondominiumId(user?.userId, nextActiveCondominiumId);
     } catch (error) {
       setCondominiums([]);
       setActiveCondominiumIdState(null);
