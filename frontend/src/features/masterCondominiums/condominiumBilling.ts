@@ -1,3 +1,4 @@
+import { amountDue } from "../adminPayments/chargeForm";
 import type { ChargeResponse } from "../charges/types";
 import type { CondominiumResponse } from "../condominiums/types";
 import type { InvitationResponse } from "../invitations/types";
@@ -33,7 +34,7 @@ export function buildBillingIndex(charges: ChargeResponse[]) {
       entry.monthlyValue = charge.value;
     }
 
-    if (charge.status === CHARGE_STATUS_OVERDUE) entry.overdueValue += charge.value;
+    if (charge.status === CHARGE_STATUS_OVERDUE) entry.overdueValue += amountDue(charge);
 
     const isUnpaid = charge.status === CHARGE_STATUS_PENDING || charge.status === CHARGE_STATUS_OVERDUE;
     if (isUnpaid && (!entry.nextDue || charge.dueDate < entry.nextDue)) entry.nextDue = charge.dueDate;

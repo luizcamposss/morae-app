@@ -1,4 +1,5 @@
 import { formatCalendarDate, parseCalendarDate, toAppDateString, todayInputDate } from "../../shared/lib/date";
+import { amountDue } from "../adminPayments/chargeForm";
 import type { BuildingResponse } from "../buildings/types";
 import type { ChargeResponse } from "../charges/types";
 import type { NewsResponse } from "../news/types";
@@ -52,7 +53,8 @@ export function summarizeOverdue(charges: ChargeResponse[], showBuilding: boolea
 
   return {
     count: overdue.length,
-    value: overdue.reduce((total, charge) => total + charge.value, 0),
+    // Owed today, with fine and interest.
+    value: overdue.reduce((total, charge) => total + amountDue(charge), 0),
     unitLabels,
   };
 }

@@ -1,6 +1,7 @@
 using System.Globalization;
 using backend.Constants;
 using backend.Enums;
+using backend.Services.Charges;
 
 namespace backend.Services.Email;
 
@@ -79,6 +80,7 @@ public static class ChargeEmails
         decimal value,
         DateTime dueDate,
         int daysLeft,
+        string? lateFeeRule,
         string chargesUrl)
     {
         var when = daysLeft switch
@@ -98,7 +100,8 @@ public static class ChargeEmails
             [
                 ("Descrição", description),
                 ("Valor", value.ToString("C", PtBr)),
-                ("Vencimento", dueDate.ToString("dd/MM/yyyy", PtBr))
+                ("Vencimento", dueDate.ToString("dd/MM/yyyy", PtBr)),
+                .. (lateFeeRule is null ? [] : new[] { ("Após o vencimento", lateFeeRule) })
             ],
             ButtonText = "Pagar agora",
             ButtonUrl = chargesUrl,
@@ -111,10 +114,25 @@ public static class ChargeEmails
         string firstName,
         string condominiumName,
         string description,
-        decimal value,
+        ChargeLateFeeAmounts amounts,
         DateTime dueDate,
         string chargesUrl)
     {
+        var hasLateFees = amounts.Fine + amounts.Interest > 0;
+        var valueLine = hasLateFees
+            ? $"Valor para pagar hoje: {amounts.Value.ToString("C", PtBr)} + multa e juros = {amounts.Total.ToString("C", PtBr)}."
+            : $"Valor para pagar: {amounts.Value.ToString("C", PtBr)}.";
+
+        (string Label, string Value)[] amountDetails = hasLateFees
+            ?
+            [
+                ("Valor original", amounts.Value.ToString("C", PtBr)),
+                ("Multa", amounts.Fine.ToString("C", PtBr)),
+                ($"Juros ({amounts.DaysLate} {(amounts.DaysLate == 1 ? "dia" : "dias")})", amounts.Interest.ToString("C", PtBr)),
+                ("Total hoje", amounts.Total.ToString("C", PtBr))
+            ]
+            : [("Valor", amounts.Value.ToString("C", PtBr))];
+
         return new EmailTemplate
         {
             Subject = $"Cobrança vencida: {description}",
@@ -123,12 +141,13 @@ public static class ChargeEmails
             Paragraphs =
             [
                 $"Não identificamos o pagamento da cobrança abaixo, do {condominiumName}, que venceu em {dueDate.ToString("dd/MM/yyyy", PtBr)}.",
+                valueLine,
                 "Você ainda pode pagar pelo MORAÊ, por Pix, cartão ou boleto."
             ],
             Details =
             [
                 ("Descrição", description),
-                ("Valor", value.ToString("C", PtBr)),
+                .. amountDetails,
                 ("Vencimento", dueDate.ToString("dd/MM/yyyy", PtBr))
             ],
             ButtonText = "Pagar agora",

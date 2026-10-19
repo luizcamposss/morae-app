@@ -202,6 +202,9 @@ PUT    /api/payment-proofs/{id}/reject           (gestão com charges.mark_as_pa
 GET    /api/condominiums/{condominiumId}/delinquency
 GET    /api/delinquency/platform
 ```
+- Lista as cobranças vencidas e não pagas: `{ chargeId, scope, condominiumId, targetUserId, unitId, value, fineAmount, interestAmount, updatedAmount, dueDate, daysLate, description, status }`.
+- `value` é o valor original; `fineAmount` e `interestAmount` são a multa e os juros de hoje (data de SP, regra gravada na cobrança, mesmo cálculo de `GET /api/charges/{id}`); `updatedAmount = value + fineAmount + interestAmount`. Totais de inadimplência somam `updatedAmount` (total original = soma de `value`).
+- Lembretes: o e-mail e a notificação de atraso mostram o valor original e o total de hoje com multa e juros ("R$ 480,00 + multa e juros = R$ 495,68"); o lembrete de vencimento mostra a regra de multa/juros da cobrança, se houver.
 
 ### Contas de recebimento
 ```
