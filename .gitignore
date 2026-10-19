@@ -45,3 +45,7 @@ backend/storage/
 
 # Claude Code local settings (machine-specific paths)
 .claude/settings.local.json
+
+# Claude Code: worktrees e notas locais dos agentes
+.claude/worktrees/
+.claude/agent-notes/
