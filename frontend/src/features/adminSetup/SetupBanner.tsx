@@ -47,7 +47,9 @@ export function SetupBanner({ dashboard }: { dashboard: DashboardData }) {
     );
   }
 
-  if (progress.doneCount === total || dismissed === condominiumId || isSetupDismissed(condominiumId)) return null;
+  // A condominium that already charges its units is in use: no need to nag about the remaining steps.
+  const isInUse = dashboard.charges.length > 0;
+  if (progress.doneCount === total || isInUse || dismissed === condominiumId || isSetupDismissed(condominiumId)) return null;
 
   return (
     <div className="mb-8 flex items-center gap-2 rounded-card bg-superficie pr-2 shadow-whisper">

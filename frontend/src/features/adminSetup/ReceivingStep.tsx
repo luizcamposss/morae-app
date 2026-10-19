@@ -24,8 +24,8 @@ const RESIDENT_ROLE = 4;
 export function ReceivingStep({ data, condominiumName, onSaved }: ReceivingStepProps) {
   const [modal, setModal] = useState<"pix" | "mercadoPago" | null>(null);
   const invitable = invitablePeople(data.people, data.invitations);
-  // Nobody starts selected: an existing condominium may have many residents without access.
-  const [chosen, setChosen] = useState<Set<number>>(new Set());
+  // Everyone with an e-mail starts selected; the Admin can unselect before sending.
+  const [chosen, setChosen] = useState<Set<number>>(() => new Set(invitable.map((person) => person.id)));
   const [isSending, setIsSending] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
