@@ -7,6 +7,7 @@ import { formatCurrency } from "../../shared/lib/currency";
 import { formatFileSize } from "../documents/documentMeta";
 import { PROOF_ACCEPT, PROOF_NOTE_MAX, proofState, validateProofFile } from "../charges/paymentProof";
 import { getChargePixInfo, sendPaymentProof } from "../charges/paymentProofService";
+import { displayPixKey, pixKeyTypeLabels } from "../financialAccounts/pixKey";
 import type { ChargePixInfo, ChargeResponse } from "../charges/types";
 
 type PixPaymentModalProps = {
@@ -138,9 +139,9 @@ export function PixPaymentModal({ charge, onSent, onClose }: PixPaymentModalProp
             <p className="mt-1 font-display text-[32px] font-bold leading-none tracking-[-0.015em] tabular-nums text-tinta">{formatCurrency(info.amount)}</p>
 
             <div className="mt-4 rounded-block bg-campo p-4">
-              <p className="text-xs font-semibold text-tinta-suave">Chave Pix · {info.holderName || info.condominiumName}</p>
+              <p className="text-xs font-semibold text-tinta-suave">Chave Pix{pixKeyTypeLabels[info.pixKeyType] ? ` (${pixKeyTypeLabels[info.pixKeyType]})` : ""} · {info.holderName || info.condominiumName}</p>
               <div className="mt-1.5 flex items-center gap-3">
-                <p className="min-w-0 flex-1 text-[15px] font-semibold text-tinta [overflow-wrap:anywhere]">{info.pixKey}</p>
+                <p className="min-w-0 flex-1 text-[15px] font-semibold text-tinta [overflow-wrap:anywhere]">{displayPixKey(info.pixKeyType, info.pixKey)}</p>
                 <Button size="sm" variant={isCopied ? "accent" : "primary"} onClick={() => void copyKey()} className="shrink-0">
                   {isCopied ? <CircleCheck size={16} strokeWidth={2} aria-hidden /> : <Copy size={16} strokeWidth={2} aria-hidden />}
                   {isCopied ? "Copiada" : "Copiar"}

@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Bell, Building2, Megaphone, Receipt, TriangleAlert, Users, X } from "lucide-react";
+import { Bell, Building2, Megaphone, Receipt, TriangleAlert, X } from "lucide-react";
 import { useAuth } from "../../app/providers/useAuth";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { GroupedList, GroupedRow } from "../../shared/components/GroupedList";
@@ -87,16 +87,7 @@ export function SyndicDashboardPage() {
   const summaryItems: SummaryItem[] = [];
 
   if (access?.finance) {
-    const unitTotal = units?.length ?? totals?.units ?? 0;
-    if (unitTotal) {
-      const overdueUnits = overdue?.unitLabels.length ?? 0;
-      summaryItems.push({
-        label: "Unidades em dia",
-        value: isLoading ? dash : `${unitTotal - overdueUnits} de ${unitTotal}`,
-        detail: scope || "unidades",
-        tone: "good",
-      });
-    }
+    // "Unidades em dia" lives in the billing grid below; the summary keeps only the money.
     summaryItems.push({
       label: "Em atraso",
       value: isLoading ? dash : formatCurrency(overdue?.value ?? 0),
@@ -108,15 +99,6 @@ export function SyndicDashboardPage() {
       { label: "Unidades ocupadas", value: isLoading ? dash : `${totals.occupied} de ${totals.units}`, detail: scope || "unidades" },
       { label: "Moradores", value: isLoading ? dash : String(totals.residents), detail: scope ? `em ${scope}` : "cadastrados" },
     );
-  }
-
-  if (access?.maintenance) {
-    const inProgress = openOccurrences?.filter((occurrence) => occurrence.status === 2).length ?? 0;
-    summaryItems.push({
-      label: "Ocorrências abertas",
-      value: isLoading ? dash : String(openOccurrences?.length ?? 0),
-      detail: inProgress ? `${inProgress} em andamento` : "nenhuma em andamento",
-    });
   }
 
   const todayRows: ReactNode[] = [];
@@ -182,18 +164,6 @@ export function SyndicDashboardPage() {
       ) : (
         <GroupedRow key="news" icon={Megaphone} title="Nenhum aviso publicado" subtitle="Publique o primeiro aviso para os moradores" onClick={() => navigate("/syndic/news")} />
       ),
-    );
-  }
-
-  if (totals) {
-    todayRows.push(
-      <GroupedRow
-        key="residents"
-        icon={Users}
-        title={plural(totals.residents, "morador", "moradores")}
-        subtitle={`em ${plural(totals.occupied, "unidade ocupada", "unidades ocupadas")}`}
-        onClick={() => navigate("/syndic/residents")}
-      />,
     );
   }
 

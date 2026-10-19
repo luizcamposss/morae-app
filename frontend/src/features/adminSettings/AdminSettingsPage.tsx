@@ -10,6 +10,7 @@ import { getBillingSettings } from "../charges/billingService";
 import { getPlatformCharges } from "../charges/chargeService";
 import type { BillingSettings, ChargeResponse } from "../charges/types";
 import { getCondominiumFinancialAccount, upsertCondominiumFinancialAccount } from "../financialAccounts/financialAccountService";
+import { describePixKey } from "../financialAccounts/pixKey";
 import type { FinancialAccountResponse } from "../financialAccounts/types";
 import { MercadoPagoConnectionPanel } from "../mercadoPago/MercadoPagoConnectionPanel";
 import { describePaymentMethods, useMercadoPagoConnected } from "../mercadoPago/useMercadoPagoConnected";
@@ -159,7 +160,7 @@ export function AdminSettingsPage() {
                   icon={QrCode}
                   tone={pixKey ? "green" : "neutral"}
                   title="Chave Pix"
-                  subtitle={pixKey || "Para pagamentos manuais"}
+                  subtitle={pixKey && currentAccount?.data ? describePixKey(currentAccount.data.pixKeyType, pixKey) : "Para pagamentos manuais"}
                   trailing={<StatusChip tone={pixKey ? "success" : "warning"}>{pixKey ? "Cadastrada" : "Não cadastrada"}</StatusChip>}
                   onClick={currentAccount ? () => setModal("pix") : undefined}
                 />

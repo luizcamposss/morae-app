@@ -101,9 +101,9 @@ export function MasterDashboardPage() {
       <SummaryCard
         items={[
           { label: "Condomínios ativos", value: isLoading ? "–" : String(summary.activeCondominiums), detail: `${condominiums.length} no total` },
-          { label: "Pago do mês", value: isLoading ? "–" : formatCurrency(summary.monthRevenue), detail: `mensalidades de ${currentMonthName()}` },
+          { label: "Recebido no mês", value: isLoading ? "–" : formatCurrency(summary.monthRevenue), detail: `mensalidades de ${currentMonthName()}` },
           {
-            label: "Mensalidade em atraso",
+            label: "Mensalidades atrasadas",
             value: isLoading ? "–" : formatCurrency(summary.overdueValue),
             detail: overdueCount ? `${overdueCount} condomínio${overdueCount > 1 ? "s" : ""}` : "nenhum condomínio",
             tone: summary.overdueValue > 0 ? "danger" : "neutral",
@@ -112,7 +112,7 @@ export function MasterDashboardPage() {
       />
 
       <div className="mt-10 grid gap-x-6 gap-y-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]">
-        <Section title="Mensalidades" note="próximas e atrasadas" footer={<SectionLink to="/master/payments">Ver a receita</SectionLink>}>
+        <Section title="Mensalidades a receber" note="atrasadas e próximas" footer={<SectionLink to="/master/payments">Ver a receita</SectionLink>}>
           {openCharges.length === 0 ? (
             <EmptyRow text={isLoading ? "Carregando…" : "Nenhuma mensalidade em aberto."} />
           ) : (
@@ -169,7 +169,7 @@ export function MasterDashboardPage() {
       </div>
 
       <div className="mt-10 grid gap-6 lg:grid-cols-2">
-        <ChartCard title="Mensalidades" note="por vencimento, até o próximo mês">
+        <ChartCard title="Receita por mês" note="pago, em aberto e atrasado, por vencimento até o próximo mês">
           {revenueByMonth.some((month) => month.paid + month.open + month.overdue > 0) ? (
             <RevenueChart data={revenueByMonth} />
           ) : (
