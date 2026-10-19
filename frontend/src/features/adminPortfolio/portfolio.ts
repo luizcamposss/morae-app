@@ -1,3 +1,4 @@
+import { amountDue } from "../adminPayments/chargeForm";
 import { getBuildingsByCondominium } from "../buildings/buildingService";
 import { getChargesByCondominium } from "../charges/chargeService";
 import { todayInputDate } from "../../shared/lib/date";
@@ -33,7 +34,7 @@ export async function getCondominiumNumbers(condominiumId: number): Promise<Cond
     monthExpected: sum(monthCharges.map((charge) => charge.value)),
     monthReceived: sum(monthCharges.filter((charge) => charge.status === CHARGE_STATUS_PAID).map((charge) => charge.value)),
     overdueCount: overdue.length,
-    overdueValue: sum(overdue.map((charge) => charge.value)),
+    overdueValue: sum(overdue.map(amountDue)),
   };
 }
 

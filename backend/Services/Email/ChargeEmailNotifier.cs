@@ -1,7 +1,9 @@
+using System.Globalization;
 using backend.Constants;
 using backend.Data;
 using backend.Enums;
 using backend.Models;
+using backend.Services.Charges;
 using backend.Settings;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -10,6 +12,8 @@ namespace backend.Services.Email;
 
 public class ChargeEmailNotifier : IChargeEmailNotifier
 {
+    private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
+
     private readonly AppDbContext _context;
     private readonly IEmailQueue _emailQueue;
     private readonly AppSettings _appSettings;
@@ -75,7 +79,7 @@ public class ChargeEmailNotifier : IChargeEmailNotifier
         {
             var email = ChargeEmails.DueSoonReminder(
                 recipient.FirstName, condominiumName, charge.Description, charge.Value, charge.DueDate, daysLeft,
-                GetChargesUrl(charge));
+                DescribeLateFeeRule(charge), GetChargesUrl(charge));
 
             _emailQueue.Enqueue(email.ToMessage(recipient.Email));
         }
@@ -85,11 +89,13 @@ public class ChargeEmailNotifier : IChargeEmailNotifier
     {
         var recipients = await GetPayersAsync(charge);
         var condominiumName = await GetCondominiumNameAsync(charge.CondominiumId);
+        // Amount as of today (São Paulo), with the fine and interest snapshotted on the charge.
+        var amounts = ChargeLateFees.Calculate(charge, AppTimeZone.Today);
 
         foreach (var recipient in recipients.Where(recipient => recipient.BillsEnabled))
         {
             var email = ChargeEmails.OverdueReminder(
-                recipient.FirstName, condominiumName, charge.Description, charge.Value, charge.DueDate,
+                recipient.FirstName, condominiumName, charge.Description, amounts, charge.DueDate,
                 GetChargesUrl(charge));
 
             _emailQueue.Enqueue(email.ToMessage(recipient.Email));
@@ -176,6 +182,20 @@ public class ChargeEmailNotifier : IChargeEmailNotifier
     {
         return _appSettings.BuildFrontendUrl(
             charge.Scope == ChargeScope.Platform ? "admin/payments" : "resident/bills");
+    }
+
+    // "multa de 2% e juros de 1% ao mês", or null when the charge has no late fee rule.
+    private static string? DescribeLateFeeRule(Charge charge)
+    {
+        var parts = new List<string>();
+
+        if (charge.FinePercent is > 0)
+            parts.Add($"multa de {charge.FinePercent.Value.ToString("0.##", PtBr)}%");
+
+        if (charge.MonthlyInterestPercent is > 0)
+            parts.Add($"juros de {charge.MonthlyInterestPercent.Value.ToString("0.##", PtBr)}% ao mês");
+
+        return parts.Count == 0 ? null : string.Join(" e ", parts);
     }
 
     private static string FirstName(string? name)

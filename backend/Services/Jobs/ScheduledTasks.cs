@@ -198,11 +198,17 @@ public class ScheduledTasks : IScheduledTasks
 
         foreach (var charge in charges)
         {
+            // Amount as of today, with the fine and interest snapshotted on the charge.
+            var amounts = ChargeLateFees.Calculate(charge, today);
+            var amountText = amounts.Total > amounts.Value
+                ? $"{amounts.Value.ToString("C", PtBr)} (hoje {amounts.Total.ToString("C", PtBr)} com multa e juros)"
+                : amounts.Value.ToString("C", PtBr);
+
             await _notificationService.CreateManyAsync(
                 await _chargeEmailNotifier.GetPayerUserIdsAsync(charge),
                 NotificationType.Charge,
                 "Cobrança vencida",
-                $"A cobrança \"{charge.Description}\" de {charge.Value.ToString("C", PtBr)} venceu em " +
+                $"A cobrança \"{charge.Description}\" de {amountText} venceu em " +
                 $"{charge.DueDate.ToString("dd/MM/yyyy", PtBr)}. Você ainda pode pagar pelo MORAÊ.",
                 GetChargesLink(charge),
                 charge.CondominiumId);

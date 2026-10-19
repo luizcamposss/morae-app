@@ -6,6 +6,7 @@ import { SummaryCard } from "../../shared/components/SummaryCard";
 import { PageHeader } from "../../shared/layout/PageHeader";
 import { formatCurrency } from "../../shared/lib/currency";
 import { formatCalendarDate, formatTodayHeading, getGreeting, toAppDateString, todayInputDate } from "../../shared/lib/date";
+import { amountDue } from "../adminPayments/chargeForm";
 import { getPlatformCharges } from "../charges/chargeService";
 import type { ChargeResponse } from "../charges/types";
 import { getCondominiums } from "../condominiums/condominiumService";
@@ -56,7 +57,7 @@ export function MasterDashboardPage() {
       monthRevenue: charges
         .filter((charge) => charge.status === CHARGE_STATUS_PAID && charge.dueDate.startsWith(currentMonth))
         .reduce((total, charge) => total + charge.value, 0),
-      overdueValue: overdue.reduce((total, charge) => total + charge.value, 0),
+      overdueValue: overdue.reduce((total, charge) => total + amountDue(charge), 0),
       overdueCondominiumIds: new Set(overdue.map((charge) => charge.condominiumId)),
     };
   }, [charges, condominiums]);

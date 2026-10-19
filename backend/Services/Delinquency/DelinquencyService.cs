@@ -4,6 +4,7 @@ using backend.DTOs.Delinquency;
 using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
+using backend.Services.Charges;
 using backend.Services.Permissions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -97,6 +98,8 @@ public class DelinquencyService : IDelinquencyService
 
     private static DelinquencyResponseDto MapResponse(Charge charge, DateTime today)
     {
+        var amounts = ChargeLateFees.Calculate(charge, today);
+
         return new DelinquencyResponseDto
         {
             ChargeId = charge.Id,
@@ -105,6 +108,9 @@ public class DelinquencyService : IDelinquencyService
             TargetUserId = charge.TargetUserId,
             UnitId = charge.UnitId,
             Value = charge.Value,
+            FineAmount = amounts.Fine,
+            InterestAmount = amounts.Interest,
+            UpdatedAmount = amounts.Total,
             DueDate = charge.DueDate,
             DaysLate = (today - charge.DueDate.Date).Days,
             Description = charge.Description,
