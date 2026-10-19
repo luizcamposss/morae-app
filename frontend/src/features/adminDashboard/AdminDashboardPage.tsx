@@ -11,6 +11,7 @@ import { PageHeader } from "../../shared/layout/PageHeader";
 import { formatCurrency } from "../../shared/lib/currency";
 import { formatDateTime, formatTodayHeading, getGreeting, todayInputDate } from "../../shared/lib/date";
 import { CHARGE_STATUS, buildRevenueByMonth, currentMonthName } from "../charges/platformRevenue";
+import { SetupBanner } from "../adminSetup/SetupBanner";
 import { UnitBillingGrid } from "../billingGrid/UnitBillingGrid";
 import { RevenueChart } from "../masterDashboard/MasterCharts";
 import { buildActivities, buildLateUnits, buildTodayItems, emptyDashboard, fetchDashboard, type DashboardData, type TodayItem } from "./dashboardData";
@@ -144,6 +145,8 @@ export function AdminDashboardPage() {
         <p className="rounded-field bg-ambar-suave px-4 py-3 text-sm font-medium text-tinta">Nenhum condomínio ativo vinculado ao seu usuário.</p>
       ) : (
         <>
+          {!isLoading && !dashboard.errorMessage && <SetupBanner dashboard={dashboard} />}
+
           <SummaryCard
             label="Resumo do mês"
             items={[

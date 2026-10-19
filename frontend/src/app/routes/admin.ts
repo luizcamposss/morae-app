@@ -12,6 +12,7 @@ import { AdminPaymentsPage } from "../../features/adminPayments/AdminPaymentsPag
 import { PreventiveMaintenancePage } from "../../features/maintenance/PreventiveMaintenancePage";
 import { AgendaPage } from "../../features/agenda/AgendaPage";
 import { AdminSettingsPage } from "../../features/adminSettings/AdminSettingsPage";
+import { AdminSetupPage } from "../../features/adminSetup/AdminSetupPage";
 import { AdminVisitsPage } from "../../features/adminVisits/AdminVisitsPage";
 import { DocumentsPage } from "../../features/documents/DocumentsPage";
 import { ImportPage } from "../../features/spreadsheetImport/ImportPage";
@@ -37,6 +38,7 @@ export const adminArea: RoleArea = {
     { path: "preventive-maintenance", component: PreventiveMaintenancePage, nav: { label: "Manutenção", icon: Wrench } },
     { path: "visitors", component: AdminVisitsPage, nav: { label: "Visitantes", icon: DoorOpen } },
     { path: "import", component: ImportPage, nav: { label: "Importar", icon: FileSpreadsheet, placement: "footer" } },
+    { path: "setup", component: AdminSetupPage },
     { path: "settings", component: AdminSettingsPage, nav: { label: "Ajustes", icon: SlidersHorizontal, placement: "footer" } },
   ],
 };
