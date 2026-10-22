@@ -8,6 +8,8 @@ O backend está completo (`docs/ai/api.md`). O Luiz quer **redesenhar a interfac
 - **Estilo do app (decidido pelo Luiz):** clean e minimalista, inspirado nos apps da Apple. Mesma estrutura do código atual (menu lateral por papel + conteúdo), mas: menu com ícone + nome (sem grupos), sem barra de topo separada (título grande com sininho e perfil na mesma linha), números agrupados num só cartão, listas agrupadas estilo Ajustes do iPhone (ícone em quadradinho colorido, título, subtítulo, ›), fundo cinza-esverdeado claro `#EDF0EA` com cartões brancos, menu `#E4E9E2`, cantos de 12–16 px, botões em pílula, ícones de linha (estilo Lucide). Sem telas mobile no Figma por enquanto. A mensalidade do Moraê (cobrança da plataforma) fica em Ajustes → Plano e pagamento.
 - **PWA:** um só sistema web para computador e celular, instalável na tela inicial (manifest + service worker). Toda tela precisa funcionar nos dois tamanhos.
 
+> **Situação em 2026-10-22:** as ondas 0, 1 e 2, a landing (T8) e a importação (L) estão prontas e mescladas na `develop`. Falta o deploy (G, issue #108), o PWA (#107) e o tour animado (#106).
+
 ## Roadmap (combinado com o Luiz em out/2026)
 
 Por painel, na ordem abaixo. Cada item é uma parte pequena: explicar → o Luiz decide → implementar → `lint` + `build` → conferir no Chrome → parar com o bloco de commit. Código limpo a cada parte (sem sobras do visual antigo), seguindo o padrão existente, sem nada mirabolante. Todo trabalho de interface passa pela skill **Impeccable**. Cada fase tem a sua branch a partir da `develop`.
