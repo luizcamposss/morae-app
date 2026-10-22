@@ -24,7 +24,7 @@ public class LandingContact
     [Required]
     public LandingContactProfileType Profile { get; set; }
 
-    // Hero pain id picked on the landing (see LandingContactPains), or null when not sent.
+    // Hero pain id picked on the landing (see LandingContactTexts), or null when not sent.
     [StringLength(20)]
     public string? Pain { get; set; }
 
