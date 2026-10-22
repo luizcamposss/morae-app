@@ -10,7 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@edusites/icons": "^1.5.2",
     "@mercadopago/sdk-react": "^1.0.7",
     "@tailwindcss/vite": "^4.3.1",
     "lucide-react": "^1.48.0",
