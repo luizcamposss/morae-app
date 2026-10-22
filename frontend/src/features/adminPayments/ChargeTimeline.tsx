@@ -5,7 +5,7 @@ import { getPaymentProofs } from "../charges/paymentProofService";
 import type { ChargeResponse, PaymentProof } from "../charges/types";
 import { getPaymentsByCharge } from "../payments/paymentService";
 import type { PaymentResponse } from "../payments/types";
-import { buildChargeTimeline, formatEventTime, type TimelineEvent } from "./chargeTimeline";
+import { buildChargeTimeline, formatEventTime, type TimelineEvent } from "./chargeTimelineModel";
 
 type Loaded = { chargeId: number; proofs: PaymentProof[]; payments: PaymentResponse[] };
 
