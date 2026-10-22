@@ -354,6 +354,15 @@ using (var scope = app.Services.CreateScope())
 
     await IdentitySeeder.SeedRolesAsync(roleManager);
     await IdentitySeeder.SeedMasterAsync(db, userManager, configuration);
+
+    if (args.Contains(TestDataSeeder.Flag))
+    {
+        if (!app.Environment.IsDevelopment())
+            throw new InvalidOperationException("Os dados de teste só podem ser criados em Development.");
+
+        await TestDataSeeder.SeedAsync(db, userManager, app.Environment.ContentRootPath);
+        return;
+    }
 }
 
 app.Run();
