@@ -1,6 +1,6 @@
 # Moraê — referência da API
 
-Base: `http://localhost:5242` (dev). Todas as rotas exigem `Authorization: Bearer <token>`, exceto login, refresh, logout, esqueci/redefinir senha, ver/aceitar convite, callback e webhook do Mercado Pago e as rotas de `/api/public`.
+Base: `http://localhost:5242` (dev). Todas as rotas exigem `Authorization: Bearer <token>`, exceto login, refresh, logout, esqueci/redefinir senha, ver/aceitar convite, callback e webhook do Mercado Pago e as rotas de `/api/public` (WhatsApp comercial e formulário de contato da landing).
 
 Para os detalhes de cada rota (corpo, validações, quem pode chamar), leia o controller e o service correspondentes em `backend/Controllers` e `backend/Services`. Os DTOs ficam em `backend/DTOs`.
 
@@ -27,6 +27,7 @@ Para os detalhes de cada rota (corpo, validações, quem pode chamar), leia o co
 - **Manutenção:** lista com `?status=&buildingId=`, ordenada pela mais urgente; cada item traz `status`, `daysUntilDue` (negativo = atrasada) e `lastPerformedOn`. `POST .../maintenance-plans/defaults` cria as manutenções comuns.
 - **Visitantes:** `daysOfWeek` = 0 (domingo) a 6 (sábado); vazio = todos os dias do período. A agenda (`?from=&to=&unitId=&buildingId=&visitorType=&includeCanceled=`, até 31 dias) devolve `dates` com os dias em que cada visita acontece. `my-visits?includePast=true` inclui canceladas e passadas.
 - **Importação por planilha (só Admin):** baixe o modelo (`?format=csv` ou `xlsx`), envie em `preview` (nada é gravado) e, se `canConfirm`, envie **o mesmo arquivo** em `confirm` (valida tudo de novo e grava numa transação: tudo ou nada; com qualquer linha com erro devolve 400). Cada linha = uma unidade, com pessoa e cobrança em aberto opcionais. Colunas casadas pelo cabeçalho, sem acento/maiúsculas: Prédio (nome ou código; cria se não existir), Unidade, Tipo da unidade, Quartos, Banheiros, Metragem, Nome, CPF, Telefone (opcional), E-mail (opcional; aceita "Email"/"E-mail"), Vínculo (Proprietário/Morador/Inquilino; vazio = Morador), Valor, Vencimento (DD/MM/AAAA; **pode ser passado**: dívida antiga entra como pendente e a rotina de hora em hora marca atrasada — só na importação, a criação manual continua recusando data passada), Descrição. Colunas desconhecidas vêm em `ignoredColumns`. O que já existe é reaproveitado (`action: "existing"`, conta em `skipped`). Não envia e-mails, convites nem notificações. A prévia traz `summary` (`created`/`skipped` por tipo: buildings, units, persons, links, charges) e `rows` (`line`, `errors`, `warnings` (avisos que não bloqueiam, ex.: "Vencida em 10/01."), `email`, e `buildingAction`/`unitAction`/`personAction`/`linkAction`/`chargeAction` = `create`/`existing`/null).
+- **Contatos da landing:** `POST /api/public/contacts` é **público** (sem token), limite de 5/min por IP. Corpo `{ name, whatsApp, unitCount, profile, pain }`: nome de 2 a 120 caracteres; WhatsApp com qualquer formatação, 10 a 13 dígitos (número com DDD sem o 55 ganha o 55 na frente e fica gravado só com dígitos); `unitCount` de 1 a 10.000; `profile` = `LandingContactProfileType`; `pain` opcional, um dos ids do hero (`inadimplencia`, `avisos`, `sistema`, `assembleia`, `migrar`), gravado como texto. Responde sempre `{ message }`. O mesmo WhatsApp de novo em 24 h **atualiza** o contato anterior (sem linha nova, sem e-mail e sem avisar o visitante). Cada contato novo manda e-mail para todos os Master, com os dados e o link do WhatsApp. Lista e status são **só do Master**: `GET /api/landing-contacts?status=` (mais novo primeiro) e `PATCH .../{id}/status` `{ status }` (devolve o contato). Cada item: `id`, `name`, `whatsApp` (só dígitos, com 55), `unitCount`, `profile`, `pain`, `painLabel` (a dor em palavras), `status`, `whatsAppUrl` (link `wa.me` com mensagem pronta, o mesmo do e-mail), `createdAt`, `updatedAt`.
 - **Assembleias:** `phase` é o que a tela deve usar (rascunho/agendada/aberta/encerrada/cancelada). Cédula: `GET /my-ballot` (unidades do usuário, `canVote`, `blockReason`, `votes` por item). Votar: `PUT /votes` `{ unitId, votes: [{ itemId, optionId }] }`. Resultado: `GET /results` (com `isFinal=false`, a gestão vê só a participação). Cada pauta traz `summary` pronto em português. **Anexo por opção** (ex.: orçamento de uma empresa): cada opção traz `hasAttachment`, `attachmentFileName` e `attachmentSizeBytes` (no resultado, `hasAttachment` e `attachmentFileName`). Enviar/trocar: `PUT /api/assembly-options/{optionId}/attachment` (multipart, campo `file`; PDF, JPG, PNG, DOCX ou XLSX até 20 MB) e remover: `DELETE` na mesma rota — só gestão, só em rascunho e nunca na "Abstenção"; ambos devolvem a assembleia. Baixar: `GET` na mesma rota (quem pode ver a assembleia). Como as pautas são recriadas a cada `PUT /api/assemblies/{id}`, a opção que continua igual (mesma posição da pauta e mesmo texto) mantém o anexo; as outras perdem o arquivo. Apagar o rascunho apaga os arquivos.
 
 ## Rotas
@@ -285,6 +286,13 @@ POST   /api/condominiums/{condominiumId}/imports/preview
 GET    /api/condominiums/{condominiumId}/imports/template?format=csv|xlsx
 ```
 
+### Contatos da landing (leads)
+```
+POST   /api/public/contacts
+GET    /api/landing-contacts?status=
+PATCH  /api/landing-contacts/{id}/status
+```
+
 ### Manutenção preventiva (I)
 ```
 GET    /api/condominiums/{condominiumId}/maintenance-plans
@@ -347,6 +355,8 @@ POST   /api/condominiums/{condominiumId}/assemblies
 - `DocumentVisibility`: 1 Everyone, 2 ManagementOnly
 - `FinancialAccountScope`: 1 Platform, 2 Condominium
 - `InvitationStatus`: 1 Pending, 2 Accepted, 3 Refused, 4 Expired, 5 Canceled
+- `LandingContactProfileType`: 1 Administrator (administrador/administradora), 2 Syndic (síndico)
+- `LandingContactStatus`: 1 New (Novo), 2 InConversation (Em conversa), 3 Closed (Fechado), 4 NotInterested (Sem interesse)
 - `MaintenanceCategory`: 1 Elevator, 2 FireSafety, 3 WaterTank, 4 PestControl, 5 Electrical, 6 Equipment, 7 Structure, 8 Pool, 9 Other
 - `MaintenanceStatus`: 1 UpToDate, 2 DueSoon, 3 Overdue
 - `NewsScope`: 1 Condominium, 2 Platform

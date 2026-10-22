@@ -47,6 +47,7 @@ using backend.Services.FinancialAccounts;
 using backend.Services.Notifications;
 using backend.Services.MercadoPago;
 using backend.Services.Imports;
+using backend.Services.LandingContacts;
 
 DotEnv.Load();
 
@@ -180,6 +181,7 @@ builder.Services.AddAutoMapper(
     typeof(NotificationProfile),
     typeof(MercadoPagoProfile),
     typeof(OccurrenceProfile),
+    typeof(LandingContactProfile),
     typeof(UserCondominiumAccessProfile));
 
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -212,6 +214,7 @@ builder.Services.AddScoped<IMaintenanceReminderService, MaintenanceReminderServi
 builder.Services.AddScoped<IVisitService, VisitService>();
 builder.Services.AddScoped<IAssemblyService, AssemblyService>();
 builder.Services.AddScoped<ISpreadsheetImportService, SpreadsheetImportService>();
+builder.Services.AddScoped<ILandingContactService, LandingContactService>();
 builder.Services.AddSingleton<IFileStorage, LocalFileStorage>();
 builder.Services.AddScoped<IUserCondominiumPermissionService, UserCondominiumPermissionService>();
 builder.Services.AddScoped<IUserCondominiumAccessService, UserCondominiumAccessService>();
@@ -309,6 +312,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy(RateLimitPolicies.PasswordResetConfirm, context => PerIpPerMinute(context, 10));
     options.AddPolicy(RateLimitPolicies.Webhook, context => PerIpPerMinute(context, 120));
     options.AddPolicy(RateLimitPolicies.PublicInfo, context => PerIpPerMinute(context, 60));
+    options.AddPolicy(RateLimitPolicies.LandingContact, context => PerIpPerMinute(context, 5));
 
     options.OnRejected = async (rejection, cancellationToken) =>
     {

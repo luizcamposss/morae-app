@@ -10,4 +10,5 @@ public static class RateLimitPolicies
     public const string PasswordResetConfirm = "password-reset-confirm"; // 10/min (set the new password)
     public const string Webhook = "webhook";           // 120/min (Mercado Pago bursts)
     public const string PublicInfo = "public-info";    // 60/min (landing / login info)
+    public const string LandingContact = "landing-contact"; // 5/min (landing page contact form)
 }

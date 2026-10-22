@@ -86,7 +86,7 @@ export const faqItems: FaqItem[] = [
 ];
 
 export const startSteps = [
-  { title: "Você manda a mensagem", text: "Ela abre pronta no WhatsApp. É só revisar e enviar." },
+  { title: "Você deixa seu contato", text: "Nome, WhatsApp e o tamanho do condomínio. A gente te chama por lá." },
   { title: "A gente cadastra seu condomínio", text: "Você recebe o acesso de administrador por e-mail." },
   { title: "Primeiro Pix", text: "Conecte o Mercado Pago, convide os moradores e receba." },
 ];

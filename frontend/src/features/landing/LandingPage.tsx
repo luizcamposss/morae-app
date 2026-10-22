@@ -9,7 +9,7 @@ import { ChapterCare } from "./components/ChapterCare";
 import { ContactSection } from "./components/ContactSection";
 import { FaqSection } from "./components/FaqSection";
 
-// Public landing page. The pain picked in the hero follows the visitor down to the WhatsApp message.
+// Public landing page. The pain picked in the hero follows the visitor down to the contact form.
 export function LandingPage() {
   const [pain, setPain] = useState<PainId>("inadimplencia");
 
