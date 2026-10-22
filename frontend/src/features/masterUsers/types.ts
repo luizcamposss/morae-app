@@ -18,12 +18,3 @@ export type MasterUserResponse = {
 export type SuspendUserRequest = {
   suspensionReason?: string;
 };
-
-export type CreateMasterUserRequest = {
-  condominiumId: number;
-  name: string;
-  cpf: string;
-  phoneNumber: string;
-  email: string;
-  password: string;
-};

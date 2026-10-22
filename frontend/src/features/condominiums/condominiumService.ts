@@ -2,7 +2,6 @@ import { apiRequest } from "../../shared/lib/api/apiClient";
 import type {
   CondominiumResponse,
   CreateCondominiumOnboardingRequest,
-  CreateCondominiumRequest,
   UpdateCondominiumAdminRequest,
   UpdateCondominiumRequest,
   UpdateCondominiumStatusRequest,
@@ -10,16 +9,6 @@ import type {
 
 export async function getCondominiums(): Promise<CondominiumResponse[]> {
   return apiRequest<CondominiumResponse[]>("/api/condominium", {
-    auth: true,
-  });
-}
-
-export async function createCondominium(
-  data: CreateCondominiumRequest,
-): Promise<CondominiumResponse> {
-  return apiRequest<CondominiumResponse>("/api/condominium", {
-    method: "POST",
-    body: data,
     auth: true,
   });
 }

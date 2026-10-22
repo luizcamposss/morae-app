@@ -1,22 +1,11 @@
 import { apiRequest } from "../../shared/lib/api/apiClient";
 import type {
-  CreateMasterUserRequest,
   MasterUserResponse,
   SuspendUserRequest,
 } from "./types";
 
 export async function getMasterUsers(): Promise<MasterUserResponse[]> {
   return apiRequest<MasterUserResponse[]>("/api/master/users", {
-    auth: true,
-  });
-}
-
-export async function createMasterUser(
-  data: CreateMasterUserRequest,
-): Promise<MasterUserResponse> {
-  return apiRequest<MasterUserResponse>("/api/master/users", {
-    method: "POST",
-    body: data,
     auth: true,
   });
 }

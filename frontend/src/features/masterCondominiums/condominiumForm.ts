@@ -195,10 +195,6 @@ export function toUpdateRequest(form: FormState): UpdateCondominiumRequest {
     };
 }
 
-export function getStatusLabel(status: number) {
-    return status === ACTIVE_STATUS ? "Ativo" : "Inativo";
-}
-
 export function getAccessStatusLabel(status: number) {
     return status === ACTIVE_STATUS ? "Ativo" : "Suspenso";
 }
