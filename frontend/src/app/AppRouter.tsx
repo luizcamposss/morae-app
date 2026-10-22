@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { LoginPage } from "../features/auth/LoginPage";
+import { LandingPage } from "../features/landing/LandingPage";
 import { ForgotPasswordPage } from "../features/auth/ForgotPasswordPage";
 import { ResetPasswordPage } from "../features/auth/ResetPasswordPage";
 import { AppLayout } from "../shared/layout/AppLayout";
@@ -18,6 +19,7 @@ export function AppRouter() {
     return (
         <BrowserRouter>
             <Routes>
+                <Route path="/" element={<LandingPage />} />
                 <Route path="/accept-invitation/:token" element={<AcceptInvitationPage />} />
                 {/* Reachable even when signed in: the e-mail link always works. */}
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
