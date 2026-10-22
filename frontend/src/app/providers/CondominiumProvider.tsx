@@ -34,12 +34,64 @@ type CondominiumProviderProps = {
   children: ReactNode;
 };
 
+type LoadedCondominiums = {
+  condominiums: CondominiumContextValue["condominiums"];
+  activeCondominiumId: number | null;
+  errorMessage: string;
+};
+
+// The user's condominiums and which one is active. Never touches React state, so the effect
+// only applies the result (and drops it if the user changed meanwhile).
+async function loadCondominiums(userId: number | undefined): Promise<LoadedCondominiums> {
+  if (userId === undefined) {
+    return { condominiums: [], activeCondominiumId: null, errorMessage: "" };
+  }
+
+  try {
+    const result = await getMyCondominiums();
+
+    if (result.length === 0) {
+      storeCondominiumId(userId, null);
+      return { condominiums: result, activeCondominiumId: null, errorMessage: "" };
+    }
+
+    const storedCondominiumId = readStoredCondominiumId(userId);
+    const hasStoredCondominium = result.some(
+      (condominium) => condominium.condominiumId === storedCondominiumId,
+    );
+
+    const preferredCondominium =
+      result.find((condominium) => condominium.role === "Admin") ?? result[0];
+
+    const nextActiveCondominiumId = hasStoredCondominium
+      ? storedCondominiumId
+      : preferredCondominium.condominiumId;
+
+    storeCondominiumId(userId, nextActiveCondominiumId);
+    return { condominiums: result, activeCondominiumId: nextActiveCondominiumId, errorMessage: "" };
+  } catch (error) {
+    return {
+      condominiums: [],
+      activeCondominiumId: null,
+      errorMessage: error instanceof Error ? error.message : "Não foi possível carregar os condomínios.",
+    };
+  }
+}
+
 export function CondominiumProvider({ children }: CondominiumProviderProps) {
   const { isAuthenticated, user } = useAuth();
-  const [condominiums, setCondominiums] = useState<CondominiumContextValue["condominiums"]>([]);
-  const [activeCondominiumId, setActiveCondominiumIdState] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState("");
+  const userId = isAuthenticated ? user?.userId : undefined;
+  // Which user the loaded data belongs to: while it differs from the current one, it's loading.
+  const [loaded, setLoaded] = useState<LoadedCondominiums & { userId: number | undefined | null }>({
+    userId: null,
+    condominiums: [],
+    activeCondominiumId: null,
+    errorMessage: "",
+  });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const { condominiums, activeCondominiumId, errorMessage } = loaded;
+  const isLoading = loaded.userId !== userId || isRefreshing;
 
   const activeCondominium = useMemo(
     () =>
@@ -48,63 +100,32 @@ export function CondominiumProvider({ children }: CondominiumProviderProps) {
   );
 
   function setActiveCondominiumId(condominiumId: number) {
-    setActiveCondominiumIdState(condominiumId);
+    setLoaded((current) => ({ ...current, activeCondominiumId: condominiumId }));
     storeCondominiumId(user?.userId, condominiumId);
   }
 
   async function refreshCondominiums() {
-    if (!isAuthenticated) {
-      setCondominiums([]);
-      setActiveCondominiumIdState(null);
-      setErrorMessage("");
-      setIsLoading(false);
-      return;
-    }
-
-    setIsLoading(true);
-    setErrorMessage("");
+    setIsRefreshing(true);
 
     try {
-      const result = await getMyCondominiums();
-      setCondominiums(result);
-
-      if (result.length === 0) {
-        setActiveCondominiumIdState(null);
-        storeCondominiumId(user?.userId, null);
-        return;
-      }
-
-      const storedCondominiumId = user ? readStoredCondominiumId(user.userId) : null;
-      const hasStoredCondominium = result.some(
-        (condominium) => condominium.condominiumId === storedCondominiumId,
-      );
-
-      const preferredCondominium =
-        result.find((condominium) => condominium.role === "Admin") ?? result[0];
-
-      const nextActiveCondominiumId = hasStoredCondominium
-        ? storedCondominiumId
-        : preferredCondominium.condominiumId;
-
-      setActiveCondominiumIdState(nextActiveCondominiumId);
-      storeCondominiumId(user?.userId, nextActiveCondominiumId);
-    } catch (error) {
-      setCondominiums([]);
-      setActiveCondominiumIdState(null);
-
-      if (error instanceof Error) {
-        setErrorMessage(error.message);
-      } else {
-        setErrorMessage("Nao foi possivel carregar os condominios.");
-      }
+      const result = await loadCondominiums(userId);
+      setLoaded({ userId, ...result });
     } finally {
-      setIsLoading(false);
+      setIsRefreshing(false);
     }
   }
 
   useEffect(() => {
-    void refreshCondominiums();
-  }, [isAuthenticated, user?.userId]);
+    let isCurrent = true;
+
+    void loadCondominiums(userId).then((result) => {
+      if (isCurrent) setLoaded({ userId, ...result });
+    });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [userId]);
 
   const value: CondominiumContextValue = {
     condominiums,
