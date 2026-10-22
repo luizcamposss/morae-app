@@ -36,11 +36,12 @@ public class LandingContactsController : ControllerBase
     }
 
     [HttpGet("api/landing-contacts")]
-    public async Task<IActionResult> GetAll([FromQuery] LandingContactStatus? status)
+    // Taken as a number so an unknown status gets the service's Portuguese message, not the model-binding error.
+    public async Task<IActionResult> GetAll([FromQuery] int? status)
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        var contacts = await _landingContactService.GetAllAsync(userId, status);
+        var contacts = await _landingContactService.GetAllAsync(userId, (LandingContactStatus?)status);
 
         return Ok(contacts);
     }

@@ -21,25 +21,31 @@ public class LandingContactService : ILandingContactService
     private const int MaxUnitCount = 10_000;
     // The same WhatsApp within this window updates the previous contact instead of creating another.
     private static readonly TimeSpan RepeatWindow = TimeSpan.FromHours(24);
+    // The per-IP limit doesn't stop a bot using many IPs; past this many new contacts in the last
+    // hour the contacts are still saved, but the Masters stop getting one e-mail each.
+    private const int MaxEmailedContactsPerHour = 30;
 
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
     private readonly IPermissionService _permissionService;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IEmailQueue _emailQueue;
+    private readonly ILogger<LandingContactService> _logger;
 
     public LandingContactService(
         AppDbContext context,
         IMapper mapper,
         IPermissionService permissionService,
         UserManager<ApplicationUser> userManager,
-        IEmailQueue emailQueue)
+        IEmailQueue emailQueue,
+        ILogger<LandingContactService> logger)
     {
         _context = context;
         _mapper = mapper;
         _permissionService = permissionService;
         _userManager = userManager;
         _emailQueue = emailQueue;
+        _logger = logger;
     }
 
     public async Task CreateAsync(CreateLandingContactDto dto)
@@ -90,6 +96,16 @@ public class LandingContactService : ILandingContactService
 
         _context.LandingContacts.Add(contact);
         await _context.SaveChangesAsync();
+
+        var contactsLastHour = await _context.LandingContacts.CountAsync(item => item.CreatedAt >= now.AddHours(-1));
+
+        if (contactsLastHour > MaxEmailedContactsPerHour)
+        {
+            _logger.LogWarning(
+                "Landing contact {ContactId} saved without e-mail: {Count} new contacts in the last hour (limit {Limit}).",
+                contact.Id, contactsLastHour, MaxEmailedContactsPerHour);
+            return;
+        }
 
         await QueueMasterEmailsAsync(contact);
     }
