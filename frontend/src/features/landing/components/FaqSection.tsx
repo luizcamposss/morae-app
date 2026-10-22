@@ -1,12 +1,13 @@
 import { useId, useState } from "react";
 import { ArrowRight, Minus, Plus } from "lucide-react";
-import { faqItems } from "../landingContent";
-import { GREETING_LINK } from "../whatsapp";
+import { useCommercialWhatsApp, whatsappLink } from "../../../shared/hooks/useCommercialWhatsApp";
+import { faqItems, GREETING_MESSAGE } from "../landingContent";
 
 export function FaqSection() {
   // The first answer starts open, as in the design.
   const [openItems, setOpenItems] = useState<Set<number>>(() => new Set([0]));
   const baseId = useId();
+  const whatsAppNumber = useCommercialWhatsApp();
 
   function toggle(index: number) {
     setOpenItems((current) => {
@@ -25,19 +26,22 @@ export function FaqSection() {
           <h2 className="font-display text-[clamp(2.25rem,3.6vw,2.75rem)] font-bold leading-[1.05] tracking-[-0.02em] text-tinta max-lg:text-balance">
             As dúvidas de quem está pensando em trocar.
           </h2>
-          <div className="mt-6 flex max-w-[400px] flex-col items-start gap-1.5 rounded-2xl bg-fundo p-[22px]">
-            <p className="text-[17px] font-semibold text-tinta">Não achou sua dúvida?</p>
-            <p className="text-[15px] text-tinta-suave">A gente responde rápido no WhatsApp.</p>
-            <a
-              href={GREETING_LINK}
-              target="_blank"
-              rel="noreferrer"
-              className="group mt-3 inline-flex items-center gap-2 rounded-full bg-verde px-5 py-3 text-[15px] font-semibold text-verde-tinta transition-colors duration-150 hover:bg-verde-forte focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-verde"
-            >
-              Chamar no WhatsApp
-              <ArrowRight size={17} strokeWidth={2.4} aria-hidden className="transition-transform duration-200 ease-out-expo group-hover:translate-x-0.5" />
-            </a>
-          </div>
+          {/* Only when the commercial WhatsApp is configured: the whole card is about it. */}
+          {whatsAppNumber && (
+            <div className="mt-6 flex max-w-[400px] flex-col items-start gap-1.5 rounded-2xl bg-fundo p-[22px] motion-safe:animate-rise-in">
+              <p className="text-[17px] font-semibold text-tinta">Não achou sua dúvida?</p>
+              <p className="text-[15px] text-tinta-suave">A gente responde rápido no WhatsApp.</p>
+              <a
+                href={whatsappLink(whatsAppNumber, GREETING_MESSAGE)}
+                target="_blank"
+                rel="noreferrer"
+                className="group mt-3 inline-flex items-center gap-2 rounded-full bg-verde px-5 py-3 text-[15px] font-semibold text-verde-tinta transition-colors duration-150 hover:bg-verde-forte focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-verde"
+              >
+                Chamar no WhatsApp
+                <ArrowRight size={17} strokeWidth={2.4} aria-hidden className="transition-transform duration-200 ease-out-expo group-hover:translate-x-0.5" />
+              </a>
+            </div>
+          )}
         </div>
 
         <ul className="border-t border-linha">

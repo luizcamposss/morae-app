@@ -6,6 +6,7 @@ import { useAuth } from "../../app/providers/useAuth";
 import { getDefaultRouteByRoles } from "./authRedirect";
 import { Button } from "../../shared/components/Button";
 import { TextField } from "../../shared/components/TextField";
+import { useCommercialWhatsApp, whatsappLink } from "../../shared/hooks/useCommercialWhatsApp";
 import { AuthLayout } from "./AuthLayout";
 import { LoginPanel } from "./authPanels";
 
@@ -19,6 +20,7 @@ export function LoginPage() {
     const [password, setPassword] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const whatsAppNumber = useCommercialWhatsApp();
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
@@ -121,9 +123,27 @@ export function LoginPage() {
             <p className="mt-6 text-[13px] leading-relaxed text-tinta-suave">
                 Primeiro acesso? Use o link do convite que chegou no seu e-mail.
             </p>
+
+            {/* For people who land here without an account: only when the commercial WhatsApp is configured. */}
+            {whatsAppNumber && (
+                <p className="mt-2 text-[13px] leading-relaxed text-tinta-suave motion-safe:animate-rise-in">
+                    Ainda não usa o Moraê?{" "}
+                    <a
+                        href={whatsappLink(whatsAppNumber, PROSPECT_MESSAGE)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-semibold text-tinta underline decoration-tinta/40 underline-offset-4 transition-colors duration-150 hover:decoration-tinta focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-verde"
+                    >
+                        Fale com a gente no WhatsApp
+                    </a>
+                </p>
+            )}
         </AuthLayout>
     );
 }
+
+// Ready message for whoever opens the WhatsApp from the login without an account.
+const PROSPECT_MESSAGE = "Oi! Ainda não uso o Moraê e quero conhecer para o meu condomínio.";
 
 function isValidEmail(value: string) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);

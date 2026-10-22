@@ -112,6 +112,10 @@ builder.Services.Configure<ResendSettings>(
     builder.Configuration.GetSection("Resend")
 );
 
+builder.Services.Configure<CommercialSettings>(
+    builder.Configuration.GetSection("Commercial")
+);
+
 // E-mails go through an in-memory queue and are sent by a background worker,
 // so requests never wait for Resend and a Resend outage never breaks an action.
 builder.Services.AddSingleton<EmailQueue>();
@@ -304,6 +308,7 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy(RateLimitPolicies.PasswordReset, context => PerIpPerMinute(context, 5));
     options.AddPolicy(RateLimitPolicies.PasswordResetConfirm, context => PerIpPerMinute(context, 10));
     options.AddPolicy(RateLimitPolicies.Webhook, context => PerIpPerMinute(context, 120));
+    options.AddPolicy(RateLimitPolicies.PublicInfo, context => PerIpPerMinute(context, 60));
 
     options.OnRejected = async (rejection, cancellationToken) =>
     {

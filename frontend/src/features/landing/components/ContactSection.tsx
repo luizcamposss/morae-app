@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent } from "react";
 import { ArrowRight } from "lucide-react";
+import { loadCommercialWhatsApp, useCommercialWhatsApp, whatsappLink } from "../../../shared/hooks/useCommercialWhatsApp";
 import { pains, startSteps, type PainId } from "../landingContent";
-import { whatsappLink } from "../whatsapp";
 
 type Role = "admin" | "sindico";
 type ContactSectionProps = { pain: PainId };
@@ -19,6 +19,8 @@ export function ContactSection({ pain }: ContactSectionProps) {
   const [units, setUnits] = useState("");
   const [role, setRole] = useState<Role>("admin");
   const [errors, setErrors] = useState<{ name?: string; units?: string }>({});
+  const [isUnavailable, setIsUnavailable] = useState(false);
+  const whatsAppNumber = useCommercialWhatsApp();
   const fieldId = useId();
   const selectedPain = pains.find((item) => item.id === pain) ?? pains[0];
 
@@ -27,7 +29,7 @@ export function ContactSection({ pain }: ContactSectionProps) {
     `Oi! Sou ${firstName || EXAMPLE.name}, ${role === "admin" ? "administrador(a)" : "síndico(a)"} de um condomínio com ` +
     `${units || EXAMPLE.units} unidades. Hoje o que mais pesa é ${selectedPain.selectorLabel}. Quero ver o Moraê funcionando.`;
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const unitCount = Number(units);
     const nextErrors = {
@@ -37,7 +39,10 @@ export function ContactSection({ pain }: ContactSectionProps) {
     setErrors(nextErrors);
     if (nextErrors.name || nextErrors.units) return;
 
-    window.open(whatsappLink(message), "_blank", "noopener,noreferrer");
+    // No number yet (still loading or the first try failed): try once more before giving up.
+    const number = whatsAppNumber ?? (await loadCommercialWhatsApp());
+    setIsUnavailable(!number);
+    if (number) window.open(whatsappLink(number, message), "_blank", "noopener,noreferrer");
   }
 
   return (
@@ -114,6 +119,11 @@ export function ContactSection({ pain }: ContactSectionProps) {
             <p className="rounded-xl bg-verde-suave px-3.5 py-3 text-[15px] leading-[1.45] text-tinta">{message}</p>
             <p className="text-[13px] text-tinta-suave">Você revisa antes de enviar.</p>
           </div>
+          {isUnavailable && !whatsAppNumber && (
+            <p role="status" className="rounded-field bg-ambar-suave px-4 py-3 text-[14px] font-medium leading-snug text-tinta">
+              Nosso WhatsApp está fora do ar agora. Tente de novo em alguns minutos.
+            </p>
+          )}
           <button
             type="submit"
             className="group inline-flex h-12 items-center justify-center gap-3 rounded-full bg-verde px-6 text-[18px] font-bold text-verde-tinta transition-colors duration-150 hover:bg-verde-forte focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-verde"

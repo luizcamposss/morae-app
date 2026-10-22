@@ -1,6 +1,6 @@
 # Moraê — referência da API
 
-Base: `http://localhost:5242` (dev). Todas as rotas exigem `Authorization: Bearer <token>`, exceto login, refresh, logout, esqueci/redefinir senha, ver/aceitar convite, callback e webhook do Mercado Pago.
+Base: `http://localhost:5242` (dev). Todas as rotas exigem `Authorization: Bearer <token>`, exceto login, refresh, logout, esqueci/redefinir senha, ver/aceitar convite, callback e webhook do Mercado Pago e as rotas de `/api/public`.
 
 Para os detalhes de cada rota (corpo, validações, quem pode chamar), leia o controller e o service correspondentes em `backend/Controllers` e `backend/Services`. Os DTOs ficam em `backend/DTOs`.
 
@@ -30,6 +30,12 @@ Para os detalhes de cada rota (corpo, validações, quem pode chamar), leia o co
 - **Assembleias:** `phase` é o que a tela deve usar (rascunho/agendada/aberta/encerrada/cancelada). Cédula: `GET /my-ballot` (unidades do usuário, `canVote`, `blockReason`, `votes` por item). Votar: `PUT /votes` `{ unitId, votes: [{ itemId, optionId }] }`. Resultado: `GET /results` (com `isFinal=false`, a gestão vê só a participação). Cada pauta traz `summary` pronto em português. **Anexo por opção** (ex.: orçamento de uma empresa): cada opção traz `hasAttachment`, `attachmentFileName` e `attachmentSizeBytes` (no resultado, `hasAttachment` e `attachmentFileName`). Enviar/trocar: `PUT /api/assembly-options/{optionId}/attachment` (multipart, campo `file`; PDF, JPG, PNG, DOCX ou XLSX até 20 MB) e remover: `DELETE` na mesma rota — só gestão, só em rascunho e nunca na "Abstenção"; ambos devolvem a assembleia. Baixar: `GET` na mesma rota (quem pode ver a assembleia). Como as pautas são recriadas a cada `PUT /api/assemblies/{id}`, a opção que continua igual (mesma posição da pauta e mesmo texto) mantém o anexo; as outras perdem o arquivo. Apagar o rascunho apaga os arquivos.
 
 ## Rotas
+
+### Público (landing e login, sem login)
+```
+GET    /api/public/commercial-contact   → { whatsAppNumber } (só dígitos, com DDI; null = sem número, esconda o botão)
+```
+Número vem de `Commercial__WhatsAppNumber` no `.env`. Limite de 60/min por IP.
 
 ### Autenticação
 ```
