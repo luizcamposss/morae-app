@@ -90,3 +90,6 @@ export const startSteps = [
   { title: "A gente cadastra seu condomínio", text: "Você recebe o acesso de administrador por e-mail." },
   { title: "Primeiro Pix", text: "Conecte o Mercado Pago, convide os moradores e receba." },
 ];
+
+// First WhatsApp message of the landing buttons outside the contact form.
+export const GREETING_MESSAGE = "Oi! Quero conhecer o Moraê.";

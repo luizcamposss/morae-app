@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { MoraeMark } from "../../../shared/components/MoraeMark";
-import { pains, type PainId } from "../landingContent";
-import { GREETING_LINK } from "../whatsapp";
+import { useCommercialWhatsApp, whatsappLink } from "../../../shared/hooks/useCommercialWhatsApp";
+import { GREETING_MESSAGE, pains, type PainId } from "../landingContent";
 import { PainSelector } from "./PainSelector";
 import { PixToast } from "./NoteCard";
 import { UnitGridPanel } from "./UnitGridPanel";
@@ -13,6 +13,7 @@ const TAGLINE = "SISTEMA DE GESTÃO PARA CONDOMÍNIOS E ADMINISTRADORAS";
 
 export function HeroSection({ pain, onPainChange }: HeroSectionProps) {
   const { headline, subtitle } = pains.find((item) => item.id === pain) ?? pains[0];
+  const whatsAppNumber = useCommercialWhatsApp();
 
   return (
     <section className="relative overflow-hidden bg-superficie lg:h-[900px]">
@@ -32,9 +33,10 @@ export function HeroSection({ pain, onPainChange }: HeroSectionProps) {
 
       <div className="mx-auto flex max-w-[1000px] flex-col items-center px-4 pt-6 text-center lg:pt-6">
         <p className="mb-5 text-[12px] font-semibold tracking-[0.1em] text-verde xl:hidden">{TAGLINE}</p>
-        <p className="text-[clamp(1.125rem,2.2vw,1.625rem)] font-semibold text-tinta-suave">
+        {/* A div, not a p: the selector holds a listbox, which cannot live inside a paragraph. */}
+        <div className="text-[clamp(1.125rem,2.2vw,1.625rem)] font-semibold text-tinta-suave">
           Hoje, o que mais me tira o sono é <PainSelector value={pain} onChange={onPainChange} />
-        </p>
+        </div>
 
         <h1
           key={pain}
@@ -54,14 +56,16 @@ export function HeroSection({ pain, onPainChange }: HeroSectionProps) {
             Ver o Moraê funcionando
             <ArrowRight size={20} strokeWidth={2.4} aria-hidden className="transition-transform duration-200 ease-out-expo group-hover:translate-x-1" />
           </a>
-          <a
-            href={GREETING_LINK}
-            target="_blank"
-            rel="noreferrer"
-            className="text-[17px] font-semibold text-tinta underline decoration-tinta/40 underline-offset-4 transition-colors hover:decoration-tinta focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-verde"
-          >
-            ou fale no WhatsApp
-          </a>
+          {whatsAppNumber && (
+            <a
+              href={whatsappLink(whatsAppNumber, GREETING_MESSAGE)}
+              target="_blank"
+              rel="noreferrer"
+              className="motion-safe:animate-rise-in text-[17px] font-semibold text-tinta underline decoration-tinta/40 underline-offset-4 transition-colors hover:decoration-tinta focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-verde"
+            >
+              ou fale no WhatsApp
+            </a>
+          )}
         </div>
       </div>
 
