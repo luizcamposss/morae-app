@@ -47,7 +47,8 @@ Leia também, quando a tarefa pedir:
 - **Node:** o shell dos agentes pode abrir com o Node 18 do sistema, e o Vite pede 20+. Use o do nvm: `export PATH=$HOME/.nvm/versions/node/v22.23.3/bin:$PATH`.
 - Contas de teste dos 4 papéis: `backend/.env.test-accounts` (no `.gitignore`; leia por script, não exiba). Se o banco não tiver as contas, rode `dotnet run -- --seed-test-data` dentro de `backend/` (só em Development): cria o "Condomínio Teste Moraê" (Torre A e B, 28 unidades com cobranças) e regrava o arquivo; rodar de novo só troca as senhas.
 - **API temporária para testes:** compile (`dotnet build`) e rode `dotnet backend/bin/Debug/net8.0/backend.dll` **a partir de outra pasta** (o DotEnv lê o `.env` da pasta atual), passando as variáveis do `.env` por script, `ASPNETCORE_URLS=http://localhost:<porta>` e `Resend__ApiKey=` vazio (para não enviar e-mail). Pare o processo no fim (mate pelo PID da porta, não use `pkill -f`).
-- **Agentes em paralelo:** cada agente usa a **sua** porta de API (5243, 5244, 5245…) e de front (5174, 5175…). O banco é compartilhado: crie dados de teste com prefixo único e apague no fim. O CORS do backend hoje aceita só `http://localhost:5173` (ver tarefa F0 no plano de frontend).
+- **Agentes em paralelo:** cada agente usa a **sua** porta de API (5243, 5244, 5245…) e de front (5174, 5175…). O banco é compartilhado: crie dados de teste com prefixo único e apague no fim. Libere o front de teste no CORS com `Cors__Origins` (ex.: `http://127.0.0.1:5174`).
+- **Cookie de sessão é por host, não por porta.** Logar numa API de teste em `localhost:<porta>` troca o cookie da sessão do Luiz em `localhost:5242/5173`. Nos testes, abra o front em `http://127.0.0.1:<porta>` com `VITE_API_URL=http://127.0.0.1:<porta da API>`. Agentes em paralelo no `127.0.0.1` também dividem o cookie: se a sessão virar outro usuário, faça login de novo e não clique em "Sair" à toa (revoga a sessão dos outros).
 - Login tem limite de 10 tentativas/minuto por IP: espere 1 minuto se receber 429.
 - Para consultar o MySQL com acentos: `docker exec morae-app-morae-mysql-1 mysql -uroot -proot --default-character-set=utf8mb4 moraeDB -e "..."`.
 - Checagens: `dotnet build` no backend; `npm run lint` e `npm run build` no frontend.
@@ -57,7 +58,8 @@ Leia também, quando a tarefa pedir:
 - Branch principal de integração: **`develop`** (PRs vão para ela). `main` só recebe na hora do deploy.
 - Uma branch por módulo/tarefa (`feat/...`, `fix/...`). Se a branch nova depende de outra ainda não mesclada, avise o Luiz da ordem dos merges.
 
-## Estado atual (2026-10-10)
+## Estado atual (2026-10-22)
 
-- **Backend completo:** Mercado Pago, datas em SP, login/sessão (A), permissões e segurança (B), e-mail (C), rotinas automáticas (D), correções (F), Documentos (H), Manutenção preventiva (I), Visitantes (J), Assembleias e votações (K).
-- **Falta:** a **rodada de frontend** (o Luiz quer redesenhar a interface; ver `docs/ai/frontend-plan.md`) e o **deploy (G)** na VPS do Luiz, em `https://morae.synergylab.tech`, ao lado de um site que já roda lá com Caddy (não mexer na configuração dele).
+- **Backend completo:** Mercado Pago, datas em SP, login/sessão, permissões, e-mail, rotinas automáticas, Documentos, Manutenção preventiva, Visitantes, Assembleias, cobrança em lote/recorrente com multa e juros, importação por planilha, contatos da landing (com e-mail para o Master) e WhatsApp comercial em configuração (`Commercial__WhatsAppNumber`).
+- **Frontend redesenhado** (landing em `/`, app em `/login`), incluindo a tela Contatos do Master. Lint do projeto inteiro zerado e checado no CI.
+- **Falta (com o Luiz):** PWA (#107), deploy na VPS (#108) em `https://morae.synergylab.tech`, ao lado de um site que já roda lá com Caddy (não mexer na configuração dele), e o tour animado da landing (#106, depois do lançamento).
