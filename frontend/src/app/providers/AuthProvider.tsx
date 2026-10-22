@@ -14,6 +14,27 @@ type AuthProviderProps = {
     children: ReactNode;
 };
 
+// The logged-in user, or null. Never touches React state, so the effect only applies the result.
+async function loadSessionUser(): Promise<MeResponse | null> {
+    // No access token stored: the refresh-token cookie may still hold a valid session.
+    const token = getToken() ?? (await refreshAccessToken());
+
+    if (!token) {
+        return null;
+    }
+
+    try {
+        return await getMe();
+    } catch (error) {
+        // Only an expired session logs the user out; a network error or an API restart must not.
+        if (error instanceof SessionExpiredError) {
+            removeToken();
+        }
+
+        return null;
+    }
+}
+
 export function AuthProvider({ children }: AuthProviderProps) {
     const [user, setUser] = useState<MeResponse | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -28,34 +49,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     async function refreshUser() {
-        // No access token stored: the refresh-token cookie may still hold a valid session.
-        const token = getToken() ?? (await refreshAccessToken());
-
-        if (!token) {
-            setUser(null);
-            setIsLoading(false);
-            return null;
-        }
-
-        try {
-            const me = await getMe();
-            setUser(me);
-            return me;
-        } catch (error) {
-            // Only an expired session logs the user out; a network error or an API restart must not.
-            if (error instanceof SessionExpiredError) {
-                removeToken();
-            }
-
-            setUser(null);
-            return null;
-        } finally {
-            setIsLoading(false);
-        }
+        const me = await loadSessionUser();
+        setUser(me);
+        setIsLoading(false);
+        return me;
     }
 
     useEffect(() => {
-        refreshUser();
+        void loadSessionUser().then((me) => {
+            setUser(me);
+            setIsLoading(false);
+        });
     }, []);
 
     const value: AuthContextValue = {

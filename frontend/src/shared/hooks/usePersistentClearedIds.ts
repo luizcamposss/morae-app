@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 function readStoredIds(storageKey: string) {
   try {
@@ -24,16 +24,17 @@ function writeStoredIds(storageKey: string, ids: Set<string>) {
 }
 
 export function usePersistentClearedIds(storageKey: string) {
-  const [ids, setIdsState] = useState<Set<string>>(() => readStoredIds(storageKey));
+  const [state, setState] = useState(() => ({ storageKey, ids: readStoredIds(storageKey) }));
 
-  useEffect(() => {
-    setIdsState(readStoredIds(storageKey));
-  }, [storageKey]);
+  // A new key (another condominium) reloads its own ids right in this render, without an effect.
+  if (state.storageKey !== storageKey) {
+    setState({ storageKey, ids: readStoredIds(storageKey) });
+  }
 
   function setIds(nextIds: Set<string>) {
-    setIdsState(nextIds);
+    setState({ storageKey, ids: nextIds });
     writeStoredIds(storageKey, nextIds);
   }
 
-  return [ids, setIds] as const;
+  return [state.ids, setIds] as const;
 }
