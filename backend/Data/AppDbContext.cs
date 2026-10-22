@@ -51,6 +51,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<AssemblyVote> AssemblyVotes { get; set; }
     public DbSet<RecurringCharge> RecurringCharges { get; set; }
     public DbSet<RecurringChargeUnitValue> RecurringChargeUnitValues { get; set; }
+    public DbSet<LandingContact> LandingContacts { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -652,6 +653,14 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .WithMany()
             .HasForeignKey(recipient => recipient.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Repeat check on the public form (same WhatsApp in the last 24 hours).
+        builder.Entity<LandingContact>()
+            .HasIndex(contact => new { contact.WhatsApp, contact.CreatedAt });
+
+        // Master list, filtered by status and newest first.
+        builder.Entity<LandingContact>()
+            .HasIndex(contact => new { contact.Status, contact.CreatedAt });
 
         ApplyUtcDateTimeConvention(builder);
     }
