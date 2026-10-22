@@ -14,7 +14,8 @@ export function LandingPage() {
   const [pain, setPain] = useState<PainId>("inadimplencia");
 
   return (
-    <div className="min-h-screen bg-superficie text-tinta">
+    // Big titles may break a word only when it doesn't fit (text enlarged to 200% on a 320 px phone).
+    <div className="min-h-screen bg-superficie text-tinta [&_:is(h1,h2,h3)]:[overflow-wrap:anywhere]">
       <main>
         <HeroSection pain={pain} onPainChange={setPain} />
         <PainsSection />

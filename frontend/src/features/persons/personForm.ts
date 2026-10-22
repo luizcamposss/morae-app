@@ -62,10 +62,3 @@ export function accessRoleLabel(person: PersonResponse) {
   return "";
 }
 
-export function initialsOf(name: string) {
-  // Only words that start with a letter (skips prefixes like "[T82]").
-  const parts = name.trim().split(/\s+/).filter((part) => /^\p{L}/u.test(part));
-  if (parts.length === 0) return "?";
-  const letters = parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : parts[0].slice(0, 2);
-  return letters.toUpperCase();
-}

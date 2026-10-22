@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { Avatar } from "../../shared/components/Avatar";
 import { useAuth } from "../../app/providers/useAuth";
 import { updateProfilePhoto } from "../me/meService";
 
@@ -65,18 +66,11 @@ export function ProfilePhotoBlock() {
   }
 
   const displayName = user?.personName || user?.userName || "Usuário";
-  const avatarLetter = displayName.charAt(0).toUpperCase();
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-4">
-        {user?.profilePhotoUrl ? (
-          <img src={user.profilePhotoUrl} alt={`Foto de ${displayName}`} className="size-16 shrink-0 rounded-full object-cover" />
-        ) : (
-          <span aria-hidden className="grid size-16 shrink-0 place-items-center rounded-full bg-verde-suave font-display text-2xl font-bold text-verde-tinta">
-            {avatarLetter}
-          </span>
-        )}
+        <Avatar name={displayName} photoUrl={user?.profilePhotoUrl} alt={`Foto de ${displayName}`} className="size-16 font-display text-2xl" />
         <div className="flex flex-wrap items-center gap-2">
           <label
             htmlFor={inputId}

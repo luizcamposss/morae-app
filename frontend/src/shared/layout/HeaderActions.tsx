@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { LogOut, SlidersHorizontal } from "lucide-react";
+import { Avatar } from "../components/Avatar";
 import { useAuth } from "../../app/providers/useAuth";
 import { getPrimaryRole, roleAreas, roleLabels } from "../../app/routes";
 import { NotificationsMenu } from "./NotificationsMenu";
@@ -66,7 +67,7 @@ function ProfileMenu() {
         aria-label={`Perfil de ${displayName}`}
         className="rounded-full transition-shadow duration-150 hover:ring-4 hover:ring-campo aria-expanded:ring-4 aria-expanded:ring-verde-suave"
       >
-        <Avatar name={displayName} photoUrl={user?.profilePhotoUrl} size="size-10 text-sm" />
+        <Avatar name={displayName} photoUrl={user?.profilePhotoUrl} className="size-10 text-sm" />
       </button>
 
       {isOpen && (
@@ -75,7 +76,7 @@ function ProfileMenu() {
           className="absolute right-0 top-12 z-50 w-[min(18rem,calc(100vw-2rem))] origin-top-right animate-rise-in overflow-hidden rounded-card bg-superficie shadow-window motion-reduce:animate-none"
         >
           <div className="flex items-center gap-3 px-5 pb-4 pt-5">
-            <Avatar name={displayName} photoUrl={user?.profilePhotoUrl} size="size-12 text-base" />
+            <Avatar name={displayName} photoUrl={user?.profilePhotoUrl} className="size-12 text-base" />
             <div className="min-w-0">
               <p className="truncate font-display text-[17px] font-bold tracking-[-0.01em] text-tinta">{displayName}</p>
               <p className="truncate text-[13px] text-tinta-suave">{user?.email}</p>
@@ -109,23 +110,3 @@ function ProfileMenu() {
   );
 }
 
-function Avatar({ name, photoUrl, size }: { name: string; photoUrl?: string | null; size: string }) {
-  if (photoUrl) {
-    return <img src={photoUrl} alt="" className={`${size} shrink-0 rounded-full object-cover`} />;
-  }
-
-  return (
-    <span aria-hidden className={`${size} grid shrink-0 place-items-center rounded-full bg-verde-suave font-bold text-verde-tinta`}>
-      {getInitials(name)}
-    </span>
-  );
-}
-
-function getInitials(name: string) {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-
-  if (words.length === 0) return "U";
-  if (words.length === 1) return words[0].slice(0, 1).toUpperCase();
-
-  return `${words[0].slice(0, 1)}${words[words.length - 1].slice(0, 1)}`.toUpperCase();
-}
