@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { currentMonthName } from "../charges/platformRevenue";
 import type { ChargeResponse } from "../charges/types";
 import type { UnitResponse } from "../units/types";
-import { STATUS_ORDER, buildBillingGrid, buildUnitStatuses, type UnitBillingStatus } from "./unitBillingGrid";
+import { STATUS_ORDER, buildBillingGrid, buildUnitStatuses, type UnitBillingStatus } from "./billingGridModel";
 
 type UnitBillingGridProps = {
   units: UnitResponse[];
