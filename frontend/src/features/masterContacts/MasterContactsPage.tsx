@@ -5,7 +5,7 @@ import { Modal } from "../../shared/components/Modal";
 import { MoraeMark } from "../../shared/components/MoraeMark";
 import { useMediaQuery } from "../../shared/hooks/useMediaQuery";
 import { PageHeader } from "../../shared/layout/PageHeader";
-import { initialsOf } from "../persons/personForm";
+import { initialsOf } from "../../shared/lib/initials";
 import { ContactDetails } from "./ContactDetails";
 import { getLandingContacts, updateLandingContactStatus } from "./landingContactService";
 import { arrivedLabel, CONTACT_STATUS, contactStatusInfo, contactStatuses, profileLabel, unitCountLabel } from "./landingContactModel";

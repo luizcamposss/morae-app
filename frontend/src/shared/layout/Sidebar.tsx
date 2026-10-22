@@ -89,7 +89,8 @@ export function Sidebar() {
         className="fixed inset-x-0 bottom-0 z-40 border-t border-linha bg-superficie/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-sm lg:hidden"
       >
         {/* Footer items (Ajustes) live in the avatar's profile menu and in "Mais" on mobile. */}
-        <div className="flex gap-1 overflow-x-auto [scrollbar-width:none]">
+        {/* Equal columns, no minimum width: the five items always fit, even at 320 px. */}
+        <div className="grid auto-cols-fr grid-flow-col gap-1">
           {barItems.map((item) => (
             <NavLink key={item.to} to={item.to} className={({ isActive }) => bottomItemClass(isActive)}>
               <item.icon size={20} strokeWidth={1.6} aria-hidden />
@@ -138,7 +139,7 @@ export function Sidebar() {
 }
 
 function bottomItemClass(isActive: boolean) {
-  return `flex min-w-17 flex-1 flex-col items-center gap-1 rounded-field px-2 py-1.5 text-[11px] font-semibold transition-colors ${
+  return `flex min-w-0 flex-col items-center gap-1 rounded-field px-1 py-1.5 text-[11px] font-semibold transition-colors ${
     isActive ? "bg-verde-suave text-verde-tinta" : "text-tinta-suave hover:text-tinta"
   }`;
 }

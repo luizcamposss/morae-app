@@ -3,11 +3,12 @@ import { DoorClosed, KeyRound, Mail } from "lucide-react";
 import { Button, ButtonLink } from "../../shared/components/Button";
 import { Modal } from "../../shared/components/Modal";
 import { TextField } from "../../shared/components/TextField";
+import { initialsOf } from "../../shared/lib/initials";
 import { formatDateTime } from "../../shared/lib/date";
 import { InvitationStatusChip } from "../invitations/InvitationModals";
 import { invitationRoleLabel, invitationStatusOf } from "../invitations/invitationStatus";
 import type { InvitationResponse } from "../invitations/types";
-import { accessRoleLabel, formatCpf, formatPhone, getPersonErrorMessage, initialsOf, onlyDigits, validatePersonForm } from "./personForm";
+import { accessRoleLabel, formatCpf, formatPhone, getPersonErrorMessage, onlyDigits, validatePersonForm } from "./personForm";
 import type { CreatePersonRequest, PersonResponse } from "./types";
 
 type PersonFormModalProps = {

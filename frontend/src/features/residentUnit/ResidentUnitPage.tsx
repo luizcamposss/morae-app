@@ -4,7 +4,7 @@ import { useAuth } from "../../app/providers/useAuth";
 import { PageHeader } from "../../shared/layout/PageHeader";
 import { getMyUnits } from "../me/meService";
 import type { MeUnitResponse } from "../me/types";
-import { initialsOf } from "../persons/personForm";
+import { initialsOf } from "../../shared/lib/initials";
 import { getPeopleByUnit } from "../personUnits/personUnitService";
 import type { PersonUnitResponse } from "../personUnits/types";
 import { relationshipLabel, unitTypeLabel } from "../units/unitForm";
