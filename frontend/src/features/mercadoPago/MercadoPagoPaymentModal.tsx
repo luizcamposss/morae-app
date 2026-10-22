@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { initMercadoPago, Payment } from "@mercadopago/sdk-react";
+import { CircleCheck, Copy, ExternalLink, Lock } from "lucide-react";
+import { Button, ButtonLink } from "../../shared/components/Button";
+import { Modal } from "../../shared/components/Modal";
+import { formatCurrency } from "../../shared/lib/currency";
 import {
   createMercadoPagoPayment,
   getMercadoPagoPaymentSetup,
@@ -19,6 +23,8 @@ type View = "loading" | "error" | "form" | "result";
 
 const PIX_STATUS_POLL_INTERVAL_MS = 5000;
 const CHARGE_STATUS_PAID = 2;
+// Same face as the app, also inside the Brick's secure card fields.
+const BRICK_FONT_URL = "https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&display=swap";
 
 export function MercadoPagoPaymentModal({ chargeId, onClose, onPaid }: MercadoPagoPaymentModalProps) {
   const [view, setView] = useState<View>("loading");
@@ -109,6 +115,10 @@ export function MercadoPagoPaymentModal({ chargeId, onClose, onPaid }: MercadoPa
         // Condominium and platform fees are paid in a single installment.
         maxInstallments: 1,
       },
+      visual: {
+        font: BRICK_FONT_URL,
+        style: { theme: "flat" as const, customVariables: brickStyleVariables() },
+      },
     }),
     [],
   );
@@ -127,24 +137,39 @@ export function MercadoPagoPaymentModal({ chargeId, onClose, onPaid }: MercadoPa
     }
   }
 
+  function retry() {
+    setResult(null);
+    setSubmitError("");
+    setView("form");
+  }
+
   return (
-    <ModalShell title="Pagar cobrança" onClose={onClose}>
+    <Modal
+      title="Pagar cobrança"
+      description={setup?.description}
+      onClose={onClose}
+      footer={
+        view === "result" && result ? (
+          <ResultActions result={result} isPaid={isPaid} onRetry={retry} onClose={onClose} />
+        ) : undefined
+      }
+    >
       {setup && (
-        <div className="mb-5 flex flex-col gap-1 rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] px-5 py-4">
-          <p className="text-sm font-bold text-[#6B7280]">{setup.description}</p>
-          <p className="text-2xl font-black text-[#111827]">{formatCurrency(setup.amount)}</p>
+        <div className="mb-5 flex items-baseline justify-between gap-4 border-b border-linha pb-4">
+          <p className="text-[15px] text-tinta-suave">Total</p>
+          <p className="font-display text-[32px] font-bold leading-none tracking-[-0.015em] tabular-nums text-tinta">
+            {formatCurrency(setup.amount)}
+          </p>
         </div>
       )}
 
-      {view === "loading" && (
-        <div className="h-64 animate-pulse rounded-2xl bg-[#F3F4F6]" aria-label="Carregando pagamento" />
-      )}
+      {view === "loading" && <div className="h-64 animate-pulse rounded-block bg-campo" aria-label="Carregando pagamento" />}
 
-      {view === "error" && <Alert tone="error">{errorMessage}</Alert>}
+      {view === "error" && <ErrorNotice>{errorMessage}</ErrorNotice>}
 
       {view === "form" && setup && (
-        <div className="space-y-4">
-          {submitError && <Alert tone="error">{submitError}</Alert>}
+        <div className="flex flex-col gap-4">
+          {submitError && <ErrorNotice>{submitError}</ErrorNotice>}
           <Payment
             initialization={initialization}
             customization={customization}
@@ -156,117 +181,143 @@ export function MercadoPagoPaymentModal({ chargeId, onClose, onPaid }: MercadoPa
         </div>
       )}
 
-      {view === "result" && result && (
-        <PaymentResultView
-          result={result}
-          isPaid={isPaid}
-          onRetry={() => {
-            setResult(null);
-            setSubmitError("");
-            setView("form");
-          }}
-          onClose={onClose}
-        />
+      {view === "result" && result && <PaymentResultView result={result} isPaid={isPaid} />}
+
+      {setup && (
+        <p className="mt-5 flex items-center gap-2 text-[13px] text-tinta-suave">
+          <Lock size={14} strokeWidth={1.8} aria-hidden className="shrink-0" />
+          Pagamento processado pelo Mercado Pago
+        </p>
       )}
-    </ModalShell>
+    </Modal>
   );
 }
 
-type PaymentResultViewProps = {
+type ResultProps = {
   result: MercadoPagoPaymentResult;
   isPaid: boolean;
-  onRetry: () => void;
-  onClose: () => void;
 };
 
-function PaymentResultView({ result, isPaid, onRetry, onClose }: PaymentResultViewProps) {
+function isRejected(result: MercadoPagoPaymentResult) {
+  return result.status === "rejected" || result.status === "cancelled";
+}
+
+function PaymentResultView({ result, isPaid }: ResultProps) {
   if (isPaid) {
     return (
-      <div className="space-y-5">
-        <Alert tone="success">
-          Pagamento aprovado! A cobrança já consta como paga.
-        </Alert>
-        <PrimaryButton onClick={onClose}>Fechar</PrimaryButton>
+      <div role="status" className="flex flex-col items-center px-2 py-4 text-center">
+        <span aria-hidden className="grid size-12 place-items-center rounded-full bg-verde-suave text-verde-tinta">
+          <CircleCheck size={24} strokeWidth={1.8} />
+        </span>
+        <h3 className="mt-3 font-display text-[19px] font-bold text-tinta">Pagamento aprovado</h3>
+        <p className="mt-1 max-w-sm text-sm text-tinta-suave">A cobrança já consta como paga.</p>
       </div>
     );
   }
 
-  if (result.status === "rejected" || result.status === "cancelled") {
-    return (
-      <div className="space-y-5">
-        <Alert tone="error">{getRejectionMessage(result.statusDetail)}</Alert>
-        <PrimaryButton onClick={onRetry}>Tentar novamente</PrimaryButton>
-      </div>
-    );
+  if (isRejected(result)) {
+    return <ErrorNotice>{getRejectionMessage(result.statusDetail)}</ErrorNotice>;
   }
 
   if (result.pix) {
     return (
-      <div className="space-y-5">
-        <Alert tone="warning">
-          Pague o Pix pelo app do seu banco. Esta tela atualiza sozinha quando o pagamento for
-          confirmado.
-        </Alert>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col items-center gap-5 rounded-block bg-campo p-4 sm:flex-row sm:items-start">
+          {result.pix.qrCodeBase64 && (
+            <img
+              src={`data:image/png;base64,${result.pix.qrCodeBase64}`}
+              alt="QR Code do Pix"
+              className="size-44 shrink-0 rounded-field bg-superficie p-2"
+            />
+          )}
+          <div className="flex w-full min-w-0 flex-col gap-3">
+            {result.pix.qrCodeBase64 ? (
+              <div>
+                <h3 className="text-[15px] font-semibold text-tinta">Escaneie o QR Code no app do seu banco</h3>
+                <p className="mt-1 text-[13px] text-tinta-suave">Ou copie o código abaixo e cole na opção Pix copia e cola.</p>
+              </div>
+            ) : (
+              <h3 className="text-[15px] font-semibold text-tinta">Copie o código e cole na opção Pix copia e cola do seu banco</h3>
+            )}
+            <CopyField label="Pix copia e cola" value={result.pix.qrCode} />
+            {result.pix.expiresAt && (
+              <p className="text-[13px] tabular-nums text-tinta-suave">Válido até {formatDateTime(result.pix.expiresAt)}</p>
+            )}
+          </div>
+        </div>
 
-        {result.pix.qrCodeBase64 && (
-          <img
-            src={`data:image/png;base64,${result.pix.qrCodeBase64}`}
-            alt="QR Code do Pix"
-            className="mx-auto size-56 rounded-2xl border border-[#E5E7EB] bg-white p-2"
-          />
-        )}
-
-        <CopyField label="Pix copia e cola" value={result.pix.qrCode} />
-
-        {result.pix.expiresAt && (
-          <p className="text-center text-xs font-bold text-[#6B7280]">
-            Válido até {formatDateTime(result.pix.expiresAt)}
-          </p>
-        )}
-
-        <SecondaryButton onClick={onRetry}>Pagar de outra forma</SecondaryButton>
+        <Waiting>Pague o Pix pelo app do seu banco. Esta tela atualiza sozinha quando o pagamento for confirmado.</Waiting>
       </div>
     );
   }
 
   if (result.boleto) {
     return (
-      <div className="space-y-5">
-        <Alert tone="warning">
-          Boleto gerado. A compensação leva de 1 a 3 dias úteis; a cobrança será atualizada
-          automaticamente depois disso.
-        </Alert>
-
-        <CopyField label="Linha digitável" value={result.boleto.digitableLine} />
-
-        {result.boleto.expiresAt && (
-          <p className="text-center text-xs font-bold text-[#6B7280]">
-            Vence em {formatDate(result.boleto.expiresAt)}
-          </p>
-        )}
-
-        <a
-          href={result.boleto.url}
-          target="_blank"
-          rel="noreferrer"
-          className="flex h-12 w-full items-center justify-center rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-lg shadow-[#16A34A]/20 transition hover:bg-[#0B3D2E]"
-        >
-          Abrir boleto
-        </a>
-
-        <SecondaryButton onClick={onRetry}>Pagar de outra forma</SecondaryButton>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2 rounded-block bg-campo p-4">
+          <CopyField label="Linha digitável" value={result.boleto.digitableLine} />
+          {result.boleto.expiresAt && (
+            <p className="text-[13px] tabular-nums text-tinta-suave">Vence em {formatDate(result.boleto.expiresAt)}</p>
+          )}
+        </div>
+        <Waiting>
+          Boleto gerado. A compensação leva de 1 a 3 dias úteis; a cobrança será atualizada automaticamente depois disso.
+        </Waiting>
       </div>
     );
   }
 
   return (
-    <div className="space-y-5">
-      <Alert tone="warning">
-        O pagamento está em análise pelo Mercado Pago. Você será notificado quando ele for
-        aprovado ou recusado.
-      </Alert>
-      <PrimaryButton onClick={onClose}>Fechar</PrimaryButton>
-    </div>
+    <Waiting>
+      O pagamento está em análise pelo Mercado Pago. Você será notificado quando ele for aprovado ou recusado.
+    </Waiting>
+  );
+}
+
+function ResultActions({ result, isPaid, onRetry, onClose }: ResultProps & { onRetry: () => void; onClose: () => void }) {
+  if (isPaid) {
+    return <Button onClick={onClose}>Fechar</Button>;
+  }
+
+  if (isRejected(result)) {
+    return <Button onClick={onRetry}>Tentar novamente</Button>;
+  }
+
+  if (result.pix || result.boleto) {
+    return (
+      <>
+        <Button variant="quiet" onClick={onRetry}>
+          Pagar de outra forma
+        </Button>
+        {result.boleto && (
+          // An absolute URL: the router renders a plain link to Mercado Pago.
+          <ButtonLink variant="accent" to={result.boleto.url} target="_blank" rel="noreferrer">
+            <ExternalLink size={17} strokeWidth={1.8} aria-hidden />
+            Abrir boleto
+          </ButtonLink>
+        )}
+      </>
+    );
+  }
+
+  return <Button onClick={onClose}>Fechar</Button>;
+}
+
+// The payment exists but is not settled yet.
+function Waiting({ children }: { children: ReactNode }) {
+  return (
+    <p role="status" className="flex items-start gap-2.5 rounded-field bg-ambar-suave px-4 py-3 text-sm text-tinta">
+      <span aria-hidden className="mt-[7px] size-2 shrink-0 rounded-full bg-ambar motion-safe:animate-pulse" />
+      {children}
+    </p>
+  );
+}
+
+function ErrorNotice({ children }: { children: ReactNode }) {
+  return (
+    <p role="alert" className="rounded-field bg-vermelho-suave px-4 py-3 text-sm font-medium text-vermelho">
+      {children}
+    </p>
   );
 }
 
@@ -284,95 +335,56 @@ function CopyField({ label, value }: { label: string; value: string }) {
   }
 
   return (
-    <div className="rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#6B7280]">{label}</p>
-      <p className="mt-2 break-all font-mono text-xs font-bold text-[#111827]">{value}</p>
-      <button
-        type="button"
-        onClick={() => void handleCopy()}
-        className="mt-3 h-9 cursor-pointer rounded-xl border border-[#BBF7D0] bg-white px-3 text-xs font-extrabold text-[#16A34A] transition hover:bg-[#F0FDF4]"
-      >
-        {isCopied ? "Copiado!" : "Copiar"}
-      </button>
-    </div>
-  );
-}
-
-function Alert({ tone, children }: { tone: "success" | "warning" | "error"; children: ReactNode }) {
-  const styles = {
-    success: "border-[#BBF7D0] bg-[#ECFDF5] text-[#065F46]",
-    warning: "border-[#FDE68A] bg-[#FFFBEB] text-[#92400E]",
-    error: "border-[#FECACA] bg-[#FDECEC] text-[#B42318]",
-  };
-
-  return (
-    <div
-      role={tone === "error" ? "alert" : "status"}
-      className={`rounded-2xl border px-4 py-3 text-sm font-bold leading-6 ${styles[tone]}`}
-    >
-      {children}
-    </div>
-  );
-}
-
-function PrimaryButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="h-12 w-full cursor-pointer rounded-2xl bg-[#16A34A] text-sm font-extrabold text-white shadow-lg shadow-[#16A34A]/20 transition hover:bg-[#0B3D2E]"
-    >
-      {children}
-    </button>
-  );
-}
-
-function SecondaryButton({ onClick, children }: { onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="h-11 w-full cursor-pointer rounded-2xl border border-[#E5E7EB] bg-white text-sm font-black text-[#6B7280] transition hover:bg-[#F3F4F6] hover:text-[#111827]"
-    >
-      {children}
-    </button>
-  );
-}
-
-function ModalShell({
-  title,
-  children,
-  onClose,
-}: {
-  title: string;
-  children: ReactNode;
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#0B3D2E]/30 px-4 py-8 backdrop-blur-sm">
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="max-h-[calc(100vh-4rem)] w-full max-w-2xl overflow-y-auto rounded-[2rem] border border-[#E5E7EB] bg-white shadow-2xl shadow-[#0B3D2E]/20"
-      >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[#E5E7EB] bg-white px-6 py-5">
-          <h2 className="text-2xl font-black text-[#111827]">{title}</h2>
-
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Fechar"
-            className="flex size-10 cursor-pointer items-center justify-center rounded-full bg-[#F3F4F6] text-xl font-light text-[#6B7280] transition hover:bg-[#FDECEC] hover:text-[#B42318]"
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="px-5 py-6 sm:px-8">{children}</div>
+    <div className="rounded-field bg-superficie py-3 pl-4 pr-3">
+      <p className="text-xs font-semibold text-tinta-suave">{label}</p>
+      <div className="mt-1 flex items-center gap-3">
+        <p className="line-clamp-2 min-w-0 flex-1 text-[13px] font-medium text-tinta [overflow-wrap:anywhere]" title={value}>
+          {value}
+        </p>
+        <Button size="sm" variant={isCopied ? "accent" : "primary"} onClick={() => void handleCopy()} className="shrink-0">
+          {isCopied ? <CircleCheck size={16} strokeWidth={2} aria-hidden /> : <Copy size={16} strokeWidth={2} aria-hidden />}
+          {isCopied ? "Copiado" : "Copiar"}
+        </Button>
       </div>
     </div>
   );
+}
+
+// The Brick takes plain CSS values, so they are read from the design tokens instead of repeating hex codes.
+function brickStyleVariables() {
+  const styles = getComputedStyle(document.documentElement);
+  const token = (name: string) => styles.getPropertyValue(`--color-${name}`).trim();
+
+  return {
+    textPrimaryColor: token("tinta"),
+    textSecondaryColor: token("tinta-suave"),
+    inputBackgroundColor: token("campo"),
+    formBackgroundColor: token("superficie"),
+    baseColor: token("tinta"),
+    baseColorFirstVariant: token("tinta-forte"),
+    baseColorSecondVariant: token("menu"),
+    errorColor: token("vermelho"),
+    successColor: token("verde"),
+    outlinePrimaryColor: token("verde"),
+    outlineSecondaryColor: token("linha"),
+    buttonTextColor: token("superficie"),
+    fontSizeExtraSmall: "12px",
+    fontSizeSmall: "13px",
+    fontSizeMedium: "15px",
+    fontSizeLarge: "17px",
+    fontSizeExtraLarge: "21px",
+    fontWeightNormal: "500",
+    fontWeightSemiBold: "600",
+    inputVerticalPadding: "13px",
+    inputHorizontalPadding: "16px",
+    inputFocusedBoxShadow: `0 0 0 2px ${token("verde")}`,
+    inputErrorFocusedBoxShadow: `0 0 0 2px ${token("vermelho")}`,
+    borderRadiusSmall: "6px",
+    borderRadiusMedium: "10px",
+    borderRadiusLarge: "14px",
+    borderRadiusFull: "999px",
+    formPadding: "0px",
+  };
 }
 
 function getRejectionMessage(statusDetail: string) {
@@ -391,8 +403,3 @@ function getRejectionMessage(statusDetail: string) {
 
   return messages[statusDetail] ?? "O pagamento foi recusado. Tente outro cartão ou outra forma de pagamento.";
 }
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
-}
-
