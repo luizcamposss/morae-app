@@ -28,13 +28,6 @@ const timeFormatter = new Intl.DateTimeFormat("pt-BR", {
   minute: "2-digit",
 });
 
-const longDateFormatter = new Intl.DateTimeFormat("pt-BR", {
-  timeZone: APP_TIME_ZONE,
-  day: "2-digit",
-  month: "long",
-  year: "numeric",
-});
-
 const todayHeadingFormatter = new Intl.DateTimeFormat("pt-BR", {
   timeZone: APP_TIME_ZONE,
   weekday: "long",
@@ -88,12 +81,6 @@ export function formatTime(value?: string | Date | null, fallback = "-") {
   return date ? timeFormatter.format(date) : fallback;
 }
 
-// Instant → "28 de setembro de 2026".
-export function formatLongDate(value?: string | Date | null, fallback = "-") {
-  const date = value ? toDate(value) : null;
-  return date ? longDateFormatter.format(date) : fallback;
-}
-
 // Calendar date ("2026-10-05" or "2026-10-05T00:00:00") → "05/10/2026", with no time zone shift.
 export function formatCalendarDate(value?: string | null, fallback = "-") {
   const match = value?.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -123,11 +110,6 @@ export function toAppDateTimeInput(value?: string | Date | null) {
   if (!date) return "";
   const parts = Object.fromEntries(inputDateTimeFormatter.formatToParts(date).map((part) => [part.type, part.value]));
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
-}
-
-// Today's São Paulo date as a local-midnight Date (for calendars).
-export function todayCalendarDate() {
-  return parseCalendarDate(todayInputDate());
 }
 
 // A calendar date strictly before today in São Paulo.
