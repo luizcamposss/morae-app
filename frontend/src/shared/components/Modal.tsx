@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
 
 type ModalProps = {
@@ -16,6 +16,8 @@ type ModalProps = {
 // Native <dialog>: focus stays inside, Esc closes, the page behind is inert.
 export function Modal({ title, description, leading, onClose, children, footer, size = "md" }: ModalProps) {
   const dialogRef = useRef<HTMLDialogElement | null>(null);
+  // Unique per dialog: a modal can open on top of another one.
+  const titleId = useId();
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -33,7 +35,7 @@ export function Modal({ title, description, leading, onClose, children, footer, 
       onClick={(event) => {
         if (event.target === dialogRef.current) onClose();
       }}
-      aria-labelledby="modal-title"
+      aria-labelledby={titleId}
       className={`m-auto max-h-[calc(100svh-2rem)] w-[calc(100%-2rem)] overflow-hidden rounded-card bg-superficie p-0 text-tinta shadow-window backdrop:bg-tinta/30 backdrop:backdrop-blur-[2px] ${
         size === "lg" ? "max-w-3xl" : "max-w-lg"
       }`}
@@ -43,7 +45,7 @@ export function Modal({ title, description, leading, onClose, children, footer, 
           <div className="flex min-w-0 items-center gap-3">
             {leading}
             <div className="min-w-0">
-            <h2 id="modal-title" className="font-display text-[24px] font-bold leading-tight tracking-[-0.01em]">
+            <h2 id={titleId} className="font-display text-[24px] font-bold leading-tight tracking-[-0.01em]">
               {title}
             </h2>
             {description && <div className="mt-1 text-sm text-tinta-suave">{description}</div>}

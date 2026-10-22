@@ -1,13 +1,13 @@
 import { useState } from "react";
-import { PaymentReceiptModal } from "./PaymentReceiptModal";
+import { Button } from "../../shared/components/Button";
+import { ChargeReceiptModal } from "../adminPayments/ChargeReceiptModal";
 
 type PaymentReceiptButtonProps = {
   chargeId: number;
   onRefunded?: () => void;
-  className?: string;
 };
 
-export function PaymentReceiptButton({ chargeId, onRefunded, className = "" }: PaymentReceiptButtonProps) {
+export function PaymentReceiptButton({ chargeId, onRefunded }: PaymentReceiptButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [wasRefunded, setWasRefunded] = useState(false);
 
@@ -23,16 +23,12 @@ export function PaymentReceiptButton({ chargeId, onRefunded, className = "" }: P
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setIsOpen(true)}
-        className={`h-9 cursor-pointer rounded-xl border border-[#BBF7D0] bg-white px-3 text-xs font-extrabold text-[#16A34A] transition hover:bg-[#F0FDF4] hover:text-[#0B3D2E] ${className}`}
-      >
+      <Button variant="quiet" onClick={() => setIsOpen(true)}>
         Comprovante
-      </button>
+      </Button>
 
       {isOpen && (
-        <PaymentReceiptModal
+        <ChargeReceiptModal
           chargeId={chargeId}
           onClose={handleClose}
           onRefunded={() => setWasRefunded(true)}
