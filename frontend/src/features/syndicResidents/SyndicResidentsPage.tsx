@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
+import { Search, Users } from "lucide-react";
 import { useCondominium } from "../../app/providers/useCondominium";
-import { MetricCard } from "../../shared/components/MetricCard";
-import { StatusBadge } from "../../shared/components/StatusBadge";
+import { SummaryCard } from "../../shared/components/SummaryCard";
+import { PageHeader } from "../../shared/layout/PageHeader";
+import { formatPhone } from "../persons/personForm";
+import { PersonAvatar } from "../persons/PersonModals";
 import { getPersonsByCondominium } from "../persons/personService";
 import type { PersonResponse } from "../persons/types";
 
+// Read-only list for the syndic (residents.view); the API limits it to his buildings.
 export function SyndicResidentsPage() {
   const { activeCondominium, activeCondominiumId } = useCondominium();
   const [people, setPeople] = useState<PersonResponse[]>([]);
@@ -26,9 +30,7 @@ export function SyndicResidentsPage() {
         setPeople(await getPersonsByCondominium(activeCondominiumId));
       } catch (error) {
         setPeople([]);
-        setErrorMessage(
-          error instanceof Error ? error.message : "Não foi possível carregar moradores.",
-        );
+        setErrorMessage(error instanceof Error ? error.message : "Não foi possível carregar moradores.");
       } finally {
         setIsLoading(false);
       }
@@ -43,125 +45,112 @@ export function SyndicResidentsPage() {
     if (!normalizedSearch) return people;
 
     return people.filter((person) =>
-      [person.name, person.phoneNumber, person.mainUnit, person.cpf]
-        .join(" ")
-        .toLowerCase()
-        .includes(normalizedSearch),
+      [person.name, person.phoneNumber, person.mainUnit, person.cpf].join(" ").toLowerCase().includes(normalizedSearch),
     );
   }, [people, searchTerm]);
 
-  const linkedPeople = people.filter((person) => person.unitCount > 0);
+  const linkedPeople = people.filter((person) => person.unitCount > 0).length;
+  const totalUnitLinks = people.reduce((sum, person) => sum + person.unitCount, 0);
 
   return (
-    <section className="rounded-[2rem] border border-[#E5E7EB] bg-white p-6 shadow-sm">
-      <div>
-        <h1 className="text-3xl font-extrabold tracking-tight text-[#111827]">Moradores</h1>
-        <p className="mt-1 text-sm font-semibold text-[#6B7280]">
-          Consulta de pessoas cadastradas em {activeCondominium?.condominiumName ?? "seu condomínio"}.
-        </p>
-      </div>
+    <>
+      <PageHeader overline={activeCondominium?.condominiumName} title="Moradores" />
 
       {errorMessage && (
-        <div className="mt-5 rounded-2xl border border-[#FECACA] bg-[#FDECEC] px-4 py-3 text-sm font-bold text-[#B42318]">
+        <p role="alert" className="mb-6 rounded-field bg-vermelho-suave px-4 py-3 text-sm font-medium text-vermelho">
           {errorMessage}
-        </div>
+        </p>
       )}
 
-      <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <MetricCard
-          label="Pessoas"
-          value={people.length.toString()}
-          helper="Cadastradas no condomínio"
-        />
-        <MetricCard
-          label="Com unidade"
-          value={linkedPeople.length.toString()}
-          helper="Possuem vínculo"
-        />
-        <MetricCard
-          label="Sem unidade"
-          value={(people.length - linkedPeople.length).toString()}
-          helper="Aguardando vínculo"
-        />
+      <SummaryCard
+        items={[
+          { label: "Pessoas", value: isLoading ? "–" : String(people.length), detail: "que você acompanha" },
+          {
+            label: "Com unidade",
+            value: isLoading ? "–" : String(linkedPeople),
+            detail: `${totalUnitLinks} vínculo${totalUnitLinks === 1 ? "" : "s"} com unidades`,
+            tone: people.length > 0 && linkedPeople === people.length ? "good" : "neutral",
+          },
+          { label: "Sem unidade", value: isLoading ? "–" : String(people.length - linkedPeople), detail: "aguardando vínculo" },
+        ]}
+      />
+
+      <div className="mb-4 mt-10 flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
+        <h2 className="font-display text-[21px] font-bold leading-[1.2] tracking-[-0.01em] text-tinta">
+          Todas as pessoas
+          {!isLoading && searchTerm.trim() && (
+            <span className="ml-2 font-sans text-sm font-medium tabular-nums text-tinta-suave">
+              {filteredPeople.length} de {people.length}
+            </span>
+          )}
+        </h2>
+        <label className="relative lg:w-80">
+          <span className="sr-only">Buscar morador</span>
+          <Search size={17} strokeWidth={1.8} aria-hidden className="pointer-events-none absolute inset-y-0 left-3.5 my-auto text-tinta-suave" />
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Nome, CPF, telefone ou unidade"
+            className="w-full rounded-full bg-superficie py-2.5 pl-10 pr-4 text-sm text-tinta shadow-whisper outline-none placeholder:text-tinta-suave/80 focus:ring-2 focus:ring-verde focus-visible:outline-none"
+          />
+        </label>
       </div>
 
-      <div className="mt-6 rounded-[1.5rem] border border-[#E5E7EB] bg-[#F3F4F6] p-4">
-        <div className="mb-4 flex flex-col gap-3 md:flex-row">
-          <div className="relative flex-1">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Buscar morador, unidade, CPF ou telefone..."
-              className="h-11 w-full rounded-2xl border border-[#E5E7EB] bg-white px-4 pr-12 text-sm font-semibold text-[#111827] outline-none transition placeholder:text-[#9CA3AF] focus:border-[#22C55E] focus:ring-4 focus:ring-[#86EFAC]/30"
-            />
-
-            {searchTerm && (
-              <button
-                type="button"
-                aria-label="Limpar busca"
-                onClick={() => setSearchTerm("")}
-                className="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-lg font-black leading-none text-[#6B7280] transition hover:bg-[#DCFCE7] hover:text-[#0B3D2E] focus:outline-none focus:ring-4 focus:ring-[#86EFAC]/30"
-              >
-                ×
-              </button>
+      <ul className="divide-y divide-linha overflow-hidden rounded-card bg-superficie shadow-whisper">
+        {filteredPeople.length === 0 ? (
+          <li className="flex flex-col items-center px-5 py-12 text-center">
+            {isLoading ? (
+              <span className="text-sm text-tinta-suave">Carregando…</span>
+            ) : people.length > 0 ? (
+              <span className="text-sm text-tinta-suave">Nenhum morador encontrado com essa busca.</span>
+            ) : (
+              <>
+                <span className="grid size-12 place-items-center rounded-block bg-verde-suave text-verde-tinta">
+                  <Users size={22} strokeWidth={1.8} aria-hidden />
+                </span>
+                <span className="mt-4 font-display text-lg font-bold text-tinta">Nenhum morador por aqui</span>
+                <span className="mt-1 max-w-sm text-sm text-tinta-suave">
+                  Quando a administração cadastrar pessoas e vinculá-las às unidades, elas aparecem aqui.
+                </span>
+              </>
             )}
-          </div>
-        </div>
-
-        <div className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white">
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-sm">
-              <thead className="bg-[#DCFCE7] text-xs uppercase tracking-wide text-[#0B3D2E]">
-                <tr>
-                  <th className="px-4 py-3 font-extrabold">Nome</th>
-                  <th className="px-4 py-3 font-extrabold">Telefone</th>
-                  <th className="px-4 py-3 font-extrabold">Unidade principal</th>
-                  <th className="px-4 py-3 font-extrabold">Vínculos</th>
-                  <th className="px-4 py-3 font-extrabold">Status</th>
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-[#E5E7EB]">
-                {isLoading ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center font-bold text-[#6B7280]">
-                      Carregando moradores...
-                    </td>
-                  </tr>
-                ) : filteredPeople.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center font-bold text-[#6B7280]">
-                      Nenhum morador encontrado.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredPeople.map((person) => (
-                    <tr key={person.id} className="transition hover:bg-[#F3F4F6]">
-                      <td className="px-4 py-4 font-extrabold text-[#111827]">{person.name}</td>
-                      <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                        {person.phoneNumber || "-"}
-                      </td>
-                      <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                        {person.mainUnit || "Sem unidade"}
-                      </td>
-                      <td className="px-4 py-4 font-semibold text-[#6B7280]">
-                        {person.unitCount}
-                      </td>
-                      <td className="px-4 py-4">
-                        <StatusBadge
-                          label={person.unitCount > 0 ? "Vinculado" : "Sem unidade"}
-                          variant={person.unitCount > 0 ? "success" : "neutral"}
-                        />
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </section>
+          </li>
+        ) : (
+          filteredPeople.map((person) => {
+            const isLinked = person.unitCount > 0;
+            return (
+              <li key={person.id} className="flex items-center gap-4 px-5 py-4">
+                <PersonAvatar name={person.name} isActive={person.hasRegisteredUser} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[15px] font-semibold text-tinta">{person.name}</span>
+                  <span className="block truncate text-[13px] tabular-nums text-tinta-suave">
+                    {person.phoneNumber ? formatPhone(person.phoneNumber) : "Sem telefone"}
+                    <span className={`sm:hidden ${isLinked ? "" : "text-ambar"}`}> · {person.mainUnit || "Sem unidade"}</span>
+                  </span>
+                </span>
+                <span className="hidden w-44 shrink-0 text-[13px] sm:block">
+                  <span className={`block truncate font-semibold ${isLinked ? "text-tinta" : "text-ambar"}`}>{person.mainUnit || "Sem unidade"}</span>
+                  <span className="block tabular-nums text-tinta-suave">
+                    {person.unitCount > 1
+                      ? `+${person.unitCount - 1} vínculo${person.unitCount > 2 ? "s" : ""}`
+                      : isLinked
+                        ? "1 vínculo"
+                        : "nenhum vínculo"}
+                  </span>
+                </span>
+                <span className="hidden w-28 shrink-0 justify-end md:flex">
+                  {isLinked ? (
+                    <span className="rounded-chip bg-verde-suave px-2 py-0.5 text-xs font-semibold text-verde-tinta">Vinculado</span>
+                  ) : (
+                    <span className="rounded-chip bg-ambar-suave px-2 py-0.5 text-xs font-semibold text-ambar">Sem unidade</span>
+                  )}
+                </span>
+              </li>
+            );
+          })
+        )}
+      </ul>
+    </>
   );
 }
