@@ -2,6 +2,7 @@ import { useState, type Dispatch, type FormEvent, type SetStateAction } from "re
 import { Button } from "../../shared/components/Button";
 import { Modal } from "../../shared/components/Modal";
 import { SelectField } from "../../shared/components/SelectField";
+import { StateSelectField } from "../../shared/components/StateSelectField";
 import { TextField } from "../../shared/components/TextField";
 import type { MasterUserResponse } from "../masterUsers/types";
 import {
@@ -179,12 +180,12 @@ export function CondominiumFormModal({
             placeholder="São Paulo"
             error={fieldErrors.city}
           />
-          <SelectField
+          <StateSelectField
             label="Estado"
             value={form.state}
-            onChange={(event) => updateField("state", event.target.value)}
+            onChange={(state) => updateField("state", state)}
             placeholder="Selecione a UF"
-            options={BRAZILIAN_STATES.map((state) => ({ value: state, label: state }))}
+            options={BRAZILIAN_STATES}
             error={fieldErrors.state}
           />
         </fieldset>
