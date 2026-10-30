@@ -1,0 +1,420 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using AutoMapper;
+using backend.Constants;
+using backend.Data;
+using backend.DTOs.Condominium;
+using backend.Enums;
+using backend.Exceptions;
+using backend.Models;
+using backend.Services.Condominium;
+using backend.Services.Email;
+using backend.Services.Permissions;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+
+public class CondominiumService : ICondominiumService
+{
+    private readonly AppDbContext _context;
+    private readonly IMapper _mapper;
+    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IPermissionService _permissionService;
+    private readonly IInvitationEmailNotifier _invitationEmailNotifier;
+
+    public CondominiumService(
+        AppDbContext context,
+        IMapper mapper,
+        UserManager<ApplicationUser> userManager,
+        IPermissionService permissionService,
+        IInvitationEmailNotifier invitationEmailNotifier)
+    {
+        _context = context;
+        _mapper = mapper;
+        _userManager = userManager;
+        _permissionService = permissionService;
+        _invitationEmailNotifier = invitationEmailNotifier;
+    }
+    public async Task<CondominiumResponseDto> OnboardAsync(int masterUserId, CreateCondominiumOnboardingDto dto)
+    {
+        await _permissionService.EnsureMasterAsync(masterUserId);
+
+        var cnpjExists = await _context.Condominiums
+            .AnyAsync(c => c.CNPJ == dto.Condominium.CNPJ);
+
+        if (cnpjExists)
+            throw new ConflictException("Este CNPJ já está cadastrado.");
+
+        var cpfExists = await _context.Persons
+            .AnyAsync(c => c.CPF == dto.Admin.CPF);
+
+        if (cpfExists)
+            throw new ConflictException("Este CPF já está cadastrado no sistema.");
+
+        var adminEmail = dto.Admin.Email.Trim();
+
+        var emailExists = await _userManager.FindByEmailAsync(adminEmail);
+
+        if (emailExists is not null)
+            throw new ConflictException("Este e-mail já está cadastrado.");
+
+        var pendingEmailInvitationExists = await _context.Invitations
+            .AnyAsync(i =>
+                i.Email == adminEmail &&
+                i.InvitationStatus == InvitationStatus.Pending);
+
+        if (pendingEmailInvitationExists)
+            throw new ConflictException("Este e-mail já tem um convite pendente.");
+
+        await using var transaction = await _context.Database.BeginTransactionAsync();
+
+        var person = new Person
+        {
+            Name = dto.Admin.Name.Trim(),
+            CPF = dto.Admin.CPF.Trim(),
+            PhoneNumber = dto.Admin.PhoneNumber.Trim(),
+            CreatedByUserId = masterUserId,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        _context.Persons.Add(person);
+        await _context.SaveChangesAsync();
+
+        var condominium = _mapper.Map<Condominium>(dto.Condominium);
+
+        condominium.CreatedByUserId = masterUserId;
+        condominium.CreatedAt = DateTime.UtcNow;
+        condominium.UpdatedAt = DateTime.UtcNow;
+
+        _context.Condominiums.Add(condominium);
+        await _context.SaveChangesAsync();
+
+        var invitation = new Invitation
+        {
+            CondominiumId = condominium.Id,
+            PersonId = person.Id,
+            CreatedByUserId = masterUserId,
+            Email = adminEmail,
+            Role = UserRole.Admin,
+            Token = Guid.NewGuid().ToString("N"),
+            InvitationStatus = InvitationStatus.Pending,
+            ExpiresAt = DateTime.UtcNow.AddDays(7),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Invitations.Add(invitation);
+        await _context.SaveChangesAsync();
+
+        await transaction.CommitAsync();
+
+        // The new Admin gets the invitation by e-mail (after the commit, so it is never sent for
+        // an onboarding that was rolled back).
+        await _invitationEmailNotifier.QueueInvitationAsync(invitation);
+
+        return await GetCondominiumResponseOrThrowAsync(condominium.Id);
+    }
+
+    public async Task<CondominiumResponseDto> CreateAsync(int userId, CreateCondominiumDto dto)
+    {
+        await _permissionService.EnsureMasterAsync(userId);
+
+        var cnpjExists = await _context.Condominiums.AnyAsync(c => c.CNPJ == dto.CNPJ);
+
+        if (cnpjExists)
+        {
+            throw new ConflictException("Este CNPJ já está cadastrado.");
+        }
+
+        var condominium = _mapper.Map<Condominium>(dto);
+
+        condominium.CreatedByUserId = userId;
+        condominium.CreatedAt = DateTime.UtcNow;
+        condominium.UpdatedAt = DateTime.UtcNow;
+
+        _context.Condominiums.Add(condominium);
+        await _context.SaveChangesAsync();
+
+        return await GetCondominiumResponseOrThrowAsync(condominium.Id);
+
+    }
+    public async Task<IEnumerable<CondominiumResponseDto>> GetAllAsync(int userId)
+    {
+        await _permissionService.EnsureMasterAsync(userId);
+
+        return await _context.Condominiums
+            .AsNoTracking()
+            .OrderBy(c => c.Name)
+            .Select(c => new CondominiumResponseDto
+            {
+                Id = c.Id,
+                Name = c.Name,
+                CNPJ = c.CNPJ,
+                CEP = c.CEP,
+                Number = c.Number,
+                Address = c.Address,
+                City = c.City,
+                State = c.State,
+                EmailContact = c.EmailContact,
+                Status = c.Status,
+                CreatedAt = c.CreatedAt,
+                AdminUserId = c.UserCondominiums
+                    .Where(uc =>
+                        uc.Role == AppRoles.Admin &&
+                        uc.Status == UserCondominiumStatus.Active)
+                    .OrderByDescending(uc => uc.CreatedAt)
+                    .Select(uc => (int?)uc.UserId)
+                    .FirstOrDefault(),
+                AdminName = c.UserCondominiums
+                    .Where(uc =>
+                        uc.Role == AppRoles.Admin &&
+                        uc.Status == UserCondominiumStatus.Active)
+                    .OrderByDescending(uc => uc.CreatedAt)
+                    .Select(uc => uc.User.Person.Name)
+                    .FirstOrDefault(),
+                AdminEmail = c.UserCondominiums
+                    .Where(uc =>
+                        uc.Role == AppRoles.Admin &&
+                        uc.Status == UserCondominiumStatus.Active)
+                    .OrderByDescending(uc => uc.CreatedAt)
+                    .Select(uc => uc.User.Email)
+                    .FirstOrDefault()
+            })
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<CondominiumResponseDto>> GetMineAsync(int userId)
+    {
+        var condominiums = await _context.UserCondominiums
+            .AsNoTracking()
+            .Where(uc => uc.UserId == userId)
+            .Select(uc => uc.Condominium)
+            .ToListAsync();
+
+        return _mapper.Map<IEnumerable<CondominiumResponseDto>>(condominiums);
+    }
+
+    public async Task<CondominiumResponseDto?> GetByIdAsync(int userId, int id)
+    {
+        await _permissionService.EnsureMasterAsync(userId);
+
+        var condominium = await _context.Condominiums
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (condominium is null) return null;
+
+        return await GetCondominiumResponseOrThrowAsync(condominium.Id);
+    }
+    public async Task<bool> UpdateAsync(int userId, int id, UpdateCondominiumDto dto)
+    {
+        await _permissionService.EnsureMasterAsync(userId);
+
+        var condominium = await _context.Condominiums
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (condominium is null) return false;
+
+        _mapper.Map(dto, condominium);
+
+        condominium.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+
+    public async Task<bool> UpdateStatusAsync(int userId, int id, UpdateCondominiumStatusDto dto)
+    {
+        await _permissionService.EnsureMasterAsync(userId);
+
+        var condominium = await _context.Condominiums
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (condominium is null) return false;
+
+        if (condominium.CreatedByUserId != userId)
+            throw new ForbiddenException("Você só pode alterar condomínios cadastrados por você.");
+
+        condominium.Status = dto.Status;
+        condominium.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+
+    public async Task<bool> UpdateAdminAsync(int userId, int id, UpdateCondominiumAdminDto dto)
+    {
+        await _permissionService.EnsureMasterAsync(userId);
+
+        var condominium = await _context.Condominiums
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (condominium is null) return false;
+
+        if (condominium.CreatedByUserId != userId)
+            throw new ForbiddenException("Você só pode trocar administradores de condomínios cadastrados por você.");
+
+        var targetAdmin = await _userManager.FindByIdAsync(dto.AdminUserId.ToString());
+
+        if (targetAdmin is null)
+            throw new NotFoundException("Administrador não encontrado.");
+
+        if (!await _userManager.IsInRoleAsync(targetAdmin, AppRoles.Admin))
+            throw new BadRequestException("A pessoa selecionada precisa ser administradora.");
+
+        var targetBelongsToMaster = await _context.UserCondominiums
+            .AsNoTracking()
+            .AnyAsync(uc =>
+                uc.UserId == dto.AdminUserId &&
+                uc.Role == AppRoles.Admin &&
+                uc.Condominium.CreatedByUserId == userId);
+
+        if (!targetBelongsToMaster)
+            throw new ForbiddenException("O administrador selecionado precisa ser de um condomínio cadastrado por você.");
+
+        var adminLinks = await _context.UserCondominiums
+            .Where(uc =>
+                uc.CondominiumId == id &&
+                uc.Role == AppRoles.Admin)
+            .ToListAsync();
+
+        foreach (var adminLink in adminLinks)
+        {
+            if (adminLink.UserId == dto.AdminUserId)
+            {
+                adminLink.Status = UserCondominiumStatus.Active;
+                adminLink.SuspendedAt = null;
+                adminLink.SuspendedByUserId = null;
+                adminLink.SuspensionReason = null;
+                continue;
+            }
+
+            if (adminLink.Status != UserCondominiumStatus.Suspended)
+            {
+                adminLink.Status = UserCondominiumStatus.Suspended;
+                adminLink.SuspendedAt = DateTime.UtcNow;
+                adminLink.SuspendedByUserId = userId;
+                adminLink.SuspensionReason = "Admin substituído pelo Master.";
+            }
+        }
+
+        if (!adminLinks.Any(adminLink => adminLink.UserId == dto.AdminUserId))
+        {
+            _context.UserCondominiums.Add(new UserCondominium
+            {
+                UserId = dto.AdminUserId,
+                CondominiumId = id,
+                Role = AppRoles.Admin,
+                Status = UserCondominiumStatus.Active,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
+        condominium.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+
+    public async Task<bool> RemoveAdminAsync(int userId, int id)
+    {
+        await _permissionService.EnsureMasterAsync(userId);
+
+        var condominium = await _context.Condominiums
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (condominium is null) return false;
+
+        if (condominium.CreatedByUserId != userId)
+            throw new ForbiddenException("Você só pode remover administradores de condomínios cadastrados por você.");
+
+        var activeAdminLinks = await _context.UserCondominiums
+            .Where(uc =>
+                uc.CondominiumId == id &&
+                uc.Role == AppRoles.Admin &&
+                uc.Status == UserCondominiumStatus.Active)
+            .ToListAsync();
+
+        foreach (var adminLink in activeAdminLinks)
+        {
+            adminLink.Status = UserCondominiumStatus.Suspended;
+            adminLink.SuspendedAt = DateTime.UtcNow;
+            adminLink.SuspendedByUserId = userId;
+            adminLink.SuspensionReason = "Admin removido pelo Master.";
+        }
+
+        condominium.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+
+    public async Task<bool> DeleteAsync(int userId, int id)
+    {
+        await _permissionService.EnsureMasterAsync(userId);
+
+        var condominium = await _context.Condominiums
+            .FirstOrDefaultAsync(c => c.Id == id);
+
+        if (condominium is null) return false;
+
+        _context.Condominiums.Remove(condominium);
+
+        await _context.SaveChangesAsync();
+
+        return true;
+    }
+
+    private async Task<CondominiumResponseDto> GetCondominiumResponseOrThrowAsync(int id)
+    {
+        var condominium = await _context.Condominiums
+            .AsNoTracking()
+            .Where(c => c.Id == id)
+            .Select(c => new CondominiumResponseDto
+            {
+                Id = c.Id,
+                Name = c.Name,
+                CNPJ = c.CNPJ,
+                CEP = c.CEP,
+                Number = c.Number,
+                Address = c.Address,
+                City = c.City,
+                State = c.State,
+                EmailContact = c.EmailContact,
+                Status = c.Status,
+                CreatedAt = c.CreatedAt,
+                AdminUserId = c.UserCondominiums
+                    .Where(uc =>
+                        uc.Role == AppRoles.Admin &&
+                        uc.Status == UserCondominiumStatus.Active)
+                    .OrderByDescending(uc => uc.CreatedAt)
+                    .Select(uc => (int?)uc.UserId)
+                    .FirstOrDefault(),
+                AdminName = c.UserCondominiums
+                    .Where(uc =>
+                        uc.Role == AppRoles.Admin &&
+                        uc.Status == UserCondominiumStatus.Active)
+                    .OrderByDescending(uc => uc.CreatedAt)
+                    .Select(uc => uc.User.Person.Name)
+                    .FirstOrDefault(),
+                AdminEmail = c.UserCondominiums
+                    .Where(uc =>
+                        uc.Role == AppRoles.Admin &&
+                        uc.Status == UserCondominiumStatus.Active)
+                    .OrderByDescending(uc => uc.CreatedAt)
+                    .Select(uc => uc.User.Email)
+                    .FirstOrDefault()
+            })
+            .FirstOrDefaultAsync();
+
+        if (condominium is null)
+            throw new NotFoundException("Condomínio não encontrado.");
+
+        return condominium;
+    }
+}

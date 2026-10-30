@@ -1,0 +1,698 @@
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using backend.Enums;
+using backend.Models;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
+
+namespace backend.Data;
+
+public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>, int>
+{
+    public AppDbContext(DbContextOptions<AppDbContext> opts) : base(opts)
+    {
+
+    }
+    public DbSet<Person> Persons { get; set; }
+    public DbSet<PersonCondominium> PersonCondominiums { get; set; }
+    public DbSet<Condominium> Condominiums { get; set; }
+    public DbSet<Building> Buildings { get; set; }
+    public DbSet<Unit> Units { get; set; }
+    public DbSet<PersonUnit> PersonUnits { get; set; }
+    public DbSet<News> News { get; set; }
+    public DbSet<NewsRecipient> NewsRecipients { get; set; }
+    public DbSet<Invitation> Invitations { get; set; }
+    public DbSet<Charge> Charges { get; set; }
+    public DbSet<Payment> Payments { get; set; }
+    public DbSet<PaymentProof> PaymentProofs { get; set; }
+    public DbSet<FinancialAccount> FinancialAccounts { get; set; }
+    public DbSet<MercadoPagoAccount> MercadoPagoAccounts { get; set; }
+    public DbSet<MercadoPagoOAuthState> MercadoPagoOAuthStates { get; set; }
+    public DbSet<MercadoPagoPayment> MercadoPagoPayments { get; set; }
+    public DbSet<Notification> Notifications { get; set; }
+    public DbSet<UserNotificationPreference> UserNotificationPreferences { get; set; }
+    public DbSet<UserCondominium> UserCondominiums { get; set; }
+    public DbSet<UserCondominiumPermission> UserCondominiumPermissions { get; set; }
+    public DbSet<Occurrence> Occurrences { get; set; }
+    public DbSet<OccurrencePhoto> OccurrencePhotos { get; set; }
+    public DbSet<RefreshToken> RefreshTokens { get; set; }
+    public DbSet<UserCondominiumBuilding> UserCondominiumBuildings { get; set; }
+    public DbSet<Document> Documents { get; set; }
+    public DbSet<MaintenancePlan> MaintenancePlans { get; set; }
+    public DbSet<MaintenanceRecord> MaintenanceRecords { get; set; }
+    public DbSet<ExpectedVisit> ExpectedVisits { get; set; }
+    public DbSet<Assembly> Assemblies { get; set; }
+    public DbSet<AssemblyItem> AssemblyItems { get; set; }
+    public DbSet<AssemblyItemOption> AssemblyItemOptions { get; set; }
+    public DbSet<AssemblyVote> AssemblyVotes { get; set; }
+    public DbSet<RecurringCharge> RecurringCharges { get; set; }
+    public DbSet<RecurringChargeUnitValue> RecurringChargeUnitValues { get; set; }
+    public DbSet<LandingContact> LandingContacts { get; set; }
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        base.OnModelCreating(builder);
+
+        builder.Entity<ApplicationUser>()
+            .HasOne(u => u.Person)
+            .WithOne(p => p.User)
+            .HasForeignKey<ApplicationUser>(u => u.PersonId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Condominium>()
+            .HasIndex(c => c.CNPJ)
+            .IsUnique();
+
+        builder.Entity<Condominium>()
+            .HasOne(c => c.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(c => c.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Condominium>()
+            .HasMany(b => b.Buildings)
+            .WithOne(c => c.Condominium)
+            .HasForeignKey(c => c.CondominiumId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Building>()
+            .HasMany(b => b.Units)
+            .WithOne(c => c.Building)
+            .HasForeignKey(c => c.BuildingId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Building>()
+            .HasIndex(b => new { b.CondominiumId, b.Code })
+            .IsUnique();
+
+        builder.Entity<Unit>()
+            .HasIndex(u => new { u.BuildingId, u.Number })
+            .IsUnique();
+
+        builder.Entity<Person>()
+            .HasIndex(p => p.CPF)
+            .IsUnique();
+
+        builder.Entity<Person>()
+            .Property(p => p.ProfilePhotoUrl)
+            .HasColumnType("longtext");
+
+        builder.Entity<Person>()
+            .HasOne(p => p.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(p => p.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<PersonCondominium>()
+            .HasIndex(pc => new { pc.PersonId, pc.CondominiumId })
+            .IsUnique();
+
+        builder.Entity<PersonCondominium>()
+            .HasOne(pc => pc.Person)
+            .WithMany(p => p.PersonCondominiums)
+            .HasForeignKey(pc => pc.PersonId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<PersonCondominium>()
+            .HasOne(pc => pc.Condominium)
+            .WithMany(c => c.PersonCondominiums)
+            .HasForeignKey(pc => pc.CondominiumId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<PersonUnit>()
+            .HasIndex(pu => new
+            {
+                pu.PersonId,
+                pu.UnitId,
+                pu.RelationshipType
+            })
+            .IsUnique();
+
+        builder.Entity<UserCondominium>()
+            .HasIndex(uc => new { uc.UserId, uc.CondominiumId })
+            .IsUnique();
+
+        builder.Entity<UserCondominium>()
+            .HasOne(uc => uc.User)
+            .WithMany(u => u.UserCondominiums)
+            .HasForeignKey(uc => uc.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<UserCondominium>()
+            .HasOne(uc => uc.Condominium)
+            .WithMany(c => c.UserCondominiums)
+            .HasForeignKey(uc => uc.CondominiumId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<UserCondominium>()
+            .Property(uc => uc.Status)
+            .HasDefaultValue(UserCondominiumStatus.Active);
+
+        builder.Entity<UserCondominium>()
+            .HasOne(uc => uc.SuspendedByUser)
+            .WithMany()
+            .HasForeignKey(uc => uc.SuspendedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<UserCondominiumPermission>()
+            .HasIndex(p => new { p.UserCondominiumId, p.PermissionKey })
+            .IsUnique();
+
+        builder.Entity<UserCondominiumPermission>()
+            .HasOne(p => p.UserCondominium)
+            .WithMany(uc => uc.Permissions)
+            .HasForeignKey(p => p.UserCondominiumId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Charge>()
+            .HasOne(c => c.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(c => c.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Charge>()
+            .HasOne(c => c.TargetUser)
+            .WithMany()
+            .HasForeignKey(c => c.TargetUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Charge>()
+            .HasOne(c => c.Condominium)
+            .WithMany()
+            .HasForeignKey(c => c.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Charge>()
+            .HasOne(c => c.Unit)
+            .WithMany()
+            .HasForeignKey(c => c.UnitId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Charge>()
+            .Property(c => c.Value)
+            .HasPrecision(10, 2);
+
+        builder.Entity<Charge>()
+            .Property(c => c.FinePercent)
+            .HasPrecision(5, 2);
+
+        builder.Entity<Charge>()
+            .Property(c => c.MonthlyInterestPercent)
+            .HasPrecision(5, 2);
+
+        builder.Entity<Charge>()
+            .HasOne(c => c.RecurringCharge)
+            .WithMany()
+            .HasForeignKey(c => c.RecurringChargeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Safety net for the recurring generation: one charge per recurrence, unit and month.
+        builder.Entity<Charge>()
+            .HasIndex(c => new { c.RecurringChargeId, c.UnitId, c.ReferenceMonth })
+            .IsUnique();
+
+        builder.Entity<Condominium>()
+            .Property(c => c.FinePercent)
+            .HasPrecision(5, 2);
+
+        builder.Entity<Condominium>()
+            .Property(c => c.MonthlyInterestPercent)
+            .HasPrecision(5, 2);
+
+        builder.Entity<RecurringCharge>()
+            .Property(r => r.Value)
+            .HasPrecision(10, 2);
+
+        builder.Entity<RecurringCharge>()
+            .HasOne(r => r.Condominium)
+            .WithMany()
+            .HasForeignKey(r => r.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<RecurringCharge>()
+            .HasOne(r => r.Building)
+            .WithMany()
+            .HasForeignKey(r => r.BuildingId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<RecurringCharge>()
+            .HasOne(r => r.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(r => r.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<RecurringChargeUnitValue>()
+            .Property(v => v.Value)
+            .HasPrecision(10, 2);
+
+        builder.Entity<RecurringChargeUnitValue>()
+            .HasOne(v => v.RecurringCharge)
+            .WithMany(r => r.UnitValues)
+            .HasForeignKey(v => v.RecurringChargeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<RecurringChargeUnitValue>()
+            .HasOne(v => v.Unit)
+            .WithMany()
+            .HasForeignKey(v => v.UnitId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<RecurringChargeUnitValue>()
+            .HasIndex(v => new { v.RecurringChargeId, v.UnitId })
+            .IsUnique();
+
+        builder.Entity<Payment>()
+            .HasOne(p => p.RegisteredByUser)
+            .WithMany()
+            .HasForeignKey(p => p.RegisteredByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Payment>()
+            .Property(p => p.AmountPaid)
+            .HasPrecision(10, 2);
+
+        builder.Entity<Payment>()
+            .HasIndex(payment => payment.ChargeId)
+            .IsUnique();
+
+        builder.Entity<PaymentProof>()
+            .HasOne(proof => proof.Charge)
+            .WithMany()
+            .HasForeignKey(proof => proof.ChargeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<PaymentProof>()
+            .HasOne(proof => proof.UploadedByUser)
+            .WithMany()
+            .HasForeignKey(proof => proof.UploadedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<PaymentProof>()
+            .HasOne(proof => proof.ReviewedByUser)
+            .WithMany()
+            .HasForeignKey(proof => proof.ReviewedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<FinancialAccount>()
+            .HasIndex(account => new { account.Scope, account.CondominiumId })
+            .IsUnique();
+
+        builder.Entity<FinancialAccount>()
+            .HasOne(account => account.Condominium)
+            .WithMany()
+            .HasForeignKey(account => account.CondominiumId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<FinancialAccount>()
+            .HasOne(account => account.UpdatedByUser)
+            .WithMany()
+            .HasForeignKey(account => account.UpdatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<UserNotificationPreference>()
+            .HasIndex(preference => preference.UserId)
+            .IsUnique();
+
+        builder.Entity<UserNotificationPreference>()
+            .HasOne(preference => preference.User)
+            .WithMany()
+            .HasForeignKey(preference => preference.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Notification>()
+            .HasOne(notification => notification.User)
+            .WithMany()
+            .HasForeignKey(notification => notification.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Notification>()
+            .HasOne(notification => notification.Condominium)
+            .WithMany()
+            .HasForeignKey(notification => notification.CondominiumId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Notification>()
+            .HasIndex(notification => new
+            {
+                notification.UserId,
+                notification.ReadAt,
+                notification.CreatedAt
+            });
+
+        builder.Entity<Occurrence>()
+            .Property(o => o.Type)
+            .HasDefaultValue(OccurrenceType.Maintenance);
+
+        builder.Entity<Occurrence>()
+            .HasOne(o => o.Condominium)
+            .WithMany()
+            .HasForeignKey(o => o.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Occurrence>()
+            .HasOne(o => o.Unit)
+            .WithMany()
+            .HasForeignKey(o => o.UnitId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Occurrence>()
+            .HasOne(o => o.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(o => o.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Occurrence>()
+            .HasOne(o => o.RespondedByUser)
+            .WithMany()
+            .HasForeignKey(o => o.RespondedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<OccurrencePhoto>()
+            .HasOne(photo => photo.Occurrence)
+            .WithMany(occurrence => occurrence.Photos)
+            .HasForeignKey(photo => photo.OccurrenceId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<MercadoPagoAccount>()
+            .HasIndex(account => account.UserId);
+
+        builder.Entity<MercadoPagoAccount>()
+            .HasIndex(account => account.CondominiumId)
+            .IsUnique();
+
+        builder.Entity<MercadoPagoAccount>()
+            .HasOne(account => account.Condominium)
+            .WithMany()
+            .HasForeignKey(account => account.CondominiumId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<MercadoPagoAccount>()
+            .HasIndex(account => account.MercadoPagoUserId);
+
+        builder.Entity<MercadoPagoAccount>()
+            .Property(account => account.AccessToken)
+            .HasColumnType("longtext");
+
+        builder.Entity<MercadoPagoAccount>()
+            .Property(account => account.RefreshToken)
+            .HasColumnType("longtext");
+
+        builder.Entity<MercadoPagoAccount>()
+            .Property(account => account.Scope)
+            .HasColumnType("longtext");
+
+        builder.Entity<MercadoPagoAccount>()
+            .HasOne(account => account.User)
+            .WithMany()
+            .HasForeignKey(account => account.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<MercadoPagoOAuthState>()
+            .HasIndex(state => state.State)
+            .IsUnique();
+
+        builder.Entity<MercadoPagoOAuthState>()
+            .HasIndex(state => new { state.UserId, state.UsedAt, state.ExpiresAt });
+
+        builder.Entity<MercadoPagoOAuthState>()
+            .HasOne(state => state.User)
+            .WithMany()
+            .HasForeignKey(state => state.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasIndex(payment => payment.ChargeId)
+            .IsUnique();
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasIndex(payment => payment.PreferenceId)
+            .IsUnique();
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasIndex(payment => payment.ExternalReference)
+            .IsUnique();
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasIndex(payment => payment.MercadoPagoPaymentId)
+            .IsUnique();
+
+        builder.Entity<MercadoPagoPayment>()
+            .Property(payment => payment.Amount)
+            .HasPrecision(10, 2);
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasOne(payment => payment.Charge)
+            .WithMany()
+            .HasForeignKey(payment => payment.ChargeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasOne(payment => payment.MercadoPagoAccount)
+            .WithMany()
+            .HasForeignKey(payment => payment.MercadoPagoAccountId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MercadoPagoPayment>()
+            .HasOne(payment => payment.Payment)
+            .WithOne()
+            .HasForeignKey<MercadoPagoPayment>(payment => payment.PaymentId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<UserCondominiumBuilding>()
+            .HasIndex(item => new { item.UserCondominiumId, item.BuildingId })
+            .IsUnique();
+
+        builder.Entity<UserCondominiumBuilding>()
+            .HasOne(item => item.UserCondominium)
+            .WithMany(userCondominium => userCondominium.Buildings)
+            .HasForeignKey(item => item.UserCondominiumId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<UserCondominiumBuilding>()
+            .HasOne(item => item.Building)
+            .WithMany()
+            .HasForeignKey(item => item.BuildingId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<RefreshToken>()
+            .HasIndex(token => token.TokenHash)
+            .IsUnique();
+
+        builder.Entity<RefreshToken>()
+            .HasOne(token => token.User)
+            .WithMany()
+            .HasForeignKey(token => token.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Document>()
+            .HasIndex(document => document.StorageKey)
+            .IsUnique();
+
+        builder.Entity<Document>()
+            .HasIndex(document => new { document.CondominiumId, document.Category });
+
+        // Restrict: a condominium with documents is not deleted by accident (its files would be orphaned).
+        builder.Entity<Document>()
+            .HasOne(document => document.Condominium)
+            .WithMany()
+            .HasForeignKey(document => document.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Document>()
+            .HasOne(document => document.UploadedByUser)
+            .WithMany()
+            .HasForeignKey(document => document.UploadedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MaintenancePlan>()
+            .HasIndex(plan => new { plan.CondominiumId, plan.NextDueDate });
+
+        builder.Entity<MaintenancePlan>()
+            .HasOne(plan => plan.Condominium)
+            .WithMany()
+            .HasForeignKey(plan => plan.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MaintenancePlan>()
+            .HasOne(plan => plan.Building)
+            .WithMany()
+            .HasForeignKey(plan => plan.BuildingId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MaintenancePlan>()
+            .HasOne(plan => plan.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(plan => plan.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MaintenanceRecord>()
+            .HasIndex(record => new { record.MaintenancePlanId, record.PerformedOn });
+
+        // Deleting a plan deletes its history (the service removes the attachment files).
+        builder.Entity<MaintenanceRecord>()
+            .HasOne(record => record.MaintenancePlan)
+            .WithMany()
+            .HasForeignKey(record => record.MaintenancePlanId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<MaintenanceRecord>()
+            .HasOne(record => record.RegisteredByUser)
+            .WithMany()
+            .HasForeignKey(record => record.RegisteredByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ExpectedVisit>()
+            .HasIndex(visit => new { visit.CondominiumId, visit.StartDate, visit.EndDate });
+
+        builder.Entity<ExpectedVisit>()
+            .HasOne(visit => visit.Condominium)
+            .WithMany()
+            .HasForeignKey(visit => visit.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ExpectedVisit>()
+            .HasOne(visit => visit.Unit)
+            .WithMany()
+            .HasForeignKey(visit => visit.UnitId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ExpectedVisit>()
+            .HasOne(visit => visit.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(visit => visit.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Assembly>()
+            .HasIndex(assembly => new { assembly.CondominiumId, assembly.Status, assembly.VotingEndsAt });
+
+        builder.Entity<Assembly>()
+            .HasOne(assembly => assembly.Condominium)
+            .WithMany()
+            .HasForeignKey(assembly => assembly.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Assembly>()
+            .HasOne(assembly => assembly.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(assembly => assembly.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AssemblyItem>()
+            .HasOne(item => item.Assembly)
+            .WithMany(assembly => assembly.Items)
+            .HasForeignKey(item => item.AssemblyId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<AssemblyItemOption>()
+            .HasOne(option => option.AssemblyItem)
+            .WithMany(item => item.Options)
+            .HasForeignKey(option => option.AssemblyItemId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Deleting the minutes document only unlinks it.
+        builder.Entity<Assembly>()
+            .HasOne(assembly => assembly.MinutesDocument)
+            .WithMany()
+            .HasForeignKey(assembly => assembly.MinutesDocumentId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // One vote per unit per item.
+        builder.Entity<AssemblyVote>()
+            .HasIndex(vote => new { vote.AssemblyItemId, vote.UnitId })
+            .IsUnique();
+
+        builder.Entity<AssemblyVote>()
+            .HasIndex(vote => new { vote.AssemblyId, vote.UnitId });
+
+        builder.Entity<AssemblyVote>()
+            .HasOne(vote => vote.Assembly)
+            .WithMany()
+            .HasForeignKey(vote => vote.AssemblyId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Items and options are frozen after publication, so these never cascade in practice.
+        builder.Entity<AssemblyVote>()
+            .HasOne(vote => vote.AssemblyItem)
+            .WithMany()
+            .HasForeignKey(vote => vote.AssemblyItemId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AssemblyVote>()
+            .HasOne(vote => vote.Option)
+            .WithMany()
+            .HasForeignKey(vote => vote.AssemblyItemOptionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AssemblyVote>()
+            .HasOne(vote => vote.Unit)
+            .WithMany()
+            .HasForeignKey(vote => vote.UnitId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<AssemblyVote>()
+            .HasOne(vote => vote.VotedByUser)
+            .WithMany()
+            .HasForeignKey(vote => vote.VotedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<NewsRecipient>()
+            .HasIndex(recipient => new { recipient.NewsId, recipient.UserId })
+            .IsUnique();
+
+        builder.Entity<NewsRecipient>()
+            .HasOne(recipient => recipient.News)
+            .WithMany()
+            .HasForeignKey(recipient => recipient.NewsId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<NewsRecipient>()
+            .HasOne(recipient => recipient.User)
+            .WithMany()
+            .HasForeignKey(recipient => recipient.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Repeat check on the public form (same WhatsApp in the last 24 hours).
+        builder.Entity<LandingContact>()
+            .HasIndex(contact => new { contact.WhatsApp, contact.CreatedAt });
+
+        // Master list, filtered by status and newest first.
+        builder.Entity<LandingContact>()
+            .HasIndex(contact => new { contact.Status, contact.CreatedAt });
+
+        ApplyUtcDateTimeConvention(builder);
+    }
+
+    // Every DateTime column holds a UTC instant, but MySQL returns it without a kind, so the
+    // API would send it without an offset and browsers would read it as local time. Marking it
+    // as UTC on read (and normalizing on write) makes the JSON carry "Z".
+    // Charge.DueDate is a calendar day, not an instant, and is left untouched.
+    private static void ApplyUtcDateTimeConvention(ModelBuilder builder)
+    {
+        var utcConverter = new ValueConverter<DateTime, DateTime>(
+            value => value.Kind == DateTimeKind.Local ? value.ToUniversalTime() : DateTime.SpecifyKind(value, DateTimeKind.Utc),
+            value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
+
+        var nullableUtcConverter = new ValueConverter<DateTime?, DateTime?>(
+            value => value.HasValue
+                ? value.Value.Kind == DateTimeKind.Local ? value.Value.ToUniversalTime() : DateTime.SpecifyKind(value.Value, DateTimeKind.Utc)
+                : value,
+            value => value.HasValue ? DateTime.SpecifyKind(value.Value, DateTimeKind.Utc) : value);
+
+        foreach (var entityType in builder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (entityType.ClrType == typeof(Charge) && property.Name == nameof(Charge.DueDate))
+                    continue;
+
+                if (property.ClrType == typeof(DateTime))
+                    property.SetValueConverter(utcConverter);
+                else if (property.ClrType == typeof(DateTime?))
+                    property.SetValueConverter(nullableUtcConverter);
+            }
+        }
+    }
+}

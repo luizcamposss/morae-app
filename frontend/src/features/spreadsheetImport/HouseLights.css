@@ -1,0 +1,37 @@
+/* "Acender a casa": the windows of a small house light up one by one while a spreadsheet is read. */
+.house-lights__window {
+  fill: var(--color-campo);
+  stroke: var(--color-tinta);
+  stroke-width: 3;
+  animation: house-lights-on 2.4s ease-in-out infinite;
+  animation-delay: calc(var(--order) * 0.3s);
+}
+
+.house-lights--lit .house-lights__window {
+  fill: var(--color-ambar-suave);
+  animation: house-lights-arrive 0.5s ease-out both;
+  animation-delay: calc(var(--order) * 0.08s);
+}
+
+@keyframes house-lights-on {
+  0%, 12% { fill: var(--color-campo); }
+  30%, 75% { fill: #f3c45a; }
+  92%, 100% { fill: var(--color-campo); }
+}
+
+@keyframes house-lights-arrive {
+  from { fill: var(--color-campo); }
+  to { fill: #f3c45a; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .house-lights__window,
+  .house-lights--lit .house-lights__window {
+    animation: none;
+    fill: #f3c45a;
+  }
+
+  .house-lights:not(.house-lights--lit) .house-lights__window {
+    opacity: calc(0.35 + var(--order) * 0.1);
+  }
+}

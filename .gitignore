@@ -1,0 +1,52 @@
+# .NET
+**/bin/
+**/obj/
+/*.user
+*.suo
+*.rsuser
+AI_CONTEXT.md
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets / configs locais
+.env
+.env.*
+!.env.example
+!.env.production.example
+appsettings.Development.json
+appsettings.Production.json
+appsettings.Local.json
+
+# Banco local
+*.db
+*.sqlite
+*.sqlite3
+*.mdf
+*.ldf
+
+# Testes
+TestResults/
+coverage/
+.build/
+
+# Arquivos enviados em dev (documentos)
+backend/storage/
+
+# Testes de direção visual (Impeccable), não versionar
+.impeccable/
+
+# Claude Code local settings (machine-specific paths)
+.claude/settings.local.json
+
+# Claude Code: worktrees e notas locais dos agentes
+.claude/worktrees/
+.claude/agent-notes/

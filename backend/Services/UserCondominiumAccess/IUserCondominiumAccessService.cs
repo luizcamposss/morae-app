@@ -1,0 +1,38 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using backend.DTOs.UserCondominiumAccess;
+
+namespace backend.Services.UserCondominiumAccess;
+
+public interface IUserCondominiumAccessService
+{
+    Task<IEnumerable<MasterUserResponseDto>> GetMasterUsersAsync(int requesterUserId);
+
+    Task<MasterUserResponseDto> CreateMasterUserAsync(
+        int requesterUserId,
+        CreateMasterUserDto dto);
+
+    Task<UserCondominiumAccessResponseDto> SuspendAsync(
+    int requesterUserId,
+    int condominiumId,
+    int targetUserId,
+    SuspendUserCondominiumDto dto);
+
+    Task<UserCondominiumAccessResponseDto> ReactivateAsync(
+        int requesterUserId,
+        int condominiumId,
+        int targetUserId);
+
+    Task<UserCondominiumAccessResponseDto> UpdateRoleAsync(
+        int requesterUserId,
+        int condominiumId,
+        int targetUserId,
+        UpdateUserCondominiumRoleDto dto);
+
+    Task DeleteAsync(
+        int requesterUserId,
+        int condominiumId,
+        int targetUserId);
+}

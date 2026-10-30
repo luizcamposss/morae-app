@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" role="img" aria-label="MORAÊ — Gestão condominial" font-family="Nunito, Inter, 'Segoe UI', Arial, sans-serif">
+  <title>MORAÊ — Gestão condominial</title>
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0A3A2C"/>
+      <stop offset="1" stop-color="#17684F"/>
+    </linearGradient>
+    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M60 0 H0 V60" fill="none" stroke="#FFFFFF" stroke-opacity="0.05" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="400" fill="url(#bgGrad)"/>
+  <rect width="1200" height="400" fill="url(#grid)"/>
+
+  <circle cx="290" cy="250" r="150" fill="#2FBF8F" opacity="0.07"/>
+  <circle cx="1060" cy="90" r="130" fill="none" stroke="#2FBF8F" stroke-opacity="0.16" stroke-width="2"/>
+  <circle cx="1130" cy="330" r="80" fill="none" stroke="#8FE3C0" stroke-opacity="0.12" stroke-width="2"/>
+  <circle cx="560" cy="330" r="90" fill="#2FBF8F" opacity="0.05"/>
+
+  <rect x="64" y="316" width="424" height="30" rx="15" fill="#17664D"/>
+
+  <!-- B3 - edificio menor, verde agua -->
+  <rect x="64" y="216" width="104" height="100" rx="10" fill="#8FE3C0"/>
+  <rect x="80" y="232" width="12" height="13" rx="3" fill="#0B3D2E" opacity="0.18"/>
+  <rect x="112" y="232" width="12" height="13" rx="3" fill="#0B3D2E" opacity="0.18"/>
+  <rect x="80" y="254" width="12" height="13" rx="3" fill="#0B3D2E" opacity="0.18"/>
+  <rect x="112" y="254" width="12" height="13" rx="3" fill="#0B3D2E" opacity="0.18"/>
+  <rect x="80" y="276" width="12" height="13" rx="3" fill="#0B3D2E" opacity="0.18"/>
+  <rect x="112" y="276" width="12" height="13" rx="3" fill="#0B3D2E" opacity="0.18"/>
+
+  <!-- B2 - edificio medio, verde agua -->
+  <rect x="170" y="150" width="120" height="166" rx="10" fill="#2FBF8F"/>
+  <rect x="188" y="168" width="13" height="15" rx="3" fill="#0B3D2E" opacity="0.22"/>
+  <rect x="214" y="168" width="13" height="15" rx="3" fill="#0B3D2E" opacity="0.22"/>
+  <rect x="240" y="168" width="13" height="15" rx="3" fill="#0B3D2E" opacity="0.22"/>
+  <rect x="188" y="192" width="13" height="15" rx="3" fill="#0B3D2E" opacity="0.22"/>
+  <rect x="214" y="192" width="13" height="15" rx="3" fill="#0B3D2E" opacity="0.22"/>
+  <rect x="240" y="192" width="13" height="15" rx="3" fill="#0B3D2E" opacity="0.22"/>
+  <rect x="188" y="216" width="13" height="15" rx="3" fill="#0B3D2E" opacity="0.22"/>
+  <rect x="214" y="216" width="13" height="15" rx="3" fill="#0B3D2E" opacity="0.22"/>
+  <rect x="240" y="216" width="13" height="15" rx="3" fill="#0B3D2E" opacity="0.22"/>
+  <rect x="188" y="240" width="13" height="15" rx="3" fill="#0B3D2E" opacity="0.22"/>
+  <rect x="214" y="240" width="13" height="15" rx="3" fill="#0B3D2E" opacity="0.22"/>
+  <rect x="240" y="240" width="13" height="15" rx="3" fill="#0B3D2E" opacity="0.22"/>
+  <rect x="188" y="264" width="13" height="15" rx="3" fill="#0B3D2E" opacity="0.22"/>
+  <rect x="214" y="264" width="13" height="15" rx="3" fill="#0B3D2E" opacity="0.22"/>
+  <rect x="240" y="264" width="13" height="15" rx="3" fill="#0B3D2E" opacity="0.22"/>
+
+  <!-- B1 - edificio principal -->
+  <rect x="300" y="96" width="160" height="220" rx="12" fill="#1E8F68"/>
+  <rect x="374" y="70" width="6" height="26" rx="3" fill="#2FBF8F"/>
+  <circle cx="377" cy="66" r="5" fill="#8FE3C0"/>
+  <rect x="322" y="126" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="346" y="126" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="370" y="126" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="394" y="126" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="322" y="150" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="346" y="150" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="370" y="150" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="394" y="150" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="322" y="174" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="346" y="174" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="370" y="174" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="394" y="174" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="322" y="198" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="346" y="198" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="370" y="198" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="394" y="198" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="322" y="222" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="346" y="222" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="370" y="222" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="394" y="222" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="322" y="246" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="346" y="246" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="370" y="246" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="394" y="246" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="322" y="270" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="346" y="270" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="370" y="270" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+  <rect x="394" y="270" width="14" height="16" rx="3" fill="#0B3D2E" opacity="0.30"/>
+
+  <circle cx="250" cy="120" r="5" fill="#8FE3C0" opacity="0.5"/>
+  <circle cx="472" cy="150" r="6" fill="#2FBF8F" opacity="0.4"/>
+  <circle cx="524" cy="108" r="4" fill="#8FE3C0" opacity="0.5"/>
+  <circle cx="500" cy="124" r="3" fill="#2FBF8F" opacity="0.5"/>
+
+  <circle cx="520" cy="298" r="16" fill="#2FBF8F"/>
+  <circle cx="540" cy="308" r="11" fill="#1E8F68"/>
+  <circle cx="508" cy="310" r="9" fill="#8FE3C0"/>
+
+  <text x="622" y="196" font-size="104" font-weight="800" fill="#FFFFFF" letter-spacing="2">MORAÊ</text>
+  <rect x="624" y="216" width="120" height="8" rx="4" fill="#2FBF8F"/>
+  <text x="622" y="258" font-size="30" font-weight="700" fill="#8FE3C0">Gestão condominial</text>
+  <text x="622" y="294" font-size="17" font-weight="600" fill="#B9E6D2">Condomínios organizados e perfis seguros em um só lugar.</text>
+
+  <rect x="622" y="318" width="152" height="30" rx="15" fill="#FFFFFF" fill-opacity="0.08" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="1"/>
+  <text x="698" y="338" font-size="12.5" font-weight="700" fill="#E6F6EE" text-anchor="middle">Prédios &amp; Unidades</text>
+  <rect x="786" y="318" width="110" height="30" rx="15" fill="#FFFFFF" fill-opacity="0.08" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="1"/>
+  <text x="841" y="338" font-size="12.5" font-weight="700" fill="#E6F6EE" text-anchor="middle">Cobranças</text>
+  <rect x="908" y="318" width="132" height="30" rx="15" fill="#FFFFFF" fill-opacity="0.08" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="1"/>
+  <text x="974" y="338" font-size="12.5" font-weight="700" fill="#E6F6EE" text-anchor="middle">Comunicados</text>
+</svg>

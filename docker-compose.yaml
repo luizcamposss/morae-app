@@ -1,0 +1,19 @@
+services:
+  morae-mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: moraeDB
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - morae-mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping -h localhost -u root -proot
+      interval: 10s
+      timeout: 5s
+      retries: 5
+volumes:
+  morae-mysql_data: {}

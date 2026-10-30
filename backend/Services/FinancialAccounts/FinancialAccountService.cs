@@ -1,0 +1,186 @@
+using AutoMapper;
+using backend.Constants;
+using backend.Data;
+using backend.DTOs.FinancialAccount;
+using backend.Enums;
+using backend.Exceptions;
+using backend.Models;
+using backend.Services.Permissions;
+using backend.Services.Validation;
+using Microsoft.EntityFrameworkCore;
+
+namespace backend.Services.FinancialAccounts;
+
+public class FinancialAccountService : IFinancialAccountService
+{
+    private readonly AppDbContext _context;
+    private readonly IMapper _mapper;
+    private readonly IPermissionService _permissionService;
+
+    public FinancialAccountService(
+        AppDbContext context,
+        IMapper mapper,
+        IPermissionService permissionService)
+    {
+        _context = context;
+        _mapper = mapper;
+        _permissionService = permissionService;
+    }
+
+    public async Task<FinancialAccountResponseDto?> GetPlatformAsync(int userId)
+    {
+        var canReadPlatformAccount =
+            await _permissionService.IsMasterAsync(userId) ||
+            await _permissionService.IsAdminAsync(userId);
+
+        if (!canReadPlatformAccount)
+            throw new ForbiddenException("Só o Master ou o administrador têm acesso aos dados de recebimento.");
+
+        var account = await BuildResponseQuery()
+            .FirstOrDefaultAsync(account => account.Scope == FinancialAccountScope.Platform);
+
+        return account is null ? null : _mapper.Map<FinancialAccountResponseDto>(account);
+    }
+
+    public async Task<FinancialAccountResponseDto> UpsertPlatformAsync(
+        int userId,
+        UpsertFinancialAccountDto dto)
+    {
+        await _permissionService.EnsureMasterAsync(userId);
+
+        ValidateDto(dto);
+
+        var account = await _context.FinancialAccounts
+            .FirstOrDefaultAsync(account => account.Scope == FinancialAccountScope.Platform);
+
+        if (account is null)
+        {
+            account = new FinancialAccount
+            {
+                Scope = FinancialAccountScope.Platform,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.FinancialAccounts.Add(account);
+        }
+
+        ApplyChanges(account, dto, userId);
+
+        await _context.SaveChangesAsync();
+
+        return await GetResponseOrThrowAsync(account.Id);
+    }
+
+    public async Task<FinancialAccount?> GetCondominiumPixAccountAsync(int condominiumId)
+    {
+        return await _context.FinancialAccounts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(account =>
+                account.Scope == FinancialAccountScope.Condominium &&
+                account.CondominiumId == condominiumId &&
+                account.PixKey != string.Empty);
+    }
+
+    public async Task<FinancialAccountResponseDto?> GetByCondominiumAsync(
+        int userId,
+        int condominiumId)
+    {
+        await _permissionService.EnsureCondominiumAdminAsync(userId, condominiumId);
+
+        var account = await BuildResponseQuery()
+            .FirstOrDefaultAsync(account =>
+                account.Scope == FinancialAccountScope.Condominium &&
+                account.CondominiumId == condominiumId);
+
+        return account is null ? null : _mapper.Map<FinancialAccountResponseDto>(account);
+    }
+
+    public async Task<FinancialAccountResponseDto> UpsertByCondominiumAsync(
+        int userId,
+        int condominiumId,
+        UpsertFinancialAccountDto dto)
+    {
+        await _permissionService.EnsureCondominiumAdminAsync(userId, condominiumId);
+
+        ValidateDto(dto);
+
+        var condominiumExists = await _context.Condominiums
+            .AsNoTracking()
+            .AnyAsync(condominium => condominium.Id == condominiumId);
+
+        if (!condominiumExists)
+            throw new NotFoundException("Condomínio não encontrado.");
+
+        var account = await _context.FinancialAccounts
+            .FirstOrDefaultAsync(account =>
+                account.Scope == FinancialAccountScope.Condominium &&
+                account.CondominiumId == condominiumId);
+
+        if (account is null)
+        {
+            account = new FinancialAccount
+            {
+                Scope = FinancialAccountScope.Condominium,
+                CondominiumId = condominiumId,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.FinancialAccounts.Add(account);
+        }
+
+        ApplyChanges(account, dto, userId);
+
+        await _context.SaveChangesAsync();
+
+        return await GetResponseOrThrowAsync(account.Id);
+    }
+
+    private IQueryable<FinancialAccount> BuildResponseQuery()
+    {
+        return _context.FinancialAccounts
+            .AsNoTracking()
+            .Include(account => account.Condominium);
+    }
+
+    private async Task<FinancialAccountResponseDto> GetResponseOrThrowAsync(int id)
+    {
+        var account = await BuildResponseQuery()
+            .FirstOrDefaultAsync(account => account.Id == id);
+
+        if (account is null)
+            throw new NotFoundException("Conta de recebimento não encontrada.");
+
+        return _mapper.Map<FinancialAccountResponseDto>(account);
+    }
+
+    private static void ApplyChanges(
+        FinancialAccount account,
+        UpsertFinancialAccountDto dto,
+        int userId)
+    {
+        account.HolderName = "Pix";
+        account.HolderDocument = "00000000000";
+        account.BankName = "Pix";
+        account.BankCode = "0";
+        account.Agency = "0";
+        account.AccountNumber = "0";
+        account.AccountDigit = null;
+        account.AccountType = BankAccountType.Checking;
+        account.PixKeyType = dto.PixKeyType!.Value;
+        account.PixKey = PixKeyValidator.Normalize(dto.PixKeyType.Value, dto.PixKey);
+        account.UpdatedByUserId = userId;
+        account.UpdatedAt = DateTime.UtcNow;
+    }
+
+    private static void ValidateDto(UpsertFinancialAccountDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.PixKey))
+            throw new BadRequestException("Informe a chave Pix.");
+
+        if (dto.PixKeyType is null || !Enum.IsDefined(dto.PixKeyType.Value))
+            throw new BadRequestException("Escolha o tipo da chave Pix.");
+
+        // Throws with a friendly message when the key does not match its type.
+        PixKeyValidator.Normalize(dto.PixKeyType.Value, dto.PixKey);
+    }
+}

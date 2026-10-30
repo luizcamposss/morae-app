@@ -1,0 +1,25 @@
+using backend.DTOs.Assembly;
+
+namespace backend.Services.Assemblies;
+
+public interface IAssemblyService
+{
+    Task<AssemblyResponseDto> CreateAsync(int userId, int condominiumId, SaveAssemblyDto dto);
+    Task<IEnumerable<AssemblyResponseDto>> GetByCondominiumAsync(int userId, int condominiumId);
+    Task<AssemblyResponseDto> GetByIdAsync(int userId, int assemblyId);
+    Task<AssemblyResponseDto> UpdateAsync(int userId, int assemblyId, SaveAssemblyDto dto);
+    Task DeleteAsync(int userId, int assemblyId);
+    Task<AssemblyResponseDto> PublishAsync(int userId, int assemblyId);
+    Task<AssemblyResponseDto> CancelAsync(int userId, int assemblyId, CancelAssemblyDto dto);
+    Task<MyBallotDto> GetMyBallotAsync(int userId, int assemblyId);
+    Task<MyBallotDto> CastVotesAsync(int userId, int assemblyId, CastVotesDto dto);
+    Task<AssemblyResultsDto> GetResultsAsync(int userId, int assemblyId);
+    Task<AssemblyResponseDto> SetMinutesAsync(int userId, int assemblyId, SetMinutesDto dto);
+    Task<AssemblyResponseDto> SetOptionAttachmentAsync(int userId, int optionId, IFormFile? file);
+    Task<AssemblyResponseDto> RemoveOptionAttachmentAsync(int userId, int optionId);
+    Task<AssemblyOptionAttachmentDownload> DownloadOptionAttachmentAsync(int userId, int optionId);
+
+    // Hourly job.
+    Task CloseDueAssembliesAsync(CancellationToken cancellationToken);
+    Task SendClosingRemindersAsync(CancellationToken cancellationToken);
+}
