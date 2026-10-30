@@ -59,7 +59,7 @@ export function StateSelectField({
   }
 
   function handleOptionKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
-    let nextIndex: number | null = null;
+    let nextIndex: number;
 
     switch (event.key) {
       case "ArrowRight":

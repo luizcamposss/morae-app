@@ -1,0 +1,8 @@
+**/bin/
+**/obj/
+
+storage/
+
+.env
+.env.*
+!.env.example
