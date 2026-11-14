@@ -108,7 +108,8 @@ public class ChargeEmailNotifier : IChargeEmailNotifier
     }
 
     // Same people who see the charge in the app: the condominium's Admins for platform charges,
-    // the unit's residents for condominium charges. Only users with an active link to the condominium.
+    // the unit's residents for condominium charges (only the recipient when the charge has one).
+    // Only users with an active link to the condominium.
     private IQueryable<ApplicationUser> PayerUsers(Charge charge)
     {
         if (charge.Scope == ChargeScope.Platform)
@@ -122,8 +123,10 @@ public class ChargeEmailNotifier : IChargeEmailNotifier
         if (charge.UnitId.HasValue)
         {
             var unitId = charge.UnitId.Value;
+            var recipientPersonId = charge.RecipientPersonId;
 
             return _context.Users.Where(user =>
+                (recipientPersonId == null || user.PersonId == recipientPersonId) &&
                 _context.PersonUnits.Any(personUnit =>
                     personUnit.UnitId == unitId && personUnit.PersonId == user.PersonId) &&
                 user.UserCondominiums.Any(link =>

@@ -167,6 +167,8 @@ GET    /api/condominiums/{condominiumId}/charges
 GET    /api/my/charges
 ```
 
+- **Categoria e destinatário (#190):** `POST /api/charges` aceita `category` (`ChargeCategory`; sem enviar = 10 Outros; ignorada na mensalidade da plataforma, que fica 1) e `recipientPersonId` (opcional; a pessoa precisa estar vinculada à unidade, senão 400). Toda cobrança traz `category`, `recipientPersonId` e `recipientName` (null = cobrança de todos os vinculados da unidade). `GET /api/condominiums/{id}/charges?category=5` filtra pela categoria.
+- **Cobrança dirigida a uma pessoa:** só o destinatário (se tiver conta) vê em `/api/my/charges`, abre `GET /api/charges/{id}`, pede `pix-info`, envia comprovante, paga no Mercado Pago e recebe e-mails/notificações (nova cobrança, lembretes, pagamento). Os outros vinculados da unidade recebem 403. A gestão vê normalmente (com `recipientName`).
 - Toda cobrança traz `dueSoonReminderSentAt` e `overdueReminderSentAt` (instantes UTC; null = lembrete ainda não enviado): quando a rotina mandou o e-mail de "vence em breve" e o de atraso. Usados na linha do tempo da cobrança e no contador "lembretes enviados hoje" do painel (contado pelo dia de São Paulo no front).
 
 ### Lote, recorrência e regras de cobrança
@@ -179,8 +181,8 @@ POST   /api/condominiums/{condominiumId}/recurring-charges       (charges.create
 PUT    /api/recurring-charges/{id}/pause | /resume | /end        (charges.create)
 ```
 - Regras: `PUT billing-settings` `{ billingDueDay: 10, lateFeeEnabled: true, finePercent: 2, monthlyInterestPercent: 1 }` (dia 1–31, no mês curto vira o último dia; multa 0–2; juros 0–1 ao mês). A resposta traz também `maxFinePercent` e `maxMonthlyInterestPercent`.
-- Lote: `POST .../charges/batch` `{ buildingId?: 3, value: 500, dueDate?: "2026-11-10", description: "Taxa de novembro", unitValues?: [{ unitId: 12, value: 650 }] }`. Sem `buildingId` = todos os prédios (síndico limitado: só os dele). Sem `dueDate` = próximo dia `billingDueDay`. Resposta: `{ dueDate, createdCount, totalValue, charges: [...], skipped: [{ unitId, unitNumber, buildingName, reason }] }`.
-- Recorrência: `POST .../recurring-charges` `{ buildingId?, value: 500, dueDay?: 10, description, unitValues? }` (sem `dueDay` = o do condomínio; síndico limitado precisa escolher o prédio). A rotina gera **10 dias antes** do vencimento, uma vez por unidade e mês. Criar e retomar já geram o mês se estiver dentro da janela (vem em `generation`). Encerrada não volta.
+- Lote: `POST .../charges/batch` `{ buildingId?: 3, value: 500, dueDate?: "2026-11-10", description: "Taxa de novembro", category?: 6, unitIds?: [12, 13], unitValues?: [{ unitId: 12, value: 650 }] }`. Sem `buildingId` = todos os prédios (síndico limitado: só os dele). `unitIds` = só essas unidades (ex.: água pela leitura; os valores calculados na tela vão em `unitValues`). Sem `category` = 6 Rateio. Sem `dueDate` = próximo dia `billingDueDay`. Resposta: `{ dueDate, createdCount, totalValue, charges: [...], skipped: [{ unitId, unitNumber, buildingName, reason }] }`.
+- Recorrência: `POST .../recurring-charges` `{ buildingId?, value: 500, dueDay?: 10, description, category?, unitId?, recipientPersonId?, unitValues? }` (sem `dueDay` = o do condomínio; síndico limitado precisa escolher o prédio; sem `category` = 1 Taxa de condomínio). Com `unitId` a recorrência é **de uma unidade só** (ex.: aluguel; `buildingId` vira o prédio da unidade e `unitValues` é ignorado) e aceita `recipientPersonId` (vinculado à unidade). Se o destinatário deixar a unidade, o mês é pulado (`skipped`) em vez de cair nos outros moradores. A resposta traz `category`, `unitId`, `unitNumber`, `recipientPersonId` e `recipientName`. As cobranças geradas herdam categoria e destinatário. A rotina gera **10 dias antes** do vencimento, uma vez por unidade e mês. Criar e retomar já geram o mês se estiver dentro da janela (vem em `generation`). Encerrada não volta.
 
 ### Pagamentos e comprovante
 ```
@@ -349,6 +351,7 @@ POST   /api/condominiums/{condominiumId}/assemblies
 - `AssemblyItemOutcome`: 1 Approved, 2 Rejected, 3 Decided, 4 Undecided
 - `BankAccountType`: 1 Checking, 2 Savings, 3 Payment
 - `ChargeScope`: 1 Platform, 2 Condominium
+- `ChargeCategory`: 1 CondominiumFee (Taxa de condomínio), 2 Rent (Aluguel), 3 Water (Água), 4 Electricity (Luz), 5 Gas (Gás), 6 Apportionment (Rateio), 7 Fine (Multa), 8 Reservation (Reserva), 9 Agreement (Acordo), 10 Other (Outros)
 - `ChargeStatus`: 1 Pending, 2 Paid, 3 Overdue, 4 Canceled
 - `RecurringChargeStatus`: 1 Active, 2 Paused, 3 Ended
 - `DocumentCategory`: 1 Convention, 2 InternalRules, 3 Minutes, 4 Financial, 5 Contract, 6 Other

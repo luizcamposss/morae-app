@@ -20,6 +20,10 @@ public class ChargeResponseDto
     public decimal Value { get; set; }
     public DateTime DueDate { get; set; }
     public string Description { get; set; } = string.Empty;
+    public ChargeCategory Category { get; set; }
+    // Null = billed to everyone linked to the unit.
+    public int? RecipientPersonId { get; set; }
+    public string? RecipientName { get; set; }
     public string? CancelReason { get; set; }
     public ChargeStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }

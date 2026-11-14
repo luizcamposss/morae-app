@@ -3,8 +3,8 @@ using backend.Enums;
 
 namespace backend.Models;
 
-// A monthly charge the scheduled job generates for every unit (of the condominium or of one
-// building) until the Admin pauses or ends it.
+// A monthly charge the scheduled job generates for every unit (of the condominium, of one
+// building or a single unit) until the Admin pauses or ends it.
 public class RecurringCharge
 {
     [Key]
@@ -17,6 +17,17 @@ public class RecurringCharge
     // Null = every building of the condominium.
     public int? BuildingId { get; set; }
     public Building? Building { get; set; }
+
+    // Set = a recurrence for this unit only (BuildingId is then the unit's building).
+    public int? UnitId { get; set; }
+    public Unit? Unit { get; set; }
+
+    // Only with UnitId: the person who gets the charges (null = everyone linked to the unit).
+    public int? RecipientPersonId { get; set; }
+    public Person? RecipientPerson { get; set; }
+
+    [Required]
+    public ChargeCategory Category { get; set; } = ChargeCategory.CondominiumFee;
 
     [Required]
     [StringLength(255)]

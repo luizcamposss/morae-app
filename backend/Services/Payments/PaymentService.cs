@@ -280,7 +280,7 @@ public class PaymentService : IPaymentService
 
         if (charge.Scope == ChargeScope.Condominium)
         {
-            await _permissionService.EnsureCanReadCondominiumChargeAsync(userId, charge.CondominiumId, charge.UnitId);
+            await _permissionService.EnsureCanReadCondominiumChargeAsync(userId, charge);
             return;
         }
 
@@ -329,16 +329,8 @@ public class PaymentService : IPaymentService
 
         if (charge.Scope == ChargeScope.Condominium && charge.UnitId.HasValue)
         {
-            var residentUserIds = await _context.PersonUnits
-                .AsNoTracking()
-                .Where(personUnit => personUnit.UnitId == charge.UnitId.Value)
-                .Join(
-                    _context.Users.AsNoTracking(),
-                    personUnit => personUnit.PersonId,
-                    user => user.PersonId,
-                    (_, user) => user.Id)
-                .Distinct()
-                .ToListAsync();
+            // Same people who get the e-mail: only the recipient when the charge has one.
+            var residentUserIds = await _chargeEmailNotifier.GetPayerUserIdsAsync(charge);
 
             await _notificationService.CreateManyAsync(
                 residentUserIds,
