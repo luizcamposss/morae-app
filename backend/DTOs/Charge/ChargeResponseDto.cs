@@ -53,4 +53,8 @@ public class ChargeResponseDto
     public int PendingProofCount { get; set; }
     public PaymentProofStatus? LatestProofStatus { get; set; }
     public string? LatestProofRejectionReason { get; set; }
+
+    // Installment of a debt agreement (0 = down payment, 1..N = installments).
+    public int? AgreementId { get; set; }
+    public int? AgreementInstallmentNumber { get; set; }
 }

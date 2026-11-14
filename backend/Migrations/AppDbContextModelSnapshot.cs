@@ -206,6 +206,123 @@ namespace backend.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("backend.Models.Agreement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BreakAfterDaysLate")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CondominiumId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("DiscountType")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("DiscountValue")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal?>("DownPayment")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("EndReason")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("EndedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal>("FineAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("InstallmentCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("InstallmentDueDay")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("InterestAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<decimal>("OriginalAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int?>("RecipientPersonId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("UnitId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("RecipientPersonId");
+
+                    b.HasIndex("UnitId");
+
+                    b.HasIndex("CondominiumId", "Status");
+
+                    b.ToTable("Agreements");
+                });
+
+            modelBuilder.Entity("backend.Models.AgreementCharge", b =>
+                {
+                    b.Property<int>("AgreementId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ChargeId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("FineAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("InterestAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("Value")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.HasKey("AgreementId", "ChargeId");
+
+                    b.HasIndex("ChargeId");
+
+                    b.ToTable("AgreementCharges");
+                });
+
             modelBuilder.Entity("backend.Models.ApplicationUser", b =>
                 {
                     b.Property<int>("Id")
@@ -559,6 +676,12 @@ namespace backend.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AgreementId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("AgreementInstallmentNumber")
+                        .HasColumnType("int");
+
                     b.Property<string>("CancelReason")
                         .HasColumnType("longtext");
 
@@ -625,6 +748,8 @@ namespace backend.Migrations
                         .HasColumnType("decimal(10,2)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AgreementId");
 
                     b.HasIndex("CondominiumId");
 
@@ -2253,6 +2378,59 @@ namespace backend.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("backend.Models.Agreement", b =>
+                {
+                    b.HasOne("backend.Models.Condominium", "Condominium")
+                        .WithMany()
+                        .HasForeignKey("CondominiumId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.ApplicationUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Person", "RecipientPerson")
+                        .WithMany()
+                        .HasForeignKey("RecipientPersonId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("backend.Models.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Condominium");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("RecipientPerson");
+
+                    b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("backend.Models.AgreementCharge", b =>
+                {
+                    b.HasOne("backend.Models.Agreement", "Agreement")
+                        .WithMany("OriginalCharges")
+                        .HasForeignKey("AgreementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Charge", "Charge")
+                        .WithMany()
+                        .HasForeignKey("ChargeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Agreement");
+
+                    b.Navigation("Charge");
+                });
+
             modelBuilder.Entity("backend.Models.ApplicationUser", b =>
                 {
                     b.HasOne("backend.Models.Person", "Person")
@@ -2368,6 +2546,11 @@ namespace backend.Migrations
 
             modelBuilder.Entity("backend.Models.Charge", b =>
                 {
+                    b.HasOne("backend.Models.Agreement", "Agreement")
+                        .WithMany("Installments")
+                        .HasForeignKey("AgreementId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("backend.Models.Condominium", "Condominium")
                         .WithMany()
                         .HasForeignKey("CondominiumId")
@@ -2399,6 +2582,8 @@ namespace backend.Migrations
                         .WithMany()
                         .HasForeignKey("UnitId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Agreement");
 
                     b.Navigation("Condominium");
 
@@ -2976,6 +3161,13 @@ namespace backend.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("backend.Models.Agreement", b =>
+                {
+                    b.Navigation("Installments");
+
+                    b.Navigation("OriginalCharges");
                 });
 
             modelBuilder.Entity("backend.Models.ApplicationUser", b =>

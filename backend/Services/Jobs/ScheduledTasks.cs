@@ -4,6 +4,7 @@ using backend.Data;
 using backend.Enums;
 using backend.Models;
 using backend.Services.Email;
+using backend.Services.Agreements;
 using backend.Services.Assemblies;
 using backend.Services.Charges;
 using backend.Services.Maintenance;
@@ -34,6 +35,7 @@ public class ScheduledTasks : IScheduledTasks
     private readonly IMaintenanceReminderService _maintenanceReminderService;
     private readonly IAssemblyService _assemblyService;
     private readonly IChargeBillingService _chargeBillingService;
+    private readonly IAgreementService _agreementService;
 
     public ScheduledTasks(
         AppDbContext context,
@@ -42,8 +44,10 @@ public class ScheduledTasks : IScheduledTasks
         ILogger<ScheduledTasks> logger,
         IMaintenanceReminderService maintenanceReminderService,
         IAssemblyService assemblyService,
-        IChargeBillingService chargeBillingService)
+        IChargeBillingService chargeBillingService,
+        IAgreementService agreementService)
     {
+        _agreementService = agreementService;
         _chargeBillingService = chargeBillingService;
         _assemblyService = assemblyService;
         _maintenanceReminderService = maintenanceReminderService;
@@ -57,6 +61,8 @@ public class ScheduledTasks : IScheduledTasks
     {
         // Each task runs on its own: one failure does not stop the others.
         await RunSafelyAsync("mark overdue charges", MarkOverdueChargesAsync, cancellationToken);
+        // After marking overdue: breaks agreements with an installment late for too long.
+        await RunSafelyAsync("update debt agreements", _agreementService.UpdateAgreementsAsync, cancellationToken);
         await RunSafelyAsync("expire invitations", ExpireInvitationsAsync, cancellationToken);
         await RunSafelyAsync("clean up old data", CleanUpAsync, cancellationToken);
         await RunSafelyAsync("close assemblies", _assemblyService.CloseDueAssembliesAsync, cancellationToken);

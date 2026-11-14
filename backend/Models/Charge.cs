@@ -67,4 +67,9 @@ public class Charge
     // (e.g. rent billed to the tenant); must be linked to the unit when the charge is created.
     public int? RecipientPersonId { get; set; }
     public Person? RecipientPerson { get; set; }
+
+    // Set on the installments of a debt agreement (category Agreement). 0 = down payment, 1..N = installments.
+    public int? AgreementId { get; set; }
+    public Agreement? Agreement { get; set; }
+    public int? AgreementInstallmentNumber { get; set; }
 }

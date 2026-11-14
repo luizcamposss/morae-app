@@ -52,6 +52,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<RecurringCharge> RecurringCharges { get; set; }
     public DbSet<RecurringChargeUnitValue> RecurringChargeUnitValues { get; set; }
     public DbSet<LandingContact> LandingContacts { get; set; }
+    public DbSet<Agreement> Agreements { get; set; }
+    public DbSet<AgreementCharge> AgreementCharges { get; set; }
     public DbSet<ExpenseCategory> ExpenseCategories { get; set; }
     public DbSet<Expense> Expenses { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
@@ -222,6 +224,38 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
         builder.Entity<Charge>()
             .HasIndex(c => new { c.RecurringChargeId, c.UnitId, c.ReferenceMonth })
             .IsUnique();
+
+        builder.Entity<Charge>()
+            .HasOne(c => c.Agreement)
+            .WithMany(a => a.Installments)
+            .HasForeignKey(c => c.AgreementId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Agreement>(agreement =>
+        {
+            agreement.HasOne(a => a.Condominium).WithMany().HasForeignKey(a => a.CondominiumId).OnDelete(DeleteBehavior.Restrict);
+            agreement.HasOne(a => a.Unit).WithMany().HasForeignKey(a => a.UnitId).OnDelete(DeleteBehavior.Restrict);
+            agreement.HasOne(a => a.RecipientPerson).WithMany().HasForeignKey(a => a.RecipientPersonId).OnDelete(DeleteBehavior.SetNull);
+            agreement.HasOne(a => a.CreatedByUser).WithMany().HasForeignKey(a => a.CreatedByUserId).OnDelete(DeleteBehavior.Restrict);
+            agreement.Property(a => a.OriginalAmount).HasPrecision(10, 2);
+            agreement.Property(a => a.FineAmount).HasPrecision(10, 2);
+            agreement.Property(a => a.InterestAmount).HasPrecision(10, 2);
+            agreement.Property(a => a.DiscountValue).HasPrecision(10, 2);
+            agreement.Property(a => a.DiscountAmount).HasPrecision(10, 2);
+            agreement.Property(a => a.TotalAmount).HasPrecision(10, 2);
+            agreement.Property(a => a.DownPayment).HasPrecision(10, 2);
+            agreement.HasIndex(a => new { a.CondominiumId, a.Status });
+        });
+
+        builder.Entity<AgreementCharge>(link =>
+        {
+            link.HasKey(l => new { l.AgreementId, l.ChargeId });
+            link.HasOne(l => l.Agreement).WithMany(a => a.OriginalCharges).HasForeignKey(l => l.AgreementId).OnDelete(DeleteBehavior.Cascade);
+            link.HasOne(l => l.Charge).WithMany().HasForeignKey(l => l.ChargeId).OnDelete(DeleteBehavior.Restrict);
+            link.Property(l => l.Value).HasPrecision(10, 2);
+            link.Property(l => l.FineAmount).HasPrecision(10, 2);
+            link.Property(l => l.InterestAmount).HasPrecision(10, 2);
+        });
 
         builder.Entity<Condominium>()
             .Property(c => c.FinePercent)

@@ -7,6 +7,7 @@ using backend.DTOs.Payment;
 using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
+using backend.Services.Agreements;
 using backend.Services.MercadoPago;
 using backend.Services.Charges;
 using backend.Services.Email;
@@ -63,6 +64,9 @@ public class PaymentService : IPaymentService
         if (charge.Status == ChargeStatus.Canceled)
             throw new BadRequestException("Cobranças canceladas não podem ser pagas.");
 
+        if (charge.Status == ChargeStatus.Renegotiated)
+            throw new BadRequestException("Esta cobrança foi renegociada num acordo; pague as parcelas do acordo.");
+
         if (dto.PaymentMethod == PaymentMethod.Undefined)
             throw new BadRequestException("Informe a forma de pagamento.");
 
@@ -108,6 +112,9 @@ public class PaymentService : IPaymentService
         await _context.SaveChangesAsync();
         await CreatePaymentNotificationsAsync(charge);
         await _chargeEmailNotifier.QueuePaymentConfirmedAsync(charge, payment);
+
+        // The last installment paid settles the agreement.
+        await AgreementProgress.SyncAsync(_context, charge.AgreementId);
 
         // A Pix/boleto generated earlier must not stay payable after the manual settlement.
         await _mercadoPagoService.CancelOpenPaymentAsync(charge.Id);

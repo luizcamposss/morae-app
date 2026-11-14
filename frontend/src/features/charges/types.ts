@@ -1,6 +1,7 @@
 import type { PixKeyType } from "../financialAccounts/pixKey";
 
-export type ChargeStatus = 0 | 1 | 2 | 3 | 4;
+// 1 Pending, 2 Paid, 3 Overdue, 4 Canceled, 5 Renegotiated (inside a debt agreement)
+export type ChargeStatus = 0 | 1 | 2 | 3 | 4 | 5;
 
 export type ChargeScope = 1 | 2;
 
@@ -45,6 +46,9 @@ export type ChargeResponse = {
   pendingProofCount: number;
   latestProofStatus?: PaymentProofStatus | null;
   latestProofRejectionReason?: string | null;
+  // Installment of a debt agreement (0 = down payment, 1..N = installments).
+  agreementId?: number | null;
+  agreementInstallmentNumber?: number | null;
 };
 
 // 1 Pending, 2 Accepted, 3 Rejected

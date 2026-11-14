@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronRight, Plus, Repeat, Search, TriangleAlert, X } from "lucide-react";
+import { ChevronRight, Handshake, Plus, Repeat, Search, TriangleAlert, X } from "lucide-react";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { Button, ButtonLink } from "../../shared/components/Button";
 import { ConfirmDialog, type ConfirmRequest } from "../../shared/components/ConfirmDialog";
@@ -9,6 +9,9 @@ import { SummaryCard } from "../../shared/components/SummaryCard";
 import { PageHeader } from "../../shared/layout/PageHeader";
 import { formatCurrency } from "../../shared/lib/currency";
 import { formatCalendarDate, todayInputDate } from "../../shared/lib/date";
+import { AGREEMENT_STATUS } from "../agreements/agreementMeta";
+import { cancelAgreement, createAgreement, getAgreementsByCondominium } from "../agreements/agreementService";
+import type { AgreementResponse } from "../agreements/types";
 import { getBuildingsByCondominium } from "../buildings/buildingService";
 import { changeRecurringCharge, createChargeBatch, createRecurringCharge, getBillingSettings, getRecurringCharges } from "../charges/billingService";
 import { cancelCharge, createCharge, getChargesByCondominium, getPlatformCharges } from "../charges/chargeService";
@@ -24,6 +27,9 @@ import { MercadoPagoPaymentModal } from "../mercadoPago/MercadoPagoPaymentModal"
 import { getMercadoPagoConnectionStatus } from "../mercadoPago/mercadoPagoService";
 import { createManualPayment } from "../payments/paymentService";
 import { getUnitsByBuilding } from "../units/unitService";
+import { agreementCandidates, candidatesOfUnit, chosenCharges, toCreateAgreementRequest, type AgreementForm } from "./agreementForm";
+import { AgreementDetailsModal, AgreementsList } from "./AgreementsList";
+import { AgreementWizard } from "./AgreementWizard";
 import { ChargeReceiptModal } from "./ChargeReceiptModal";
 import { PaymentProofsPanel } from "./PaymentProofsPanel";
 import { BatchResultModal, CancelChargeModal, ChargeDetailsModal, ManualPaymentModal } from "./ChargeModals";
@@ -46,8 +52,8 @@ import {
   type ManualPaymentForm,
 } from "./chargeForm";
 
-type View = "charges" | "recurring" | "platform";
-type Tab = "open" | "overdue" | "paid" | "canceled" | "all";
+type View = "charges" | "agreements" | "recurring" | "platform";
+type Tab = "open" | "overdue" | "paid" | "renegotiated" | "canceled" | "all";
 // The "Nova cobrança" wizard; repeating = opened from "Recorrências".
 type Wizard = { repeating: boolean } | null;
 type BatchResult = { title: string; result: ChargeBatchResult } | null;
@@ -56,13 +62,14 @@ const tabs: Array<{ key: Tab; label: string; statuses: number[] }> = [
   { key: "open", label: "Em aberto", statuses: [CHARGE_STATUS.pending] },
   { key: "overdue", label: "Atrasadas", statuses: [CHARGE_STATUS.overdue] },
   { key: "paid", label: "Pagas", statuses: [CHARGE_STATUS.paid] },
+  { key: "renegotiated", label: "Renegociadas", statuses: [CHARGE_STATUS.renegotiated] },
   { key: "canceled", label: "Canceladas", statuses: [CHARGE_STATUS.canceled] },
   { key: "all", label: "Todas", statuses: [] },
 ];
 
 // The syndic skips what only the Admin can read (Moraê fee, receiving accounts); the API still checks his charges.
 async function fetchPageData(condominiumId: number, isSyndic: boolean) {
-  const [charges, buildings, recurring, settings, platformCharges, platformAccount, account, mercadoPago] = await Promise.all([
+  const [charges, buildings, recurring, settings, platformCharges, platformAccount, account, mercadoPago, agreements] = await Promise.all([
     getChargesByCondominium(condominiumId),
     getBuildingsByCondominium(condominiumId).catch(() => []),
     getRecurringCharges(condominiumId).catch(() => []),
@@ -71,6 +78,7 @@ async function fetchPageData(condominiumId: number, isSyndic: boolean) {
     isSyndic ? null : getPlatformFinancialAccount().catch(() => null),
     isSyndic ? null : getCondominiumFinancialAccount(condominiumId).catch(() => null),
     isSyndic ? null : getMercadoPagoConnectionStatus(condominiumId).catch(() => null),
+    getAgreementsByCondominium(condominiumId).catch(() => [] as AgreementResponse[]),
   ]);
   const unitsByBuilding = await Promise.all(buildings.map((building) => getUnitsByBuilding(building.id)));
   const units = unitsByBuilding.flat().sort((a, b) => a.buildingName.localeCompare(b.buildingName, "pt-BR") || a.number.localeCompare(b.number, "pt-BR", { numeric: true }));
@@ -81,6 +89,7 @@ async function fetchPageData(condominiumId: number, isSyndic: boolean) {
     buildings,
     units,
     recurring,
+    agreements,
     settings,
     // The Admin sees the platform fees of every condominium they manage; keep the active one.
     platformCharges: platformCharges.filter((charge) => charge.condominiumId === condominiumId),
@@ -99,6 +108,7 @@ const emptyData = (condominiumId: number | null, errorMessage = ""): PageData =>
   buildings: [],
   units: [],
   recurring: [],
+  agreements: [],
   settings: null,
   platformCharges: [],
   pixKey: "",
@@ -125,6 +135,9 @@ export function AdminPaymentsPage() {
   const [modalError, setModalError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [wizard, setWizard] = useState<Wizard>(null);
+  // "Fazer acordo", optionally starting on a unit.
+  const [agreementWizard, setAgreementWizard] = useState<{ unitId: number | null } | null>(null);
+  const [selectedAgreementId, setSelectedAgreementId] = useState<number | null>(null);
   const [batchResult, setBatchResult] = useState<BatchResult>(null);
   const [paymentForm, setPaymentForm] = useState<ManualPaymentForm | null>(null);
   const [cancelForm, setCancelForm] = useState<CancelFormState | null>(null);
@@ -156,7 +169,7 @@ export function AdminPaymentsPage() {
 
   const isLoading = !data || data.condominiumId !== activeCondominiumId;
   const page = isLoading ? emptyData(activeCondominiumId) : data;
-  const { charges, buildings, units, recurring, settings, platformCharges } = page;
+  const { charges, buildings, units, recurring, agreements, settings, platformCharges } = page;
   const unitById = useMemo(() => new Map(units.map((unit) => [unit.id, unit])), [units]);
   const shownError = errorMessage || page.errorMessage;
   const filteredUnit = unitFilter ? unitById.get(unitFilter) : undefined;
@@ -209,6 +222,10 @@ export function AdminPaymentsPage() {
   );
   const months = useMemo(() => chargeMonths(charges), [charges]);
   const activeRecurring = recurring.filter((item) => item.status !== 3).length;
+  const activeAgreements = agreements.filter((item) => item.status === AGREEMENT_STATUS.active).length;
+  const hasAgreementCandidates = agreementCandidates(charges).length > 0;
+  const unitLateCharges = unitFilter ? candidatesOfUnit(charges, String(unitFilter)) : [];
+  const selectedAgreement = agreements.find((item) => item.id === selectedAgreementId) ?? null;
   const openPlatform = platformCharges.filter(isOpenCharge).length;
 
   const allCharges = [...charges, ...platformCharges];
@@ -222,6 +239,7 @@ export function AdminPaymentsPage() {
 
   function closeModals() {
     setWizard(null);
+    setAgreementWizard(null);
     setPaymentForm(null);
     setCancelForm(null);
     setModalError("");
@@ -328,6 +346,53 @@ export function AdminPaymentsPage() {
     }
   }
 
+  function openAgreementWizard(unitId: number | null) {
+    clearMessages();
+    setModalError("");
+    setSelectedChargeId(null);
+    setAgreementWizard({ unitId });
+  }
+
+  async function createAgreementFromWizard(form: AgreementForm) {
+    if (!activeCondominiumId) return;
+    setIsSubmitting(true);
+    setModalError("");
+    clearMessages();
+    try {
+      const created = await createAgreement(activeCondominiumId, toCreateAgreementRequest(form, chosenCharges(form, charges)));
+      setAgreementWizard(null);
+      setView("agreements");
+      setSuccessMessage(`Acordo criado para ${created.buildingName} · ${created.unitNumber}: ${created.totalCount} ${created.totalCount === 1 ? "parcela" : "parcelas"} na categoria Acordo.`);
+      await reload();
+    } catch (error) {
+      setModalError(error instanceof Error ? error.message : "Não foi possível criar o acordo.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  function askCancelAgreement(agreement: AgreementResponse) {
+    const paid = agreement.paidCount > 0 ? ` As ${agreement.paidCount} parcelas já pagas continuam pagas e não são descontadas das originais.` : "";
+    setConfirmRequest({
+      title: "Cancelar este acordo?",
+      description: `As parcelas em aberto são canceladas e as cobranças originais voltam como atrasadas, com multa e juros desde o vencimento original.${paid}`,
+      confirmLabel: "Cancelar acordo",
+      cancelLabel: "Manter acordo",
+      tone: "danger",
+      onConfirm: async () => {
+        clearMessages();
+        try {
+          await cancelAgreement(agreement.id, null);
+          setSelectedAgreementId(null);
+          setSuccessMessage("Acordo cancelado. As cobranças originais voltaram para a inadimplência.");
+          await reload();
+        } catch (error) {
+          setErrorMessage(error instanceof Error ? error.message : "Não foi possível cancelar o acordo.");
+        }
+      },
+    });
+  }
+
   async function runRecurringAction(item: RecurringChargeResponse, action: "pause" | "resume" | "end") {
     clearMessages();
     setBusyRecurringId(item.id);
@@ -372,6 +437,7 @@ export function AdminPaymentsPage() {
     .join(" · ");
   const views: Array<{ key: View; label: string; count?: number }> = [
     { key: "charges", label: "Cobranças" },
+    { key: "agreements", label: "Acordos", count: activeAgreements || undefined },
     { key: "recurring", label: "Recorrências", count: activeRecurring },
     ...(isSyndic ? [] : [{ key: "platform" as const, label: "Mensalidade Moraê", count: openPlatform || undefined }]),
   ];
@@ -532,6 +598,23 @@ export function AdminPaymentsPage() {
             </div>
           )}
 
+          {unitFilter && canCreate && unitLateCharges.length > 0 && (
+            <div className="mb-4 flex flex-col gap-3 rounded-card bg-vermelho-suave px-5 py-4 sm:flex-row sm:items-center">
+              <TriangleAlert size={20} strokeWidth={1.8} aria-hidden className="shrink-0 text-vermelho" />
+              <p className="flex-1 text-sm text-tinta">
+                <span className="font-semibold">
+                  {unitLateCharges.length} {unitLateCharges.length === 1 ? "cobrança atrasada" : "cobranças atrasadas"} ·{" "}
+                  {formatCurrency(unitLateCharges.reduce((sum, charge) => sum + amountDue(charge), 0))} hoje.
+                </span>{" "}
+                Junte tudo num acordo, com desconto e parcelas.
+              </p>
+              <Button size="sm" onClick={() => openAgreementWizard(unitFilter)}>
+                <Handshake size={16} strokeWidth={2} aria-hidden />
+                Fazer acordo
+              </Button>
+            </div>
+          )}
+
           <ul className="divide-y divide-linha overflow-hidden rounded-card bg-superficie shadow-whisper">
             {visibleCharges.length === 0 ? (
               <li className="px-5 py-10 text-center text-sm text-tinta-suave">
@@ -587,6 +670,27 @@ export function AdminPaymentsPage() {
               })
             )}
           </ul>
+        </>
+      )}
+
+      {view === "agreements" && (
+        <>
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-tinta-suave">Dívidas atrasadas de uma unidade parceladas, com desconto opcional na multa e nos juros.</p>
+            {canCreate && (
+              <Button
+                variant="quiet"
+                size="sm"
+                onClick={() => openAgreementWizard(null)}
+                disabled={isLoading || !hasAgreementCandidates || !page.isReceivingReady}
+                className="self-start bg-superficie shadow-whisper hover:bg-campo"
+              >
+                <Handshake size={16} strokeWidth={2} aria-hidden />
+                Fazer acordo
+              </Button>
+            )}
+          </div>
+          <AgreementsList items={agreements} isLoading={isLoading} onSelect={(agreement) => setSelectedAgreementId(agreement.id)} />
         </>
       )}
 
@@ -679,7 +783,11 @@ export function AdminPaymentsPage() {
             ) : undefined
           }
           footer={
-            selectedCharge.status === CHARGE_STATUS.canceled ? undefined : selectedCharge.status === CHARGE_STATUS.paid ? (
+            selectedCharge.status === CHARGE_STATUS.canceled ? undefined : selectedCharge.status === CHARGE_STATUS.renegotiated ? (
+              <Button variant="quiet" onClick={() => { setSelectedChargeId(null); setView("agreements"); }}>
+                Ver acordos
+              </Button>
+            ) : selectedCharge.status === CHARGE_STATUS.paid ? (
               <Button variant="quiet" onClick={() => setReceiptChargeId(selectedCharge.id)}>
                 Ver comprovante
               </Button>
@@ -695,7 +803,7 @@ export function AdminPaymentsPage() {
               </Button>
             ) : (
               <>
-                {!isSyndic && <button
+                {!isSyndic && !selectedCharge.agreementId && <button
                   type="button"
                   onClick={() => {
                     setModalError("");
@@ -705,6 +813,11 @@ export function AdminPaymentsPage() {
                 >
                   Cancelar
                 </button>}
+                {canCreate && selectedCharge.status === CHARGE_STATUS.overdue && !selectedCharge.agreementId && (
+                  <Button variant="quiet" onClick={() => openAgreementWizard(selectedCharge.unitId ?? null)}>
+                    Fazer acordo
+                  </Button>
+                )}
                 {canMarkPaid && <Button
                   onClick={() => {
                     setModalError("");
@@ -730,6 +843,22 @@ export function AdminPaymentsPage() {
           onClose={closeModals}
           onSubmit={(form, recipientName) => void createFromWizard(form, recipientName)}
         />
+      )}
+
+      {agreementWizard && (
+        <AgreementWizard
+          units={units}
+          charges={charges}
+          initialUnitId={agreementWizard.unitId}
+          isSubmitting={isSubmitting}
+          error={modalError}
+          onClose={closeModals}
+          onSubmit={(form) => void createAgreementFromWizard(form)}
+        />
+      )}
+
+      {selectedAgreement && !confirmRequest && (
+        <AgreementDetailsModal agreement={selectedAgreement} canManage={canCreate} onClose={() => setSelectedAgreementId(null)} onCancel={askCancelAgreement} />
       )}
 
       {paymentForm && (

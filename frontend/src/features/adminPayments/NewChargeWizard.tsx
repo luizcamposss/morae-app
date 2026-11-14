@@ -72,7 +72,7 @@ export function Choice({ selected, icon, title, hint, onClick, compact = false }
   );
 }
 
-function MoneyInput({ label, value, placeholder, onChange, className = "w-24" }: { label: string; value: string; placeholder?: string; onChange: (value: string) => void; className?: string }) {
+export function MoneyInput({ label, value, placeholder, onChange, className = "w-24" }: { label: string; value: string; placeholder?: string; onChange: (value: string) => void; className?: string }) {
   return (
     <label className="shrink-0">
       <span className="sr-only">{label}</span>
