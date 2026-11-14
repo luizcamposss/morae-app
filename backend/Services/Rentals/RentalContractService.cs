@@ -326,7 +326,7 @@ public class RentalContractService : IRentalContractService
         }
     }
 
-    private Task<int> AddItemAsync(RentalContract contract, DateOnly month, DateTime dueDate, ChargeCategory category, string description, decimal amount) =>
+    private Task<InvoiceItemResult> AddItemAsync(RentalContract contract, DateOnly month, DateTime dueDate, ChargeCategory category, string description, decimal amount) =>
         _invoiceService.AddItemToDraftAsync(new InvoiceItemRequest(
             contract.CondominiumId,
             contract.UnitId,

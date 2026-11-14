@@ -125,6 +125,13 @@ Decisões já tomadas com o Luiz. Siga sem perguntar de novo; se algo novo contr
 - Reajuste: a gestão é avisada 30 dias antes e digita o novo valor; o histórico fica guardado e o valor novo vale do próximo mês ainda não gerado. Sem busca automática do índice.
 - Encerrar: para de gerar depois do mês do fim; contas já geradas ficam. O inquilino vê o resumo do contrato em Minha unidade. Atalho "Alugar esta unidade" na ficha da unidade.
 
+## Consumo individual (#200)
+
+- Módulo **Consumo** (ligado em Prédio de aluguel e Os dois). O Admin configura preço por m³ (água, gás) ou kWh (luz) e um mínimo mensal opcional.
+- **Leituras do mês:** uma linha por unidade com a anterior já preenchida; a gestão (charges.create) digita só a atual. Aviso de consumo acima de 2× a média recente; leitura menor que a anterior não salva. Leituras ficam guardadas.
+- O valor entra na conta do mês do inquilino quando o contrato inclui aquela conta; senão, na conta da unidade. Correção só enquanto a conta é rascunho.
+- O morador vê o gráfico dos últimos 12 meses em Minhas contas. O "Nova cobrança" continua com o cálculo por leitura digitada (não usa as leituras guardadas).
+
 ## Ficou de fora (não implementar sem o Luiz pedir)
 
 Encomendas, veículos/pets, relatórios, papel de porteiro/funcionário, registro de entrada/saída, QR code de visitante, ligar/desligar módulos por condomínio, voto por fração ideal, "reenviar e-mail" de convite ainda válido.

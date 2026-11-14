@@ -21,6 +21,7 @@ import { CHARGE_STATUS } from "../charges/platformRevenue";
 import type { ChargeResponse } from "../charges/types";
 import { ChargeStatusChip, ChargeStatusTile } from "../masterPayments/ChargeStatus";
 import { MercadoPagoPaymentModal } from "../mercadoPago/MercadoPagoPaymentModal";
+import { ConsumptionCard } from "../consumption/ConsumptionCard";
 import { useModuleEnabled } from "../modules/modules";
 import { AgreementCard } from "./AgreementCard";
 import { NextChargeCard } from "./NextChargeCard";
@@ -45,6 +46,7 @@ export function ResidentBillsPage() {
   // "Pagar tudo": the open charges still to pay, one payment each (they may go to different receivers).
   const [payQueue, setPayQueue] = useState<number[]>([]);
   const hasBalance = useModuleEnabled("expenses");
+  const hasConsumption = useModuleEnabled("consumption");
 
   useEffect(() => {
     // Forget the router state, so a refresh does not open the payment again.
@@ -226,6 +228,8 @@ export function ResidentBillsPage() {
           ? "O condomínio recebe por Pix: pague pela chave no app do seu banco e envie o comprovante. A gestão confere e dá baixa."
           : "O pagamento é feito pelo Mercado Pago, direto para a conta do condomínio. Com Pix, a baixa acontece sozinha em instantes."}
       </p>
+
+      {hasConsumption && <ConsumptionCard />}
 
       {hasBalance && (
         <Link to="/resident/balance" className="mt-4 flex items-center justify-between gap-3 rounded-card bg-superficie px-5 py-4 shadow-whisper transition-colors hover:bg-campo/60">

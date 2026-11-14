@@ -10,12 +10,13 @@ export type ModuleKey =
   | "reservations"
   | "agreements"
   | "expenses"
-  | "rentals";
+  | "rentals"
+  | "consumption";
 
 // A screen that mixes modules (e.g. the agenda) lists them all: any one enabled is enough.
 export type ModuleRequirement = ModuleKey | ModuleKey[];
 
-export const ALL_MODULES: ModuleKey[] = ["occurrences", "visitors", "maintenance", "documents", "assemblies", "reservations", "agreements", "expenses", "rentals"];
+export const ALL_MODULES: ModuleKey[] = ["occurrences", "visitors", "maintenance", "documents", "assemblies", "reservations", "agreements", "expenses", "rentals", "consumption"];
 
 // What each module is, in the Admin settings.
 export const moduleDescriptions: Record<ModuleKey, string> = {
@@ -28,6 +29,7 @@ export const moduleDescriptions: Record<ModuleKey, string> = {
   agreements: "Parcelar dívidas atrasadas. Desligado, os acordos que já existem continuam.",
   expenses: "Lançar despesas e mostrar o balanço do mês aos moradores.",
   rentals: "Contratos de aluguel: o aluguel entra sozinho na conta do inquilino.",
+  consumption: "Leituras de água, luz e gás por unidade, com o valor na conta do mês.",
 };
 
 // A syndic permission that belongs to a module (same map as the backend): hidden while it is off.

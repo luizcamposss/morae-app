@@ -93,7 +93,7 @@ PUT    /api/condominium/{id}/status
 GET    /api/condominiums/{condominiumId}/modules        (só Admin)
 PUT    /api/condominiums/{condominiumId}/modules        (só Admin)  { enabledModules: ["occurrences", ...] }
 ```
-- Resposta: `{ condominiumId, type, modules: [{ key, label, enabled }] }`. Chaves: `occurrences`, `visitors`, `maintenance`, `documents`, `assemblies`, `reservations`, `agreements`, `expenses`, `rentals` (aluguéis: só vem ligado em Prédio de aluguel e Os dois). Financeiro, moradores, unidades e avisos não são módulos (sempre ligados).
+- Resposta: `{ condominiumId, type, modules: [{ key, label, enabled }] }`. Chaves: `occurrences`, `visitors`, `maintenance`, `documents`, `assemblies`, `reservations`, `agreements`, `expenses`, `rentals` (aluguéis) e `consumption` (leituras de água, luz e gás) — esses dois só vêm ligados em Prédio de aluguel e Os dois. Financeiro, moradores, unidades e avisos não são módulos (sempre ligados).
 - `GET /api/me/condominiums` traz `type` e `enabledModules` de cada condomínio (o front esconde o que está desligado).
 - Módulo desligado: as rotas dele respondem **403** ("O módulo … está desligado neste condomínio."), para Admin, síndico e morador; a permissão do síndico daquele módulo não vale. Nada é apagado. Exceção: **acordos** desligados só impedem acordo novo (os que existem continuam listados e valendo). Lembretes automáticos de manutenção e de "últimas horas" da assembleia param enquanto o módulo está desligado.
 
@@ -224,6 +224,18 @@ GET    /api/my/rental-contracts                               (inquilino: contra
 - Módulo `rentals` (permissão do síndico `rentals.manage`). A rotina de hora em hora (a partir das 9h) põe "Aluguel" (e "Taxa de condomínio", se incluída) no rascunho da conta do mês do inquilino **20 dias antes do vencimento**, uma vez por mês; mês com vencimento já passado é pulado; inquilino que saiu da unidade = mês pulado. Também roda ao cadastrar/editar.
 - Reajuste: aviso no sininho para a gestão 30 dias antes de `nextAdjustmentDate`; `adjust` grava o histórico (`valueChanges`) e vale do próximo mês ainda não gerado; a próxima data anda 12 meses.
 - `end` com data passada encerra na hora; com data futura, a rotina encerra depois do último mês.
+
+### Consumo individual: água, luz e gás (#200)
+```
+GET    /api/condominiums/{condominiumId}/utility-rates                    (Admin; síndico com financeiro)
+PUT    /api/condominiums/{condominiumId}/utility-rates                    (só Admin)  { rates: [{ category, enabled, pricePerUnit, minimumCharge }] }
+GET    /api/condominiums/{condominiumId}/readings?month=AAAA-MM&category=3 (Admin; síndico com financeiro)
+POST   /api/condominiums/{condominiumId}/readings                         (charges.create)  { month, category, readings: [{ unitId, currentReading, previousReading? }] }
+GET    /api/my/consumption                                                (morador: últimos 12 meses por unidade e conta)
+```
+- Módulo `consumption`. `category` = 3 Água, 4 Luz, 5 Gás. Uma leitura por unidade, conta e mês. A anterior vem da última leitura guardada; na primeira leitura da unidade, `previousReading` é obrigatório. Atual menor que a anterior = 400 (nada é salvo).
+- Valor = máx(consumo × preço, mínimo). Entra como item "Água (18 m³)" no rascunho da conta do mês: do **inquilino** (vencimento do contrato) quando o contrato de aluguel ativo inclui aquela conta; senão, da unidade. Reenviar a leitura corrige o item enquanto a conta é rascunho; depois de enviada, 400 (`isLocked` na grade).
+- A grade traz `previousReading`, `currentReading`, `consumption`, `amount`, `averageConsumption` (média de até 3 meses anteriores; a tela avisa acima de 2×) e o pagador.
 
 ### Pagamentos e comprovante
 ```

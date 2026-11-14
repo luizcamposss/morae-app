@@ -84,7 +84,7 @@ public class InvoiceService : IInvoiceService
         await EnsureUnitManagedAsync(userId, condominiumId, dto.UnitId);
         await _chargeService.EnsureRecipientLinkedAsync(dto.RecipientPersonId, dto.UnitId);
 
-        var chargeId = await AddItemToDraftAsync(new InvoiceItemRequest(
+        var (chargeId, _) = await AddItemToDraftAsync(new InvoiceItemRequest(
             condominiumId,
             dto.UnitId,
             dto.RecipientPersonId,
@@ -97,7 +97,7 @@ public class InvoiceService : IInvoiceService
         return await GetResponseAsync(chargeId);
     }
 
-    public async Task<int> AddItemToDraftAsync(InvoiceItemRequest request)
+    public async Task<InvoiceItemResult> AddItemToDraftAsync(InvoiceItemRequest request)
     {
         var (category, description, amount) = ValidateItem(request.Category, request.Description, request.Amount);
 
@@ -145,19 +145,47 @@ public class InvoiceService : IInvoiceService
             _context.Charges.Add(draft);
         }
 
-        draft.Items.Add(new ChargeItem
+        var item = new ChargeItem
         {
             Category = category,
             Description = description,
             Amount = amount,
             CreatedByUserId = request.CreatedByUserId,
             CreatedAt = DateTime.UtcNow
-        });
-        draft.Value = draft.Items.Sum(item => item.Amount);
+        };
+
+        draft.Items.Add(item);
+        draft.Value = draft.Items.Sum(row => row.Amount);
 
         await _context.SaveChangesAsync();
 
-        return draft.Id;
+        return new InvoiceItemResult(draft.Id, item.Id);
+    }
+
+    public async Task<bool> RemoveDraftItemAsync(int itemId)
+    {
+        var item = await _context.ChargeItems
+            .Include(row => row.Charge).ThenInclude(charge => charge.Items)
+            .FirstOrDefaultAsync(row => row.Id == itemId);
+
+        // Already gone (e.g. removed by hand in Contas do mês): nothing to undo.
+        if (item is null)
+            return true;
+
+        if (item.Charge.Status != ChargeStatus.Draft)
+            return false;
+
+        var charge = item.Charge;
+        charge.Items.Remove(item);
+        _context.ChargeItems.Remove(item);
+
+        if (charge.Items.Count == 0)
+            _context.Charges.Remove(charge);
+        else
+            charge.Value = charge.Items.Sum(row => row.Amount);
+
+        await _context.SaveChangesAsync();
+        return true;
     }
 
     public async Task<InvoiceResponseDto> UpdateItemAsync(int userId, int itemId, UpdateInvoiceItemDto dto)
