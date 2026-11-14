@@ -301,11 +301,44 @@ public class ExpenseService : IExpenseService
 
         // Money in = payments of the condominium's own charges, on the day they were paid
         // (platform invoices are the condominium's bills to Moraê, not income).
-        var income = await IncomePayments(condominiumId)
+        var payments = await IncomePayments(condominiumId)
             .Where(payment => payment.PaidAt >= startUtc && payment.PaidAt < endUtc)
-            .GroupBy(payment => payment.Charge.Category)
-            .Select(group => new { Category = group.Key, Total = group.Sum(payment => payment.AmountPaid), Count = group.Count() })
+            .Select(payment => new { payment.ChargeId, payment.Charge.Category, payment.AmountPaid })
             .ToListAsync();
+
+        // A monthly bill is split among its items' categories, in proportion to each item
+        // (the fine and interest paid follow the same proportion).
+        var billIds = payments.Where(payment => payment.Category == ChargeCategory.MonthlyBill).Select(payment => payment.ChargeId).Distinct().ToList();
+        var billItems = billIds.Count == 0
+            ? []
+            : await _context.ChargeItems
+                .AsNoTracking()
+                .Where(item => billIds.Contains(item.ChargeId))
+                .Select(item => new { item.ChargeId, item.Category, item.Amount })
+                .ToListAsync();
+
+        var income = payments
+            .SelectMany(payment =>
+            {
+                var items = billItems.Where(item => item.ChargeId == payment.ChargeId).ToList();
+                var itemsTotal = items.Sum(item => item.Amount);
+
+                if (payment.Category != ChargeCategory.MonthlyBill || itemsTotal <= 0)
+                    return new[] { (payment.ChargeId, payment.Category, Amount: payment.AmountPaid) };
+
+                var shares = items
+                    .GroupBy(item => item.Category)
+                    .Select(group => (payment.ChargeId, Category: group.Key, Amount: Math.Round(payment.AmountPaid * group.Sum(item => item.Amount) / itemsTotal, 2)))
+                    .ToArray();
+                // Rounding leftovers go to the largest share, so the parts add up to what was paid.
+                var leftover = payment.AmountPaid - shares.Sum(share => share.Amount);
+                var largest = Array.IndexOf(shares, shares.MaxBy(share => share.Amount));
+                shares[largest].Amount += leftover;
+                return shares;
+            })
+            .GroupBy(share => share.Category)
+            .Select(group => new { Category = group.Key, Total = group.Sum(share => share.Amount), Count = group.Select(share => share.ChargeId).Count() })
+            .ToList();
 
         var expenses = await _context.Expenses
             .AsNoTracking()
@@ -618,6 +651,7 @@ public class ExpenseService : IExpenseService
             ChargeCategory.Apportionment => "Rateio",
             ChargeCategory.Fine => "Multa",
             ChargeCategory.Reservation => "Reserva",
+            ChargeCategory.MonthlyBill => "Conta do mês",
             ChargeCategory.Agreement => "Acordo",
             _ => "Outros"
         };

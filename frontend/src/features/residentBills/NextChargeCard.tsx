@@ -64,6 +64,17 @@ export function NextChargeCard({ charge, isLoading, otherOpenCount = 0, onPay, o
       </p>
       <p className={`mt-2 text-[13px] ${isOverdue ? "text-vermelho" : "text-tinta-suave"}`}>{describeDue(charge, formatCalendarDate(charge.dueDate))}</p>
 
+      {charge.items?.length > 0 && (
+        <ul className="mt-4 divide-y divide-linha border-y border-linha text-sm">
+          {charge.items.map((item) => (
+            <li key={item.id} className="flex justify-between gap-3 py-2">
+              <span className="min-w-0 truncate text-tinta-suave">{item.description}</span>
+              <span className="tabular-nums text-tinta">{formatCurrency(item.amount)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {showFees && (
         <p className="mt-1 text-[13px] tabular-nums text-tinta-suave">
           {formatCurrency(charge.value)} + multa {formatCurrency(charge.fineAmount)} + juros {formatCurrency(charge.interestAmount)}

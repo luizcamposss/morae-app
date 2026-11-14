@@ -33,6 +33,13 @@ public class ChargeEmailNotifier : IChargeEmailNotifier
         var recipients = await GetPayersAsync(charge);
         var condominiumName = await GetCondominiumNameAsync(charge.CondominiumId);
         var unitLabel = await GetUnitLabelAsync(charge.UnitId);
+        var items = await _context.ChargeItems
+            .AsNoTracking()
+            .Where(item => item.ChargeId == charge.Id)
+            .OrderBy(item => item.Id)
+            .Select(item => new { item.Description, item.Amount })
+            .ToListAsync();
+        var itemLines = items.Select(item => (item.Description, item.Amount)).ToList();
 
         foreach (var recipient in recipients.Where(recipient => recipient.BillsEnabled))
         {
@@ -44,7 +51,8 @@ public class ChargeEmailNotifier : IChargeEmailNotifier
                 charge.Description,
                 charge.Value,
                 charge.DueDate,
-                GetChargesUrl(charge));
+                GetChargesUrl(charge),
+                itemLines);
 
             _emailQueue.Enqueue(email.ToMessage(recipient.Email));
         }

@@ -1,3 +1,4 @@
+using backend.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -37,6 +38,9 @@ public interface IChargeService
 
     // Throws when the person is not linked to the unit (a charge addressed to one person).
     Task EnsureRecipientLinkedAsync(int? recipientPersonId, int unitId);
+
+    // Bell + e-mail to whoever pays a charge that just became visible (e.g. a monthly bill sent).
+    Task NotifyNewChargeAsync(Charge charge);
 }
 
 public record ChargeGenerationRequest(

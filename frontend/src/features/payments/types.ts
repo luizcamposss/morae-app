@@ -24,6 +24,8 @@ export type CreateManualPaymentRequest = {
 export type PaymentReceipt = {
   chargeId: number;
   description: string;
+  // Lines of a monthly bill (empty for other charges).
+  items?: Array<{ description: string; amount: number }>;
   scope: 1 | 2;
   condominiumName: string;
   unitLabel?: string | null;

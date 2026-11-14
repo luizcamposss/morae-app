@@ -1,7 +1,7 @@
 import { todayInputDate } from "../../shared/lib/date";
 import type { ChargeResponse } from "./types";
 
-export const CHARGE_STATUS = { pending: 1, paid: 2, overdue: 3, canceled: 4, renegotiated: 5 } as const;
+export const CHARGE_STATUS = { pending: 1, paid: 2, overdue: 3, canceled: 4, renegotiated: 5, draft: 6 } as const;
 
 export type RevenueMonth = { month: string; label: string; paid: number; open: number; overdue: number };
 

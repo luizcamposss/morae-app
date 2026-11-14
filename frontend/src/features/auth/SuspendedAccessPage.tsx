@@ -37,7 +37,7 @@ export function SuspendedAccessPage() {
 
       <div className="mt-8 flex flex-col gap-3">
         {isInactiveCondominium && isAdmin && (
-          <ButtonLink to="/admin/payments" fullWidth>
+          <ButtonLink to="/admin/finance/receivables" fullWidth>
             Ver a mensalidade do Moraê
           </ButtonLink>
         )}

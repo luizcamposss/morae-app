@@ -59,9 +59,20 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<AgreementCharge> AgreementCharges { get; set; }
     public DbSet<ExpenseCategory> ExpenseCategories { get; set; }
     public DbSet<Expense> Expenses { get; set; }
+    public DbSet<ChargeItem> ChargeItems { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+        builder.Entity<ChargeItem>()
+            .HasOne(item => item.Charge)
+            .WithMany(charge => charge.Items)
+            .HasForeignKey(item => item.ChargeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<ChargeItem>()
+            .Property(item => item.Amount)
+            .HasPrecision(10, 2);
 
         builder.Entity<ApplicationUser>()
             .HasOne(u => u.Person)

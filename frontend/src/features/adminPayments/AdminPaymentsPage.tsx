@@ -7,6 +7,7 @@ import { Button, ButtonLink } from "../../shared/components/Button";
 import { ConfirmDialog, type ConfirmRequest } from "../../shared/components/ConfirmDialog";
 import { SelectField } from "../../shared/components/SelectField";
 import { SummaryCard } from "../../shared/components/SummaryCard";
+import { FinanceTabs } from "../finance/FinanceTabs";
 import { PageHeader } from "../../shared/layout/PageHeader";
 import { formatCurrency } from "../../shared/lib/currency";
 import { formatCalendarDate, todayInputDate } from "../../shared/lib/date";
@@ -448,7 +449,7 @@ export function AdminPaymentsPage() {
 
   return (
     <>
-      <PageHeader overline={overline || undefined} title="Pagamentos">
+      <PageHeader overline={overline || undefined} title="Financeiro">
         {canCreate && (
           <Button variant="accent" size="sm" onClick={() => openWizard()} disabled={isLoading || units.length === 0 || !page.isReceivingReady}>
             <Plus size={16} strokeWidth={2} aria-hidden />
@@ -456,6 +457,7 @@ export function AdminPaymentsPage() {
           </Button>
         )}
       </PageHeader>
+      <FinanceTabs />
 
       {condominiums.length > 1 && (
         <SelectField

@@ -111,6 +111,13 @@ Decisões já tomadas com o Luiz. Siga sem perguntar de novo; se algo novo contr
 - Prédio de aluguel nasce sem assembleias. Aluguéis e consumo de água/luz/gás entram como módulos nas issues #199 e #200.
 - Condomínios que já existiam viraram Residencial com tudo ligado.
 
+## Contas do mês e Financeiro unificado (#198)
+
+- **Conta do mês:** uma cobrança por unidade, pagador e mês, feita de itens (aluguel, água, luz, gás, taxa, rateio, multa, outros), paga com um Pix/pagamento só e um comprovante com os itens. Multa e juros correm sobre o total. Sem pagamento parcial.
+- Nasce em **rascunho** (o morador não vê). A gestão monta, muda o vencimento, tira itens e clica em **Enviar contas**; ou liga o **envio automático** X dias antes do vencimento (Admin). Rascunho vencido não sai: precisa de novo vencimento. Depois de enviada a conta não muda; se precisar, cancela em A receber.
+- Por enquanto o único recebedor é o condomínio. Contratos de aluguel (#199) e leituras (#200) vão colocar itens sozinhos no rascunho.
+- **Menu:** Admin e síndico têm um item **Financeiro** com as abas Contas do mês · A receber · Despesas · Balanço (endereços antigos redirecionam). O morador tem **Minhas contas** (antes "Boletos"), com a prestação de contas como link no fim e o botão **Pagar tudo** quando há mais de uma conta em aberto (um pagamento depois do outro).
+
 ## Ficou de fora (não implementar sem o Luiz pedir)
 
 Encomendas, veículos/pets, relatórios, papel de porteiro/funcionário, registro de entrada/saída, QR code de visitante, ligar/desligar módulos por condomínio, voto por fração ideal, "reenviar e-mail" de convite ainda válido.

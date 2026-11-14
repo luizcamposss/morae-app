@@ -1,12 +1,12 @@
 import type { PixKeyType } from "../financialAccounts/pixKey";
 
 // 1 Pending, 2 Paid, 3 Overdue, 4 Canceled, 5 Renegotiated (inside a debt agreement)
-export type ChargeStatus = 0 | 1 | 2 | 3 | 4 | 5;
+export type ChargeStatus = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export type ChargeScope = 1 | 2;
 
 // 1 CondominiumFee, 2 Rent, 3 Water, 4 Electricity, 5 Gas, 6 Apportionment, 7 Fine, 8 Reservation, 9 Agreement, 10 Other
-export type ChargeCategory = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+export type ChargeCategory = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
 
 export type ChargeResponse = {
   id: number;
@@ -49,6 +49,16 @@ export type ChargeResponse = {
   // Installment of a debt agreement (0 = down payment, 1..N = installments).
   agreementId?: number | null;
   agreementInstallmentNumber?: number | null;
+  // Lines of a monthly bill (category 11); empty for other charges.
+  items: ChargeItem[];
+  sentAt?: string | null;
+};
+
+export type ChargeItem = {
+  id: number;
+  category: ChargeCategory;
+  description: string;
+  amount: number;
 };
 
 // 1 Pending, 2 Accepted, 3 Rejected
@@ -102,11 +112,13 @@ export type BillingSettings = {
   // Monthly balance: cash at the start of openingBalanceMonth ("AAAA-MM-01"; null = from the start).
   openingBalance: number;
   openingBalanceMonth: string | null;
+  // Monthly bills go out this many days before they are due; null = only by hand.
+  invoiceAutoSendDaysBefore: number | null;
 };
 
 // Without openingBalance the API keeps the current one.
 export type UpdateBillingSettingsRequest = Pick<BillingSettings, "billingDueDay" | "lateFeeEnabled" | "finePercent" | "monthlyInterestPercent"> &
-  Partial<Pick<BillingSettings, "openingBalance" | "openingBalanceMonth">>;
+  Partial<Pick<BillingSettings, "openingBalance" | "openingBalanceMonth" | "invoiceAutoSendDaysBefore">> & { invoiceAutoSend?: boolean };
 
 export type ChargeUnitValue = { unitId: number; value: number };
 

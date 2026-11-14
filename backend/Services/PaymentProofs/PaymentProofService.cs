@@ -216,6 +216,9 @@ public class PaymentProofService : IPaymentProofService
 
         if (charge.Status == ChargeStatus.Renegotiated)
             throw new BadRequestException("Esta cobrança foi renegociada num acordo; pague as parcelas do acordo.");
+
+        if (charge.Status == ChargeStatus.Draft)
+            throw new BadRequestException("Esta conta ainda não foi enviada.");
     }
 
     // Same rule as paying online: the Admin or a payer of the charge (a syndic pays only their own unit).

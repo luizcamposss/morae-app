@@ -77,6 +77,13 @@ public class ChargeBillingService : IChargeBillingService
                 : null;
         }
 
+        if (dto.InvoiceAutoSend.HasValue)
+        {
+            condominium.InvoiceAutoSendDaysBefore = dto.InvoiceAutoSend.Value
+                ? dto.InvoiceAutoSendDaysBefore ?? throw new BadRequestException("Informe quantos dias antes do vencimento as contas são enviadas.")
+                : null;
+        }
+
         condominium.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
@@ -345,7 +352,8 @@ public class ChargeBillingService : IChargeBillingService
             MaxFinePercent = ChargeLateFees.MaxFinePercent,
             MaxMonthlyInterestPercent = ChargeLateFees.MaxMonthlyInterestPercent,
             OpeningBalance = condominium.OpeningBalance,
-            OpeningBalanceMonth = condominium.OpeningBalanceMonth
+            OpeningBalanceMonth = condominium.OpeningBalanceMonth,
+            InvoiceAutoSendDaysBefore = condominium.InvoiceAutoSendDaysBefore
         };
     }
 }

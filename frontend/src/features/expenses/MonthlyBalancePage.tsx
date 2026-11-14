@@ -1,9 +1,11 @@
+import { useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { ChevronDown, Paperclip } from "lucide-react";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { MoraeMark } from "../../shared/components/MoraeMark";
 import { SelectField } from "../../shared/components/SelectField";
 import { SummaryCard } from "../../shared/components/SummaryCard";
+import { FinanceTabs } from "../finance/FinanceTabs";
 import { PageHeader } from "../../shared/layout/PageHeader";
 import { formatCurrency } from "../../shared/lib/currency";
 import { formatCalendarDate, todayInputDate } from "../../shared/lib/date";
@@ -18,6 +20,8 @@ type Loaded = { key: string; balance: MonthlyBalance | null; errorMessage: strin
 // Monthly balance ("prestação de contas") for every role. The API decides the detail:
 // management gets each expense; residents get the totals by category and the receipts.
 export function MonthlyBalancePage() {
+  // Inside the management's Financeiro the screen is a tab; residents open it from Minhas contas.
+  const isFinanceArea = useLocation().pathname.includes("/finance/");
   const { condominiums, activeCondominium, activeCondominiumId, setActiveCondominiumId } = useCondominium();
   const currentMonth = monthOf(todayInputDate());
   const [month, setMonth] = useState(currentMonth);
@@ -85,7 +89,8 @@ export function MonthlyBalancePage() {
 
   return (
     <>
-      <PageHeader overline={activeCondominium?.condominiumName} title="Prestação de contas" />
+      <PageHeader overline={activeCondominium?.condominiumName} title={isFinanceArea ? "Financeiro" : "Prestação de contas"} />
+      <FinanceTabs />
 
       {condominiums.length > 1 && (
         <SelectField

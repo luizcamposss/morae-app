@@ -17,7 +17,12 @@ public class ChargeProfile : Profile
     {
         CreateMap<CreateChargeDto, Charge>()
             .ForMember(dest => dest.Category, opt => opt.MapFrom(src => src.Category ?? ChargeCategory.Other));
+        CreateMap<ChargeItem, ChargeItemDto>();
+
         CreateMap<Charge, ChargeResponseDto>()
+            .ForMember(
+                dest => dest.Items,
+                opt => opt.MapFrom(src => src.Items.OrderBy(item => item.Id)))
             .ForMember(
                 dest => dest.CondominiumName,
                 opt => opt.MapFrom(src => src.Condominium.Name))

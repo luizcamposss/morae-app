@@ -18,7 +18,12 @@ type ChargeReceiptModalProps = {
 };
 
 function receiptRows(receipt: PaymentReceipt): Array<[string, string]> {
-  const rows: Array<[string, string]> = [["Cobrança", receipt.description], ["Condomínio", receipt.condominiumName]];
+  const rows: Array<[string, string]> = [
+    ["Cobrança", receipt.description],
+    // A monthly bill lists what was paid inside it.
+    ...(receipt.items ?? []).map((item): [string, string] => [item.description, formatCurrency(item.amount)]),
+    ["Condomínio", receipt.condominiumName],
+  ];
   if (receipt.unitLabel) rows.push(["Unidade", receipt.unitLabel]);
   rows.push(
     ["Recebedor", receipt.receiverName],
