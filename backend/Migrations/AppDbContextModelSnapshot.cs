@@ -926,6 +926,11 @@ namespace backend.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("varchar(150)");
 
+                    b.Property<string>("EnabledModules")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
                     b.Property<decimal>("FinePercent")
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
@@ -961,6 +966,9 @@ namespace backend.Migrations
 
                     b.Property<int>("Status")
                         .HasMaxLength(20)
+                        .HasColumnType("int");
+
+                    b.Property<int>("Type")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")

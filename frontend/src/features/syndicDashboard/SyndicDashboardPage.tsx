@@ -14,6 +14,7 @@ import { getChargesByCondominium } from "../charges/chargeService";
 import { countRemindersToday, describeReminders } from "../charges/reminders";
 import { getNewsByCondominium } from "../news/newsService";
 import { getOccurrencesByCondominium } from "../occurrences/occurrenceService";
+import { useModuleEnabled } from "../modules/modules";
 import { getUnitsByBuilding } from "../units/unitService";
 import { UnitBillingGrid } from "../billingGrid/UnitBillingGrid";
 import { useSyndicAccess } from "../syndicAccess/useSyndicAccess";
@@ -37,6 +38,7 @@ export function SyndicDashboardPage() {
   const { user } = useAuth();
   const { activeCondominium, activeCondominiumId, condominiums, setActiveCondominiumId } = useCondominium();
   const access = useSyndicAccess();
+  const hasOccurrences = useModuleEnabled("occurrences");
   const navigate = useNavigate();
   const location = useLocation();
   const deniedScreen = (location.state as { deniedScreen?: string } | null)?.deniedScreen;
@@ -54,7 +56,7 @@ export function SyndicDashboardPage() {
     Promise.all([
       access.residents || access.finance ? getBuildingsByCondominium(activeCondominiumId) : null,
       access.finance ? getChargesByCondominium(activeCondominiumId) : null,
-      access.maintenance ? getOccurrencesByCondominium(activeCondominiumId) : null,
+      access.maintenance && hasOccurrences ? getOccurrencesByCondominium(activeCondominiumId) : null,
       access.communication ? getNewsByCondominium(activeCondominiumId) : null,
     ])
       .then(async ([buildings, charges, occurrences, news]) => {
@@ -72,7 +74,7 @@ export function SyndicDashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, [activeCondominiumId, access]);
+  }, [activeCondominiumId, access, hasOccurrences]);
 
   const isLoading = !loaded || loaded.condominiumId !== activeCondominiumId;
   const { buildings, charges, occurrences, news, units } = isLoading ? emptyDashboard : loaded.data;

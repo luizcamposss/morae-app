@@ -51,6 +51,8 @@ public class ReservationService : IReservationService
 
         await _permissionService.EnsureCondominiumAccessAsync(userId, area.CondominiumId);
 
+        await _permissionService.EnsureModuleEnabledAsync(area.CondominiumId, AppModules.Reservations);
+
         var unit = await GetBookingUnitAsync(userId, area, unitId);
         var today = ReservationRules.Today();
         var first = ParseMonth(month) ?? new DateOnly(today.Year, today.Month, 1);
@@ -113,6 +115,7 @@ public class ReservationService : IReservationService
     public async Task<ReservationResponseDto> CreateAsync(int userId, int condominiumId, CreateReservationDto dto)
     {
         await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
+        await _permissionService.EnsureModuleEnabledAsync(condominiumId, AppModules.Reservations);
 
         var area = await _context.CommonAreas
             .Include(item => item.Shifts.Where(shift => shift.IsActive))
@@ -230,6 +233,7 @@ public class ReservationService : IReservationService
     public async Task<IEnumerable<ReservationResponseDto>> GetMineAsync(int userId, int condominiumId, bool includePast)
     {
         await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
+        await _permissionService.EnsureModuleEnabledAsync(condominiumId, AppModules.Reservations);
 
         var unitIds = (await ReservationRules.GetUserUnitsAsync(_context, userId, condominiumId))
             .Select(unit => unit.UnitId)
@@ -358,6 +362,8 @@ public class ReservationService : IReservationService
             ?? throw new NotFoundException("Reserva não encontrada.");
 
         await _permissionService.EnsureCondominiumAccessAsync(userId, reservation.CondominiumId);
+
+        await _permissionService.EnsureModuleEnabledAsync(reservation.CondominiumId, AppModules.Reservations);
 
         var byManager = await CanManageAsync(userId, reservation.CommonArea);
 

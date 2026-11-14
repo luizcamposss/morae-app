@@ -103,6 +103,14 @@ Decisões já tomadas com o Luiz. Siga sem perguntar de novo; se algo novo contr
 - Sininho: gestão ao pedir (e quando o morador cancela uma aprovada); morador ao aprovar, recusar ou a gestão cancelar. As reservas aprovadas aparecem na Agenda do condomínio.
 - Áreas com reserva no histórico não se apagam: desative. Turno com reserva futura não pode ser removido.
 
+## Tipo do condomínio e módulos (#197)
+
+- O Master escolhe o **tipo** ao criar o condomínio: Condomínio residencial, Prédio de aluguel ou Os dois (misto). O tipo só define os módulos que vêm ligados; trocar o tipo volta os módulos ao padrão dele. O Master continua sem ver dados de dentro.
+- O **Admin** liga e desliga módulos em Ajustes → Módulos: ocorrências, visitantes, manutenção, documentos, assembleias, reservas, acordos, despesas e prestação de contas. Financeiro, moradores, unidades e avisos ficam sempre ligados.
+- Desligado: some do menu de todos (Admin, síndico, morador), da tela inicial e da agenda; a API recusa as rotas; a permissão do síndico daquele módulo some dos Ajustes. **Nada é apagado.** Acordos desligados só impedem acordo novo.
+- Prédio de aluguel nasce sem assembleias. Aluguéis e consumo de água/luz/gás entram como módulos nas issues #199 e #200.
+- Condomínios que já existiam viraram Residencial com tudo ligado.
+
 ## Ficou de fora (não implementar sem o Luiz pedir)
 
 Encomendas, veículos/pets, relatórios, papel de porteiro/funcionário, registro de entrada/saída, QR code de visitante, ligar/desligar módulos por condomínio, voto por fração ideal, "reenviar e-mail" de convite ainda válido.

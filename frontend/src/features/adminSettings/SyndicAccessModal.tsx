@@ -8,6 +8,7 @@ import type { BuildingResponse } from "../buildings/types";
 import { getPersonsByCondominium } from "../persons/personService";
 import type { PersonResponse } from "../persons/types";
 import { FormFeedback } from "../settings/FormFeedback";
+import { moduleByPermission, useEnabledModules } from "../modules/modules";
 import {
   getSyndicBuildings,
   getSyndicPermissions,
@@ -29,6 +30,14 @@ async function loadSyndicSettings(condominiumId: number, userId: number): Promis
 
 // What each syndic of the condominium can do and which buildings they look after; every syndic has its own settings.
 export function SyndicAccessModal({ condominiumId, onClose }: { condominiumId: number; onClose: () => void }) {
+  const isModuleOn = useEnabledModules();
+  // Permissions of modules the condominium turned off are hidden (they would do nothing).
+  const shownGroups = syndicPermissionGroups
+    .map((group) => ({ ...group, permissions: group.permissions.filter((permission) => {
+      const module = moduleByPermission[permission.key];
+      return !module || isModuleOn(module);
+    }) }))
+    .filter((group) => group.permissions.length > 0);
   const [settings, setSettings] = useState<SyndicSettings>(emptySettings);
   const [syndics, setSyndics] = useState<PersonResponse[]>([]);
   const [buildings, setBuildings] = useState<BuildingResponse[]>([]);
@@ -169,7 +178,7 @@ export function SyndicAccessModal({ condominiumId, onClose }: { condominiumId: n
               <p className="text-[13px] font-semibold text-tinta-suave tabular-nums">
                 {permissions.length} de {syndicPermissionCount} permissões liberadas
               </p>
-              {syndicPermissionGroups.map((group) => (
+              {shownGroups.map((group) => (
                 <div key={group.title} className="mt-3">
                   <h3 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-tinta-suave">{group.title}</h3>
                   <div className="divide-y divide-linha">

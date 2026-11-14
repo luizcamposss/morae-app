@@ -91,6 +91,7 @@ public class DocumentService : IDocumentService
         DocumentCategory? category)
     {
         await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
+        await _permissionService.EnsureModuleEnabledAsync(condominiumId, AppModules.Documents);
 
         var seesManagementDocuments = await IsManagementAsync(userId, condominiumId);
 
@@ -156,6 +157,8 @@ public class DocumentService : IDocumentService
             ?? throw new NotFoundException("Documento não encontrado.");
 
         await _permissionService.EnsureCondominiumAccessAsync(userId, document.CondominiumId);
+
+        await _permissionService.EnsureModuleEnabledAsync(document.CondominiumId, AppModules.Documents);
 
         // Same answer as a missing document: does not reveal that a management document exists.
         if (document.Visibility == DocumentVisibility.ManagementOnly &&

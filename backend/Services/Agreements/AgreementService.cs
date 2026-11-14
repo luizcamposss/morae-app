@@ -114,6 +114,9 @@ public class AgreementService : IAgreementService
     {
         await EnsureCanManageAsync(userId, condominiumId, dto.UnitId);
 
+        // Turning the module off only stops new agreements: the existing ones run until the end.
+        await _permissionService.EnsureModuleEnabledAsync(condominiumId, AppModules.Agreements);
+
         var unitBelongs = await _context.Units
             .AsNoTracking()
             .AnyAsync(u => u.Id == dto.UnitId && u.Building.CondominiumId == condominiumId);

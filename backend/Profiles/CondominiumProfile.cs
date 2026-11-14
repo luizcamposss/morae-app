@@ -13,7 +13,8 @@ public class CondominiumProfile : Profile
     public CondominiumProfile()
     {
         CreateMap<CreateCondominiumDto, Condominium>();
-        CreateMap<UpdateCondominiumDto, Condominium>();
+        CreateMap<UpdateCondominiumDto, Condominium>()
+            .ForMember(dest => dest.Type, opt => opt.Ignore());
         CreateMap<Condominium, CondominiumResponseDto>();
     }
 }

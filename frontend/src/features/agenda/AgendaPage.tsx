@@ -32,6 +32,7 @@ import {
   type AgendaView,
 } from "./agendaMeta";
 import { loadAgendaPeriod, loadAgendaSources } from "./agendaService";
+import { useEnabledModules } from "../modules/modules";
 
 type SourcesState = { key: string; plans: MaintenancePlanResponse[]; occurrences: OccurrenceResponse[]; failed: boolean };
 type VisitsState = { key: string; visits: VisitResponse[]; reservations: ReservationResponse[]; failed: boolean };
@@ -82,11 +83,13 @@ export function AgendaPage() {
   const navigate = useNavigate();
   const { condominiums, activeCondominium, activeCondominiumId, setActiveCondominiumId } = useCondominium();
   const isSyndic = useIsSyndicArea();
-  // Outside the syndic area everything is allowed; the syndic sees only the modules he manages.
-  const canMaintenance = useSyndicCan("maintenance.manage");
-  const canVisit = useSyndicCan("visitors.manage");
-  const canOccurrence = useSyndicCan("maintenance");
-  const canReservation = useSyndicCan("reservations.manage");
+  // Outside the syndic area everything is allowed; the syndic sees only the modules he manages,
+  // and nobody sees the modules the condominium turned off.
+  const isModuleOn = useEnabledModules();
+  const canMaintenance = useSyndicCan("maintenance.manage") && isModuleOn("maintenance");
+  const canVisit = useSyndicCan("visitors.manage") && isModuleOn("visitors");
+  const canOccurrence = useSyndicCan("maintenance") && isModuleOn("occurrences");
+  const canReservation = useSyndicCan("reservations.manage") && isModuleOn("reservations");
   const canSee: Record<AgendaKind, boolean> = { maintenance: canMaintenance, visit: canVisit, occurrence: canOccurrence, reservation: canReservation };
   // Visits and reservations are fetched per period.
   const needsPeriod = canVisit || canReservation;

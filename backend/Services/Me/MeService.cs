@@ -189,19 +189,31 @@ public class MeService : IMeService
 
     public async Task<IEnumerable<MeCondominiumResponseDto>> GetMyCondominiumsAsync(int userId)
     {
-        return await _context.UserCondominiums
+        var links = await _context.UserCondominiums
             .AsNoTracking()
             .Where(uc =>
                 uc.UserId == userId &&
                 uc.Status == UserCondominiumStatus.Active)
-            .Select(uc => new MeCondominiumResponseDto
+            .Select(uc => new
             {
-                CondominiumId = uc.CondominiumId,
-                CondominiumName = uc.Condominium.Name,
-                Role = uc.Role,
-                Status = uc.Status
+                uc.CondominiumId,
+                uc.Condominium.Name,
+                uc.Role,
+                uc.Status,
+                uc.Condominium.Type,
+                uc.Condominium.EnabledModules
             })
             .ToListAsync();
+
+        return links.Select(link => new MeCondominiumResponseDto
+        {
+            CondominiumId = link.CondominiumId,
+            CondominiumName = link.Name,
+            Role = link.Role,
+            Status = link.Status,
+            Type = link.Type,
+            EnabledModules = AppModules.Parse(link.EnabledModules)
+        });
     }
     public async Task<MePermissionsResponseDto> GetMyPermissionsAsync(int userId, int condominiumId)
     {

@@ -12,6 +12,7 @@ import { AcceptInvitationPage } from "../features/invitations/AcceptInvitationPa
 import { MercadoPagoOAuthReturnPage } from "../features/mercadoPago/MercadoPagoOAuthReturnPage";
 import { SyndicAccessProvider } from "../features/syndicAccess/SyndicAccessProvider";
 import { SyndicAccessRoute } from "../features/syndicAccess/SyndicAccessRoute";
+import { ModuleRoute } from "../features/modules/ModuleRoute";
 import { roleAreas, type AreaRole } from "./routes";
 import type { AppRoute } from "./routes/types";
 
@@ -58,21 +59,31 @@ function areaRoute(role: AreaRole) {
             <Route path={area.basePath} element={<AppLayout />}>
                 <Route index element={<Navigate to="dashboard" replace />} />
                 {area.routes.map((route) => (
-                    <Route key={route.path} path={route.path} element={renderScreen(route)} />
+                    <Route key={route.path} path={route.path} element={renderScreen(route, role === "Admin")} />
                 ))}
             </Route>
         </Route>
     );
 }
 
-function renderScreen({ component: Screen, syndicAccess, nav }: AppRoute) {
-    if (!syndicAccess) {
-        return <Screen />;
+function renderScreen({ component: Screen, syndicAccess, module, nav }: AppRoute, isAdminArea: boolean) {
+    let screen = <Screen />;
+
+    if (syndicAccess) {
+        screen = (
+            <SyndicAccessRoute requirement={syndicAccess} screenName={nav?.label}>
+                {screen}
+            </SyndicAccessRoute>
+        );
     }
 
-    return (
-        <SyndicAccessRoute requirement={syndicAccess} screenName={nav?.label}>
-            <Screen />
-        </SyndicAccessRoute>
-    );
+    if (module) {
+        screen = (
+            <ModuleRoute requirement={module} screenName={nav?.label} isAdminArea={isAdminArea}>
+                {screen}
+            </ModuleRoute>
+        );
+    }
+
+    return screen;
 }

@@ -268,6 +268,8 @@ public class ExpenseService : IExpenseService
             expense.ReceiptStorageKey is null)
             throw new NotFoundException("Comprovante não encontrado.");
 
+        await _permissionService.EnsureModuleEnabledAsync(expense.CondominiumId, AppModules.Expenses);
+
         var content = await _fileStorage.OpenReadAsync(expense.ReceiptStorageKey);
 
         if (content is null)
@@ -282,6 +284,7 @@ public class ExpenseService : IExpenseService
     public async Task<MonthlyBalanceDto> GetMonthlyBalanceAsync(int userId, int condominiumId, string? month)
     {
         await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
+        await _permissionService.EnsureModuleEnabledAsync(condominiumId, AppModules.Expenses);
 
         var role = await _permissionService.GetCondominiumRoleAsync(userId, condominiumId);
         var isDetailed = role is AppRoles.Admin or AppRoles.Syndic;

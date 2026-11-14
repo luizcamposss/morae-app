@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Bell, CalendarClock, CreditCard, KeyRound, Lock, QrCode, Scale, ShieldCheck } from "lucide-react";
+import { Bell, CalendarClock, CreditCard, KeyRound, LayoutGrid, Lock, QrCode, Scale, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../app/providers/useAuth";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { GroupedList, GroupedRow } from "../../shared/components/GroupedList";
@@ -21,6 +21,8 @@ import { ProfileDataModal } from "../settings/ProfileDataModal";
 import { ReceivingStatus } from "../settings/ReceivingStatus";
 import { StatusChip } from "../settings/StatusChip";
 import { ExpenseSettingsModal } from "../expenses/ExpenseSettingsModal";
+import { ALL_MODULES, condominiumTypeLabel, useModuleEnabled } from "../modules/modules";
+import { ModulesModal } from "../modules/ModulesModal";
 import { formatCurrency } from "../../shared/lib/currency";
 import { BillingRulesModal } from "./BillingRulesModal";
 import { describeBillingRules } from "./billingRules";
@@ -28,7 +30,7 @@ import { PlatformPlanCard } from "./PlatformPlanCard";
 import { summarizePlatformPlan } from "./platformPlan";
 import { SyndicAccessModal } from "./SyndicAccessModal";
 
-type ModalType = "profile" | "notifications" | "password" | "syndicAccess" | "pix" | "mercadoPago" | "billingRules" | "balance" | null;
+type ModalType = "profile" | "notifications" | "password" | "syndicAccess" | "pix" | "mercadoPago" | "billingRules" | "balance" | "modules" | null;
 
 // What was loaded and for which condominium, so switching condominiums shows "loading" again.
 type Loaded<T> = { condominiumId: number; data: T | null; error: string };
@@ -46,7 +48,9 @@ function errorText(error: unknown, fallback: string) {
 export function AdminSettingsPage() {
   const { user, refreshUser } = useAuth();
   const { activeCondominium, activeCondominiumId } = useCondominium();
-  const [modal, setModal] = useState<ModalType>(null);
+  // Opened straight from the "Ligar nos Ajustes" link of a disabled screen.
+  const [modal, setModal] = useState<ModalType>(() => (window.location.hash === "#modules" ? "modules" : null));
+  const hasExpenses = useModuleEnabled("expenses");
   const [account, setAccount] = useState<Loaded<FinancialAccountResponse> | null>(null);
   const [platformCharges, setPlatformCharges] = useState<Loaded<ChargeResponse[]> | null>(null);
   const [billingSettings, setBillingSettings] = useState<Loaded<BillingSettings> | null>(null);
@@ -116,6 +120,12 @@ export function AdminSettingsPage() {
           {activeCondominiumId && (
             <GroupedList title="Condomínio">
               <GroupedRow
+                icon={LayoutGrid}
+                title="Módulos"
+                subtitle={`${condominiumTypeLabel(activeCondominium?.type)} · ${activeCondominium?.enabledModules.length ?? 0} de ${ALL_MODULES.length} ligados`}
+                onClick={() => setModal("modules")}
+              />
+              <GroupedRow
                 icon={ShieldCheck}
                 title="Acessos do síndico"
                 subtitle="Permissões e prédios de cada síndico"
@@ -127,7 +137,7 @@ export function AdminSettingsPage() {
                 subtitle={currentBilling?.data ? describeBillingRules(currentBilling.data) : currentBilling?.error || "Vencimento, multa e juros"}
                 onClick={() => setModal("billingRules")}
               />
-              <GroupedRow
+              {hasExpenses && <GroupedRow
                 icon={Scale}
                 title="Prestação de contas"
                 subtitle={
@@ -136,7 +146,7 @@ export function AdminSettingsPage() {
                     : "Saldo inicial e categorias de despesa"
                 }
                 onClick={currentBilling?.data ? () => setModal("balance") : undefined}
-              />
+              />}
             </GroupedList>
           )}
         </div>
@@ -196,6 +206,7 @@ export function AdminSettingsPage() {
       {modal === "notifications" && <NotificationsModal options={notificationOptions} onClose={() => setModal(null)} />}
       {modal === "password" && <ChangePasswordModal onClose={() => setModal(null)} />}
       {modal === "syndicAccess" && activeCondominiumId && <SyndicAccessModal condominiumId={activeCondominiumId} onClose={() => setModal(null)} />}
+      {modal === "modules" && activeCondominiumId && <ModulesModal condominiumId={activeCondominiumId} onClose={() => setModal(null)} />}
       {modal === "billingRules" && activeCondominiumId && (
         <BillingRulesModal
           condominiumId={activeCondominiumId}

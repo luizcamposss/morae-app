@@ -86,6 +86,16 @@ DELETE /api/condominium/{id}/admin
 PUT    /api/condominium/{id}/admin
 PUT    /api/condominium/{id}/status
 ```
+- `type` (`CondominiumType`) no `POST` (padrão 1) e opcional no `PUT` (omitido = não muda). Trocar o tipo volta os módulos ao padrão dele. A resposta traz `type`.
+
+### Tipo e módulos do condomínio (#197)
+```
+GET    /api/condominiums/{condominiumId}/modules        (só Admin)
+PUT    /api/condominiums/{condominiumId}/modules        (só Admin)  { enabledModules: ["occurrences", ...] }
+```
+- Resposta: `{ condominiumId, type, modules: [{ key, label, enabled }] }`. Chaves: `occurrences`, `visitors`, `maintenance`, `documents`, `assemblies`, `reservations`, `agreements`, `expenses`. Financeiro, moradores, unidades e avisos não são módulos (sempre ligados).
+- `GET /api/me/condominiums` traz `type` e `enabledModules` de cada condomínio (o front esconde o que está desligado).
+- Módulo desligado: as rotas dele respondem **403** ("O módulo … está desligado neste condomínio."), para Admin, síndico e morador; a permissão do síndico daquele módulo não vale. Nada é apagado. Exceção: **acordos** desligados só impedem acordo novo (os que existem continuam listados e valendo). Lembretes automáticos de manutenção e de "últimas horas" da assembleia param enquanto o módulo está desligado.
 
 ### Acessos de usuários
 ```
@@ -404,6 +414,7 @@ POST   /api/reservations/{id}/reject
 - `AssemblyItemOutcome`: 1 Approved, 2 Rejected, 3 Decided, 4 Undecided
 - `BankAccountType`: 1 Checking, 2 Savings, 3 Payment
 - `ChargeScope`: 1 Platform, 2 Condominium
+- `CondominiumType`: 1 Residential (todos os módulos), 2 Rental (prédio de aluguel: sem assembleias), 3 Mixed (todos)
 - `ChargeCategory`: 1 CondominiumFee (Taxa de condomínio), 2 Rent (Aluguel), 3 Water (Água), 4 Electricity (Luz), 5 Gas (Gás), 6 Apportionment (Rateio), 7 Fine (Multa), 8 Reservation (Reserva), 9 Agreement (Acordo), 10 Other (Outros)
 - `ChargeStatus`: 1 Pending, 2 Paid, 3 Overdue, 4 Canceled, 5 Renegotiated (dentro de um acordo)
 - `AgreementStatus`: 1 Active, 2 Completed (quitado), 3 Broken (quebrado), 4 Canceled; `AgreementDiscountType`: 0 None, 1 Percent, 2 Amount
