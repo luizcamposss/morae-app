@@ -52,6 +52,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<RecurringCharge> RecurringCharges { get; set; }
     public DbSet<RecurringChargeUnitValue> RecurringChargeUnitValues { get; set; }
     public DbSet<LandingContact> LandingContacts { get; set; }
+    public DbSet<ExpenseCategory> ExpenseCategories { get; set; }
+    public DbSet<Expense> Expenses { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -680,6 +682,55 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
         // Master list, filtered by status and newest first.
         builder.Entity<LandingContact>()
             .HasIndex(contact => new { contact.Status, contact.CreatedAt });
+
+        builder.Entity<Condominium>()
+            .Property(c => c.OpeningBalance)
+            .HasPrecision(12, 2);
+
+        // Also keeps the on-demand creation of the default list from running twice.
+        builder.Entity<ExpenseCategory>()
+            .HasIndex(category => new { category.CondominiumId, category.Name })
+            .IsUnique();
+
+        builder.Entity<ExpenseCategory>()
+            .HasOne(category => category.Condominium)
+            .WithMany()
+            .HasForeignKey(category => category.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Expense>()
+            .Property(expense => expense.Amount)
+            .HasPrecision(12, 2);
+
+        builder.Entity<Expense>()
+            .HasIndex(expense => new { expense.CondominiumId, expense.PaidOn });
+
+        // Restrict: a condominium with expenses is not deleted by accident (receipts would be orphaned).
+        builder.Entity<Expense>()
+            .HasOne(expense => expense.Condominium)
+            .WithMany()
+            .HasForeignKey(expense => expense.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // A category in use cannot be deleted (the service explains it).
+        builder.Entity<Expense>()
+            .HasOne(expense => expense.Category)
+            .WithMany()
+            .HasForeignKey(expense => expense.ExpenseCategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // A removed building turns its expenses into condominium-wide ones.
+        builder.Entity<Expense>()
+            .HasOne(expense => expense.Building)
+            .WithMany()
+            .HasForeignKey(expense => expense.BuildingId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<Expense>()
+            .HasOne(expense => expense.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(expense => expense.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         ApplyUtcDateTimeConvention(builder);
     }
