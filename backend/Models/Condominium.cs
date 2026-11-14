@@ -66,4 +66,10 @@ public class Condominium
     public bool LateFeeEnabled { get; set; }
     public decimal FinePercent { get; set; } = 2m;
     public decimal MonthlyInterestPercent { get; set; } = 1m;
+
+    // Cash the condominium had when it started its accounts in Moraê (monthly balance).
+    // OpeningBalanceMonth (first day of the month) = the month it refers to; movements before it
+    // are left out of the accumulated balance. Null month = counts from the first movement.
+    public decimal OpeningBalance { get; set; }
+    public DateOnly? OpeningBalanceMonth { get; set; }
 }

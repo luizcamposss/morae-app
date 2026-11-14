@@ -7,7 +7,7 @@ Decisões já tomadas com o Luiz. Siga sem perguntar de novo; se algo novo contr
 - 4 papéis: **Master, Admin, Síndico, Morador**. Papel por condomínio.
 - Master: plataforma (condomínios, Admins, cobranças da plataforma). Não vê dados internos do condomínio.
 - Síndico: permissões ligadas pelo Admin. Um **síndico novo nasce com todas as permissões** e gerenciando **todos os prédios** (padrão do mercado). O Admin restringe (subsíndico, síndico de bloco). Síndico paga só as cobranças da própria unidade.
-- Permissões do síndico (`AppPermissions`): `residents.view`, `news.create`, `news.edit`, `charges.create`, `charges.mark_as_paid`, `delinquency.view`, `occurrences.manage`, `documents.manage`, `maintenance.manage`, `visitors.manage`, `assemblies.manage`.
+- Permissões do síndico (`AppPermissions`): `residents.view`, `news.create`, `news.edit`, `charges.create`, `charges.mark_as_paid`, `delinquency.view`, `occurrences.manage`, `documents.manage`, `maintenance.manage`, `visitors.manage`, `assemblies.manage`, `expenses.manage`.
 - Condomínio **inativo** bloqueia Admin, síndico e morador (o login funciona; as cobranças da plataforma continuam visíveis e pagáveis pelo Admin).
 - Não existe papel de porteiro/funcionário. Foi discutido e **adiado**: por agora não há registro de entrada/saída.
 
@@ -101,3 +101,10 @@ Reservas de áreas comuns, encomendas, veículos/pets, prestação de contas, re
 
 - VPS do Luiz (Hostinger), IP `187.77.59.219`, que já roda **Caddy** servindo outro site. Moraê em `https://morae.synergylab.tech` (DNS já aponta). Adicionar um bloco no Caddy **sem mexer** no site existente.
 - Docker Compose (api, web, mysql), volumes para MySQL, chaves do DataProtection e arquivos (`Storage__LocalPath`), backup. Credenciais de **produção** do Mercado Pago e do Resend na hora do deploy.
+
+## Despesas e prestação de contas (balancete)
+
+- Admin e síndico com `expenses.manage` lançam as despesas **já pagas** (categoria, valor, data do pagamento, fornecedor e prédio opcionais, descrição, comprovante PDF/JPG/PNG até 20 MB). Lançar é simples, no estilo do "Nova cobrança". "Repetir todo mês" fica para depois.
+- Categorias de despesa padrão por condomínio (criadas sob demanda), e o condomínio pode acrescentar e renomear as suas (nos Ajustes ou ao lançar).
+- Balancete do mês: entradas = pagamentos recebidos no mês (pela data do pagamento, fuso de SP), por categoria da cobrança; saídas = despesas por categoria; saldo do mês e saldo acumulado a partir de um **saldo inicial** opcional (Admin, nos Ajustes).
+- Morador vê o balancete com **totais por categoria e os comprovantes**, não a lista de cada despesa. Gestão vê tudo. Ver o balancete: qualquer membro ativo.

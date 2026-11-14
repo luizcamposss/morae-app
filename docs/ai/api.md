@@ -12,8 +12,8 @@ Para os detalhes de cada rota (corpo, validações, quem pode chamar), leia o co
 - **Horários** (`TimeOnly`, visitas): `"HH:mm"` (aceita `"HH:mm:ss"` na entrada).
 - **Erros:** `{ "statusCode": 400, "message": "texto em português para mostrar ao usuário" }`. Erro inesperado: `"Ocorreu um erro inesperado. Tente novamente. Código: XXXXXXXX"`. Rate limit: 429.
 - **Sessão:** o access token dura 15 min. Em 401, `apiClient.ts` chama `POST /api/auth/refresh` (cookie HttpOnly em `/api/auth`, `credentials: "include"`) e repete. Se falhar → `/login?expired=1`.
-- **Uploads** (`multipart/form-data`): documentos (`file`, `title`, `description`, `category`, `visibility`) e execução de manutenção (`performedOn`, `providerName`, `notes`, `file` opcional). Limite de 20 MB; tipos PDF, JPG, PNG, DOCX, XLSX. Ocorrência: até 5 `photos` (JPG ou PNG, 10 MB cada). Importação por planilha: campo `file` (CSV ou XLSX, até 2 MB e 2.000 linhas).
-- **Downloads** (documento, anexo de manutenção, comprovante): exigem o token, então baixe com `fetch` + `Authorization` e gere um blob/URL temporária (link direto não funciona).
+- **Uploads** (`multipart/form-data`): documentos (`file`, `title`, `description`, `category`, `visibility`) e execução de manutenção (`performedOn`, `providerName`, `notes`, `file` opcional). Despesa: `categoryId`, `amount` (texto com ponto: `"1234.56"`), `paidOn`, `supplier`, `buildingId`, `description`, `file` opcional (só PDF, JPG ou PNG) e, na edição, `removeReceipt`. Limite de 20 MB; tipos PDF, JPG, PNG, DOCX, XLSX. Ocorrência: até 5 `photos` (JPG ou PNG, 10 MB cada). Importação por planilha: campo `file` (CSV ou XLSX, até 2 MB e 2.000 linhas).
+- **Downloads** (documento, anexo de manutenção, comprovante, comprovante de despesa): exigem o token, então baixe com `fetch` + `Authorization` e gere um blob/URL temporária (link direto não funciona).
 - **Recursos escondidos** aparecem como **404** (não 403) quando o usuário não pode nem saber que existem (documento "só gestão", rascunho de assembleia, visita/manutenção de outro prédio).
 
 ## Pontos de atenção por módulo
@@ -21,7 +21,7 @@ Para os detalhes de cada rota (corpo, validações, quem pode chamar), leia o co
 - **Cobranças/pagamentos:** pagar com Mercado Pago = `payment-setup` (public key) → Payment Brick → `POST /api/charges/{id}/mercadopago/payments` com o `formData` do Brick (snake_case: `payment_method_id`, `token`, `issuer_id`, `payer`). Pix/boleto: acompanhar por `payment-status`.
 - **Lote, recorrência, multa e juros:** cada cobrança traz `finePercent`/`monthlyInterestPercent` (null = sem multa/juros), `daysLate`, `fineAmount`, `interestAmount` e `updatedAmount` (o que se paga hoje; é o valor usado no Mercado Pago). Lote e recorrência devolvem `skipped` (unidades sem ninguém vinculado). Detalhes em "Lote, recorrência e regras de cobrança".
 - **Síndico:** `GET /api/me/permissions?condominiumId=` diz o que ele pode naquele condomínio; esconda menus/ações sem permissão (a API também bloqueia). Prédios do síndico: `GET/PUT /api/condominiums/{id}/syndics/{userId}/buildings` (envio: `{ allBuildings, buildingIds }`).
-- **Prédios e unidades para o síndico:** `GET /api/condominiums/{id}/buildings`, `GET /api/buildings/{id}`, `GET /api/buildings/{id}/units` e `GET /api/units/{id}` aceitam `residents.view` **ou** qualquer permissão financeira (`charges.create`, `charges.mark_as_paid`, `delinquency.view`), sempre só nos prédios que ele cuida. Sem `residents.view`, a unidade vem com `responsiblePersonName` vazio e as pessoas (`/units/{id}/persons`, `/persons`) continuam 403.
+- **Prédios e unidades para o síndico:** `GET /api/condominiums/{id}/buildings`, `GET /api/buildings/{id}`, `GET /api/buildings/{id}/units` e `GET /api/units/{id}` aceitam `residents.view` **ou** qualquer permissão financeira (`charges.create`, `charges.mark_as_paid`, `delinquency.view`) **ou** `expenses.manage`, sempre só nos prédios que ele cuida. Sem `residents.view`, a unidade vem com `responsiblePersonName` vazio e as pessoas (`/units/{id}/persons`, `/persons`) continuam 403.
 - **`GET /api/me`:** traz `isCondominiumInactive` e `isSuspended` (mostrar telas de bloqueio).
 - **Documentos:** `GET .../documents?category=`. Visibilidade 2 = só gestão.
 - **Manutenção:** lista com `?status=&buildingId=`, ordenada pela mais urgente; cada item traz `status`, `daysUntilDue` (negativo = atrasada) e `lastPerformedOn`. `POST .../maintenance-plans/defaults` cria as manutenções comuns.
@@ -180,7 +180,7 @@ GET    /api/condominiums/{condominiumId}/recurring-charges       (Admin ou sínd
 POST   /api/condominiums/{condominiumId}/recurring-charges       (charges.create)
 PUT    /api/recurring-charges/{id}/pause | /resume | /end        (charges.create)
 ```
-- Regras: `PUT billing-settings` `{ billingDueDay: 10, lateFeeEnabled: true, finePercent: 2, monthlyInterestPercent: 1 }` (dia 1–31, no mês curto vira o último dia; multa 0–2; juros 0–1 ao mês). A resposta traz também `maxFinePercent` e `maxMonthlyInterestPercent`.
+- Regras: `PUT billing-settings` `{ billingDueDay: 10, lateFeeEnabled: true, finePercent: 2, monthlyInterestPercent: 1, openingBalance?: 15000, openingBalanceMonth?: "2026-10-01" }` (dia 1–31, no mês curto vira o último dia; multa 0–2; juros 0–1 ao mês). A resposta traz também `maxFinePercent` e `maxMonthlyInterestPercent`.
 - Lote: `POST .../charges/batch` `{ buildingId?: 3, value: 500, dueDate?: "2026-11-10", description: "Taxa de novembro", category?: 6, unitIds?: [12, 13], unitValues?: [{ unitId: 12, value: 650 }] }`. Sem `buildingId` = todos os prédios (síndico limitado: só os dele). `unitIds` = só essas unidades (ex.: água pela leitura; os valores calculados na tela vão em `unitValues`). Sem `category` = 6 Rateio. Sem `dueDate` = próximo dia `billingDueDay`. Resposta: `{ dueDate, createdCount, totalValue, charges: [...], skipped: [{ unitId, unitNumber, buildingName, reason }] }`.
 - Recorrência: `POST .../recurring-charges` `{ buildingId?, value: 500, dueDay?: 10, description, category?, unitId?, recipientPersonId?, unitValues? }` (sem `dueDay` = o do condomínio; síndico limitado precisa escolher o prédio; sem `category` = 1 Taxa de condomínio). Com `unitId` a recorrência é **de uma unidade só** (ex.: aluguel; `buildingId` vira o prédio da unidade e `unitValues` é ignorado) e aceita `recipientPersonId` (vinculado à unidade). Se o destinatário deixar a unidade, o mês é pulado (`skipped`) em vez de cair nos outros moradores. A resposta traz `category`, `unitId`, `unitNumber`, `recipientPersonId` e `recipientName`. As cobranças geradas herdam categoria e destinatário. A rotina gera **10 dias antes** do vencimento, uma vez por unidade e mês. Criar e retomar já geram o mês se estiver dentro da janela (vem em `generation`). Encerrada não volta.
 
@@ -286,6 +286,24 @@ GET    /api/occurrence-photos/{id}
 - `PUT /api/occurrences/{id}/response` (Admin ou síndico com `occurrences.manage`): `{ "message": "..." }` (até 2000 caracteres). Grava `managementResponse`, `respondedAt` e `respondedByName` e avisa no sininho quem abriu (tipo `Occurrence`).
 - `GET /api/occurrence-photos/{id}` devolve o arquivo da foto (com o token; use `apiDownload`). Quem pode ver a ocorrência pode ver a foto.
 - A resposta das ocorrências traz também `buildingId`, `buildingName`, `unitNumber`, `createdByName` e `photos` (`id`, `fileName`, `contentType`, `sizeBytes`).
+
+### Despesas e prestação de contas (balancete)
+```
+GET    /api/condominiums/{condominiumId}/expense-categories     (expenses.manage)
+POST   /api/condominiums/{condominiumId}/expense-categories     (expenses.manage)
+PUT    /api/expense-categories/{id}                             (expenses.manage)
+DELETE /api/expense-categories/{id}                             (expenses.manage)
+GET    /api/condominiums/{condominiumId}/expenses?month=&categoryId=   (expenses.manage)
+POST   /api/condominiums/{condominiumId}/expenses               (expenses.manage, multipart)
+PUT    /api/expenses/{id}                                       (expenses.manage, multipart)
+DELETE /api/expenses/{id}                                       (expenses.manage)
+GET    /api/expenses/{id}/receipt                               (qualquer membro ativo)
+GET    /api/condominiums/{condominiumId}/monthly-balance?month= (qualquer membro ativo)
+```
+- **Categorias:** cada condomínio tem a sua lista. As 11 padrão (Água, Luz, Gás, Folha e encargos, Limpeza, Manutenção, Segurança, Administração, Seguros, Impostos e taxas, Outros) são criadas na primeira vez que a lista é pedida e trazem `iconKey` (`water`, `electricity`, `gas`, `payroll`, `cleaning`, `maintenance`, `security`, `administration`, `insurance`, `taxes`, `other`); as criadas pelo condomínio vêm com `iconKey: null`. Item: `{ id, name, iconKey, expenseCount }`. Corpo de criar/renomear: `{ name }` (até 60, nome único no condomínio). Apagar só sem despesas lançadas e nunca a última.
+- **Despesa:** `month` = `"AAAA-MM"` (vazio = mês atual de SP), pela data `paidOn`. Não aceita data futura. Síndico limitado a alguns prédios precisa escolher o prédio e só vê/edita as despesas dos prédios dele. Resposta: `{ id, condominiumId, categoryId, categoryName, categoryIconKey, buildingId, buildingName, amount, paidOn, supplier, description, hasReceipt, receiptFileName, receiptSizeBytes, createdByName, createdAt, updatedAt }`. Na edição, um `file` novo troca o comprovante; `removeReceipt=true` remove.
+- **Balancete:** `{ condominiumId, month, isDetailed, incomeTotal, income: [{ category, label, total, paymentCount }], expenseTotal, expenses: [{ categoryId, name, iconKey, total, expenseCount, receipts: [{ expenseId, fileName, paidOn }], items }], monthBalance, openingBalance, openingBalanceMonth, previousBalance, accumulatedBalance }`. Entradas = pagamentos das cobranças do condomínio (não as faturas da plataforma) pelo dia do pagamento em SP, agrupados pela `ChargeCategory`; valor pago inclui multa/juros. Morador recebe `isDetailed: false` e `items: null` (só totais e comprovantes); Admin e síndico recebem `items` (as despesas). `previousBalance`/`accumulatedBalance` = saldo inicial + entradas − saídas a partir do mês do saldo inicial; `null` em mês anterior a ele.
+- **Saldo inicial:** em `billing-settings` (`openingBalance`, `openingBalanceMonth` = `"AAAA-MM-01"` ou null = desde o começo). No `PUT` são opcionais: sem `openingBalance` o saldo atual fica como está; qualquer dia do mês vira o dia 1.
 
 ### Documentos (H)
 ```
