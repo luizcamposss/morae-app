@@ -1,26 +1,14 @@
 import { formatCurrency } from "../../shared/lib/currency";
 import { todayInputDate } from "../../shared/lib/date";
 import { CHARGE_STATUS } from "../charges/platformRevenue";
-import type { ChargeResponse, ChargeUnitValue, RecurringChargeStatus } from "../charges/types";
+import type { ChargeResponse, RecurringChargeStatus } from "../charges/types";
 import { isValidInputDate, parseCurrencyInput, toCents } from "../masterPayments/platformChargeForm";
 import type { PaymentMethod } from "../payments/types";
 import type { UnitResponse } from "../units/types";
 
 export { isValidInputDate, parseCurrencyInput, paymentMethodOptions, validateCancelForm, type CancelFormState } from "../masterPayments/platformChargeForm";
 
-// Forms and helpers of the condominium charges screen (Admin).
-export type SingleChargeForm = { unitId: string; value: string; dueDate: string; description: string };
-
-// Batch (one month now) and recurring (every month) share the same form; only the date differs.
-export type GroupChargeForm = {
-  buildingId: string; // "" = every building
-  value: string;
-  dueDate: string; // batch only ("" = the condominium's due day)
-  dueDay: string; // recurring only ("" = the condominium's due day)
-  description: string;
-  unitValues: Record<number, string>; // unitId → custom value ("" = the default value)
-};
-
+// Forms and helpers of the condominium charges screen (Admin). The new-charge wizard is in newChargeForm.ts.
 export type ManualPaymentForm = {
   chargeId: number;
   amountPaid: string;
@@ -28,9 +16,6 @@ export type ManualPaymentForm = {
   paidAt: string;
   notes: string;
 };
-
-export const initialSingleForm: SingleChargeForm = { unitId: "", value: "", dueDate: "", description: "" };
-export const initialGroupForm: GroupChargeForm = { buildingId: "", value: "", dueDate: "", dueDay: "", description: "", unitValues: {} };
 
 export const recurringStatuses: Record<RecurringChargeStatus, { label: string; tone: "success" | "warning" | "neutral" }> = {
   1: { label: "Ativa", tone: "success" },
@@ -88,55 +73,11 @@ export function nextDueDate(dueDay: number) {
   return thisMonth.slice(8) >= String(day).padStart(2, "0") ? thisMonth : build(month === 12 ? year + 1 : year, month === 12 ? 1 : month + 1);
 }
 
-function validateMoney(raw: string, label: string) {
+export function validateMoney(raw: string, label: string) {
   const value = parseCurrencyInput(raw);
   if (!raw.trim() || !Number.isFinite(value) || value <= 0) return `Informe ${label} maior que zero.`;
   if (!Number.isInteger(Math.round(value * 1000) / 10)) return `Informe ${label} com no máximo duas casas decimais.`;
   return "";
-}
-
-function validateDescription(raw: string) {
-  const description = raw.trim();
-  if (description.length < 3) return "A descrição precisa ter pelo menos 3 caracteres.";
-  if (description.length > 255) return "A descrição deve ter no máximo 255 caracteres.";
-  return "";
-}
-
-export function validateSingleForm(form: SingleChargeForm) {
-  if (!form.unitId) return "Escolha a unidade.";
-  const money = validateMoney(form.value, "um valor");
-  if (money) return money;
-  if (!form.dueDate || !isValidInputDate(form.dueDate)) return "Informe uma data de vencimento válida.";
-  if (form.dueDate < todayInputDate()) return "O vencimento não pode ser anterior a hoje.";
-  return validateDescription(form.description);
-}
-
-export function validateGroupForm(form: GroupChargeForm, mode: "batch" | "recurring") {
-  const money = validateMoney(form.value, "um valor");
-  if (money) return money;
-  if (mode === "batch" && form.dueDate) {
-    if (!isValidInputDate(form.dueDate)) return "Informe uma data de vencimento válida.";
-    if (form.dueDate < todayInputDate()) return "O vencimento não pode ser anterior a hoje.";
-  }
-  if (mode === "recurring" && form.dueDay) {
-    const day = Number(form.dueDay);
-    if (!Number.isInteger(day) || day < 1 || day > 31) return "O dia de vencimento vai de 1 a 31.";
-  }
-  const description = validateDescription(form.description);
-  if (description) return description;
-  for (const raw of Object.values(form.unitValues)) {
-    if (raw.trim() && validateMoney(raw, "o valor da unidade")) return "Confira os valores ajustados: use valores maiores que zero, com até duas casas.";
-  }
-  return "";
-}
-
-// Only the units whose value differs from the default go to the API.
-export function toUnitValues(form: GroupChargeForm, unitIds: number[]): ChargeUnitValue[] {
-  const defaultCents = toCents(parseCurrencyInput(form.value));
-  return unitIds
-    .filter((unitId) => form.unitValues[unitId]?.trim())
-    .map((unitId) => ({ unitId, value: parseCurrencyInput(form.unitValues[unitId]) }))
-    .filter((item) => toCents(item.value) !== defaultCents);
 }
 
 export function toManualPaymentForm(charge: ChargeResponse): ManualPaymentForm {

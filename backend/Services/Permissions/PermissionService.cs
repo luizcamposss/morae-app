@@ -419,12 +419,35 @@ public class PermissionService : IPermissionService
             throw new ForbiddenException("Você não tem permissão para fazer isso.");
     }
 
-    // Who may read a condominium charge and its payments: the unit's own residents (a syndic
-    // included, for their own unit), the condominium's Admins, and syndics with finance access
-    // to that unit's building.
-    public async Task EnsureCanReadCondominiumChargeAsync(int userId, int condominiumId, int? unitId)
+    // Who sees and pays a condominium charge as a resident: the people linked to its unit, or only
+    // the recipient when the charge is addressed to one person (e.g. rent billed to the tenant).
+    public async Task<bool> IsChargePayerAsync(int userId, Charge charge)
     {
-        if (unitId.HasValue && await IsUnitResidentAsync(userId, unitId.Value))
+        if (!charge.UnitId.HasValue)
+            return false;
+
+        var unitId = charge.UnitId.Value;
+        var recipientPersonId = charge.RecipientPersonId;
+
+        return await _context.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId)
+            .AnyAsync(user =>
+                (recipientPersonId == null || user.PersonId == recipientPersonId) &&
+                _context.PersonUnits.Any(personUnit =>
+                    personUnit.PersonId == user.PersonId &&
+                    personUnit.UnitId == unitId &&
+                    personUnit.Unit.Building.Condominium.Status == Status.Active));
+    }
+
+    // Who may read a condominium charge and its payments: its payers (a syndic included, for their
+    // own unit), the condominium's Admins, and syndics with finance access to that unit's building.
+    public async Task EnsureCanReadCondominiumChargeAsync(int userId, Charge charge)
+    {
+        var condominiumId = charge.CondominiumId;
+        var unitId = charge.UnitId;
+
+        if (await IsChargePayerAsync(userId, charge))
             return;
 
         var role = await GetCondominiumRoleAsync(userId, condominiumId);

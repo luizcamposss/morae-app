@@ -565,6 +565,9 @@ namespace backend.Migrations
                     b.Property<DateTime?>("CanceledAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int>("Category")
+                        .HasColumnType("int");
+
                     b.Property<int>("CondominiumId")
                         .HasColumnType("int");
 
@@ -596,6 +599,9 @@ namespace backend.Migrations
                     b.Property<DateTime?>("OverdueReminderSentAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int?>("RecipientPersonId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("RecurringChargeId")
                         .HasColumnType("int");
 
@@ -623,6 +629,8 @@ namespace backend.Migrations
                     b.HasIndex("CondominiumId");
 
                     b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("RecipientPersonId");
 
                     b.HasIndex("TargetUserId");
 
@@ -1752,6 +1760,9 @@ namespace backend.Migrations
                     b.Property<int?>("BuildingId")
                         .HasColumnType("int");
 
+                    b.Property<int>("Category")
+                        .HasColumnType("int");
+
                     b.Property<int>("CondominiumId")
                         .HasColumnType("int");
 
@@ -1772,7 +1783,13 @@ namespace backend.Migrations
                     b.Property<DateTime?>("EndedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int?>("RecipientPersonId")
+                        .HasColumnType("int");
+
                     b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("UnitId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -1789,6 +1806,10 @@ namespace backend.Migrations
                     b.HasIndex("CondominiumId");
 
                     b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("RecipientPersonId");
+
+                    b.HasIndex("UnitId");
 
                     b.ToTable("RecurringCharges");
                 });
@@ -2249,6 +2270,11 @@ namespace backend.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("backend.Models.Person", "RecipientPerson")
+                        .WithMany()
+                        .HasForeignKey("RecipientPersonId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("backend.Models.RecurringCharge", "RecurringCharge")
                         .WithMany()
                         .HasForeignKey("RecurringChargeId")
@@ -2267,6 +2293,8 @@ namespace backend.Migrations
                     b.Navigation("Condominium");
 
                     b.Navigation("CreatedByUser");
+
+                    b.Navigation("RecipientPerson");
 
                     b.Navigation("RecurringCharge");
 
@@ -2666,11 +2694,25 @@ namespace backend.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("backend.Models.Person", "RecipientPerson")
+                        .WithMany()
+                        .HasForeignKey("RecipientPersonId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("backend.Models.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.Navigation("Building");
 
                     b.Navigation("Condominium");
 
                     b.Navigation("CreatedByUser");
+
+                    b.Navigation("RecipientPerson");
+
+                    b.Navigation("Unit");
                 });
 
             modelBuilder.Entity("backend.Models.RecurringChargeUnitValue", b =>

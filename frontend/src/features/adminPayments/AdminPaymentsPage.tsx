@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronRight, Layers, Plus, Repeat, Search, TriangleAlert, X } from "lucide-react";
+import { ChevronRight, Plus, Repeat, Search, TriangleAlert, X } from "lucide-react";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { Button, ButtonLink } from "../../shared/components/Button";
 import { ConfirmDialog, type ConfirmRequest } from "../../shared/components/ConfirmDialog";
@@ -12,6 +12,8 @@ import { formatCalendarDate, todayInputDate } from "../../shared/lib/date";
 import { getBuildingsByCondominium } from "../buildings/buildingService";
 import { changeRecurringCharge, createChargeBatch, createRecurringCharge, getBillingSettings, getRecurringCharges } from "../charges/billingService";
 import { cancelCharge, createCharge, getChargesByCondominium, getPlatformCharges } from "../charges/chargeService";
+import { categoryOptions } from "../charges/chargeCategories";
+import { ChargeCategoryChip } from "../charges/ChargeCategoryChip";
 import { PaymentProofChip } from "../charges/PaymentProofChip";
 import { proofState } from "../charges/paymentProof";
 import { CHARGE_STATUS, currentMonthName } from "../charges/platformRevenue";
@@ -24,7 +26,9 @@ import { createManualPayment } from "../payments/paymentService";
 import { getUnitsByBuilding } from "../units/unitService";
 import { ChargeReceiptModal } from "./ChargeReceiptModal";
 import { PaymentProofsPanel } from "./PaymentProofsPanel";
-import { BatchResultModal, CancelChargeModal, ChargeDetailsModal, GroupChargeModal, ManualPaymentModal, SingleChargeModal } from "./ChargeModals";
+import { BatchResultModal, CancelChargeModal, ChargeDetailsModal, ManualPaymentModal } from "./ChargeModals";
+import { NewChargeWizard } from "./NewChargeWizard";
+import { targetUnits, unitValuesFor, type NewChargeForm } from "./newChargeForm";
 import { RecurringChargesList } from "./RecurringChargesList";
 import { useIsSyndicArea, useSyndicCan } from "../syndicAccess/useSyndicAccess";
 import {
@@ -32,26 +36,20 @@ import {
   chargeMonths,
   formatMonthKey,
   hasLateFees,
-  initialGroupForm,
-  initialSingleForm,
   isOpenCharge,
   normalizeSearch,
   parseCurrencyInput,
   toManualPaymentForm,
-  toUnitValues,
   validateCancelForm,
-  validateGroupForm,
   validateManualPayment,
-  validateSingleForm,
   type CancelFormState,
-  type GroupChargeForm,
   type ManualPaymentForm,
-  type SingleChargeForm,
 } from "./chargeForm";
 
 type View = "charges" | "recurring" | "platform";
 type Tab = "open" | "overdue" | "paid" | "canceled" | "all";
-type GroupModal = { mode: "batch" | "recurring"; form: GroupChargeForm } | null;
+// The "Nova cobrança" wizard; repeating = opened from "Recorrências".
+type Wizard = { repeating: boolean } | null;
 type BatchResult = { title: string; result: ChargeBatchResult } | null;
 
 const tabs: Array<{ key: Tab; label: string; statuses: number[] }> = [
@@ -121,12 +119,12 @@ export function AdminPaymentsPage() {
   const [search, setSearch] = useState("");
   const [buildingFilter, setBuildingFilter] = useState("");
   const [monthFilter, setMonthFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [modalError, setModalError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [singleForm, setSingleForm] = useState<SingleChargeForm | null>(null);
-  const [groupModal, setGroupModal] = useState<GroupModal>(null);
+  const [wizard, setWizard] = useState<Wizard>(null);
   const [batchResult, setBatchResult] = useState<BatchResult>(null);
   const [paymentForm, setPaymentForm] = useState<ManualPaymentForm | null>(null);
   const [cancelForm, setCancelForm] = useState<CancelFormState | null>(null);
@@ -197,8 +195,9 @@ export function AdminPaymentsPage() {
     if (unitFilter && charge.unitId !== unitFilter) return false;
     if (buildingFilter && String(unit?.buildingId ?? "") !== buildingFilter) return false;
     if (monthFilter && !charge.dueDate.startsWith(monthFilter)) return false;
+    if (categoryFilter && String(charge.category) !== categoryFilter) return false;
     if (!term) return true;
-    return normalizeSearch([charge.description, charge.unitNumber, charge.buildingName, unit?.responsiblePersonName, `#${charge.id}`].filter(Boolean).join(" ")).includes(term);
+    return normalizeSearch([charge.description, charge.unitNumber, charge.buildingName, unit?.responsiblePersonName, charge.recipientName, `#${charge.id}`].filter(Boolean).join(" ")).includes(term);
   });
   const countFor = (key: Tab) => {
     const statuses = tabs.find((item) => item.key === key)?.statuses ?? [];
@@ -222,17 +221,16 @@ export function AdminPaymentsPage() {
   }
 
   function closeModals() {
-    setSingleForm(null);
-    setGroupModal(null);
+    setWizard(null);
     setPaymentForm(null);
     setCancelForm(null);
     setModalError("");
   }
 
-  function openGroup(mode: "batch" | "recurring") {
+  function openWizard(repeating = false) {
     clearMessages();
     setModalError("");
-    setGroupModal({ mode, form: initialGroupForm });
+    setWizard({ repeating });
   }
 
   async function submit(event: FormEvent<HTMLFormElement>, validate: () => string, action: () => Promise<string | null>, fallback: string) {
@@ -259,32 +257,75 @@ export function AdminPaymentsPage() {
     }
   }
 
-  function groupRequest(form: GroupChargeForm) {
-    const scopedIds = (form.buildingId ? units.filter((unit) => String(unit.buildingId) === form.buildingId) : units).map((unit) => unit.id);
-    return {
-      buildingId: form.buildingId ? Number(form.buildingId) : null,
+  // One unit → single charge (or a one-unit recurrence); many → batch (or a recurrence of the
+  // condominium/building). Readings go as the value of each unit of the batch.
+  async function createFromWizard(form: NewChargeForm, recipientName?: string) {
+    if (!activeCondominiumId || !form.category) return;
+    const common = {
+      category: form.category,
       value: parseCurrencyInput(form.value),
       description: form.description.trim(),
-      unitValues: toUnitValues(form, scopedIds),
     };
-  }
+    const unitId = form.target === "unit" ? Number(form.unitId) : null;
+    const recipientPersonId = unitId && form.onlyOnePerson && form.recipientPersonId ? Number(form.recipientPersonId) : null;
+    const buildingId = form.target === "many" && form.manyScope === "building" ? Number(form.buildingId) : null;
+    const unitValues = unitValuesFor(form, units);
+    const label = recipientName ? ` para ${recipientName}` : "";
 
-  async function submitGroup(modal: NonNullable<GroupModal>) {
-    if (!activeCondominiumId) return null;
-
-    if (modal.mode === "batch") {
-      const result = await createChargeBatch(activeCondominiumId, { ...groupRequest(modal.form), dueDate: modal.form.dueDate || null });
-      setBatchResult({ title: "Lote gerado", result });
-      return null;
+    setIsSubmitting(true);
+    setModalError("");
+    clearMessages();
+    try {
+      if (form.repeat) {
+        const created = await createRecurringCharge(activeCondominiumId, {
+          ...common,
+          buildingId,
+          unitId,
+          recipientPersonId,
+          dueDay: Number(form.dueDay),
+          unitValues,
+        });
+        setView("recurring");
+        if (created.generation && created.generation.createdCount + created.generation.skipped.length > 0) {
+          setBatchResult({ title: "Recorrência criada", result: created.generation });
+        } else {
+          setSuccessMessage(`Recorrência criada${label}. As cobranças saem sozinhas 10 dias antes de cada vencimento (dia ${created.effectiveDueDay}).`);
+        }
+      } else if (unitId) {
+        await createCharge({
+          ...common,
+          // A reading for one unit sends the computed value.
+          value: unitValues[0]?.value ?? common.value,
+          scope: 2,
+          condominiumId: activeCondominiumId,
+          unitId,
+          targetUserId: null,
+          dueDate: form.dueDate,
+          recipientPersonId,
+        });
+        setView("charges");
+        setSuccessMessage(`Cobrança criada${label}.`);
+      } else {
+        const pickedIds = form.pricing === "reading" ? unitValues.map((item) => item.unitId) : form.manyScope === "pick" ? targetUnits(form, units).map((unit) => unit.id) : null;
+        const result = await createChargeBatch(activeCondominiumId, {
+          ...common,
+          // Every unit has its own value in a reading; the default only has to be valid.
+          value: form.pricing === "reading" ? Math.max(...unitValues.map((item) => item.value)) : common.value,
+          buildingId,
+          unitIds: pickedIds,
+          dueDate: form.dueDate,
+          unitValues,
+        });
+        setView("charges");
+        setBatchResult({ title: "Cobranças criadas", result });
+      }
+      setWizard(null);
+      await reload();
+    } catch (error) {
+      setModalError(error instanceof Error ? error.message : "Não foi possível criar a cobrança.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const created = await createRecurringCharge(activeCondominiumId, { ...groupRequest(modal.form), dueDay: modal.form.dueDay ? Number(modal.form.dueDay) : null });
-    setView("recurring");
-    if (created.generation && created.generation.createdCount + created.generation.skipped.length > 0) {
-      setBatchResult({ title: "Recorrência criada", result: created.generation });
-      return null;
-    }
-    return `Recorrência criada. As cobranças saem sozinhas 10 dias antes de cada vencimento (dia ${created.effectiveDueDay}).`;
   }
 
   async function runRecurringAction(item: RecurringChargeResponse, action: "pause" | "resume" | "end") {
@@ -338,20 +379,12 @@ export function AdminPaymentsPage() {
   return (
     <>
       <PageHeader overline={overline || undefined} title="Pagamentos">
-        {canCreate && <>
-        <Button variant="quiet" size="sm" onClick={() => {
-          clearMessages();
-          setModalError("");
-          setSingleForm(initialSingleForm);
-        }} disabled={isLoading || units.length === 0 || !page.isReceivingReady} className="bg-superficie shadow-whisper hover:bg-campo max-sm:px-3">
-          <Plus size={16} strokeWidth={2} aria-hidden />
-          <span className="max-sm:sr-only">Avulsa</span>
-        </Button>
-        <Button variant="accent" size="sm" onClick={() => openGroup("batch")} disabled={isLoading || units.length === 0 || !page.isReceivingReady} className="max-sm:px-3">
-          <Layers size={16} strokeWidth={2} aria-hidden />
-          <span className="max-sm:sr-only">Cobrança em lote</span>
-        </Button>
-        </>}
+        {canCreate && (
+          <Button variant="accent" size="sm" onClick={() => openWizard()} disabled={isLoading || units.length === 0 || !page.isReceivingReady}>
+            <Plus size={16} strokeWidth={2} aria-hidden />
+            Nova cobrança
+          </Button>
+        )}
       </PageHeader>
 
       {condominiums.length > 1 && (
@@ -457,7 +490,15 @@ export function AdminPaymentsPage() {
                 placeholder="Todos os meses"
                 options={months.map((month) => ({ value: month, label: formatMonthKey(month) }))}
               />
-              <label className="relative col-span-2 sm:w-60">
+              <SelectField
+                label="Categoria"
+                className="[&>label]:sr-only sm:w-48"
+                value={categoryFilter}
+                onChange={(event) => setCategoryFilter(event.target.value)}
+                placeholder="Todas as categorias"
+                options={categoryOptions}
+              />
+              <label className="relative sm:w-60">
                 <span className="sr-only">Buscar cobrança</span>
                 <Search size={17} strokeWidth={1.8} aria-hidden className="pointer-events-none absolute inset-y-0 left-3.5 my-auto text-tinta-suave" />
                 <input
@@ -497,14 +538,15 @@ export function AdminPaymentsPage() {
                 {isLoading
                   ? "Carregando…"
                   : charges.length === 0
-                    ? "Nenhuma cobrança ainda. Use “Cobrança em lote” para gerar a taxa do mês de todas as unidades."
-                    : term || buildingFilter || monthFilter || unitFilter
+                    ? "Nenhuma cobrança ainda. Use “Nova cobrança” para gerar a taxa do mês, o aluguel ou a conta de água."
+                    : term || buildingFilter || monthFilter || categoryFilter || unitFilter
                       ? "Nenhuma cobrança encontrada com esses filtros."
                       : "Nenhuma cobrança nesta situação."}
               </li>
             ) : (
               visibleCharges.map((charge) => {
-                const person = charge.unitId ? unitById.get(charge.unitId)?.responsiblePersonName : "";
+                // A charge addressed to one person shows that person instead of the unit's responsible.
+                const person = charge.recipientName || (charge.unitId ? unitById.get(charge.unitId)?.responsiblePersonName : "");
                 const isOverdue = charge.status === CHARGE_STATUS.overdue;
                 return (
                   <li key={charge.id}>
@@ -521,13 +563,12 @@ export function AdminPaymentsPage() {
                         <span className="block truncate text-[15px] font-semibold text-tinta">{charge.description}</span>
                         <span className="block truncate text-[13px] text-tinta-suave">
                           {placeOf(charge)}
-                          {person ? ` · ${person}` : ""} · {isOverdue ? "venceu" : "vence"} {formatCalendarDate(charge.dueDate)}
+                          {person ? ` · ${charge.recipientName ? "só " : ""}${person}` : ""} · {isOverdue ? "venceu" : "vence"} {formatCalendarDate(charge.dueDate)}
                         </span>
-                        {proofState(charge) === "sent" && (
-                          <span className="mt-1.5 flex">
-                            <PaymentProofChip charge={charge} />
-                          </span>
-                        )}
+                        <span className="mt-1.5 flex flex-wrap gap-1.5">
+                          <ChargeCategoryChip category={charge.category} />
+                          {proofState(charge) === "sent" && <PaymentProofChip charge={charge} />}
+                        </span>
                       </span>
                       <span className="text-right">
                         <span className={`block text-sm font-semibold tabular-nums ${isOverdue ? "text-vermelho" : "text-tinta"}`}>{formatCurrency(amountDue(charge))}</span>
@@ -555,7 +596,7 @@ export function AdminPaymentsPage() {
             <p className="text-sm text-tinta-suave">
               Geradas sozinhas 10 dias antes do vencimento{settings ? ` · vencimento padrão dia ${settings.billingDueDay}` : ""}.
             </p>
-            {canCreate && <Button variant="quiet" size="sm" onClick={() => openGroup("recurring")} disabled={isLoading || units.length === 0 || !page.isReceivingReady} className="self-start bg-superficie shadow-whisper hover:bg-campo">
+            {canCreate && <Button variant="quiet" size="sm" onClick={() => openWizard(true)} disabled={isLoading || units.length === 0 || !page.isReceivingReady} className="self-start bg-superficie shadow-whisper hover:bg-campo">
               <Repeat size={16} strokeWidth={2} aria-hidden />
               Nova recorrência
             </Button>}
@@ -564,7 +605,7 @@ export function AdminPaymentsPage() {
             items={recurring}
             isLoading={isLoading}
             busyId={busyRecurringId}
-            onCreate={() => openGroup("recurring")}
+            onCreate={() => openWizard(true)}
             onPause={(item) => void runRecurringAction(item, "pause")}
             onResume={(item) => void runRecurringAction(item, "resume")}
             onEnd={askEnd}
@@ -618,7 +659,13 @@ export function AdminPaymentsPage() {
         <ChargeDetailsModal
           charge={selectedCharge}
           place={placeOf(selectedCharge)}
-          person={selectedCharge.unitId ? unitById.get(selectedCharge.unitId)?.responsiblePersonName || undefined : undefined}
+          person={
+            selectedCharge.recipientName
+              ? `só ${selectedCharge.recipientName}`
+              : selectedCharge.unitId
+                ? unitById.get(selectedCharge.unitId)?.responsiblePersonName || undefined
+                : undefined
+          }
           showTimeline
           onClose={() => setSelectedChargeId(null)}
           extra={
@@ -672,55 +719,16 @@ export function AdminPaymentsPage() {
         />
       )}
 
-      {singleForm && (
-        <SingleChargeModal
-          form={singleForm}
+      {wizard && (
+        <NewChargeWizard
           units={units}
-          error={modalError}
-          isSubmitting={isSubmitting}
-          onChange={setSingleForm}
-          onClose={closeModals}
-          onSubmit={(event) =>
-            void submit(
-              event,
-              () => validateSingleForm(singleForm),
-              async () => {
-                await createCharge({
-                  scope: 2,
-                  condominiumId: activeCondominiumId ?? 0,
-                  unitId: Number(singleForm.unitId),
-                  targetUserId: null,
-                  value: parseCurrencyInput(singleForm.value),
-                  dueDate: singleForm.dueDate,
-                  description: singleForm.description.trim(),
-                });
-                return "Cobrança criada.";
-              },
-              "Não foi possível criar a cobrança.",
-            )
-          }
-        />
-      )}
-
-      {groupModal && (
-        <GroupChargeModal
-          mode={groupModal.mode}
-          form={groupModal.form}
           buildings={buildings}
-          units={units}
           billingDueDay={settings?.billingDueDay ?? null}
-          error={modalError}
+          startRepeating={wizard.repeating}
           isSubmitting={isSubmitting}
-          onChange={(form) => setGroupModal({ ...groupModal, form })}
+          error={modalError}
           onClose={closeModals}
-          onSubmit={(event) =>
-            void submit(
-              event,
-              () => validateGroupForm(groupModal.form, groupModal.mode),
-              () => submitGroup(groupModal),
-              groupModal.mode === "batch" ? "Não foi possível gerar o lote." : "Não foi possível criar a recorrência.",
-            )
-          }
+          onSubmit={(form, recipientName) => void createFromWizard(form, recipientName)}
         />
       )}
 

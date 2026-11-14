@@ -58,4 +58,13 @@ public class Charge
     public int? RecurringChargeId { get; set; }
     public RecurringCharge? RecurringCharge { get; set; }
     public DateOnly? ReferenceMonth { get; set; }
+
+    // Existing charges and platform invoices are condominium fees.
+    [Required]
+    public ChargeCategory Category { get; set; } = ChargeCategory.CondominiumFee;
+
+    // Null = every person linked to the unit sees and pays it. Set = only this person
+    // (e.g. rent billed to the tenant); must be linked to the unit when the charge is created.
+    public int? RecipientPersonId { get; set; }
+    public Person? RecipientPerson { get; set; }
 }

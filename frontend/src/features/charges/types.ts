@@ -4,6 +4,9 @@ export type ChargeStatus = 0 | 1 | 2 | 3 | 4;
 
 export type ChargeScope = 1 | 2;
 
+// 1 CondominiumFee, 2 Rent, 3 Water, 4 Electricity, 5 Gas, 6 Apportionment, 7 Fine, 8 Reservation, 9 Agreement, 10 Other
+export type ChargeCategory = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+
 export type ChargeResponse = {
   id: number;
   scope: ChargeScope;
@@ -17,6 +20,10 @@ export type ChargeResponse = {
   value: number;
   dueDate: string;
   description: string;
+  category: ChargeCategory;
+  // Null = billed to everyone linked to the unit; set = only this person sees and pays it.
+  recipientPersonId?: number | null;
+  recipientName?: string | null;
   cancelReason?: string | null;
   status: ChargeStatus;
   createdAt: string;
@@ -76,6 +83,8 @@ export type CreateChargeRequest = {
   value: number;
   dueDate: string;
   description: string;
+  category?: ChargeCategory | null;
+  recipientPersonId?: number | null;
 };
 
 export type BillingSettings = {
@@ -97,6 +106,9 @@ export type CreateChargeBatchRequest = {
   value: number;
   dueDate?: string | null;
   description: string;
+  category?: ChargeCategory | null;
+  // Only these units (e.g. water by meter reading); empty = every unit of the target.
+  unitIds?: number[] | null;
   unitValues?: ChargeUnitValue[];
 };
 
@@ -118,6 +130,12 @@ export type RecurringChargeResponse = {
   condominiumId: number;
   buildingId?: number | null;
   buildingName?: string | null;
+  // Set = a recurrence for this unit only, optionally for one person of it.
+  unitId?: number | null;
+  unitNumber?: string | null;
+  recipientPersonId?: number | null;
+  recipientName?: string | null;
+  category: ChargeCategory;
   description: string;
   value: number;
   dueDay?: number | null;
@@ -137,5 +155,8 @@ export type CreateRecurringChargeRequest = {
   value: number;
   dueDay?: number | null;
   description: string;
+  category?: ChargeCategory | null;
+  unitId?: number | null;
+  recipientPersonId?: number | null;
   unitValues?: ChargeUnitValue[];
 };

@@ -793,16 +793,8 @@ public class MercadoPagoService : IMercadoPagoService
         if (!charge.UnitId.HasValue)
             return;
 
-        var residentUserIds = await _context.PersonUnits
-            .AsNoTracking()
-            .Where(item => item.UnitId == charge.UnitId.Value)
-            .Join(
-                _context.Users.AsNoTracking(),
-                personUnit => personUnit.PersonId,
-                user => user.PersonId,
-                (_, user) => user.Id)
-            .Distinct()
-            .ToListAsync();
+        // Same people who get the e-mail: only the recipient when the charge has one.
+        var residentUserIds = await _chargeEmailNotifier.GetPayerUserIdsAsync(charge);
 
         await _notificationService.CreateManyAsync(
             residentUserIds,
@@ -985,7 +977,7 @@ public class MercadoPagoService : IMercadoPagoService
         {
             // A syndic pays only their own unit's charges, like any resident.
             if (await _permissionService.IsCondominiumAdminAsync(userId, charge.CondominiumId) ||
-                await IsResidentChargeOwnerAsync(user, charge))
+                await _permissionService.IsChargePayerAsync(userId, charge))
             {
                 return;
             }
@@ -1003,18 +995,6 @@ public class MercadoPagoService : IMercadoPagoService
 
         if (charge.Status == ChargeStatus.Canceled)
             throw new BadRequestException("Cobranças canceladas não podem ser pagas.");
-    }
-
-    private async Task<bool> IsResidentChargeOwnerAsync(ApplicationUser user, Charge charge)
-    {
-        if (!charge.UnitId.HasValue)
-            return false;
-
-        return await _context.PersonUnits
-            .AsNoTracking()
-            .AnyAsync(personUnit =>
-                personUnit.PersonId == user.PersonId &&
-                personUnit.UnitId == charge.UnitId.Value);
     }
 
     private void EnsureOAuthConfigured()

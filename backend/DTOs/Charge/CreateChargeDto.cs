@@ -29,4 +29,11 @@ public class CreateChargeDto
     [Required]
     [StringLength(255)]
     public string Description { get; set; } = string.Empty;
+
+    // Null = Other. Ignored on platform invoices.
+    [EnumDataType(typeof(ChargeCategory))]
+    public ChargeCategory? Category { get; set; }
+
+    // Null = every person linked to the unit. Must be linked to the unit.
+    public int? RecipientPersonId { get; set; }
 }

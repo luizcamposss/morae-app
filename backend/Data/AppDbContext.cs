@@ -209,6 +209,13 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .HasForeignKey(c => c.RecurringChargeId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // A removed person stops being the recipient: the charge goes back to the whole unit.
+        builder.Entity<Charge>()
+            .HasOne(c => c.RecipientPerson)
+            .WithMany()
+            .HasForeignKey(c => c.RecipientPersonId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         // Safety net for the recurring generation: one charge per recurrence, unit and month.
         builder.Entity<Charge>()
             .HasIndex(c => new { c.RecurringChargeId, c.UnitId, c.ReferenceMonth })
@@ -237,6 +244,18 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .WithMany()
             .HasForeignKey(r => r.BuildingId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<RecurringCharge>()
+            .HasOne(r => r.Unit)
+            .WithMany()
+            .HasForeignKey(r => r.UnitId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<RecurringCharge>()
+            .HasOne(r => r.RecipientPerson)
+            .WithMany()
+            .HasForeignKey(r => r.RecipientPersonId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         builder.Entity<RecurringCharge>()
             .HasOne(r => r.CreatedByUser)

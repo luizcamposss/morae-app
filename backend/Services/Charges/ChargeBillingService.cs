@@ -99,7 +99,28 @@ public class ChargeBillingService : IChargeBillingService
         int condominiumId,
         CreateRecurringChargeDto dto)
     {
-        await _chargeService.EnsureBatchTargetValidAsync(userId, condominiumId, dto.BuildingId, dto.UnitValues);
+        // A recurrence for one unit (e.g. rent) bills it alone, in the unit's building.
+        if (dto.UnitId.HasValue)
+        {
+            var unitBuildingId = await _context.Units
+                .AsNoTracking()
+                .Where(u => u.Id == dto.UnitId.Value && u.Building.CondominiumId == condominiumId)
+                .Select(u => (int?)u.BuildingId)
+                .FirstOrDefaultAsync()
+                ?? throw new BadRequestException("Esta unidade não pertence a este condomínio.");
+
+            dto.BuildingId = unitBuildingId;
+            dto.UnitValues = [];
+            await _chargeService.EnsureBatchTargetValidAsync(userId, condominiumId, dto.BuildingId, dto.UnitValues, [dto.UnitId.Value]);
+            await _chargeService.EnsureRecipientLinkedAsync(dto.RecipientPersonId, dto.UnitId.Value);
+        }
+        else
+        {
+            if (dto.RecipientPersonId.HasValue)
+                throw new BadRequestException("Para cobrar de uma pessoa, escolha a unidade da cobrança recorrente.");
+
+            await _chargeService.EnsureBatchTargetValidAsync(userId, condominiumId, dto.BuildingId, dto.UnitValues);
+        }
 
         // A syndic limited to some buildings must pick one: "all buildings" would reach units
         // outside the ones they manage.
@@ -113,6 +134,9 @@ public class ChargeBillingService : IChargeBillingService
         {
             CondominiumId = condominiumId,
             BuildingId = dto.BuildingId,
+            UnitId = dto.UnitId,
+            RecipientPersonId = dto.UnitId.HasValue ? dto.RecipientPersonId : null,
+            Category = dto.Category ?? ChargeCategory.CondominiumFee,
             Description = dto.Description.Trim(),
             Value = dto.Value,
             DueDay = dto.DueDay,
@@ -214,6 +238,9 @@ public class ChargeBillingService : IChargeBillingService
                 dueDate,
                 recurring.Description,
                 recurring.CreatedByUserId,
+                recurring.Category,
+                recurring.UnitId.HasValue ? [recurring.UnitId.Value] : null,
+                recurring.RecipientPersonId,
                 recurring.Id,
                 new DateOnly(month.Year, month.Month, 1)));
         }
@@ -269,6 +296,8 @@ public class ChargeBillingService : IChargeBillingService
             .AsNoTracking()
             .Include(r => r.Condominium)
             .Include(r => r.Building)
+            .Include(r => r.Unit)
+            .Include(r => r.RecipientPerson)
             .Include(r => r.UnitValues)
                 .ThenInclude(v => v.Unit);
     }
