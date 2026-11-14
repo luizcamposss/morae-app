@@ -65,6 +65,18 @@ public class ChargeBillingService : IChargeBillingService
         condominium.LateFeeEnabled = dto.LateFeeEnabled;
         condominium.FinePercent = Math.Round(dto.FinePercent, 2);
         condominium.MonthlyInterestPercent = Math.Round(dto.MonthlyInterestPercent, 2);
+
+        if (dto.OpeningBalance.HasValue)
+        {
+            if (Math.Abs(dto.OpeningBalance.Value) > 9_999_999_999m)
+                throw new BadRequestException("Informe um saldo inicial válido.");
+
+            condominium.OpeningBalance = Math.Round(dto.OpeningBalance.Value, 2);
+            condominium.OpeningBalanceMonth = dto.OpeningBalanceMonth.HasValue
+                ? new DateOnly(dto.OpeningBalanceMonth.Value.Year, dto.OpeningBalanceMonth.Value.Month, 1)
+                : null;
+        }
+
         condominium.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
@@ -331,7 +343,9 @@ public class ChargeBillingService : IChargeBillingService
             FinePercent = condominium.FinePercent,
             MonthlyInterestPercent = condominium.MonthlyInterestPercent,
             MaxFinePercent = ChargeLateFees.MaxFinePercent,
-            MaxMonthlyInterestPercent = ChargeLateFees.MaxMonthlyInterestPercent
+            MaxMonthlyInterestPercent = ChargeLateFees.MaxMonthlyInterestPercent,
+            OpeningBalance = condominium.OpeningBalance,
+            OpeningBalanceMonth = condominium.OpeningBalanceMonth
         };
     }
 }
