@@ -2,7 +2,7 @@ import { apiRequest } from "../../shared/lib/api/apiClient";
 
 export type SyndicAccessKey = "residents" | "finance" | "communication" | "maintenance";
 
-// The 11 permissions the Admin can grant to a syndic (Constants/AppPermissions.cs).
+// The 12 permissions the Admin can grant to a syndic (Constants/AppPermissions.cs).
 export type SyndicPermission =
   | "residents.view"
   | "charges.create"
@@ -14,7 +14,8 @@ export type SyndicPermission =
   | "maintenance.manage"
   | "visitors.manage"
   | "documents.manage"
-  | "assemblies.manage";
+  | "assemblies.manage"
+  | "expenses.manage";
 
 // What a syndic screen asks for: one of the 4 menu areas or a single raw permission,
 // or a list of them when any one is enough (e.g. the agenda, which mixes several modules).
@@ -61,7 +62,7 @@ export function hasSyndicAccess(access: SyndicAccessSettings | null | undefined,
     : access.permissions.includes(requirement);
 }
 
-// The 11 syndic permissions the Admin can turn on/off, grouped by area for the settings screen.
+// The 12 syndic permissions the Admin can turn on/off, grouped by area for the settings screen.
 export const syndicPermissionGroups: Array<{
   title: string;
   permissions: Array<{ key: SyndicPermission; label: string; description: string }>;
@@ -100,6 +101,7 @@ export const syndicPermissionGroups: Array<{
     permissions: [
       { key: "documents.manage", label: "Documentos", description: "Envia e organiza atas, regimentos e contratos." },
       { key: "assemblies.manage", label: "Assembleias e votações", description: "Cria pautas, abre e encerra votações." },
+      { key: "expenses.manage", label: "Despesas", description: "Lança as contas pagas e os comprovantes da prestação de contas." },
     ],
   },
 ];

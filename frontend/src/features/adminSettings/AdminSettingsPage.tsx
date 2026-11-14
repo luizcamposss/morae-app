@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Bell, CalendarClock, CreditCard, KeyRound, Lock, QrCode, ShieldCheck } from "lucide-react";
+import { Bell, CalendarClock, CreditCard, KeyRound, Lock, QrCode, Scale, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../app/providers/useAuth";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { GroupedList, GroupedRow } from "../../shared/components/GroupedList";
@@ -20,13 +20,15 @@ import { ProfileCard } from "../settings/ProfileCard";
 import { ProfileDataModal } from "../settings/ProfileDataModal";
 import { ReceivingStatus } from "../settings/ReceivingStatus";
 import { StatusChip } from "../settings/StatusChip";
+import { ExpenseSettingsModal } from "../expenses/ExpenseSettingsModal";
+import { formatCurrency } from "../../shared/lib/currency";
 import { BillingRulesModal } from "./BillingRulesModal";
 import { describeBillingRules } from "./billingRules";
 import { PlatformPlanCard } from "./PlatformPlanCard";
 import { summarizePlatformPlan } from "./platformPlan";
 import { SyndicAccessModal } from "./SyndicAccessModal";
 
-type ModalType = "profile" | "notifications" | "password" | "syndicAccess" | "pix" | "mercadoPago" | "billingRules" | null;
+type ModalType = "profile" | "notifications" | "password" | "syndicAccess" | "pix" | "mercadoPago" | "billingRules" | "balance" | null;
 
 // What was loaded and for which condominium, so switching condominiums shows "loading" again.
 type Loaded<T> = { condominiumId: number; data: T | null; error: string };
@@ -125,6 +127,16 @@ export function AdminSettingsPage() {
                 subtitle={currentBilling?.data ? describeBillingRules(currentBilling.data) : currentBilling?.error || "Vencimento, multa e juros"}
                 onClick={() => setModal("billingRules")}
               />
+              <GroupedRow
+                icon={Scale}
+                title="Prestação de contas"
+                subtitle={
+                  currentBilling?.data
+                    ? `Saldo inicial ${formatCurrency(currentBilling.data.openingBalance)} · categorias de despesa`
+                    : "Saldo inicial e categorias de despesa"
+                }
+                onClick={currentBilling?.data ? () => setModal("balance") : undefined}
+              />
             </GroupedList>
           )}
         </div>
@@ -187,6 +199,14 @@ export function AdminSettingsPage() {
       {modal === "billingRules" && activeCondominiumId && (
         <BillingRulesModal
           condominiumId={activeCondominiumId}
+          onClose={() => setModal(null)}
+          onSaved={(data) => setBillingSettings({ condominiumId: activeCondominiumId, data, error: "" })}
+        />
+      )}
+      {modal === "balance" && activeCondominiumId && currentBilling?.data && (
+        <ExpenseSettingsModal
+          condominiumId={activeCondominiumId}
+          settings={currentBilling.data}
           onClose={() => setModal(null)}
           onSaved={(data) => setBillingSettings({ condominiumId: activeCondominiumId, data, error: "" })}
         />

@@ -1,4 +1,4 @@
-import { DoorOpen, House, Megaphone, Receipt, SlidersHorizontal, TriangleAlert, UserPlus, Vote } from "lucide-react";
+import { DoorOpen, House, Megaphone, Receipt, Scale, SlidersHorizontal, TriangleAlert, UserPlus, Vote } from "lucide-react";
 import { ResidentDashboardPage } from "../../features/residentDashboard/ResidentDashboardPage";
 import { ResidentUnitPage } from "../../features/residentUnit/ResidentUnitPage";
 import { ResidentBillsPage } from "../../features/residentBills/ResidentBillsPage";
@@ -7,6 +7,7 @@ import { ResidentDocumentsRedirect, ResidentNoticeBoardPage } from "../../featur
 import { ResidentAssembliesPage } from "../../features/residentAssemblies/ResidentAssembliesPage";
 import { ResidentAssemblyDetailPage } from "../../features/residentAssemblies/ResidentAssemblyDetailPage";
 import { ResidentVisitsPage } from "../../features/residentVisits/ResidentVisitsPage";
+import { MonthlyBalancePage } from "../../features/expenses/MonthlyBalancePage";
 import { ResidentSettingsPage } from "../../features/residentSettings/ResidentSettingsPage";
 import type { RoleArea } from "./types";
 
@@ -20,6 +21,7 @@ export const residentArea: RoleArea = {
     { path: "visits", component: ResidentVisitsPage, nav: { label: "Visitas", icon: UserPlus } },
     { path: "notices", component: ResidentNoticeBoardPage, nav: { label: "Avisos e documentos", shortLabel: "Avisos", icon: Megaphone } },
     { path: "documents", component: ResidentDocumentsRedirect },
+    { path: "balance", component: MonthlyBalancePage, nav: { label: "Prestação de contas", shortLabel: "Contas", icon: Scale } },
     { path: "assemblies", component: ResidentAssembliesPage, nav: { label: "Assembleias", icon: Vote } },
     { path: "assemblies/:id", component: ResidentAssemblyDetailPage },
     { path: "settings", component: ResidentSettingsPage, nav: { label: "Ajustes", icon: SlidersHorizontal, placement: "footer" } },

@@ -95,9 +95,14 @@ export type BillingSettings = {
   monthlyInterestPercent: number;
   maxFinePercent: number;
   maxMonthlyInterestPercent: number;
+  // Monthly balance: cash at the start of openingBalanceMonth ("AAAA-MM-01"; null = from the start).
+  openingBalance: number;
+  openingBalanceMonth: string | null;
 };
 
-export type UpdateBillingSettingsRequest = Pick<BillingSettings, "billingDueDay" | "lateFeeEnabled" | "finePercent" | "monthlyInterestPercent">;
+// Without openingBalance the API keeps the current one.
+export type UpdateBillingSettingsRequest = Pick<BillingSettings, "billingDueDay" | "lateFeeEnabled" | "finePercent" | "monthlyInterestPercent"> &
+  Partial<Pick<BillingSettings, "openingBalance" | "openingBalanceMonth">>;
 
 export type ChargeUnitValue = { unitId: number; value: number };
 
