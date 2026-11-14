@@ -20,6 +20,7 @@ services:
       retries: 10
 
   api:
+    image: ghcr.io/luizcamposss/morae-api:${IMAGE_TAG:-latest}
     build: ./backend
     restart: unless-stopped
     env_file: .env.production
@@ -39,6 +40,7 @@ services:
       - "127.0.0.1:8080:8080"
 
   web:
+    image: ghcr.io/luizcamposss/morae-web:${IMAGE_TAG:-latest}
     build:
       context: ./frontend
       args:
