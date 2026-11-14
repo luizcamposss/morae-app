@@ -7,6 +7,7 @@ using backend.DTOs.MercadoPago;
 using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
+using backend.Services.Agreements;
 using backend.Services.Email;
 using backend.Services.Charges;
 using backend.Services.Notifications;
@@ -485,12 +486,12 @@ public class MercadoPagoService : IMercadoPagoService
             return;
         }
 
-        if (trackedPayment.Charge.Status == ChargeStatus.Canceled)
+        if (trackedPayment.Charge.Status is ChargeStatus.Canceled or ChargeStatus.Renegotiated)
         {
             await MarkForReviewAsync(
                 trackedPayment,
                 "review_required",
-                "Payment was approved for a canceled charge.");
+                "Payment was approved for a canceled or renegotiated charge.");
             return;
         }
 
@@ -538,6 +539,9 @@ public class MercadoPagoService : IMercadoPagoService
                 trackedPayment.ChargeId);
             return;
         }
+
+        // The last installment paid settles the agreement.
+        await AgreementProgress.SyncAsync(_context, trackedPayment.Charge.AgreementId);
 
         await NotifyPayersAsync(
             trackedPayment.Charge,
@@ -605,6 +609,9 @@ public class MercadoPagoService : IMercadoPagoService
         }
 
         await _context.SaveChangesAsync();
+
+        // A refunded installment reopens a completed agreement.
+        await AgreementProgress.SyncAsync(_context, trackedPayment.Charge.AgreementId);
 
         const string title = "Pagamento estornado";
         var message = $"O pagamento da cobrança \"{trackedPayment.Charge.Description}\" foi estornado no Mercado Pago " +
@@ -995,6 +1002,9 @@ public class MercadoPagoService : IMercadoPagoService
 
         if (charge.Status == ChargeStatus.Canceled)
             throw new BadRequestException("Cobranças canceladas não podem ser pagas.");
+
+        if (charge.Status == ChargeStatus.Renegotiated)
+            throw new BadRequestException("Esta cobrança foi renegociada num acordo; pague as parcelas do acordo.");
     }
 
     private void EnsureOAuthConfigured()

@@ -32,6 +32,7 @@ Decisões já tomadas com o Luiz. Siga sem perguntar de novo; se algo novo contr
 ## Rotinas automáticas (de hora em hora)
 
 - Cobrança pendente vencida → **Atrasado**.
+- Acordos (#192): quita os totalmente pagos e quebra os que têm parcela com atraso acima do limite do acordo.
 - Cobranças recorrentes: gera o mês 10 dias antes do vencimento (a partir das 9h de SP, junto com os lembretes).
 - Lembrete de cobrança: até **3 dias antes** e **1 dia depois** de vencer (só para vencidas há até 3 dias, para não mandar e-mail de dívidas antigas). Cobrança criada hoje não recebe lembrete hoje.
 - Convites vencidos → Expirado. Limpeza: sessões vencidas, tentativas de conexão do MP, notificações **lidas** com mais de 90 dias, visitas com mais de 12 meses (LGPD).
@@ -89,10 +90,12 @@ Decisões já tomadas com o Luiz. Siga sem perguntar de novo; se algo novo contr
 - **Cobrança para uma pessoa (#190):** a cobrança pode ter um destinatário vinculado à unidade (ex.: aluguel só para o inquilino, caso do Admin que também é dono do imóvel). Só ele vê, paga e recebe e-mail/notificação; sem destinatário, vale para todos os vinculados. O dinheiro vai para a conta do condomínio, com multa/juros e comprovante como as outras. Na recorrência, o destinatário só existe na recorrência de **uma unidade**; se ele sair da unidade, o mês é pulado.
 - **"Nova cobrança" em 3 passos (#190):** o que cobrar (categoria) → de quem (uma unidade, com opção de uma pessoa; ou várias: condomínio, prédio ou unidades escolhidas) → quanto e quando (mesmo valor, valor por unidade, ou leitura de água/luz/gás com R$ por m³/kWh e taxa mínima, calculado na tela e enviado como valor por unidade; as leituras não são guardadas). "Repetir todo mês" vira recorrência (não vale para leitura nem para unidades escolhidas a dedo).
 - Criar lote/recorrência, pausar e encerrar = permissão `charges.create` (síndico limitado só nos prédios dele).
+- **Acordos de dívida (#192):** a gestão (`charges.create`) junta cobranças **atrasadas** de uma unidade num acordo: desconto opcional só na multa/juros (em % ou R$), entrada opcional e 1–36 parcelas mensais (categoria Acordo). As originais ficam "Renegociada": continuam no histórico, saem da inadimplência e param multa, juros e lembretes. Quitado quando todas as parcelas são pagas. **Quebra:** parcela com mais de X dias de atraso (padrão 30, escolhido no acordo) → a rotina de hora em hora cancela as parcelas em aberto e devolve as originais como atrasadas, com multa/juros desde o vencimento original; cancelar o acordo à mão faz o mesmo. Parcelas já pagas não são abatidas das originais (a gestão ajusta, se precisar). Morador é avisado ao criar, quebrar e cancelar.
+- **Assembleia e acordo:** quem está em dia com um acordo **ativo** vota (as renegociadas não contam como atraso); parcela de acordo atrasada bloqueia como qualquer cobrança atrasada; acordo quebrado devolve as originais ao atraso.
 
 ## Ficou de fora (não implementar sem o Luiz pedir)
 
-Reservas de áreas comuns, encomendas, veículos/pets, prestação de contas e acordos, relatórios, papel de porteiro/funcionário, registro de entrada/saída, QR code de visitante, ligar/desligar módulos por condomínio, voto por fração ideal, "reenviar e-mail" de convite ainda válido.
+Reservas de áreas comuns, encomendas, veículos/pets, prestação de contas, relatórios, papel de porteiro/funcionário, registro de entrada/saída, QR code de visitante, ligar/desligar módulos por condomínio, voto por fração ideal, "reenviar e-mail" de convite ainda válido.
 
 ## Deploy (G, ainda não feito)
 

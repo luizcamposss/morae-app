@@ -213,6 +213,9 @@ public class PaymentProofService : IPaymentProofService
 
         if (charge.Status == ChargeStatus.Canceled)
             throw new BadRequestException("Cobranças canceladas não podem ser pagas.");
+
+        if (charge.Status == ChargeStatus.Renegotiated)
+            throw new BadRequestException("Esta cobrança foi renegociada num acordo; pague as parcelas do acordo.");
     }
 
     // Same rule as paying online: the Admin or a payer of the charge (a syndic pays only their own unit).

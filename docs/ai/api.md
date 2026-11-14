@@ -206,6 +206,21 @@ PUT    /api/payment-proofs/{id}/reject           (gestão com charges.mark_as_pa
 - Resposta do comprovante: `{ id, chargeId, uploadedByUserId, uploadedByName, fileName, contentType, note, status, rejectionReason, reviewedByName, reviewedAt, createdAt }`.
 - Toda cobrança (listas e `GET /api/charges/{id}`) traz `onlinePaymentAvailable` (Mercado Pago conectado para quem recebe; se `false`, mostrar "Pagar com Pix"), `pendingProofCount`, `latestProofStatus` e `latestProofRejectionReason` (só quando o último foi recusado).
 
+### Acordos de dívida (#192)
+```
+GET    /api/condominiums/{condominiumId}/agreements
+POST   /api/condominiums/{condominiumId}/agreements
+GET    /api/agreements/{id}
+PUT    /api/agreements/{id}/cancel
+GET    /api/my/agreements
+```
+- Criar e cancelar: permissão `charges.create` (síndico só nas unidades dos prédios dele; Master não). Listar: Admin ou síndico com acesso financeiro (filtra pelos prédios dele). `GET /{id}`: quem pode ler as parcelas (pagadores, Admin, síndico). `/api/my/agreements`: acordos das unidades do usuário (o dirigido a uma pessoa só para ela).
+- `POST` body: `{ unitId, recipientPersonId?, chargeIds: [..], discountType (0 nenhum, 1 %, 2 R$), discountValue, downPayment?, downPaymentDueDate?, installmentCount (1–36), firstInstallmentDueDate, breakAfterDaysLate (1–180, padrão 30), notes? }`. Cobranças: da mesma unidade, **atrasadas**, sem comprovante pendente e fora de outro acordo. Desconto só sobre multa+juros de hoje. Entrada < total e vence antes da 1ª parcela; parcelas iguais arredondadas para baixo no centavo, a última leva a diferença; parcela N vence no mesmo dia dos meses seguintes (dia 31 vira o último dia do mês).
+- Ao criar: as originais ficam `Renegotiated` (5) e são gravadas em `AgreementCharges` com valor, multa e juros do dia; as parcelas viram cobranças `category = 9` com `agreementId` e `agreementInstallmentNumber` (0 = entrada), regra de multa/juros do condomínio e o mesmo destinatário. Pix/boleto aberto das originais é cancelado. Notificação "Acordo criado" (sem e-mail por parcela).
+- Resposta: `{ id, condominiumId, unitId, unitNumber, buildingName, recipientPersonId, recipientName, status, originalAmount, fineAmount, interestAmount, discountType, discountValue, discountAmount, totalAmount, downPayment, installmentCount, installmentDueDay, breakAfterDaysLate, notes, createdAt, endedAt, endReason, paidCount, totalCount, paidAmount, originalCharges: [{ chargeId, description, category, dueDate, value, fineAmount, interestAmount, status }], installments: [{ chargeId, number, value, dueDate, status, daysLate, updatedAmount }] }`.
+- Quitado (`2`) na hora em que a última parcela é paga (baixa manual ou Mercado Pago; estorno reabre). Cancelar (`PUT .../cancel`, body `{ reason? }`, só ativo) e quebra (rotina) fazem o mesmo: parcelas em aberto → `Canceled`, originais → `Overdue` (multa/juros contados de novo desde o vencimento original), notificação ao morador. Parcelas já pagas continuam pagas.
+- Cobrança `Renegotiated` não aparece na inadimplência, não tem multa/juros nem lembretes e não pode ser paga nem cancelada (400). Parcela de acordo também não pode ser cancelada sozinha (cancele o acordo).
+
 ### Inadimplência
 ```
 GET    /api/condominiums/{condominiumId}/delinquency
@@ -352,7 +367,8 @@ POST   /api/condominiums/{condominiumId}/assemblies
 - `BankAccountType`: 1 Checking, 2 Savings, 3 Payment
 - `ChargeScope`: 1 Platform, 2 Condominium
 - `ChargeCategory`: 1 CondominiumFee (Taxa de condomínio), 2 Rent (Aluguel), 3 Water (Água), 4 Electricity (Luz), 5 Gas (Gás), 6 Apportionment (Rateio), 7 Fine (Multa), 8 Reservation (Reserva), 9 Agreement (Acordo), 10 Other (Outros)
-- `ChargeStatus`: 1 Pending, 2 Paid, 3 Overdue, 4 Canceled
+- `ChargeStatus`: 1 Pending, 2 Paid, 3 Overdue, 4 Canceled, 5 Renegotiated (dentro de um acordo)
+- `AgreementStatus`: 1 Active, 2 Completed (quitado), 3 Broken (quebrado), 4 Canceled; `AgreementDiscountType`: 0 None, 1 Percent, 2 Amount
 - `RecurringChargeStatus`: 1 Active, 2 Paused, 3 Ended
 - `DocumentCategory`: 1 Convention, 2 InternalRules, 3 Minutes, 4 Financial, 5 Contract, 6 Other
 - `DocumentVisibility`: 1 Everyone, 2 ManagementOnly
