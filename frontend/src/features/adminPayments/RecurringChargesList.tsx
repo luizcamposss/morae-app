@@ -1,6 +1,7 @@
 import { Pause, Play, Repeat } from "lucide-react";
 import { Button } from "../../shared/components/Button";
 import { formatCurrency } from "../../shared/lib/currency";
+import { categoryLabel } from "../charges/chargeCategories";
 import type { RecurringChargeResponse } from "../charges/types";
 import { StatusChip } from "../settings/StatusChip";
 import { recurringStatuses } from "./chargeForm";
@@ -67,7 +68,9 @@ export function RecurringChargesList({ items, isLoading, busyId, onCreate, onPau
                 <span className="mt-0.5 flex items-center gap-2 text-[13px] text-tinta-suave">
                   <StatusChip tone={status.tone}>{status.label}</StatusChip>
                   <span className="truncate">
-                    {item.buildingName ?? "Todo o condomínio"} · todo dia {item.effectiveDueDay}
+                    {categoryLabel(item.category)} ·{" "}
+                    {item.unitId ? `${item.buildingName} · ${item.unitNumber}${item.recipientName ? ` · só ${item.recipientName}` : ""}` : (item.buildingName ?? "Todo o condomínio")} · todo dia{" "}
+                    {item.effectiveDueDay}
                     {customCount > 0 && ` · ${customCount} ${customCount === 1 ? "unidade" : "unidades"} com valor próprio`}
                   </span>
                 </span>

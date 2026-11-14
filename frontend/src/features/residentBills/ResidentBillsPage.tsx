@@ -11,6 +11,7 @@ import { amountDue, hasLateFees, isOpenCharge } from "../adminPayments/chargeFor
 import { ChargeDetailsModal } from "../adminPayments/ChargeModals";
 import { ChargeReceiptModal } from "../adminPayments/ChargeReceiptModal";
 import { getMyCharges } from "../charges/chargeService";
+import { ChargeCategoryChip } from "../charges/ChargeCategoryChip";
 import { PaymentProofChip } from "../charges/PaymentProofChip";
 import { proofState } from "../charges/paymentProof";
 import { CHARGE_STATUS } from "../charges/platformRevenue";
@@ -159,11 +160,10 @@ export function ResidentBillsPage() {
                     <span className="block truncate text-[13px] text-tinta-suave">
                       {billPlace(charge)} · {isOverdue ? "venceu" : isOpenCharge(charge) ? "vence" : "vencimento"} {formatCalendarDate(charge.dueDate)}
                     </span>
-                    {proofState(charge) && (
-                      <span className="mt-1.5 flex">
-                        <PaymentProofChip charge={charge} />
-                      </span>
-                    )}
+                    <span className="mt-1.5 flex flex-wrap gap-1.5">
+                      <ChargeCategoryChip category={charge.category} />
+                      {proofState(charge) && <PaymentProofChip charge={charge} />}
+                    </span>
                   </span>
                   <span className="text-right">
                     <span className={`block text-sm font-semibold tabular-nums ${isOverdue ? "text-vermelho" : "text-tinta"}`}>{formatCurrency(amountDue(charge))}</span>
