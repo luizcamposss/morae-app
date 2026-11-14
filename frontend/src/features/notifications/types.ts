@@ -5,7 +5,8 @@ export type NotificationType =
   | "Payment"
   | "Access"
   | "News"
-  | "Occurrence";
+  | "Occurrence"
+  | "Reservation";
 
 export type NotificationResponse = {
   id: number;

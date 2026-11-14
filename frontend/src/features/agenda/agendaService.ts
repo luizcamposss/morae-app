@@ -5,6 +5,8 @@ import type { OccurrenceResponse } from "../occurrences/types";
 import { addDays } from "../visits/visitMeta";
 import type { VisitResponse } from "../visits/types";
 import { getVisitAgenda } from "../visits/visitService";
+import { getReservations } from "../reservations/reservationService";
+import type { ReservationResponse } from "../reservations/types";
 import { VISIT_CHUNK_DAYS } from "./agendaMeta";
 
 // Data that does not depend on the period: fetched once per condominium. Each module the
@@ -33,4 +35,19 @@ export async function loadAgendaVisits(condominiumId: number, from: string, to: 
   }
 
   return (await Promise.all(requests)).flat();
+}
+
+// Data of the shown period: visits and reservations (one request; the API takes up to a year).
+// A module the user cannot see is skipped; a failure comes back empty with `failed`.
+export async function loadAgendaPeriod(condominiumId: number, from: string, to: string, modules: { visit: boolean; reservation: boolean }) {
+  const [visits, reservations] = await Promise.allSettled([
+    modules.visit ? loadAgendaVisits(condominiumId, from, to) : Promise.resolve<VisitResponse[]>([]),
+    modules.reservation ? getReservations(condominiumId, { from, to, status: 2 }) : Promise.resolve<ReservationResponse[]>([]),
+  ]);
+
+  return {
+    visits: visits.status === "fulfilled" ? visits.value : [],
+    reservations: reservations.status === "fulfilled" ? reservations.value : [],
+    failed: [visits, reservations].some((result) => result.status === "rejected"),
+  };
 }

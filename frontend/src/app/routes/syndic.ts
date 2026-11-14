@@ -1,10 +1,11 @@
-import { CalendarDays, DoorOpen, FileText, House, Megaphone, Receipt, SlidersHorizontal, TriangleAlert, Users, Vote, Wrench } from "lucide-react";
+import { CalendarCheck, CalendarDays, DoorOpen, FileText, House, Megaphone, Receipt, SlidersHorizontal, TriangleAlert, Users, Vote, Wrench } from "lucide-react";
 import { AdminAssembliesPage } from "../../features/adminAssemblies/AdminAssembliesPage";
 import { AdminAssemblyDetailPage } from "../../features/adminAssemblies/AdminAssemblyDetailPage";
 import { AdminNewsPage } from "../../features/adminNews/AdminNewsPage";
 import { AdminOccurrencesPage } from "../../features/adminOccurrences/AdminOccurrencesPage";
 import { AdminPaymentsPage } from "../../features/adminPayments/AdminPaymentsPage";
 import { AgendaPage } from "../../features/agenda/AgendaPage";
+import { AdminReservationsPage } from "../../features/adminReservations/AdminReservationsPage";
 import { AdminVisitsPage } from "../../features/adminVisits/AdminVisitsPage";
 import { DocumentsPage } from "../../features/documents/DocumentsPage";
 import { PreventiveMaintenancePage } from "../../features/maintenance/PreventiveMaintenancePage";
@@ -25,7 +26,8 @@ export const syndicArea: RoleArea = {
     { path: "documents", component: DocumentsPage, nav: { label: "Documentos", icon: FileText }, syndicAccess: "documents.manage" },
     { path: "assemblies", component: AdminAssembliesPage, nav: { label: "Assembleias", icon: Vote }, syndicAccess: "assemblies.manage" },
     { path: "assemblies/:id", component: AdminAssemblyDetailPage, syndicAccess: "assemblies.manage" },
-    { path: "agenda", component: AgendaPage, nav: { label: "Agenda", icon: CalendarDays }, syndicAccess: ["maintenance.manage", "visitors.manage", "maintenance"] },
+    { path: "reservations", component: AdminReservationsPage, nav: { label: "Reservas", icon: CalendarCheck }, syndicAccess: "reservations.manage" },
+    { path: "agenda", component: AgendaPage, nav: { label: "Agenda", icon: CalendarDays }, syndicAccess: ["maintenance.manage", "visitors.manage", "maintenance", "reservations.manage"] },
     { path: "preventive-maintenance", component: PreventiveMaintenancePage, nav: { label: "Manutenção", icon: Wrench }, syndicAccess: "maintenance.manage" },
     { path: "visitors", component: AdminVisitsPage, nav: { label: "Visitantes", icon: DoorOpen }, syndicAccess: "visitors.manage" },
     { path: "settings", component: SyndicSettingsPage, nav: { label: "Ajustes", icon: SlidersHorizontal, placement: "footer" } },
