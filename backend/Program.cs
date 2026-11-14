@@ -351,6 +351,12 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+// Liveness probe for the deploy script: the API is up and reaches the database.
+app.MapGet("/api/health", async (AppDbContext db) =>
+    await db.Database.CanConnectAsync()
+        ? Results.Ok(new { status = "ok" })
+        : Results.StatusCode(StatusCodes.Status503ServiceUnavailable));
+
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
