@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Bell,
+  CalendarCheck,
   CircleCheck,
   Mail,
   Megaphone,
@@ -31,6 +32,7 @@ const notificationMeta: Record<NotificationType, { icon: LucideIcon; tone: strin
   Access: { icon: ShieldCheck, tone: "bg-verde-suave text-verde-tinta" },
   News: { icon: Megaphone, tone: "bg-verde-suave text-verde-tinta" },
   Occurrence: { icon: TriangleAlert, tone: "bg-vermelho-suave text-vermelho" },
+  Reservation: { icon: CalendarCheck, tone: "bg-verde-suave text-verde-tinta" },
 };
 
 export function NotificationsMenu() {

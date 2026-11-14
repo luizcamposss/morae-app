@@ -1,4 +1,4 @@
-import { Briefcase, Building, Building2, CalendarDays, DoorOpen, FileSpreadsheet, FileText, House, Mail, Megaphone, Receipt, Scale, SlidersHorizontal, TriangleAlert, Users, Vote, Wallet, Wrench } from "lucide-react";
+import { Briefcase, Building, Building2, CalendarCheck, CalendarDays, DoorOpen, FileSpreadsheet, FileText, House, Mail, Megaphone, Receipt, Scale, SlidersHorizontal, TriangleAlert, Users, Vote, Wallet, Wrench } from "lucide-react";
 import { AdminAssembliesPage } from "../../features/adminAssemblies/AdminAssembliesPage";
 import { AdminAssemblyDetailPage } from "../../features/adminAssemblies/AdminAssemblyDetailPage";
 import { AdminDashboardPage } from "../../features/adminDashboard/AdminDashboardPage";
@@ -13,6 +13,7 @@ import { PreventiveMaintenancePage } from "../../features/maintenance/Preventive
 import { AgendaPage } from "../../features/agenda/AgendaPage";
 import { AdminSettingsPage } from "../../features/adminSettings/AdminSettingsPage";
 import { AdminSetupPage } from "../../features/adminSetup/AdminSetupPage";
+import { AdminReservationsPage } from "../../features/adminReservations/AdminReservationsPage";
 import { AdminVisitsPage } from "../../features/adminVisits/AdminVisitsPage";
 import { DocumentsPage } from "../../features/documents/DocumentsPage";
 import { ExpensesPage } from "../../features/expenses/ExpensesPage";
@@ -38,6 +39,7 @@ export const adminArea: RoleArea = {
     { path: "news", component: AdminNewsPage, nav: { label: "Avisos", icon: Megaphone } },
     { path: "assemblies", component: AdminAssembliesPage, nav: { label: "Assembleias", icon: Vote } },
     { path: "assemblies/:id", component: AdminAssemblyDetailPage },
+    { path: "reservations", component: AdminReservationsPage, nav: { label: "Reservas", icon: CalendarCheck } },
     { path: "agenda", component: AgendaPage, nav: { label: "Agenda", icon: CalendarDays } },
     { path: "preventive-maintenance", component: PreventiveMaintenancePage, nav: { label: "Manutenção", icon: Wrench } },
     { path: "visitors", component: AdminVisitsPage, nav: { label: "Visitantes", icon: DoorOpen } },

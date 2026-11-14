@@ -15,6 +15,7 @@ export type SyndicPermission =
   | "visitors.manage"
   | "documents.manage"
   | "assemblies.manage"
+  | "reservations.manage"
   | "expenses.manage";
 
 // What a syndic screen asks for: one of the 4 menu areas or a single raw permission,
@@ -94,6 +95,7 @@ export const syndicPermissionGroups: Array<{
       { key: "occurrences.manage", label: "Cuidar das ocorrências", description: "Acompanha e responde às ocorrências." },
       { key: "maintenance.manage", label: "Manutenção preventiva", description: "Cadastra e registra as manutenções do prédio." },
       { key: "visitors.manage", label: "Visitantes", description: "Libera e acompanha a entrada de visitantes." },
+      { key: "reservations.manage", label: "Reservas de áreas comuns", description: "Cadastra áreas, aprova e recusa reservas." },
     ],
   },
   {

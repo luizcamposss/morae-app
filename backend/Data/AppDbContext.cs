@@ -52,6 +52,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<RecurringCharge> RecurringCharges { get; set; }
     public DbSet<RecurringChargeUnitValue> RecurringChargeUnitValues { get; set; }
     public DbSet<LandingContact> LandingContacts { get; set; }
+    public DbSet<CommonArea> CommonAreas { get; set; }
+    public DbSet<CommonAreaShift> CommonAreaShifts { get; set; }
+    public DbSet<Reservation> Reservations { get; set; }
     public DbSet<Agreement> Agreements { get; set; }
     public DbSet<AgreementCharge> AgreementCharges { get; set; }
     public DbSet<ExpenseCategory> ExpenseCategories { get; set; }
@@ -618,6 +621,90 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .HasOne(visit => visit.CreatedByUser)
             .WithMany()
             .HasForeignKey(visit => visit.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<CommonArea>()
+            .HasIndex(area => new { area.CondominiumId, area.IsActive });
+
+        builder.Entity<CommonArea>()
+            .Property(area => area.Fee)
+            .HasPrecision(10, 2);
+
+        builder.Entity<CommonArea>()
+            .HasOne(area => area.Condominium)
+            .WithMany()
+            .HasForeignKey(area => area.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<CommonArea>()
+            .HasOne(area => area.Building)
+            .WithMany()
+            .HasForeignKey(area => area.BuildingId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<CommonAreaShift>()
+            .HasOne(shift => shift.CommonArea)
+            .WithMany(area => area.Shifts)
+            .HasForeignKey(shift => shift.CommonAreaId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Reservation>()
+            .HasIndex(reservation => new { reservation.CommonAreaId, reservation.SlotKey })
+            .IsUnique();
+
+        builder.Entity<Reservation>()
+            .HasIndex(reservation => new { reservation.CondominiumId, reservation.Date });
+
+        builder.Entity<Reservation>()
+            .Property(reservation => reservation.Fee)
+            .HasPrecision(10, 2);
+
+        builder.Entity<Reservation>()
+            .HasOne(reservation => reservation.Condominium)
+            .WithMany()
+            .HasForeignKey(reservation => reservation.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Reservation>()
+            .HasOne(reservation => reservation.CommonArea)
+            .WithMany()
+            .HasForeignKey(reservation => reservation.CommonAreaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Reservation>()
+            .HasOne(reservation => reservation.Unit)
+            .WithMany()
+            .HasForeignKey(reservation => reservation.UnitId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Reservation>()
+            .HasOne(reservation => reservation.Shift)
+            .WithMany()
+            .HasForeignKey(reservation => reservation.ShiftId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Reservation>()
+            .HasOne(reservation => reservation.Charge)
+            .WithMany()
+            .HasForeignKey(reservation => reservation.ChargeId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<Reservation>()
+            .HasOne(reservation => reservation.RequestedByUser)
+            .WithMany()
+            .HasForeignKey(reservation => reservation.RequestedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Reservation>()
+            .HasOne(reservation => reservation.DecidedByUser)
+            .WithMany()
+            .HasForeignKey(reservation => reservation.DecidedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Reservation>()
+            .HasOne(reservation => reservation.CanceledByUser)
+            .WithMany()
+            .HasForeignKey(reservation => reservation.CanceledByUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.Entity<Assembly>()
