@@ -51,7 +51,7 @@ const stepTitles: Record<WizardStep, string> = {
 const relationshipLabel = (type: number) => relationshipOptions.find((option) => option.value === type)?.label ?? "Vinculado";
 
 // Big option row/card used by every step: icon square, title and a short hint.
-function Choice({ selected, icon, title, hint, onClick, compact = false }: { selected: boolean; icon: ReactNode; title: string; hint?: string; onClick: () => void; compact?: boolean }) {
+export function Choice({ selected, icon, title, hint, onClick, compact = false }: { selected: boolean; icon: ReactNode; title: string; hint?: string; onClick: () => void; compact?: boolean }) {
   return (
     <button
       type="button"
@@ -72,7 +72,7 @@ function Choice({ selected, icon, title, hint, onClick, compact = false }: { sel
   );
 }
 
-function MoneyInput({ label, value, placeholder, onChange, className = "w-24" }: { label: string; value: string; placeholder?: string; onChange: (value: string) => void; className?: string }) {
+export function MoneyInput({ label, value, placeholder, onChange, className = "w-24" }: { label: string; value: string; placeholder?: string; onChange: (value: string) => void; className?: string }) {
   return (
     <label className="shrink-0">
       <span className="sr-only">{label}</span>
