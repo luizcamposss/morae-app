@@ -7,7 +7,7 @@ Decisões já tomadas com o Luiz. Siga sem perguntar de novo; se algo novo contr
 - 4 papéis: **Master, Admin, Síndico, Morador**. Papel por condomínio.
 - Master: plataforma (condomínios, Admins, cobranças da plataforma). Não vê dados internos do condomínio.
 - Síndico: permissões ligadas pelo Admin. Um **síndico novo nasce com todas as permissões** e gerenciando **todos os prédios** (padrão do mercado). O Admin restringe (subsíndico, síndico de bloco). Síndico paga só as cobranças da própria unidade.
-- Permissões do síndico (`AppPermissions`): `residents.view`, `news.create`, `news.edit`, `charges.create`, `charges.mark_as_paid`, `delinquency.view`, `occurrences.manage`, `documents.manage`, `maintenance.manage`, `visitors.manage`, `assemblies.manage`.
+- Permissões do síndico (`AppPermissions`): `residents.view`, `news.create`, `news.edit`, `charges.create`, `charges.mark_as_paid`, `delinquency.view`, `occurrences.manage`, `documents.manage`, `maintenance.manage`, `visitors.manage`, `assemblies.manage`, `reservations.manage`.
 - Condomínio **inativo** bloqueia Admin, síndico e morador (o login funciona; as cobranças da plataforma continuam visíveis e pagáveis pelo Admin).
 - Não existe papel de porteiro/funcionário. Foi discutido e **adiado**: por agora não há registro de entrada/saída.
 
@@ -90,9 +90,19 @@ Decisões já tomadas com o Luiz. Siga sem perguntar de novo; se algo novo contr
 - **"Nova cobrança" em 3 passos (#190):** o que cobrar (categoria) → de quem (uma unidade, com opção de uma pessoa; ou várias: condomínio, prédio ou unidades escolhidas) → quanto e quando (mesmo valor, valor por unidade, ou leitura de água/luz/gás com R$ por m³/kWh e taxa mínima, calculado na tela e enviado como valor por unidade; as leituras não são guardadas). "Repetir todo mês" vira recorrência (não vale para leitura nem para unidades escolhidas a dedo).
 - Criar lote/recorrência, pausar e encerrar = permissão `charges.create` (síndico limitado só nos prédios dele).
 
+## Reservas de áreas comuns (#189)
+
+- Gestão = Admin e síndico com `reservations.manage` (síndico limitado: áreas do condomínio todo e dos prédios dele). Área pode ser de um prédio só (só as unidades dele reservam).
+- Regras por área: **turnos** (ex.: Almoço 11h–16h, Noite 18h–23h, até 6, sem sobrepor) **ou dia inteiro**, antecedência mínima e máxima (dias), limite por unidade por mês (conta pendentes e aprovadas), precisa de aprovação (sim/não), taxa, prazo para cancelar sem custo e termos de uso (o morador precisa aceitar).
+- Quem reserva: qualquer pessoa vinculada à unidade. Sem conflito: um turno (ou dia) só tem uma reserva pendente/aprovada; recusada ou cancelada libera o horário.
+- **Taxa vira cobrança avulsa da unidade**, categoria Reserva, ao aprovar (ou na criação, se a área não exige aprovação), com vencimento no dia da reserva.
+- Recusar exige motivo. Cancelar: a gestão cancela qualquer reserva futura e a taxa em aberto; o morador cancela a dele, e a taxa só é cancelada até o prazo sem custo (depois do prazo ela continua). Taxa já paga não é estornada pelo sistema.
+- Sininho: gestão ao pedir (e quando o morador cancela uma aprovada); morador ao aprovar, recusar ou a gestão cancelar. As reservas aprovadas aparecem na Agenda do condomínio.
+- Áreas com reserva no histórico não se apagam: desative. Turno com reserva futura não pode ser removido.
+
 ## Ficou de fora (não implementar sem o Luiz pedir)
 
-Reservas de áreas comuns, encomendas, veículos/pets, prestação de contas e acordos, relatórios, papel de porteiro/funcionário, registro de entrada/saída, QR code de visitante, ligar/desligar módulos por condomínio, voto por fração ideal, "reenviar e-mail" de convite ainda válido.
+Encomendas, veículos/pets, prestação de contas e acordos, relatórios, papel de porteiro/funcionário, registro de entrada/saída, QR code de visitante, ligar/desligar módulos por condomínio, voto por fração ideal, "reenviar e-mail" de convite ainda válido.
 
 ## Deploy (G, ainda não feito)
 

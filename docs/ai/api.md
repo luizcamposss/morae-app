@@ -28,6 +28,7 @@ Para os detalhes de cada rota (corpo, validações, quem pode chamar), leia o co
 - **Visitantes:** `daysOfWeek` = 0 (domingo) a 6 (sábado); vazio = todos os dias do período. A agenda (`?from=&to=&unitId=&buildingId=&visitorType=&includeCanceled=`, até 31 dias) devolve `dates` com os dias em que cada visita acontece. `my-visits?includePast=true` inclui canceladas e passadas.
 - **Importação por planilha (só Admin):** baixe o modelo (`?format=csv` ou `xlsx`), envie em `preview` (nada é gravado) e, se `canConfirm`, envie **o mesmo arquivo** em `confirm` (valida tudo de novo e grava numa transação: tudo ou nada; com qualquer linha com erro devolve 400). Cada linha = uma unidade, com pessoa e cobrança em aberto opcionais. Colunas casadas pelo cabeçalho, sem acento/maiúsculas: Prédio (nome ou código; cria se não existir), Unidade, Tipo da unidade, Quartos, Banheiros, Metragem, Nome, CPF, Telefone (opcional), E-mail (opcional; aceita "Email"/"E-mail"), Vínculo (Proprietário/Morador/Inquilino; vazio = Morador), Valor, Vencimento (DD/MM/AAAA; **pode ser passado**: dívida antiga entra como pendente e a rotina de hora em hora marca atrasada — só na importação, a criação manual continua recusando data passada), Descrição. Colunas desconhecidas vêm em `ignoredColumns`. O que já existe é reaproveitado (`action: "existing"`, conta em `skipped`). Não envia e-mails, convites nem notificações. A prévia traz `summary` (`created`/`skipped` por tipo: buildings, units, persons, links, charges) e `rows` (`line`, `errors`, `warnings` (avisos que não bloqueiam, ex.: "Vencida em 10/01."), `email`, e `buildingAction`/`unitAction`/`personAction`/`linkAction`/`chargeAction` = `create`/`existing`/null).
 - **Contatos da landing:** `POST /api/public/contacts` é **público** (sem token), limite de 5/min por IP. Corpo `{ name, whatsApp, unitCount, profile, pain }`: nome de 2 a 120 caracteres; WhatsApp com qualquer formatação, 10 a 13 dígitos (número com DDD sem o 55 ganha o 55 na frente e fica gravado só com dígitos); `unitCount` de 1 a 10.000; `profile` = `LandingContactProfileType`; `pain` opcional, um dos ids do hero (`inadimplencia`, `avisos`, `sistema`, `assembleia`, `migrar`), gravado como texto. Responde sempre `{ message }`. O mesmo WhatsApp de novo em 24 h **atualiza** o contato anterior (sem linha nova, sem e-mail e sem avisar o visitante). Cada contato novo manda e-mail para todos os Master, com os dados e o link do WhatsApp (acima de 30 contatos novos na última hora, o contato é gravado mas sem e-mail, contra robôs). Lista e status são **só do Master**: `GET /api/landing-contacts?status=` (mais novo primeiro) e `PATCH .../{id}/status` `{ status }` (devolve o contato). Cada item: `id`, `name`, `whatsApp` (só dígitos, com 55), `unitCount`, `profile`, `pain`, `painLabel` (a dor em palavras), `status`, `whatsAppUrl` (link `wa.me` com mensagem pronta, o mesmo do e-mail), `createdAt`, `updatedAt`.
+- **Reservas de áreas comuns:** a gestão (Admin e síndico com `reservations.manage`, só nas áreas do condomínio todo e dos prédios dele) usa `GET/POST .../common-areas` e `PUT/DELETE /api/common-areas/{id}`. Corpo da área: `name`, `description`, `capacity`, `buildingId` (null = condomínio todo), `isActive`, `fullDay` (true = um por dia; false = por turnos), `shifts` (`[{ id?, name, startTime, endTime }]`, até 6, sem sobrepor; mande o `id` dos que continuam), `minAdvanceDays`/`maxAdvanceDays` (antecedência em dias), `monthlyLimitPerUnit` (null = sem limite), `requiresApproval`, `fee` (null/0 = grátis; com taxa, o condomínio precisa de Pix ou Mercado Pago), `freeCancellationDays` (cancelar até N dias antes cancela a taxa; null = sempre), `terms`. Área com reserva no histórico não se apaga (desative). Foto: `PUT/DELETE/GET /api/common-areas/{id}/photo` (campo `file`, JPG/PNG até 10 MB; baixe com `fetch`). O morador lista `.../common-areas/bookable`, vê o mês em `GET /api/common-areas/{id}/availability?month=AAAA-MM&unitId=` (`days[].inWindow` e `days[].slots[]` com `shiftId` (null = dia inteiro), `isFree`, `isMine`; mais `usedInMonth` e `monthlyLimitPerUnit`) e pede com `POST .../reservations` `{ commonAreaId, unitId, date, shiftId, acceptTerms, notes }` (409 = horário já tomado). Sem aprovação, já nasce aprovada. Aprovar cria a cobrança da taxa (categoria 8 Reserva, vence no dia da reserva) e devolve `chargeId`/`chargeStatus`. `reject` exige `{ reason }`; `cancel` aceita `{ reason }`. Cada reserva traz `canCancel` e `freeCancellationUntil`. Lista da gestão: `?from=&to=&status=&commonAreaId=` (padrão: de hoje a 1 ano).
 - **Assembleias:** `phase` é o que a tela deve usar (rascunho/agendada/aberta/encerrada/cancelada). Cédula: `GET /my-ballot` (unidades do usuário, `canVote`, `blockReason`, `votes` por item). Votar: `PUT /votes` `{ unitId, votes: [{ itemId, optionId }] }`. Resultado: `GET /results` (com `isFinal=false`, a gestão vê só a participação). Cada pauta traz `summary` pronto em português. **Anexo por opção** (ex.: orçamento de uma empresa): cada opção traz `hasAttachment`, `attachmentFileName` e `attachmentSizeBytes` (no resultado, `hasAttachment` e `attachmentFileName`). Enviar/trocar: `PUT /api/assembly-options/{optionId}/attachment` (multipart, campo `file`; PDF, JPG, PNG, DOCX ou XLSX até 20 MB) e remover: `DELETE` na mesma rota — só gestão, só em rascunho e nunca na "Abstenção"; ambos devolvem a assembleia. Baixar: `GET` na mesma rota (quem pode ver a assembleia). Como as pautas são recriadas a cada `PUT /api/assemblies/{id}`, a opção que continua igual (mesma posição da pauta e mesmo texto) mantém o anexo; as outras perdem o arquivo. Apagar o rascunho apaga os arquivos.
 
 ## Rotas
@@ -340,6 +341,25 @@ GET    /api/condominiums/{condominiumId}/assemblies
 POST   /api/condominiums/{condominiumId}/assemblies
 ```
 
+### Reservas de áreas comuns
+```
+GET    /api/common-areas/{id}/availability
+DELETE /api/common-areas/{id}
+PUT    /api/common-areas/{id}
+DELETE /api/common-areas/{id}/photo
+GET    /api/common-areas/{id}/photo
+PUT    /api/common-areas/{id}/photo
+GET    /api/condominiums/{condominiumId}/common-areas
+POST   /api/condominiums/{condominiumId}/common-areas
+GET    /api/condominiums/{condominiumId}/common-areas/bookable
+GET    /api/condominiums/{condominiumId}/my-reservations
+GET    /api/condominiums/{condominiumId}/reservations
+POST   /api/condominiums/{condominiumId}/reservations
+POST   /api/reservations/{id}/approve
+POST   /api/reservations/{id}/cancel
+POST   /api/reservations/{id}/reject
+```
+
 ## Enums
 
 - `AssemblyType`: 1 Ordinary, 2 Extraordinary
@@ -364,7 +384,7 @@ POST   /api/condominiums/{condominiumId}/assemblies
 - `MaintenanceStatus`: 1 UpToDate, 2 DueSoon, 3 Overdue
 - `NewsScope`: 1 Condominium, 2 Platform
 - `NewsTargetAudience`: 1 Everyone, 2 Admins, 3 Syndics, 4 Residents, 5 Doormen
-- `NotificationType`: 1 System, 2 Invitation, 3 Charge, 4 Payment, 5 Access, 6 News, 7 Occurrence
+- `NotificationType`: 1 System, 2 Invitation, 3 Charge, 4 Payment, 5 Access, 6 News, 7 Occurrence, 8 Reservation
 - `OccurrencePriority`: 1 Low, 2 Medium, 3 High, 4 Urgent
 - `OccurrenceStatus`: 1 Open, 2 InProgress, 3 Resolved, 4 Canceled
 - `OccurrenceType`: 1 Maintenance, 2 Security, 3 Cleaning, 4 Noise, 5 CommonArea, 6 Other
@@ -372,6 +392,7 @@ POST   /api/condominiums/{condominiumId}/assemblies
 - `PaymentProofStatus`: 1 Pending, 2 Accepted, 3 Rejected
 - `PaymentSource`: 1 Manual, 2 MercadoPago
 - `PixKeyType`: 1 Cpf, 2 Cnpj, 3 Email, 4 Phone, 5 Random
+- `ReservationStatus`: 1 Pending, 2 Approved, 3 Rejected, 4 Canceled
 - `Priority`: 1 High, 2 Normal, 3 Low
 - `Status`: 1 Active, 2 Inactive
 - `UnitRelationshipType`: 1 Owner, 2 Resident, 3 Tenant

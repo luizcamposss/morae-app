@@ -147,7 +147,7 @@ public class NotificationService : INotificationService
         return type switch
         {
             NotificationType.Charge or NotificationType.Payment => preference.BillsEnabled,
-            NotificationType.Access or NotificationType.Occurrence => preference.UnitUpdatesEnabled,
+            NotificationType.Access or NotificationType.Occurrence or NotificationType.Reservation => preference.UnitUpdatesEnabled,
             NotificationType.Invitation or NotificationType.News or NotificationType.System => preference.NoticesEnabled,
             _ => true
         };

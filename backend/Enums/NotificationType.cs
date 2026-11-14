@@ -8,5 +8,6 @@ public enum NotificationType
     Payment = 4,
     Access = 5,
     News = 6,
-    Occurrence = 7
+    Occurrence = 7,
+    Reservation = 8
 }
