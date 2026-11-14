@@ -10,6 +10,9 @@ import { formatCalendarDate } from "../../shared/lib/date";
 import { amountDue, hasLateFees, isOpenCharge } from "../adminPayments/chargeForm";
 import { ChargeDetailsModal } from "../adminPayments/ChargeModals";
 import { ChargeReceiptModal } from "../adminPayments/ChargeReceiptModal";
+import { AGREEMENT_STATUS } from "../agreements/agreementMeta";
+import { getMyAgreements } from "../agreements/agreementService";
+import type { AgreementResponse } from "../agreements/types";
 import { getMyCharges } from "../charges/chargeService";
 import { ChargeCategoryChip } from "../charges/ChargeCategoryChip";
 import { PaymentProofChip } from "../charges/PaymentProofChip";
@@ -18,11 +21,12 @@ import { CHARGE_STATUS } from "../charges/platformRevenue";
 import type { ChargeResponse } from "../charges/types";
 import { ChargeStatusChip, ChargeStatusTile } from "../masterPayments/ChargeStatus";
 import { MercadoPagoPaymentModal } from "../mercadoPago/MercadoPagoPaymentModal";
+import { AgreementCard } from "./AgreementCard";
 import { NextChargeCard } from "./NextChargeCard";
 import { PixPaymentModal } from "./PixPaymentModal";
 import { billPlace, billsTabs, filterBills, nextOpenCharge, sortBills, type BillsLocationState, type BillsTab } from "./residentBills";
 
-type LoadedBills = { charges: ChargeResponse[]; errorMessage: string };
+type LoadedBills = { charges: ChargeResponse[]; agreements: AgreementResponse[]; errorMessage: string };
 
 // Boletos of the resident: what is open (with fine and interest), paying in the app and receipts.
 export function ResidentBillsPage() {
@@ -46,9 +50,9 @@ export function ResidentBillsPage() {
   useEffect(() => {
     let isMounted = true;
 
-    getMyCharges()
-      .then((charges) => ({ charges, errorMessage: "" }))
-      .catch((error) => ({ charges: [], errorMessage: error instanceof Error ? error.message : "Não foi possível carregar seus boletos." }))
+    Promise.all([getMyCharges(), getMyAgreements().catch(() => [] as AgreementResponse[])])
+      .then(([charges, agreements]) => ({ charges, agreements, errorMessage: "" }))
+      .catch((error) => ({ charges: [], agreements: [], errorMessage: error instanceof Error ? error.message : "Não foi possível carregar seus boletos." }))
       .then((result) => {
         if (isMounted) setLoaded(result);
       });
@@ -63,6 +67,9 @@ export function ResidentBillsPage() {
   const charges = useMemo(
     () => (loaded?.charges ?? []).filter((charge) => !activeCondominiumId || charge.condominiumId === activeCondominiumId),
     [loaded, activeCondominiumId],
+  );
+  const activeAgreements = (loaded?.agreements ?? []).filter(
+    (agreement) => agreement.status === AGREEMENT_STATUS.active && (!activeCondominiumId || agreement.condominiumId === activeCondominiumId),
   );
   const openCharges = charges.filter(isOpenCharge);
   const nextCharge = nextOpenCharge(charges);
@@ -118,6 +125,10 @@ export function ResidentBillsPage() {
           Total em aberto hoje: <span className="font-semibold tabular-nums text-tinta">{formatCurrency(openTotal)}</span> em {openCharges.length} cobranças
         </p>
       )}
+
+      {activeAgreements.map((agreement) => (
+        <AgreementCard key={agreement.id} agreement={agreement} />
+      ))}
 
       <div className="-mx-4 mb-4 mt-8 overflow-x-auto px-4 [scrollbar-width:none] lg:mx-0 lg:px-0">
         <div role="tablist" aria-label="Situação dos boletos" className="inline-flex gap-1">

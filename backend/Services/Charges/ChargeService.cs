@@ -210,6 +210,10 @@ public class ChargeService : IChargeService
         if (charge.Status == ChargeStatus.Canceled)
             throw new BadRequestException("Esta cobrança já foi cancelada.");
 
+        // Agreement charges change together with the agreement (cancel the agreement instead).
+        if (charge.Status == ChargeStatus.Renegotiated || charge.AgreementId.HasValue)
+            throw new BadRequestException("Esta cobrança faz parte de um acordo. Para mudar, cancele o acordo.");
+
         charge.Status = ChargeStatus.Canceled;
         charge.CanceledAt = DateTime.UtcNow;
         charge.CancelReason = dto.Reason;

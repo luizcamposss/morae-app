@@ -1,4 +1,4 @@
-import { Ban, CircleCheck, Clock, TriangleAlert, type LucideIcon } from "lucide-react";
+import { Ban, CircleCheck, Clock, Handshake, TriangleAlert, type LucideIcon } from "lucide-react";
 import type { ChargeResponse } from "../charges/types";
 
 const statuses: Record<number, { label: string; tone: string; icon: LucideIcon }> = {
@@ -6,6 +6,7 @@ const statuses: Record<number, { label: string; tone: string; icon: LucideIcon }
   2: { label: "Paga", tone: "bg-verde-suave text-verde-tinta", icon: CircleCheck },
   3: { label: "Atrasada", tone: "bg-vermelho-suave text-vermelho", icon: TriangleAlert },
   4: { label: "Cancelada", tone: "bg-campo text-tinta-suave", icon: Ban },
+  5: { label: "Renegociada", tone: "bg-menu text-tinta", icon: Handshake },
 };
 
 const fallback = { label: "–", tone: "bg-campo text-tinta-suave", icon: Clock };

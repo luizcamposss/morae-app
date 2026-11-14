@@ -14,13 +14,14 @@ public static class AppPermissions
     public const string VisitorsManage = "visitors.manage";
     public const string AssembliesManage = "assemblies.manage";
     public const string ReservationsManage = "reservations.manage";
+    public const string ExpensesManage = "expenses.manage";
 
     // Any of these gives a syndic access to the condominium's charges and payments (the "Financeiro" area).
     public static readonly IReadOnlyList<string> FinanceAccess = [ChargesCreate, ChargesMarkAsPaid, DelinquencyView];
 
-    // Any of these lets a syndic list the buildings and units he manages (finance needs them to pick a unit).
-    // Residents' personal data still requires ResidentsView.
-    public static readonly IReadOnlyList<string> BuildingsAndUnitsAccess = [ResidentsView, .. FinanceAccess];
+    // Any of these lets a syndic list the buildings and units he manages (finance needs them to pick a unit,
+    // expenses to pick the building). Residents' personal data still requires ResidentsView.
+    public static readonly IReadOnlyList<string> BuildingsAndUnitsAccess = [ResidentsView, .. FinanceAccess, ExpensesManage];
 
     public static readonly IReadOnlySet<string> All = new HashSet<string>
     {
@@ -35,6 +36,7 @@ public static class AppPermissions
         MaintenanceManage,
         VisitorsManage,
         AssembliesManage,
-        ReservationsManage
+        ReservationsManage,
+        ExpensesManage
     };
 }
