@@ -14,6 +14,7 @@ public static class AppModules
     public const string Reservations = "reservations";
     public const string Agreements = "agreements";
     public const string Expenses = "expenses";
+    public const string Rentals = "rentals";
 
     // Display order (Admin settings).
     public static readonly IReadOnlyList<string> All =
@@ -25,7 +26,8 @@ public static class AppModules
         Assemblies,
         Reservations,
         Agreements,
-        Expenses
+        Expenses,
+        Rentals
     ];
 
     public static readonly IReadOnlyDictionary<string, string> Labels = new Dictionary<string, string>
@@ -37,7 +39,8 @@ public static class AppModules
         [Assemblies] = "Assembleias",
         [Reservations] = "Reservas de áreas comuns",
         [Agreements] = "Acordos de dívida",
-        [Expenses] = "Despesas e prestação de contas"
+        [Expenses] = "Despesas e prestação de contas",
+        [Rentals] = "Aluguéis"
     };
 
     // A syndic permission only works while its module is enabled (for the Admin too).
@@ -49,7 +52,8 @@ public static class AppModules
         [AppPermissions.DocumentsManage] = Documents,
         [AppPermissions.AssembliesManage] = Assemblies,
         [AppPermissions.ReservationsManage] = Reservations,
-        [AppPermissions.ExpensesManage] = Expenses
+        [AppPermissions.ExpensesManage] = Expenses,
+        [AppPermissions.RentalsManage] = Rentals
     };
 
     // Modules enabled when a condominium is created (or its type changes).
@@ -57,7 +61,9 @@ public static class AppModules
     {
         // A building whose owner rents the units out: no assemblies.
         CondominiumType.Rental => All.Where(module => module != Assemblies).ToList(),
-        _ => All
+        CondominiumType.Mixed => All,
+        // A regular condominium does not rent units out itself.
+        _ => All.Where(module => module != Rentals).ToList()
     };
 
     public static string Serialize(IEnumerable<string> modules) =>

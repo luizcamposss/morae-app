@@ -193,6 +193,7 @@ builder.Services.AddScoped<IChargeService, ChargeService>();
 builder.Services.AddScoped<IChargeBillingService, ChargeBillingService>();
 builder.Services.AddScoped<IAgreementService, AgreementService>();
 builder.Services.AddScoped<backend.Services.Invoices.IInvoiceService, backend.Services.Invoices.InvoiceService>();
+builder.Services.AddScoped<backend.Services.Rentals.IRentalContractService, backend.Services.Rentals.RentalContractService>();
 builder.Services.AddScoped<ICondominiumService, CondominiumService>();
 builder.Services.AddScoped<IDelinquencyService, DelinquencyService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();

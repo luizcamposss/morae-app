@@ -6,6 +6,7 @@ using backend.Models;
 using backend.Services.Email;
 using backend.Services.Agreements;
 using backend.Services.Invoices;
+using backend.Services.Rentals;
 using backend.Services.Assemblies;
 using backend.Services.Charges;
 using backend.Services.Maintenance;
@@ -38,6 +39,7 @@ public class ScheduledTasks : IScheduledTasks
     private readonly IChargeBillingService _chargeBillingService;
     private readonly IAgreementService _agreementService;
     private readonly IInvoiceService _invoiceService;
+    private readonly IRentalContractService _rentalContractService;
 
     public ScheduledTasks(
         AppDbContext context,
@@ -48,8 +50,10 @@ public class ScheduledTasks : IScheduledTasks
         IAssemblyService assemblyService,
         IChargeBillingService chargeBillingService,
         IAgreementService agreementService,
-        IInvoiceService invoiceService)
+        IInvoiceService invoiceService,
+        IRentalContractService rentalContractService)
     {
+        _rentalContractService = rentalContractService;
         _invoiceService = invoiceService;
         _agreementService = agreementService;
         _chargeBillingService = chargeBillingService;
@@ -77,6 +81,9 @@ public class ScheduledTasks : IScheduledTasks
         {
             // New charges notify residents (bell + e-mail), so they are generated in the daytime too.
             await RunSafelyAsync("generate recurring charges", _chargeBillingService.GenerateDueRecurringChargesAsync, cancellationToken);
+            // Rent first, so a bill sent automatically today already has it.
+            await RunSafelyAsync("generate rent", _rentalContractService.GenerateDueRentAsync, cancellationToken);
+            await RunSafelyAsync("send rent adjustment reminders", _rentalContractService.SendAdjustmentRemindersAsync, cancellationToken);
             await RunSafelyAsync("send monthly bills", _invoiceService.SendDueDraftsAsync, cancellationToken);
             await RunSafelyAsync("send due-soon reminders", SendDueSoonRemindersAsync, cancellationToken);
             await RunSafelyAsync("send overdue reminders", SendOverdueRemindersAsync, cancellationToken);

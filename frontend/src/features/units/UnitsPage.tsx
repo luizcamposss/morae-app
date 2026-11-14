@@ -1,3 +1,6 @@
+import { useNavigate } from "react-router-dom";
+import { useModuleEnabled } from "../modules/modules";
+import type { RentalsLocationState } from "../rentals/RentalsPage";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Building2, DoorClosed, Plus, Search, Users } from "lucide-react";
@@ -17,6 +20,8 @@ import type { UnitResponse } from "./types";
 type StatusFilter = (typeof UNIT_STATUS_FILTERS)[number]["value"];
 
 export function UnitsPage() {
+  const navigate = useNavigate();
+  const hasRentals = useModuleEnabled("rentals");
   const [searchParams, setSearchParams] = useSearchParams();
   const {
     condominiums,
@@ -345,6 +350,7 @@ export function UnitsPage() {
             setEditingUnit(viewingUnit);
             setViewingUnitId(null);
           }}
+          onRent={hasRentals ? () => navigate("/admin/rentals", { state: { rentUnitId: viewingUnit.id } satisfies RentalsLocationState }) : undefined}
           onDelete={() => askDelete(viewingUnit)}
           onChanged={async (message) => {
             await refreshUnits();

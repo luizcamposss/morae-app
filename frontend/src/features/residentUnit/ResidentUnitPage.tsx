@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { Building2, DoorClosed } from "lucide-react";
 import { useAuth } from "../../app/providers/useAuth";
+import { formatCurrency } from "../../shared/lib/currency";
+import { formatCalendarDate } from "../../shared/lib/date";
+import { adjustmentLabel, describeIncludes, getMyRentalContracts, type RentalContract } from "../rentals/rentalService";
 import { PageHeader } from "../../shared/layout/PageHeader";
 import { getMyUnits } from "../me/meService";
 import type { MeUnitResponse } from "../me/types";
@@ -18,9 +21,15 @@ export function ResidentUnitPage() {
   const [peopleByUnit, setPeopleByUnit] = useState<PeopleByUnit>({});
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  // The tenant's rental contracts (only when the condominium uses the rentals module).
+  const [contracts, setContracts] = useState<RentalContract[]>([]);
 
   useEffect(() => {
     let isMounted = true;
+
+    getMyRentalContracts()
+      .then((result) => isMounted && setContracts(result))
+      .catch(() => undefined);
 
     getMyUnits()
       .then(async (result) => {
@@ -77,6 +86,7 @@ export function ResidentUnitPage() {
                 people={unit.unitId in peopleByUnit ? peopleByUnit[unit.unitId] : undefined}
                 currentPersonId={user?.personId}
                 showCondominium={condominiumNames.length > 1}
+                contract={contracts.find((contract) => contract.unitId === unit.unitId)}
               />
             </li>
           ))}
@@ -92,9 +102,10 @@ type UnitCardProps = {
   people: PersonUnitResponse[] | null | undefined;
   currentPersonId?: number;
   showCondominium: boolean;
+  contract?: RentalContract;
 };
 
-function UnitCard({ unit, people, currentPersonId, showCondominium }: UnitCardProps) {
+function UnitCard({ unit, people, currentPersonId, showCondominium, contract }: UnitCardProps) {
   return (
     <article className="overflow-hidden rounded-card bg-superficie shadow-whisper">
       <div className="p-5 sm:p-6">
@@ -108,6 +119,21 @@ function UnitCard({ unit, people, currentPersonId, showCondominium }: UnitCardPr
         <p className="mt-3 font-display text-[44px] font-bold leading-none tracking-[-0.02em] tabular-nums text-tinta">{unit.unitNumber}</p>
         <p className="mt-2 text-sm text-tinta-suave">{unitTypeLabel(unit.unitType)}</p>
       </div>
+
+      {contract && (
+        <div className="border-t border-linha px-5 py-4 sm:px-6">
+          <h2 className="text-[13px] font-semibold text-tinta-suave">Seu aluguel</h2>
+          <p className="mt-1 font-display text-2xl font-bold tabular-nums text-tinta">{formatCurrency(contract.monthlyRent)}</p>
+          <p className="mt-1 text-sm text-tinta-suave">
+            Vence todo dia {contract.dueDay} · na conta do mês: {describeIncludes(contract).toLowerCase()}
+          </p>
+          <p className="mt-1 text-[13px] text-tinta-suave">
+            Contrato desde {formatCalendarDate(contract.startDate)}
+            {contract.endDate ? ` até ${formatCalendarDate(contract.endDate)}` : ""}
+            {contract.nextAdjustmentDate ? ` · reajuste (${adjustmentLabel(contract.adjustmentIndex)}) em ${formatCalendarDate(contract.nextAdjustmentDate)}` : ""}
+          </p>
+        </div>
+      )}
 
       <div className="border-t border-linha px-5 py-4 sm:px-6">
         <h2 className="text-[13px] font-semibold text-tinta-suave">Quem mora aqui</h2>

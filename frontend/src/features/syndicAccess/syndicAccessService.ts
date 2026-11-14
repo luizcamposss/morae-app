@@ -16,7 +16,8 @@ export type SyndicPermission =
   | "documents.manage"
   | "assemblies.manage"
   | "reservations.manage"
-  | "expenses.manage";
+  | "expenses.manage"
+  | "rentals.manage";
 
 // What a syndic screen asks for: one of the 4 menu areas or a single raw permission,
 // or a list of them when any one is enough (e.g. the agenda, which mixes several modules).
@@ -104,6 +105,7 @@ export const syndicPermissionGroups: Array<{
       { key: "documents.manage", label: "Documentos", description: "Envia e organiza atas, regimentos e contratos." },
       { key: "assemblies.manage", label: "Assembleias e votações", description: "Cria pautas, abre e encerra votações." },
       { key: "expenses.manage", label: "Despesas", description: "Lança as contas pagas e os comprovantes da prestação de contas." },
+      { key: "rentals.manage", label: "Aluguéis", description: "Cadastra contratos, reajusta e encerra aluguéis." },
     ],
   },
 ];
