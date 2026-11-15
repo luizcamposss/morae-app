@@ -233,10 +233,6 @@ public class ChargeBillingService : IChargeBillingService
         int condominiumId,
         CreateRecurringChargeDto dto)
     {
-        // One way to charge each thing (#209): rent by the contract, water/light/gas on their own screen.
-        if (dto.Category.HasValue)
-            InvoiceService.EnsureManualCategory(dto.Category.Value);
-
         // A recurrence for one unit bills it alone, in the unit's building.
         if (dto.UnitId.HasValue)
         {
