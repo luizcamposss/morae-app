@@ -199,7 +199,14 @@ public class PaymentService : IPaymentService
             .Select(item => item.MercadoPagoPaymentId)
             .FirstOrDefaultAsync();
 
-        var isReceiver = charge.Scope == ChargeScope.Platform
+        // The owner's rent is received (and refunded) by the owner, not the condominium (#201).
+        var ownerName = charge.ReceiverPersonId is { } ownerPersonId
+            ? await _context.Persons.AsNoTracking().Where(person => person.Id == ownerPersonId).Select(person => person.Name).FirstOrDefaultAsync()
+            : null;
+
+        var isReceiver = charge.ReceiverPersonId.HasValue
+            ? await _context.Users.AsNoTracking().AnyAsync(user => user.Id == userId && user.PersonId == charge.ReceiverPersonId)
+            : charge.Scope == ChargeScope.Platform
             ? await IsMasterCondominiumOwnerAsync(userId, charge.CondominiumId)
             : await _permissionService.IsCondominiumAdminAsync(userId, charge.CondominiumId);
 
@@ -218,7 +225,7 @@ public class PaymentService : IPaymentService
             Scope = charge.Scope,
             CondominiumName = charge.Condominium.Name,
             UnitLabel = charge.Unit is null ? null : $"{charge.Unit.Building.Name} · Unidade {charge.Unit.Number}",
-            ReceiverName = charge.Scope == ChargeScope.Platform ? "MORAÊ" : charge.Condominium.Name,
+            ReceiverName = ownerName ?? (charge.Scope == ChargeScope.Platform ? "MORAÊ" : charge.Condominium.Name),
             AmountPaid = payment.AmountPaid,
             OriginalValue = charge.Value,
             LateFeesPaid = Math.Max(payment.AmountPaid - charge.Value, 0m),
@@ -248,6 +255,15 @@ public class PaymentService : IPaymentService
                 throw new ForbiddenException("Você só pode registrar pagamentos de condomínios cadastrados por você.");
 
             return;
+        }
+
+        // The owner's rent: only the owner who receives it (#201).
+        if (charge.ReceiverPersonId is { } ownerPersonId)
+        {
+            if (user.PersonId == ownerPersonId)
+                return;
+
+            throw new ForbiddenException("Só o proprietário que recebe este aluguel pode fazer isso.");
         }
 
         if (charge.Scope == ChargeScope.Condominium)

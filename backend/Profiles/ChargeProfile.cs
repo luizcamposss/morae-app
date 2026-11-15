@@ -21,6 +21,9 @@ public class ChargeProfile : Profile
 
         CreateMap<Charge, ChargeResponseDto>()
             .ForMember(
+                dest => dest.ReceiverName,
+                opt => opt.MapFrom(src => src.ReceiverPerson != null ? src.ReceiverPerson.Name : null))
+            .ForMember(
                 dest => dest.Items,
                 opt => opt.MapFrom(src => src.Items.OrderBy(item => item.Id)))
             .ForMember(

@@ -7,6 +7,10 @@ public interface IRentalContractService
     Task<IEnumerable<RentalContractResponseDto>> GetByCondominiumAsync(int userId, int condominiumId);
     Task<IEnumerable<RentalContractResponseDto>> GetMineAsync(int userId);
     Task<RentalContractResponseDto> CreateAsync(int userId, int condominiumId, SaveRentalContractDto dto);
+
+    // Unit owner (#201): contracts of the units they own, received in their own account.
+    Task<IEnumerable<RentalContractResponseDto>> GetOwnedAsync(int userId);
+    Task<RentalContractResponseDto> CreateAsOwnerAsync(int userId, SaveRentalContractDto dto);
     Task<RentalContractResponseDto> UpdateAsync(int userId, int contractId, SaveRentalContractDto dto);
     Task<RentalContractResponseDto> AdjustAsync(int userId, int contractId, AdjustRentDto dto);
     Task<RentalContractResponseDto> EndAsync(int userId, int contractId, EndRentalContractDto dto);

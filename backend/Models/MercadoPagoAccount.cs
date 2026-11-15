@@ -13,6 +13,11 @@ public class MercadoPagoAccount
 
     public Condominium? Condominium { get; set; }
 
+    // Set for a unit owner's account (receives the rent of the units they rent out, #201).
+    // Then CondominiumId is null: platform account = both null.
+    public int? OwnerPersonId { get; set; }
+    public Person? OwnerPerson { get; set; }
+
     // User who connected the account.
     [Required]
     public int UserId { get; set; }

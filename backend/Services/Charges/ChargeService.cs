@@ -138,7 +138,9 @@ public class ChargeService : IChargeService
         var query = BuildChargeResponseQuery()
             .Where(c =>
                 c.Scope == ChargeScope.Condominium &&
-                c.CondominiumId == condominiumId);
+                c.CondominiumId == condominiumId &&
+                // The owner's rent is private to the owner (#201): the management never lists it.
+                c.ReceiverPersonId == null);
 
         if (category.HasValue)
             query = query.Where(c => c.Category == category.Value);
@@ -182,6 +184,18 @@ public class ChargeService : IChargeService
 
         return await MapWithPaymentInfoAsync(charges);
     }
+    public async Task<IEnumerable<ChargeResponseDto>> GetReceivedAsOwnerAsync(int userId)
+    {
+        var user = await GetUserOrThrowAsync(userId);
+
+        var charges = await BuildChargeResponseQuery()
+            .Where(c => c.ReceiverPersonId == user.PersonId && c.Condominium.Status == Status.Active)
+            .OrderByDescending(c => c.DueDate)
+            .ToListAsync();
+
+        return await MapWithPaymentInfoAsync(charges);
+    }
+
     public async Task<ChargeResponseDto?> GetByIdAsync(int userId, int id)
     {
         var charge = await BuildChargeResponseQuery()
@@ -595,6 +609,7 @@ public class ChargeService : IChargeService
             .AsNoTracking()
             .AnyAsync(account =>
                 account.CondominiumId == mercadoPagoCondominiumId &&
+                account.OwnerPersonId == null &&
                 account.AccessToken != string.Empty);
 
         if (hasMercadoPago)
@@ -642,6 +657,15 @@ public class ChargeService : IChargeService
             return;
         }
 
+        // The owner's rent: only the owner who receives it (#201).
+        if (charge.ReceiverPersonId is { } ownerPersonId)
+        {
+            if (user.PersonId == ownerPersonId)
+                return;
+
+            throw new ForbiddenException("Só o proprietário que recebe este aluguel pode fazer isso.");
+        }
+
         if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
         {
             await _permissionService.EnsureCondominiumAdminAsync(userId, charge.CondominiumId);
@@ -667,6 +691,7 @@ public class ChargeService : IChargeService
             .AsNoTracking()
             .Where(c => c.Status != ChargeStatus.Draft)
             .Include(c => c.Items)
+            .Include(c => c.ReceiverPerson)
             .Include(c => c.Condominium)
             .Include(c => c.RecipientPerson)
             .Include(c => c.Unit)
@@ -697,13 +722,19 @@ public class ChargeService : IChargeService
         var condominiumIds = responses.Select(charge => charge.CondominiumId).Distinct().ToList();
 
         // CondominiumId null is the platform account (receives the MORAÊ invoices).
-        var connectedReceivers = await _context.MercadoPagoAccounts
+        var ownerIds = responses.Where(charge => charge.ReceiverPersonId.HasValue).Select(charge => charge.ReceiverPersonId!.Value).Distinct().ToList();
+
+        // Platform account = no condominium and no owner; owners' accounts receive their rent.
+        var connectedAccounts = await _context.MercadoPagoAccounts
             .AsNoTracking()
             .Where(account =>
                 account.AccessToken != string.Empty &&
-                (account.CondominiumId == null || condominiumIds.Contains(account.CondominiumId.Value)))
-            .Select(account => account.CondominiumId)
+                ((account.OwnerPersonId == null && (account.CondominiumId == null || condominiumIds.Contains(account.CondominiumId.Value))) ||
+                 (account.OwnerPersonId != null && ownerIds.Contains(account.OwnerPersonId.Value))))
+            .Select(account => new { account.CondominiumId, account.OwnerPersonId })
             .ToListAsync();
+        var connectedReceivers = connectedAccounts.Where(account => account.OwnerPersonId == null).Select(account => account.CondominiumId).ToList();
+        var connectedOwners = connectedAccounts.Where(account => account.OwnerPersonId != null).Select(account => account.OwnerPersonId!.Value).ToHashSet();
 
         var proofs = await _context.PaymentProofs
             .AsNoTracking()
@@ -716,7 +747,9 @@ public class ChargeService : IChargeService
         foreach (var response in responses)
         {
             int? receiver = response.Scope == ChargeScope.Platform ? null : response.CondominiumId;
-            response.OnlinePaymentAvailable = connectedReceivers.Contains(receiver);
+            response.OnlinePaymentAvailable = response.ReceiverPersonId is { } ownerId
+                ? connectedOwners.Contains(ownerId)
+                : connectedReceivers.Contains(receiver);
 
             var chargeProofs = proofsByCharge[response.Id].ToList();
             var latest = chargeProofs.MaxBy(proof => proof.Id);

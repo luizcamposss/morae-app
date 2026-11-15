@@ -13,6 +13,8 @@ export type AppRoute = {
   syndicAccess?: SyndicAccessRequirement;
   // Module the screen belongs to: hidden from the menu (and blocked) while the condominium has it off.
   module?: ModuleRequirement;
+  // Resident screens only for people who own a unit in the active condominium.
+  unitOwnerOnly?: boolean;
 };
 
 export type RoleArea = {

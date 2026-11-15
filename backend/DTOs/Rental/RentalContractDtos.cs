@@ -27,6 +27,11 @@ public class RentalContractResponseDto
     public DateOnly? LastBilledMonth { get; set; }
     public string? EndReason { get; set; }
     public List<RentValueChangeDto> ValueChanges { get; set; } = [];
+
+    // A unit owner's own contract (#201): the management sees only that the unit is rented and to
+    // whom; values come zeroed and it can't be changed there.
+    public bool IsOwnerContract { get; set; }
+    public string? OwnerName { get; set; }
 }
 
 public class RentValueChangeDto

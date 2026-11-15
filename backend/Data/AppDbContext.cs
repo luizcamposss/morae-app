@@ -68,6 +68,18 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     {
         base.OnModelCreating(builder);
 
+        builder.Entity<Charge>()
+            .HasOne(charge => charge.ReceiverPerson)
+            .WithMany()
+            .HasForeignKey(charge => charge.ReceiverPersonId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MercadoPagoAccount>()
+            .HasOne(account => account.OwnerPerson)
+            .WithMany()
+            .HasForeignKey(account => account.OwnerPersonId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.Entity<ChargeItem>()
             .HasOne(item => item.Charge)
             .WithMany(charge => charge.Items)
@@ -86,6 +98,7 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             contract.HasOne(c => c.Unit).WithMany().HasForeignKey(c => c.UnitId).OnDelete(DeleteBehavior.Restrict);
             contract.HasOne(c => c.TenantPerson).WithMany().HasForeignKey(c => c.TenantPersonId).OnDelete(DeleteBehavior.Restrict);
             contract.HasIndex(c => new { c.UnitId, c.Status });
+            contract.HasOne(c => c.ReceiverPerson).WithMany().HasForeignKey(c => c.ReceiverPersonId).OnDelete(DeleteBehavior.Restrict);
         });
 
         builder.Entity<UtilityRate>(rate =>

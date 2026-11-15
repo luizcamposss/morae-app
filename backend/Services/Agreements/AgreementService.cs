@@ -147,6 +147,10 @@ public class AgreementService : IAgreementService
             if (charge.Scope != ChargeScope.Condominium || charge.CondominiumId != condominiumId || charge.UnitId != dto.UnitId)
                 throw new BadRequestException("Todas as cobranças do acordo precisam ser da mesma unidade.");
 
+            // The owner's rent is the owner's money: the condominium can't renegotiate it.
+            if (charge.ReceiverPersonId.HasValue)
+                throw new BadRequestException("O aluguel de um proprietário não entra em acordo do condomínio.");
+
             if (charge.AgreementId.HasValue)
                 throw new BadRequestException($"A cobrança \"{charge.Description}\" já é parcela de um acordo.");
 

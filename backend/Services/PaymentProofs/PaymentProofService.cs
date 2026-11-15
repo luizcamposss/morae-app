@@ -219,6 +219,10 @@ public class PaymentProofService : IPaymentProofService
 
         if (charge.Status == ChargeStatus.Draft)
             throw new BadRequestException("Esta conta ainda não foi enviada.");
+
+        // The condominium's Pix key never receives the owner's rent: it is paid online to the owner.
+        if (charge.ReceiverPersonId.HasValue)
+            throw new BadRequestException("Este aluguel é pago pelo app, direto para a conta do proprietário.");
     }
 
     // Same rule as paying online: the Admin or a payer of the charge (a syndic pays only their own unit).

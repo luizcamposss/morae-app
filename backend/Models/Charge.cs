@@ -76,6 +76,11 @@ public class Charge
     // Lines of a monthly bill (category MonthlyBill). Empty for every other charge.
     public ICollection<ChargeItem> Items { get; set; } = [];
 
+    // Who receives the money: null = the condominium; set = a unit owner who rents the unit out
+    // (paid into the owner's Mercado Pago, hidden from the condominium's management).
+    public int? ReceiverPersonId { get; set; }
+    public Person? ReceiverPerson { get; set; }
+
     // When a monthly bill left the draft and reached the payers.
     public DateTime? SentAt { get; set; }
 }

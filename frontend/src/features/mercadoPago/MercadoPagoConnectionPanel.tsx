@@ -10,10 +10,13 @@ type MercadoPagoConnectionPanelProps = {
   contextLabel: string;
   // Omit for the platform account (Master); pass the active condominium for its account (Admin).
   condominiumId?: number | null;
-  onBack: () => void;
+  // The logged-in unit owner's own account (Meus aluguéis).
+  asOwner?: boolean;
+  // Inside a dialog: the "Voltar" button. Omit on a page.
+  onBack?: () => void;
 };
 
-export function MercadoPagoConnectionPanel({ contextLabel, condominiumId, onBack }: MercadoPagoConnectionPanelProps) {
+export function MercadoPagoConnectionPanel({ contextLabel, condominiumId, asOwner = false, onBack }: MercadoPagoConnectionPanelProps) {
   const [connection, setConnection] = useState<MercadoPagoConnectionStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -24,7 +27,7 @@ export function MercadoPagoConnectionPanel({ contextLabel, condominiumId, onBack
   useEffect(() => {
     let isMounted = true;
 
-    getMercadoPagoConnectionStatus(condominiumId)
+    getMercadoPagoConnectionStatus(condominiumId, asOwner)
       .then((result) => isMounted && setConnection(result))
       .catch((error) => {
         if (!isMounted) return;
@@ -36,13 +39,13 @@ export function MercadoPagoConnectionPanel({ contextLabel, condominiumId, onBack
     return () => {
       isMounted = false;
     };
-  }, [condominiumId]);
+  }, [condominiumId, asOwner]);
 
   async function handleConnect() {
     try {
       setIsConnecting(true);
       setErrorMessage("");
-      const result = await startMercadoPagoOAuth(condominiumId);
+      const result = await startMercadoPagoOAuth(condominiumId, asOwner);
       saveOAuthReturnPath();
       window.location.assign(result.authorizationUrl);
     } catch (error) {
@@ -55,8 +58,8 @@ export function MercadoPagoConnectionPanel({ contextLabel, condominiumId, onBack
     try {
       setIsDisconnecting(true);
       setErrorMessage("");
-      await disconnectMercadoPago(condominiumId);
-      setConnection(await getMercadoPagoConnectionStatus(condominiumId));
+      await disconnectMercadoPago(condominiumId, asOwner);
+      setConnection(await getMercadoPagoConnectionStatus(condominiumId, asOwner));
       setIsConfirmingDisconnect(false);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Não foi possível desconectar o Mercado Pago.");
@@ -120,9 +123,13 @@ export function MercadoPagoConnectionPanel({ contextLabel, condominiumId, onBack
       )}
 
       <div className="flex flex-wrap justify-between gap-3">
-        <Button variant="quiet" onClick={onBack}>
-          Voltar
-        </Button>
+        {onBack ? (
+          <Button variant="quiet" onClick={onBack}>
+            Voltar
+          </Button>
+        ) : (
+          <span />
+        )}
         {isConnected ? (
           !isConfirmingDisconnect && (
             <button

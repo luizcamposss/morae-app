@@ -14,6 +14,9 @@ public interface IChargeService
     Task<IEnumerable<ChargeResponseDto>> GetPlatformAsync(int userId);
     Task<IEnumerable<ChargeResponseDto>> GetByCondominiumAsync(int userId, int condominiumId, ChargeCategory? category = null);
     Task<IEnumerable<ChargeResponseDto>> GetMineAsync(int userId);
+
+    // Unit owner (#201): the rent bills they receive (sent ones; drafts go out on their own).
+    Task<IEnumerable<ChargeResponseDto>> GetReceivedAsOwnerAsync(int userId);
     Task<ChargeResponseDto?> GetByIdAsync(int userId, int id);
     Task<bool> CancelAsync(int userId, int id, CancelChargeDto dto);
 

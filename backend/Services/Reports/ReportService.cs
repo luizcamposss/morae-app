@@ -126,6 +126,7 @@ public class ReportService : IReportService
             .AsNoTracking()
             .Where(charge => charge.Scope == ChargeScope.Condominium &&
                              charge.CondominiumId == condominiumId &&
+                             charge.ReceiverPersonId == null &&
                              charge.DueDate >= dueDateFrom &&
                              charge.DueDate < dueDateUntil &&
                              charge.DueDate.Date < today.ToDateTime(TimeOnly.MinValue) &&
@@ -200,6 +201,7 @@ public class ReportService : IReportService
             .AsNoTracking()
             .Where(payment => payment.Charge.Scope == ChargeScope.Condominium &&
                               payment.Charge.CondominiumId == condominiumId &&
+                              payment.Charge.ReceiverPersonId == null &&
                               payment.PaidAt >= startUtc && payment.PaidAt < endUtc);
 
         if (buildingId.HasValue)
@@ -314,6 +316,7 @@ public class ReportService : IReportService
             .AsNoTracking()
             .Where(payment => payment.Charge.Scope == ChargeScope.Condominium &&
                               payment.Charge.CondominiumId == condominiumId &&
+                              payment.Charge.ReceiverPersonId == null &&
                               payment.PaidAt >= incomeStartUtc && payment.PaidAt < incomeEndUtc);
         var expensesQuery = _context.Expenses.AsNoTracking()
             .Where(expense => expense.CondominiumId == condominiumId && expense.PaidOn >= start && expense.PaidOn <= end);

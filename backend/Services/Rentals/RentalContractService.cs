@@ -56,7 +56,7 @@ public class RentalContractService : IRentalContractService
             .OrderBy(contract => contract.Status)
             .ThenBy(contract => contract.Unit.Building.Name)
             .ThenBy(contract => contract.Unit.Number)
-            .Select(ToResponse);
+            .Select(contract => contract.ReceiverPersonId.HasValue ? ToManagementView(contract) : ToResponse(contract));
     }
 
     public async Task<IEnumerable<RentalContractResponseDto>> GetMineAsync(int userId)
@@ -82,6 +82,11 @@ public class RentalContractService : IRentalContractService
         await _permissionService.EnsureCondominiumPermissionAsync(userId, condominiumId, AppPermissions.RentalsManage);
         await EnsureUnitManagedAsync(userId, condominiumId, dto.UnitId);
 
+        return await CreateContractAsync(userId, condominiumId, dto, receiverPersonId: null);
+    }
+
+    private async Task<RentalContractResponseDto> CreateContractAsync(int userId, int condominiumId, SaveRentalContractDto dto, int? receiverPersonId)
+    {
         var tenantLinked = await _context.PersonUnits.AnyAsync(link => link.UnitId == dto.UnitId && link.PersonId == dto.TenantPersonId);
 
         if (!tenantLinked)
@@ -99,6 +104,7 @@ public class RentalContractService : IRentalContractService
             CondominiumId = condominiumId,
             UnitId = dto.UnitId,
             TenantPersonId = dto.TenantPersonId,
+            ReceiverPersonId = receiverPersonId,
             MonthlyRent = Math.Round(dto.MonthlyRent, 2),
             StartDate = dto.StartDate,
             CreatedByUserId = userId,
@@ -124,6 +130,50 @@ public class RentalContractService : IRentalContractService
         return await GetResponseAsync(contract.Id);
     }
 
+    public async Task<IEnumerable<RentalContractResponseDto>> GetOwnedAsync(int userId)
+    {
+        var personId = await GetPersonIdAsync(userId);
+
+        var contracts = await ContractsQuery()
+            .Where(contract =>
+                contract.ReceiverPersonId == personId &&
+                contract.Condominium.Status == Status.Active &&
+                contract.Condominium.EnabledModules.Contains(AppModules.Rentals))
+            .ToListAsync();
+
+        return contracts
+            .OrderBy(contract => contract.Status)
+            .ThenBy(contract => contract.Unit.Building.Name)
+            .ThenBy(contract => contract.Unit.Number)
+            .Select(ToResponse);
+    }
+
+    public async Task<RentalContractResponseDto> CreateAsOwnerAsync(int userId, SaveRentalContractDto dto)
+    {
+        var personId = await GetPersonIdAsync(userId);
+
+        var unit = await _context.PersonUnits
+            .AsNoTracking()
+            .Where(link => link.PersonId == personId && link.UnitId == dto.UnitId && link.RelationshipType == UnitRelationshipType.Owner)
+            .Select(link => new { link.Unit.Building.CondominiumId, link.Unit.Building.Condominium.Status })
+            .FirstOrDefaultAsync()
+            ?? throw new ForbiddenException("Você só aluga as unidades de que é proprietário.");
+
+        if (unit.Status != Status.Active)
+            throw new ForbiddenException("Este condomínio está inativo.");
+
+        await _permissionService.EnsureModuleEnabledAsync(unit.CondominiumId, AppModules.Rentals);
+
+        if (dto.TenantPersonId == personId)
+            throw new BadRequestException("O inquilino precisa ser outra pessoa.");
+
+        // The condominium fee belongs to the condominium: it never goes in the owner's bill.
+        if (dto.IncludesCondominiumFee)
+            throw new BadRequestException("A taxa de condomínio é cobrada pelo condomínio, não entra no seu aluguel.");
+
+        return await CreateContractAsync(userId, unit.CondominiumId, dto, receiverPersonId: personId);
+    }
+
     public async Task<RentalContractResponseDto> UpdateAsync(int userId, int contractId, SaveRentalContractDto dto)
     {
         var contract = await GetForManagementAsync(userId, contractId);
@@ -133,6 +183,9 @@ public class RentalContractService : IRentalContractService
 
         dto.StartDate = contract.StartDate;
         ValidateTerms(dto);
+
+        if (contract.ReceiverPersonId.HasValue && dto.IncludesCondominiumFee)
+            throw new BadRequestException("A taxa de condomínio é cobrada pelo condomínio, não entra no seu aluguel.");
         ApplyTerms(contract, dto);
         contract.UpdatedAt = DateTime.UtcNow;
 
@@ -259,6 +312,29 @@ public class RentalContractService : IRentalContractService
 
         foreach (var contract in contracts)
         {
+            // The owner's contract: the owner is reminded, the management never sees its values.
+            if (contract.ReceiverPersonId.HasValue)
+            {
+                var ownerUserIds = await _context.Users
+                    .AsNoTracking()
+                    .Where(user => user.PersonId == contract.ReceiverPersonId)
+                    .Select(user => user.Id)
+                    .ToListAsync(cancellationToken);
+
+                await _notificationService.CreateManyAsync(
+                    ownerUserIds,
+                    NotificationType.System,
+                    "Reajuste de aluguel chegando",
+                    $"O aluguel de {contract.Unit.Building.Name} · {contract.Unit.Number} ({contract.TenantPerson.Name}) tem reajuste em " +
+                    $"{contract.NextAdjustmentDate!.Value.ToString("dd/MM/yyyy", PtBr)}. Informe o novo valor em Meus aluguéis.",
+                    "/resident/rentals",
+                    contract.CondominiumId);
+
+                contract.AdjustmentReminderSentFor = contract.NextAdjustmentDate;
+                await _context.SaveChangesAsync(cancellationToken);
+                continue;
+            }
+
             var managers = await _context.UserCondominiums
                 .AsNoTracking()
                 .Where(link =>
@@ -336,7 +412,8 @@ public class RentalContractService : IRentalContractService
             description,
             amount,
             contract.CreatedByUserId,
-            dueDate));
+            dueDate,
+            contract.ReceiverPersonId));
 
     private static DateTime DueDate(RentalContract contract, DateOnly month) =>
         ChargeLateFees.DueDateIn(month.Year, month.Month, contract.DueDay);
@@ -383,6 +460,15 @@ public class RentalContractService : IRentalContractService
         var contract = await _context.RentalContracts.FirstOrDefaultAsync(row => row.Id == contractId)
             ?? throw new NotFoundException("Contrato não encontrado.");
 
+        // The owner's own contract: only the owner changes it (#201).
+        if (contract.ReceiverPersonId.HasValue)
+        {
+            if (contract.ReceiverPersonId != await GetPersonIdAsync(userId))
+                throw new ForbiddenException("Só o proprietário altera este contrato.");
+
+            return contract;
+        }
+
         await _permissionService.EnsureCondominiumPermissionAsync(userId, contract.CondominiumId, AppPermissions.RentalsManage);
         await EnsureUnitManagedAsync(userId, contract.CondominiumId, contract.UnitId);
 
@@ -403,11 +489,31 @@ public class RentalContractService : IRentalContractService
             throw new ForbiddenException("Você não cuida do prédio desta unidade.");
     }
 
+    private async Task<int> GetPersonIdAsync(int userId) =>
+        await _context.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId)
+            .Select(user => (int?)user.PersonId)
+            .FirstOrDefaultAsync()
+        ?? throw new NotFoundException("Usuário não encontrado.");
+
+    // What the management sees of an owner's contract: the unit is rented and to whom, no values.
+    private static RentalContractResponseDto ToManagementView(RentalContract contract)
+    {
+        var response = ToResponse(contract);
+        response.MonthlyRent = 0;
+        response.CondominiumFeeAmount = null;
+        response.NextAdjustmentDate = null;
+        response.ValueChanges = [];
+        return response;
+    }
+
     private IQueryable<RentalContract> ContractsQuery() =>
         _context.RentalContracts
             .AsNoTracking()
             .Include(contract => contract.Unit).ThenInclude(unit => unit.Building)
             .Include(contract => contract.TenantPerson)
+            .Include(contract => contract.ReceiverPerson)
             .Include(contract => contract.ValueChanges);
 
     private async Task<RentalContractResponseDto> GetResponseAsync(int contractId)
@@ -441,6 +547,8 @@ public class RentalContractService : IRentalContractService
         Status = contract.Status,
         LastBilledMonth = contract.LastBilledMonth,
         EndReason = contract.EndReason,
+        IsOwnerContract = contract.ReceiverPersonId.HasValue,
+        OwnerName = contract.ReceiverPerson?.Name,
         ValueChanges = contract.ValueChanges
             .OrderByDescending(change => change.EffectiveFrom)
             .ThenByDescending(change => change.Id)

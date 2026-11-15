@@ -58,6 +58,15 @@ public class ChargesController : ControllerBase
         return Ok(charges);
     }
 
+    // Unit owner (#201): rent bills received in the owner's own account.
+    [HttpGet("received-as-owner")]
+    public async Task<IActionResult> GetReceivedAsOwner()
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        return Ok(await _chargeService.GetReceivedAsOwnerAsync(userId));
+    }
+
     [HttpGet("/api/my/charges")]
     public async Task<IActionResult> GetMine()
     {

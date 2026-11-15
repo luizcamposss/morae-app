@@ -22,6 +22,8 @@ public class MercadoPagoOAuthState
 
     // Null when connecting the platform account.
     public int? CondominiumId { get; set; }
+    // Connecting a unit owner's own account (then CondominiumId is null).
+    public int? OwnerPersonId { get; set; }
 
     public DateTime ExpiresAt { get; set; }
 

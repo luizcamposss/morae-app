@@ -20,6 +20,11 @@ public class RentalContract
     public int TenantPersonId { get; set; }
     public Person TenantPerson { get; set; } = null!;
 
+    // Null = the condominium (or building owner, as Admin) receives the rent; set = the unit owner,
+    // who created the contract in "Meus aluguéis" and receives it in their own account.
+    public int? ReceiverPersonId { get; set; }
+    public Person? ReceiverPerson { get; set; }
+
     public decimal MonthlyRent { get; set; }
 
     [Range(1, 31)]

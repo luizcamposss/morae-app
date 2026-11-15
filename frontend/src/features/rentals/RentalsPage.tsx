@@ -60,7 +60,10 @@ export function RentalsPage() {
   const list = isLoading ? [] : (contracts?.list ?? []);
   const active = list.filter((contract) => contract.status === RENTAL_STATUS.active);
   const ended = list.filter((contract) => contract.status !== RENTAL_STATUS.active);
-  const monthlyTotal = active.reduce((sum, contract) => sum + contract.monthlyRent, 0);
+  // The owners' own contracts have no values here (the rent is theirs): out of the total.
+  const managedActive = active.filter((contract) => !contract.isOwnerContract);
+  const ownerActive = active.length - managedActive.length;
+  const monthlyTotal = managedActive.reduce((sum, contract) => sum + contract.monthlyRent, 0);
 
   return (
     <>
@@ -79,7 +82,10 @@ export function RentalsPage() {
 
       {!isLoading && active.length > 0 && (
         <p className="mb-6 text-sm text-tinta-suave tabular-nums">
-          {active.length === 1 ? "1 unidade alugada" : `${active.length} unidades alugadas`} · {formatCurrency(monthlyTotal)} de aluguel por mês
+          {managedActive.length > 0 &&
+            `${managedActive.length === 1 ? "1 unidade alugada" : `${managedActive.length} unidades alugadas`} · ${formatCurrency(monthlyTotal)} de aluguel por mês`}
+          {managedActive.length > 0 && ownerActive > 0 && " · "}
+          {ownerActive > 0 && `${ownerActive === 1 ? "1 alugada" : `${ownerActive} alugadas`} pelo proprietário`}
         </p>
       )}
 
@@ -96,6 +102,7 @@ export function RentalsPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         {[...active, ...ended].map((contract) => {
           const isActive = contract.status === RENTAL_STATUS.active;
+          if (contract.isOwnerContract) return <OwnerContractCard key={contract.id} contract={contract} />;
           const adjustmentSoon = isActive && contract.nextAdjustmentDate && contract.nextAdjustmentDate <= addDays(todayInputDate(), 30);
           return (
             <article key={contract.id} className={`flex flex-col rounded-card bg-superficie p-5 shadow-whisper ${isActive ? "" : "opacity-70"}`}>
@@ -172,13 +179,34 @@ export function RentalsPage() {
   );
 }
 
+// A unit owner rents out their own unit and receives the rent: the management only sees that.
+function OwnerContractCard({ contract }: { contract: RentalContract }) {
+  const isActive = contract.status === RENTAL_STATUS.active;
+  return (
+    <article className={`flex flex-col rounded-card bg-campo p-5 ${isActive ? "" : "opacity-70"}`}>
+      <header className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="font-semibold text-tinta">
+            {contract.buildingName} · {contract.unitNumber}
+          </h2>
+          <p className="truncate text-[13px] text-tinta-suave">{contract.tenantName}</p>
+        </div>
+        <StatusChip tone="neutral">{isActive ? "Alugada pelo proprietário" : "Encerrado"}</StatusChip>
+      </header>
+      <p className="mt-3 text-[13px] text-tinta-suave">
+        {contract.ownerName ?? "O proprietário"} aluga e recebe direto. Os valores ficam só com ele.
+      </p>
+    </article>
+  );
+}
+
 function addDays(date: string, days: number) {
   const value = new Date(`${date}T00:00:00Z`);
   value.setUTCDate(value.getUTCDate() + days);
   return value.toISOString().slice(0, 10);
 }
 
-function AdjustModal({ contract, onClose, onSaved }: { contract: RentalContract; onClose: () => void; onSaved: () => void }) {
+export function AdjustModal({ contract, onClose, onSaved }: { contract: RentalContract; onClose: () => void; onSaved: () => void }) {
   const [value, setValue] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -223,7 +251,7 @@ function AdjustModal({ contract, onClose, onSaved }: { contract: RentalContract;
   );
 }
 
-function EndModal({ contract, onClose, onSaved }: { contract: RentalContract; onClose: () => void; onSaved: () => void }) {
+export function EndModal({ contract, onClose, onSaved }: { contract: RentalContract; onClose: () => void; onSaved: () => void }) {
   const [endDate, setEndDate] = useState(todayInputDate());
   const [reason, setReason] = useState("");
   const [isSaving, setIsSaving] = useState(false);
