@@ -358,6 +358,14 @@ GET    /api/condominiums/{condominiumId}/monthly-balance?month= (qualquer membro
 - **Balancete:** `{ condominiumId, month, isDetailed, incomeTotal, income: [{ category, label, total, paymentCount }], expenseTotal, expenses: [{ categoryId, name, iconKey, total, expenseCount, receipts: [{ expenseId, fileName, paidOn }], items }], monthBalance, openingBalance, openingBalanceMonth, previousBalance, accumulatedBalance }`. Entradas = pagamentos das cobranças do condomínio (não as faturas da plataforma) pelo dia do pagamento em SP, agrupados pela `ChargeCategory`; valor pago inclui multa/juros. Morador recebe `isDetailed: false` e `items: null` (só totais e comprovantes); Admin e síndico recebem `items` (as despesas). `previousBalance`/`accumulatedBalance` = saldo inicial + entradas − saídas a partir do mês do saldo inicial; `null` em mês anterior a ele.
 - **Saldo inicial:** em `billing-settings` (`openingBalance`, `openingBalanceMonth` = `"AAAA-MM-01"` ou null = desde o começo). No `PUT` são opcionais: sem `openingBalance` o saldo atual fica como está; qualquer dia do mês vira o dia 1.
 
+### Relatórios financeiros (#191)
+```
+GET /api/condominiums/{condominiumId}/reports/{type}?from=&to=&buildingId=&format=xlsx|pdf
+```
+- Só Admin e síndico. Tipos: `delinquency` (cobranças vencidas no período ainda em aberto, com multa, juros e dias de atraso de hoje; síndico precisa de `delinquency.view`), `receipts` (pagamentos no período por categoria e forma; a conta do mês é dividida pelas categorias dos itens; síndico precisa de acesso ao financeiro), `expenses` (despesas com categoria e fornecedor; `expenses.manage`) e `balance` (entradas, saídas e saldo de cada mês; síndico precisa dos dois). `expenses` e `balance` exigem o módulo `expenses` ligado (403).
+- `from`/`to` = datas inclusivas `AAAA-MM-DD` (sem datas = mês atual de SP; máximo 10 anos). `buildingId` opcional, do condomínio e dos prédios do síndico; sem ele, síndico com prédios limitados recebe só os prédios dele (despesas gerais do condomínio ficam de fora).
+- Resposta: arquivo (`.xlsx` ou `application/pdf`). Pagamentos pela data em SP.
+
 ### Documentos (H)
 ```
 GET    /api/condominiums/{condominiumId}/documents

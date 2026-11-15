@@ -24,6 +24,7 @@ import { FinanceHome } from "../../features/finance/FinanceHome";
 import { redirectTo } from "../../features/finance/redirectTo";
 import { RentalsPage } from "../../features/rentals/RentalsPage";
 import { ReadingsPage } from "../../features/consumption/ReadingsPage";
+import { ReportsPage } from "../../features/reports/ReportsPage";
 import type { RoleArea } from "./types";
 
 export const adminArea: RoleArea = {
@@ -43,6 +44,7 @@ export const adminArea: RoleArea = {
     { path: "finance/receivables", component: AdminPaymentsPage },
     { path: "finance/expenses", component: ExpensesPage, module: "expenses" },
     { path: "finance/balance", component: MonthlyBalancePage, module: "expenses" },
+    { path: "finance/reports", component: ReportsPage },
     { path: "payments", component: redirectTo("/admin/finance/receivables") },
     { path: "expenses", component: redirectTo("/admin/finance/expenses") },
     { path: "balance", component: redirectTo("/admin/finance/balance") },
