@@ -1,3 +1,4 @@
+import { SelectField } from "../../shared/components/SelectField";
 import { useMemo, useState, type InputHTMLAttributes, type ReactNode } from "react";
 import { FileSpreadsheet, Plus, Trash2, Users } from "lucide-react";
 import { Button, ButtonLink } from "../../shared/components/Button";
@@ -153,23 +154,25 @@ export function ResidentsStep({ data, onSaved }: ResidentsStepProps) {
               </div>
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.7fr)_minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1.5fr)_minmax(0,1fr)_2.25rem] lg:items-center lg:gap-2">
                 <CellLabel label="Unidade">
-                  <select className={inputClass} value={row.unitId} onChange={(event) => update(row.id, { unitId: event.target.value })}>
-                    <option value="">Escolha</option>
-                    {unitOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  <SelectField
+                    label="Unidade"
+                    hideLabel
+                    variant="compact"
+                    value={row.unitId}
+                    placeholder="Escolha"
+                    onChange={(event) => update(row.id, { unitId: event.target.value })}
+                    options={unitOptions.map((option) => ({ value: String(option.value), label: option.label }))}
+                  />
                 </CellLabel>
                 <CellLabel label="Vínculo" className="lg:order-6">
-                  <select className={inputClass} value={row.relationshipType} onChange={(event) => update(row.id, { relationshipType: Number(event.target.value) })}>
-                    {relationshipOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  <SelectField
+                    label="Vínculo"
+                    hideLabel
+                    variant="compact"
+                    value={row.relationshipType}
+                    onChange={(event) => update(row.id, { relationshipType: Number(event.target.value) })}
+                    options={relationshipOptions.map((option) => ({ value: String(option.value), label: option.label }))}
+                  />
                 </CellLabel>
                 <Cell label="Nome" className="col-span-2 lg:col-span-1" maxLength={150} value={row.name} onChange={(event) => update(row.id, { name: event.target.value })} />
                 <Cell label="CPF" inputMode="numeric" placeholder="Só números" value={row.cpf} onChange={(event) => update(row.id, { cpf: onlyDigits(event.target.value, 11) })} />
