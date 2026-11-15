@@ -55,6 +55,7 @@ GET    /api/me
 GET    /api/me/condominiums
 GET    /api/me/notification-preferences
 PUT    /api/me/notification-preferences
+PUT    /api/me/guides                                               { showTips?, markSeen?: ["tour:admin", "tip:..."], resetTips? }  (tutorial; `GET /api/me` traz `guides: { showTips, seen }`)
 GET    /api/me/permissions
 PUT    /api/me/profile
 PUT    /api/me/profile-photo

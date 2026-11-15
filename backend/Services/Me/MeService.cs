@@ -60,9 +60,52 @@ public class MeService : IMeService
             IsCondominiumInactive = isCondominiumInactive,
             SuspensionReason = isSuspended ? latestSuspension?.SuspensionReason : null,
             SuspendedAt = isSuspended ? latestSuspension?.SuspendedAt : null,
-            Roles = roles
+            Roles = roles,
+            Guides = MapGuides(user)
         };
     }
+
+    public async Task<GuidesDto> UpdateGuidesAsync(int userId, UpdateGuidesDto dto)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId)
+            ?? throw new NotFoundException("Usuário não encontrado.");
+
+        var seen = ParseGuides(user.SeenGuides);
+        if (dto.ResetTips)
+            seen.RemoveWhere(key => key.StartsWith("tip:"));
+
+        foreach (var key in dto.MarkSeen ?? [])
+        {
+            var clean = key.Trim().ToLowerInvariant();
+            if (!GuideKey.IsMatch(clean))
+                throw new BadRequestException("Tutorial inválido.");
+            seen.Add(clean);
+        }
+
+        var joined = string.Join(",", seen.Order());
+        if (joined.Length > 2000)
+            throw new BadRequestException("Tutoriais demais marcados como vistos.");
+
+        user.SeenGuides = joined.Length == 0 ? null : joined;
+        if (dto.ShowTips.HasValue)
+            user.ShowTips = dto.ShowTips.Value;
+        user.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+        return MapGuides(user);
+    }
+
+    // "tour:admin", "tip:finance-accounts".
+    private static readonly System.Text.RegularExpressions.Regex GuideKey = new("^(tour|tip):[a-z0-9-]{1,40}$");
+
+    private static HashSet<string> ParseGuides(string? value) =>
+        (value ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet();
+
+    private static GuidesDto MapGuides(ApplicationUser user) => new()
+    {
+        ShowTips = user.ShowTips,
+        Seen = ParseGuides(user.SeenGuides).Order().ToList()
+    };
 
     public async Task<MeResponseDto> UpdateMyProfileAsync(int userId, UpdateMyProfileDto dto)
     {

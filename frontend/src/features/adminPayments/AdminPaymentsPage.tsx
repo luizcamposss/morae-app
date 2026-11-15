@@ -416,7 +416,7 @@ export function AdminPaymentsPage() {
     <>
       <PageHeader overline={overline || undefined} title="Financeiro">
         {canCreate && (
-          <Button variant="accent" size="sm" onClick={() => openWizard()} disabled={isLoading || units.length === 0 || !page.isReceivingReady}>
+          <Button variant="accent" size="sm" data-tour="finance:launch" onClick={() => openWizard()} disabled={isLoading || units.length === 0 || !page.isReceivingReady}>
             <Plus size={16} strokeWidth={2} aria-hidden />
             Lançar cobrança
           </Button>
@@ -485,6 +485,7 @@ export function AdminPaymentsPage() {
                     type="button"
                     role="tab"
                     aria-selected={tab === item.key}
+                    data-tour={item.key === "draft" ? "finance:drafts" : undefined}
                     onClick={() => setTab(item.key)}
                     className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
                       tab === item.key ? "bg-tinta text-white" : "text-tinta-suave hover:bg-menu hover:text-tinta"

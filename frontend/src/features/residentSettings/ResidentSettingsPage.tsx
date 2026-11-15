@@ -1,3 +1,4 @@
+import { HelpSettings } from "../guide/HelpSettings";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, DoorOpen, KeyRound, Lock } from "lucide-react";
@@ -57,6 +58,8 @@ export function ResidentSettingsPage() {
             <GroupedRow icon={Lock} title="Senha" subtitle="Trocar a senha desconecta os outros aparelhos" onClick={() => setModal("password")} />
             <GroupedRow icon={Bell} title="Notificações" subtitle="Avisos, boletos e sua unidade" onClick={() => setModal("notifications")} />
           </GroupedList>
+
+          <HelpSettings />
         </div>
 
         <div className="flex flex-col gap-8">

@@ -21,4 +21,5 @@ public class MeResponseDto
     // True when the user's only active links are to inactive condominiums (Master excluded).
     public bool IsCondominiumInactive { get; set; }
     public IEnumerable<string> Roles { get; set; } = [];
+    public GuidesDto Guides { get; set; } = new();
 }

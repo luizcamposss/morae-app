@@ -1,3 +1,4 @@
+import { HelpSettings } from "../guide/HelpSettings";
 import { useState } from "react";
 import { Bell, Building2, KeyRound, Lock } from "lucide-react";
 import { useAuth } from "../../app/providers/useAuth";
@@ -36,6 +37,8 @@ export function SyndicSettingsPage() {
             <GroupedRow icon={Lock} title="Senha" subtitle="Trocar a senha desconecta os outros aparelhos" onClick={() => setModal("password")} />
             <GroupedRow icon={Bell} title="Notificações" subtitle="Avisos, cobranças e unidades" onClick={() => setModal("notifications")} />
           </GroupedList>
+
+          <HelpSettings />
 
           <GroupedList title="Acesso" footer="Suas permissões e prédios são definidos pela administração do condomínio.">
             <GroupedRow icon={KeyRound} title="E-mail de acesso" subtitle={user?.email} />

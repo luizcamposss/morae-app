@@ -160,6 +160,7 @@ export function NotificationsMenu() {
         type="button"
         onClick={handleToggle}
         aria-label={unreadCount > 0 ? `Notificações, ${unreadCount} não lidas` : "Notificações"}
+        data-tour="header:notifications"
         aria-expanded={isOpen}
         className="relative grid size-10 place-items-center rounded-full bg-superficie text-tinta shadow-whisper transition-colors duration-150 hover:bg-campo"
       >

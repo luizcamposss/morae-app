@@ -51,6 +51,17 @@ public class MeController : ControllerBase
         return Ok(me);
     }
 
+    // In-app tutorial: mark tours/tips as seen, turn the screen tips on/off or start over.
+    [HttpPut("guides")]
+    public async Task<IActionResult> UpdateGuides([FromBody] DTOs.Me.UpdateGuidesDto dto)
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        var guides = await _meService.UpdateGuidesAsync(userId, dto);
+
+        return Ok(guides);
+    }
+
     [HttpGet("notification-preferences")]
     public async Task<IActionResult> GetNotificationPreferences()
     {
