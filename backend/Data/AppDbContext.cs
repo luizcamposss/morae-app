@@ -62,6 +62,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<ChargeItem> ChargeItems { get; set; }
     public DbSet<RentalContract> RentalContracts { get; set; }
     public DbSet<RentalContractValueChange> RentalContractValueChanges { get; set; }
+    public DbSet<UtilityRate> UtilityRates { get; set; }
+    public DbSet<MeterReading> MeterReadings { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -84,6 +86,26 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             contract.HasOne(c => c.Unit).WithMany().HasForeignKey(c => c.UnitId).OnDelete(DeleteBehavior.Restrict);
             contract.HasOne(c => c.TenantPerson).WithMany().HasForeignKey(c => c.TenantPersonId).OnDelete(DeleteBehavior.Restrict);
             contract.HasIndex(c => new { c.UnitId, c.Status });
+        });
+
+        builder.Entity<UtilityRate>(rate =>
+        {
+            rate.Property(r => r.PricePerUnit).HasPrecision(10, 4);
+            rate.Property(r => r.MinimumCharge).HasPrecision(10, 2);
+            rate.HasOne(r => r.Condominium).WithMany().HasForeignKey(r => r.CondominiumId).OnDelete(DeleteBehavior.Cascade);
+            rate.HasIndex(r => new { r.CondominiumId, r.Category }).IsUnique();
+        });
+
+        builder.Entity<MeterReading>(reading =>
+        {
+            reading.Property(r => r.PreviousReading).HasPrecision(12, 3);
+            reading.Property(r => r.CurrentReading).HasPrecision(12, 3);
+            reading.Property(r => r.Consumption).HasPrecision(12, 3);
+            reading.Property(r => r.Amount).HasPrecision(10, 2);
+            reading.HasOne(r => r.Condominium).WithMany().HasForeignKey(r => r.CondominiumId).OnDelete(DeleteBehavior.Cascade);
+            reading.HasOne(r => r.Unit).WithMany().HasForeignKey(r => r.UnitId).OnDelete(DeleteBehavior.Restrict);
+            // One reading per unit, utility and month.
+            reading.HasIndex(r => new { r.UnitId, r.Category, r.Month }).IsUnique();
         });
 
         builder.Entity<RentalContractValueChange>(change =>

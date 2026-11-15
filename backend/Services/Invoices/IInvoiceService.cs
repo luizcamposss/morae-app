@@ -15,7 +15,11 @@ public interface IInvoiceService
 
     // For rent contracts and meter readings: adds an item to the unit's draft bill of that month
     // (creating the draft if needed). No access check: callers check it.
-    Task<int> AddItemToDraftAsync(InvoiceItemRequest request);
+    Task<InvoiceItemResult> AddItemToDraftAsync(InvoiceItemRequest request);
+
+    // Removes an item whose bill is still a draft (a corrected meter reading). False when the bill
+    // was already sent (the item can't change anymore). No access check: callers check it.
+    Task<bool> RemoveDraftItemAsync(int itemId);
 
     // Hourly job: sends the drafts whose condominium sends automatically and whose day came.
     Task SendDueDraftsAsync(CancellationToken cancellationToken);
@@ -32,3 +36,5 @@ public record InvoiceItemRequest(
     int CreatedByUserId,
     // Null = the condominium's due day in that month.
     DateTime? DueDate = null);
+
+public record InvoiceItemResult(int ChargeId, int ItemId);
