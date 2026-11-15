@@ -1,4 +1,4 @@
-import { CalendarCheck, CalendarDays, DoorOpen, FileText, House, KeyRound, Megaphone, SlidersHorizontal, TriangleAlert, Users, Vote, Wallet, Wrench } from "lucide-react";
+import { CalendarCheck, CalendarDays, DoorOpen, FileText, HandCoins, House, KeyRound, Megaphone, SlidersHorizontal, TriangleAlert, Users, Vote, Wallet, Wrench } from "lucide-react";
 import { AdminAssembliesPage } from "../../features/adminAssemblies/AdminAssembliesPage";
 import { AdminAssemblyDetailPage } from "../../features/adminAssemblies/AdminAssemblyDetailPage";
 import { AdminNewsPage } from "../../features/adminNews/AdminNewsPage";
@@ -19,6 +19,7 @@ import { redirectTo } from "../../features/finance/redirectTo";
 import { RentalsPage } from "../../features/rentals/RentalsPage";
 import { UtilitiesPage } from "../../features/consumption/UtilitiesPage";
 import { ReportsPage } from "../../features/reports/ReportsPage";
+import { OwnerRentalsPage } from "../../features/rentals/OwnerRentalsPage";
 import type { RoleArea } from "./types";
 
 // The syndic reuses the Admin screens; the API limits the data to his buildings and permissions.
@@ -28,6 +29,8 @@ export const syndicArea: RoleArea = {
     { path: "dashboard", component: SyndicDashboardPage, nav: { label: "Início", icon: House } },
     { path: "residents", component: SyndicResidentsPage, nav: { label: "Moradores", icon: Users }, syndicAccess: "residents" },
     { path: "rentals", component: RentalsPage, nav: { label: "Aluguéis", icon: KeyRound }, syndicAccess: "rentals.manage", module: "rentals" },
+    // The rent of a unit they own: received in their own Mercado Pago, apart from the condominium's money.
+    { path: "my-rentals", component: OwnerRentalsPage, nav: { label: "Meus aluguéis", icon: HandCoins }, module: "rentals", unitOwnerOnly: true },
     // Out of the menu for now (Luiz, 2026-11-15): the month sheet opens from Financeiro → Resumo.
     { path: "utilities", component: UtilitiesPage, syndicAccess: "finance", module: "consumption" },
     { path: "finance", component: FinanceHome, nav: { label: "Financeiro", icon: Wallet } },
