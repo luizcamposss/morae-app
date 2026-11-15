@@ -195,6 +195,22 @@ PUT    /api/recurring-charges/{id}/pause | /resume | /end        (charges.create
 - Lote: `POST .../charges/batch` `{ buildingId?: 3, value: 500, dueDate?: "2026-11-10", description: "Taxa de novembro", category?: 6, unitIds?: [12, 13], unitValues?: [{ unitId: 12, value: 650 }] }`. Sem `buildingId` = todos os prédios (síndico limitado: só os dele). `unitIds` = só essas unidades (ex.: água pela leitura; os valores calculados na tela vão em `unitValues`). Sem `category` = 6 Rateio. Sem `dueDate` = próximo dia `billingDueDay`. Resposta: `{ dueDate, createdCount, totalValue, charges: [...], skipped: [{ unitId, unitNumber, buildingName, reason }] }`.
 - Recorrência: `POST .../recurring-charges` `{ buildingId?, value: 500, dueDay?: 10, description, category?, unitId?, recipientPersonId?, unitValues? }` (sem `dueDay` = o do condomínio; síndico limitado precisa escolher o prédio; sem `category` = 1 Taxa de condomínio). Com `unitId` a recorrência é **de uma unidade só** (ex.: aluguel; `buildingId` vira o prédio da unidade e `unitValues` é ignorado) e aceita `recipientPersonId` (vinculado à unidade). Se o destinatário deixar a unidade, o mês é pulado (`skipped`) em vez de cair nos outros moradores. A resposta traz `category`, `unitId`, `unitNumber`, `recipientPersonId` e `recipientName`. As cobranças geradas herdam categoria e destinatário. A rotina gera **10 dias antes** do vencimento, uma vez por unidade e mês. Criar e retomar já geram o mês se estiver dentro da janela (vem em `generation`). Encerrada não volta.
 
+### Contas do mês (#198)
+```
+GET    /api/condominiums/{condominiumId}/invoices?month=AAAA-MM     (Admin; síndico com acesso ao financeiro)
+POST   /api/condominiums/{condominiumId}/invoices/items             (charges.create)
+POST   /api/condominiums/{condominiumId}/invoices/send              (charges.create)  { month, chargeIds? }
+PUT    /api/invoices/{chargeId}                                     (rascunho)  { dueDate }
+DELETE /api/invoices/{chargeId}                                     (rascunho)
+PUT    /api/invoice-items/{itemId}                                  (rascunho)  { category, description, amount }
+DELETE /api/invoice-items/{itemId}                                  (rascunho; o último item apaga a conta)
+```
+- A conta do mês é uma **cobrança** com categoria `MonthlyBill` (11) e **itens** (`items: [{ id, category, description, amount }]`); `value` = soma dos itens. Uma por unidade + pagador (`recipientPersonId`) + mês (`referenceMonth`).
+- `POST items` `{ unitId, recipientPersonId?, month: "2026-11", category, description, amount }`: entra no rascunho daquele mês (cria se não existir; vencimento = dia de vencimento do condomínio). Itens não podem ser Acordo, Reserva ou Conta do mês.
+- Rascunho (`ChargeStatus.Draft` = 6) não aparece em nenhuma outra rota (morador, A receber, inadimplência, lembretes) e não pode ser pago. `send` vira Pendente, copia a regra de multa/juros, avisa no sininho e por e-mail com os itens. Rascunho com vencimento que já passou não é enviado (400).
+- Envio automático: `billing-settings` traz `invoiceAutoSendDaysBefore` (null = só manual); no `PUT`, `{ invoiceAutoSend: true, invoiceAutoSendDaysBefore: 10 }` (0–28) ou `{ invoiceAutoSend: false }`. A rotina de hora em hora (a partir das 9h) envia os rascunhos cujo dia chegou.
+- `ChargeResponseDto` e o comprovante (`/receipt`) trazem `items`. O balanço divide o pagamento de uma conta do mês entre as categorias dos itens, na proporção de cada um.
+
 ### Pagamentos e comprovante
 ```
 GET    /api/charges/{chargeId}/payments
@@ -415,8 +431,8 @@ POST   /api/reservations/{id}/reject
 - `BankAccountType`: 1 Checking, 2 Savings, 3 Payment
 - `ChargeScope`: 1 Platform, 2 Condominium
 - `CondominiumType`: 1 Residential (todos os módulos), 2 Rental (prédio de aluguel: sem assembleias), 3 Mixed (todos)
-- `ChargeCategory`: 1 CondominiumFee (Taxa de condomínio), 2 Rent (Aluguel), 3 Water (Água), 4 Electricity (Luz), 5 Gas (Gás), 6 Apportionment (Rateio), 7 Fine (Multa), 8 Reservation (Reserva), 9 Agreement (Acordo), 10 Other (Outros)
-- `ChargeStatus`: 1 Pending, 2 Paid, 3 Overdue, 4 Canceled, 5 Renegotiated (dentro de um acordo)
+- `ChargeCategory`: 1 CondominiumFee (Taxa de condomínio), 2 Rent (Aluguel), 3 Water (Água), 4 Electricity (Luz), 5 Gas (Gás), 6 Apportionment (Rateio), 7 Fine (Multa), 8 Reservation (Reserva), 9 Agreement (Acordo), 10 Other (Outros), 11 MonthlyBill (Conta do mês, com itens)
+- `ChargeStatus`: 1 Pending, 2 Paid, 3 Overdue, 4 Canceled, 5 Renegotiated (dentro de um acordo), 6 Draft (conta do mês ainda não enviada)
 - `AgreementStatus`: 1 Active, 2 Completed (quitado), 3 Broken (quebrado), 4 Canceled; `AgreementDiscountType`: 0 None, 1 Percent, 2 Amount
 - `RecurringChargeStatus`: 1 Active, 2 Paused, 3 Ended
 - `DocumentCategory`: 1 Convention, 2 InternalRules, 3 Minutes, 4 Financial, 5 Contract, 6 Other

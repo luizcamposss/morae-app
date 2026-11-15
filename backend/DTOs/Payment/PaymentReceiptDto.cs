@@ -6,6 +6,8 @@ public class PaymentReceiptDto
 {
     public int ChargeId { get; set; }
     public string Description { get; set; } = string.Empty;
+    // Lines of a monthly bill (empty for other charges).
+    public List<ReceiptItemDto> Items { get; set; } = [];
     public ChargeScope Scope { get; set; }
     public string CondominiumName { get; set; } = string.Empty;
     public string? UnitLabel { get; set; }
@@ -22,4 +24,10 @@ public class PaymentReceiptDto
 
     // True when the viewer received this Mercado Pago payment and may refund it.
     public bool CanRefund { get; set; }
+}
+
+public class ReceiptItemDto
+{
+    public string Description { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
 }

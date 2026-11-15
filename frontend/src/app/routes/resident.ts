@@ -1,4 +1,4 @@
-import { CalendarCheck, DoorOpen, House, Megaphone, Receipt, Scale, SlidersHorizontal, TriangleAlert, UserPlus, Vote } from "lucide-react";
+import { CalendarCheck, DoorOpen, House, Megaphone, Receipt, SlidersHorizontal, TriangleAlert, UserPlus, Vote } from "lucide-react";
 import { ResidentDashboardPage } from "../../features/residentDashboard/ResidentDashboardPage";
 import { ResidentUnitPage } from "../../features/residentUnit/ResidentUnitPage";
 import { ResidentBillsPage } from "../../features/residentBills/ResidentBillsPage";
@@ -17,13 +17,14 @@ export const residentArea: RoleArea = {
   routes: [
     { path: "dashboard", component: ResidentDashboardPage, nav: { label: "Início", icon: House } },
     { path: "unit", component: ResidentUnitPage, nav: { label: "Minha unidade", icon: DoorOpen } },
-    { path: "bills", component: ResidentBillsPage, nav: { label: "Boletos", icon: Receipt } },
+    { path: "bills", component: ResidentBillsPage, nav: { label: "Minhas contas", shortLabel: "Contas", icon: Receipt } },
     { path: "occurrences", component: ResidentOccurrencesPage, nav: { label: "Ocorrências", icon: TriangleAlert }, module: "occurrences" },
     { path: "visits", component: ResidentVisitsPage, nav: { label: "Visitas", icon: UserPlus }, module: "visitors" },
     { path: "reservations", component: ResidentReservationsPage, nav: { label: "Reservas", icon: CalendarCheck }, module: "reservations" },
     { path: "notices", component: ResidentNoticeBoardPage, nav: { label: "Avisos e documentos", shortLabel: "Avisos", icon: Megaphone } },
     { path: "documents", component: ResidentDocumentsRedirect },
-    { path: "balance", component: MonthlyBalancePage, nav: { label: "Prestação de contas", shortLabel: "Contas", icon: Scale }, module: "expenses" },
+    // Linked from "Minhas contas" (no menu entry, to keep the menu short).
+    { path: "balance", component: MonthlyBalancePage, module: "expenses" },
     { path: "assemblies", component: ResidentAssembliesPage, nav: { label: "Assembleias", icon: Vote }, module: "assemblies" },
     { path: "assemblies/:id", component: ResidentAssemblyDetailPage, module: "assemblies" },
     { path: "settings", component: ResidentSettingsPage, nav: { label: "Ajustes", icon: SlidersHorizontal, placement: "footer" } },

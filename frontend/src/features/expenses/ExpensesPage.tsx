@@ -5,6 +5,7 @@ import { Button } from "../../shared/components/Button";
 import { ConfirmDialog, type ConfirmRequest } from "../../shared/components/ConfirmDialog";
 import { MoraeMark } from "../../shared/components/MoraeMark";
 import { SelectField } from "../../shared/components/SelectField";
+import { FinanceTabs } from "../finance/FinanceTabs";
 import { PageHeader } from "../../shared/layout/PageHeader";
 import { formatCurrency } from "../../shared/lib/currency";
 import { formatCalendarDate, todayInputDate } from "../../shared/lib/date";
@@ -169,12 +170,13 @@ export function ExpensesPage() {
 
   return (
     <>
-      <PageHeader overline={activeCondominium?.condominiumName} title="Despesas">
+      <PageHeader overline={activeCondominium?.condominiumName} title="Financeiro">
         <Button variant="accent" onClick={() => openWizard(null)} disabled={!activeCondominiumId || categories.length === 0} className="max-sm:px-4">
           <Plus size={18} strokeWidth={2} aria-hidden />
           <span className="max-sm:sr-only">Lançar despesa</span>
         </Button>
       </PageHeader>
+      <FinanceTabs />
 
       {condominiums.length > 1 && (
         <SelectField

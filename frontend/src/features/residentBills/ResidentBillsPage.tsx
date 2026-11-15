@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { Button } from "../../shared/components/Button";
@@ -21,6 +21,7 @@ import { CHARGE_STATUS } from "../charges/platformRevenue";
 import type { ChargeResponse } from "../charges/types";
 import { ChargeStatusChip, ChargeStatusTile } from "../masterPayments/ChargeStatus";
 import { MercadoPagoPaymentModal } from "../mercadoPago/MercadoPagoPaymentModal";
+import { useModuleEnabled } from "../modules/modules";
 import { AgreementCard } from "./AgreementCard";
 import { NextChargeCard } from "./NextChargeCard";
 import { PixPaymentModal } from "./PixPaymentModal";
@@ -41,6 +42,9 @@ export function ResidentBillsPage() {
   const [payingChargeId, setPayingChargeId] = useState<number | null>(() => (location.state as BillsLocationState)?.payChargeId ?? null);
   const [hasPaidOnline, setHasPaidOnline] = useState(false);
   const [receiptChargeId, setReceiptChargeId] = useState<number | null>(null);
+  // "Pagar tudo": the open charges still to pay, one payment each (they may go to different receivers).
+  const [payQueue, setPayQueue] = useState<number[]>([]);
+  const hasBalance = useModuleEnabled("expenses");
 
   useEffect(() => {
     // Forget the router state, so a refresh does not open the payment again.
@@ -89,7 +93,25 @@ export function ResidentBillsPage() {
     setPayingChargeId(charge.id);
   }
 
+  function payAll() {
+    const [first, ...rest] = sortBills(openCharges).map((charge) => charge.id);
+    setPayQueue(rest);
+    setHasPaidOnline(false);
+    setPayingChargeId(first);
+  }
+
   function closePayment() {
+    // Paid (or receipt sent) and more in the queue: open the next one right away.
+    if (hasPaidOnline && payQueue.length > 0) {
+      const [next, ...rest] = payQueue;
+      setPayQueue(rest);
+      setHasPaidOnline(false);
+      setPayingChargeId(next);
+      setReloadKey((key) => key + 1);
+      return;
+    }
+
+    setPayQueue([]);
     setPayingChargeId(null);
     // Reload only after closing, so the payer sees the confirmation first.
     if (hasPaidOnline) {
@@ -100,7 +122,7 @@ export function ResidentBillsPage() {
 
   return (
     <>
-      <PageHeader overline={["Financeiro", activeCondominium?.condominiumName].filter(Boolean).join(" · ")} title="Boletos" />
+      <PageHeader overline={["Financeiro", activeCondominium?.condominiumName].filter(Boolean).join(" · ")} title="Minhas contas" />
 
       {condominiums.length > 1 && (
         <SelectField
@@ -121,9 +143,14 @@ export function ResidentBillsPage() {
       <NextChargeCard charge={nextCharge} isLoading={isLoading} otherOpenCount={Math.max(openCharges.length - 1, 0)} onPay={pay} onDetails={(charge) => setSelectedChargeId(charge.id)} />
 
       {openCharges.length > 1 && (
-        <p className="mt-3 px-1 text-[13px] text-tinta-suave">
-          Total em aberto hoje: <span className="font-semibold tabular-nums text-tinta">{formatCurrency(openTotal)}</span> em {openCharges.length} cobranças
-        </p>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 px-1">
+          <p className="text-[13px] text-tinta-suave">
+            Total em aberto hoje: <span className="font-semibold tabular-nums text-tinta">{formatCurrency(openTotal)}</span> em {openCharges.length} contas
+          </p>
+          <Button size="sm" onClick={payAll}>
+            Pagar tudo
+          </Button>
+        </div>
       )}
 
       {activeAgreements.map((agreement) => (
@@ -131,7 +158,7 @@ export function ResidentBillsPage() {
       ))}
 
       <div className="-mx-4 mb-4 mt-8 overflow-x-auto px-4 [scrollbar-width:none] lg:mx-0 lg:px-0">
-        <div role="tablist" aria-label="Situação dos boletos" className="inline-flex gap-1">
+        <div role="tablist" aria-label="Situação das contas" className="inline-flex gap-1">
           {billsTabs.map((item) => (
             <button
               key={item.key}
@@ -200,6 +227,16 @@ export function ResidentBillsPage() {
           : "O pagamento é feito pelo Mercado Pago, direto para a conta do condomínio. Com Pix, a baixa acontece sozinha em instantes."}
       </p>
 
+      {hasBalance && (
+        <Link to="/resident/balance" className="mt-4 flex items-center justify-between gap-3 rounded-card bg-superficie px-5 py-4 shadow-whisper transition-colors hover:bg-campo/60">
+          <span>
+            <span className="block text-[15px] font-semibold text-tinta">Prestação de contas</span>
+            <span className="block text-[13px] text-tinta-suave">Quanto o condomínio recebeu e gastou em cada mês</span>
+          </span>
+          <ChevronRight size={18} strokeWidth={1.8} aria-hidden className="shrink-0 text-tinta-suave" />
+        </Link>
+      )}
+
       {selectedCharge && !payingChargeId && !receiptChargeId && (
         <ChargeDetailsModal
           charge={selectedCharge}
@@ -236,9 +273,9 @@ export function ResidentBillsPage() {
 
       {payingCharge &&
         (payingCharge.onlinePaymentAvailable ? (
-          <MercadoPagoPaymentModal chargeId={payingCharge.id} onPaid={() => setHasPaidOnline(true)} onClose={closePayment} />
+          <MercadoPagoPaymentModal key={payingCharge.id} chargeId={payingCharge.id} onPaid={() => setHasPaidOnline(true)} onClose={closePayment} />
         ) : (
-          <PixPaymentModal charge={payingCharge} onSent={() => setHasPaidOnline(true)} onClose={closePayment} />
+          <PixPaymentModal key={payingCharge.id} charge={payingCharge} onSent={() => setHasPaidOnline(true)} onClose={closePayment} />
         ))}
     </>
   );

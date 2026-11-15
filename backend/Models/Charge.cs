@@ -72,4 +72,10 @@ public class Charge
     public int? AgreementId { get; set; }
     public Agreement? Agreement { get; set; }
     public int? AgreementInstallmentNumber { get; set; }
+
+    // Lines of a monthly bill (category MonthlyBill). Empty for every other charge.
+    public ICollection<ChargeItem> Items { get; set; } = [];
+
+    // When a monthly bill left the draft and reached the payers.
+    public DateTime? SentAt { get; set; }
 }

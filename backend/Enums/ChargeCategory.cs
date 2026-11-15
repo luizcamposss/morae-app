@@ -12,5 +12,6 @@ public enum ChargeCategory
     Fine = 7,            // Multa
     Reservation = 8,     // Reserva
     Agreement = 9,       // Acordo
-    Other = 10           // Outros
+    Other = 10,          // Outros
+    MonthlyBill = 11     // Conta do mês: several items (rent, water, light...) paid together
 }

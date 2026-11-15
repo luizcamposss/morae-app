@@ -734,6 +734,9 @@ namespace backend.Migrations
                     b.Property<int>("Scope")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
@@ -765,6 +768,42 @@ namespace backend.Migrations
                         .IsUnique();
 
                     b.ToTable("Charges");
+                });
+
+            modelBuilder.Entity("backend.Models.ChargeItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ChargeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChargeId");
+
+                    b.ToTable("ChargeItems");
                 });
 
             modelBuilder.Entity("backend.Models.CommonArea", b =>
@@ -934,6 +973,9 @@ namespace backend.Migrations
                     b.Property<decimal>("FinePercent")
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
+
+                    b.Property<int?>("InvoiceAutoSendDaysBefore")
+                        .HasColumnType("int");
 
                     b.Property<bool>("LateFeeEnabled")
                         .HasColumnType("tinyint(1)");
@@ -2829,6 +2871,17 @@ namespace backend.Migrations
                     b.Navigation("Unit");
                 });
 
+            modelBuilder.Entity("backend.Models.ChargeItem", b =>
+                {
+                    b.HasOne("backend.Models.Charge", "Charge")
+                        .WithMany("Items")
+                        .HasForeignKey("ChargeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Charge");
+                });
+
             modelBuilder.Entity("backend.Models.CommonArea", b =>
                 {
                     b.HasOne("backend.Models.Building", "Building")
@@ -3511,6 +3564,11 @@ namespace backend.Migrations
             modelBuilder.Entity("backend.Models.Building", b =>
                 {
                     b.Navigation("Units");
+                });
+
+            modelBuilder.Entity("backend.Models.Charge", b =>
+                {
+                    b.Navigation("Items");
                 });
 
             modelBuilder.Entity("backend.Models.CommonArea", b =>

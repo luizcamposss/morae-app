@@ -17,7 +17,8 @@ public static class ChargeEmails
         string description,
         decimal value,
         DateTime dueDate,
-        string chargesUrl)
+        string chargesUrl,
+        IReadOnlyList<(string Description, decimal Amount)>? items = null)
     {
         var intro = isPlatformCharge
             ? $"Há uma nova cobrança da plataforma MORAÊ para o {condominiumName}."
@@ -32,7 +33,9 @@ public static class ChargeEmails
             Details =
             [
                 ("Descrição", description),
-                ("Valor", value.ToString("C", PtBr)),
+                // A monthly bill lists each item before the total.
+                .. (items ?? []).Select(item => (item.Description, item.Amount.ToString("C", PtBr))),
+                (items is { Count: > 0 } ? "Total" : "Valor", value.ToString("C", PtBr)),
                 // DueDate is a calendar date (no time zone conversion).
                 ("Vencimento", dueDate.ToString("dd/MM/yyyy", PtBr))
             ],

@@ -1,4 +1,4 @@
-import { Building2, CircleEllipsis, Droplets, Flame, Gavel, Handshake, House, Lightbulb, PartyPopper, Split, type LucideIcon } from "lucide-react";
+import { Building2, CircleEllipsis, Droplets, Flame, Gavel, Handshake, House, Lightbulb, PartyPopper, ReceiptText, Split, type LucideIcon } from "lucide-react";
 import type { ChargeCategory } from "./types";
 
 type CategoryInfo = {
@@ -22,7 +22,11 @@ export const CHARGE_CATEGORIES: Record<ChargeCategory, CategoryInfo> = {
   8: { label: "Reserva", cardLabel: "Reserva", hint: "Salão, churrasqueira", icon: PartyPopper },
   9: { label: "Acordo", cardLabel: "Acordo", hint: "Parcela de dívida negociada", icon: Handshake },
   10: { label: "Outros", cardLabel: "Outro", hint: "Qualquer outra cobrança", icon: CircleEllipsis },
+  11: { label: "Conta do mês", cardLabel: "Conta do mês", hint: "Vários itens numa conta só", icon: ReceiptText },
 };
+
+// What a monthly bill item can be (the other categories have their own flow).
+export const INVOICE_ITEM_CATEGORIES: ChargeCategory[] = [2, 3, 4, 5, 1, 6, 7, 10];
 
 // Cards of the wizard's first step, in the order people look for them.
 export const WIZARD_CATEGORIES: ChargeCategory[] = [1, 2, 3, 4, 5, 6, 7, 10];

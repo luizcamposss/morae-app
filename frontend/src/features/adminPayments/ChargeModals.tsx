@@ -205,7 +205,9 @@ export function ChargeDetailsModal({ charge, place, person, footer, extra, showT
       footer={footer}
     >
       <dl className="rounded-block bg-campo py-1">
-        <AmountRow label="Valor original" value={formatCurrency(charge.value)} />
+        {/* A monthly bill shows each item, then the total. */}
+        {charge.items?.map((item) => <AmountRow key={item.id} label={item.description} value={formatCurrency(item.amount)} />)}
+        <AmountRow strong={charge.items?.length > 0 && !isOpen} label={charge.items?.length > 0 ? "Total da conta" : "Valor original"} value={formatCurrency(charge.value)} />
         {isOpen && hasLateFees(charge) && (
           <>
             <AmountRow label="Multa" detail={charge.finePercent != null ? `${charge.finePercent}%` : undefined} value={`+ ${formatCurrency(charge.fineAmount)}`} tone="text-vermelho" />

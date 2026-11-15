@@ -57,4 +57,16 @@ public class ChargeResponseDto
     // Installment of a debt agreement (0 = down payment, 1..N = installments).
     public int? AgreementId { get; set; }
     public int? AgreementInstallmentNumber { get; set; }
+
+    // Lines of a monthly bill (category MonthlyBill); empty for other charges.
+    public List<ChargeItemDto> Items { get; set; } = [];
+    public DateTime? SentAt { get; set; }
+}
+
+public class ChargeItemDto
+{
+    public int Id { get; set; }
+    public ChargeCategory Category { get; set; }
+    public string Description { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
 }

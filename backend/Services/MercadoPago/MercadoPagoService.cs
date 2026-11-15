@@ -1005,6 +1005,9 @@ public class MercadoPagoService : IMercadoPagoService
 
         if (charge.Status == ChargeStatus.Renegotiated)
             throw new BadRequestException("Esta cobrança foi renegociada num acordo; pague as parcelas do acordo.");
+
+        if (charge.Status == ChargeStatus.Draft)
+            throw new BadRequestException("Esta conta ainda não foi enviada.");
     }
 
     private void EnsureOAuthConfigured()

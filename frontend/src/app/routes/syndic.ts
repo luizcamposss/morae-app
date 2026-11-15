@@ -1,4 +1,4 @@
-import { CalendarCheck, CalendarDays, DoorOpen, FileText, House, Megaphone, Receipt, Scale, SlidersHorizontal, TriangleAlert, Users, Vote, Wallet, Wrench } from "lucide-react";
+import { CalendarCheck, CalendarDays, DoorOpen, FileText, House, Megaphone, SlidersHorizontal, TriangleAlert, Users, Vote, Wallet, Wrench } from "lucide-react";
 import { AdminAssembliesPage } from "../../features/adminAssemblies/AdminAssembliesPage";
 import { AdminAssemblyDetailPage } from "../../features/adminAssemblies/AdminAssemblyDetailPage";
 import { AdminNewsPage } from "../../features/adminNews/AdminNewsPage";
@@ -14,6 +14,8 @@ import { PreventiveMaintenancePage } from "../../features/maintenance/Preventive
 import { SyndicDashboardPage } from "../../features/syndicDashboard/SyndicDashboardPage";
 import { SyndicResidentsPage } from "../../features/syndicResidents/SyndicResidentsPage";
 import { SyndicSettingsPage } from "../../features/syndicSettings/SyndicSettingsPage";
+import { FinanceHome } from "../../features/finance/FinanceHome";
+import { redirectTo } from "../../features/finance/redirectTo";
 import type { RoleArea } from "./types";
 
 // The syndic reuses the Admin screens; the API limits the data to his buildings and permissions.
@@ -22,9 +24,13 @@ export const syndicArea: RoleArea = {
   routes: [
     { path: "dashboard", component: SyndicDashboardPage, nav: { label: "Início", icon: House } },
     { path: "residents", component: SyndicResidentsPage, nav: { label: "Moradores", icon: Users }, syndicAccess: "residents" },
-    { path: "payments", component: AdminPaymentsPage, nav: { label: "Pagamentos", icon: Receipt }, syndicAccess: "finance" },
-    { path: "expenses", component: ExpensesPage, nav: { label: "Despesas", icon: Wallet }, syndicAccess: "expenses.manage", module: "expenses" },
-    { path: "balance", component: MonthlyBalancePage, nav: { label: "Prestação de contas", shortLabel: "Contas", icon: Scale }, module: "expenses" },
+    { path: "finance", component: FinanceHome, nav: { label: "Financeiro", icon: Wallet } },
+    { path: "finance/receivables", component: AdminPaymentsPage, syndicAccess: "finance" },
+    { path: "finance/expenses", component: ExpensesPage, syndicAccess: "expenses.manage", module: "expenses" },
+    { path: "finance/balance", component: MonthlyBalancePage, module: "expenses" },
+    { path: "payments", component: redirectTo("/syndic/finance/receivables") },
+    { path: "expenses", component: redirectTo("/syndic/finance/expenses") },
+    { path: "balance", component: redirectTo("/syndic/finance/balance") },
     { path: "occurrences", component: AdminOccurrencesPage, nav: { label: "Ocorrências", icon: TriangleAlert }, syndicAccess: "maintenance", module: "occurrences" },
     { path: "news", component: AdminNewsPage, nav: { label: "Avisos", icon: Megaphone }, syndicAccess: "communication" },
     { path: "documents", component: DocumentsPage, nav: { label: "Documentos", icon: FileText }, syndicAccess: "documents.manage", module: "documents" },

@@ -78,5 +78,9 @@ public class Condominium
     // OpeningBalanceMonth (first day of the month) = the month it refers to; movements before it
     // are left out of the accumulated balance. Null month = counts from the first movement.
     public decimal OpeningBalance { get; set; }
+
+    // Monthly bills still in draft are sent by the hourly job this many days before they are due.
+    // Null = only when the management clicks "Enviar contas".
+    public int? InvoiceAutoSendDaysBefore { get; set; }
     public DateOnly? OpeningBalanceMonth { get; set; }
 }

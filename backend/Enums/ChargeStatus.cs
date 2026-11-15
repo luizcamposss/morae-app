@@ -9,5 +9,8 @@ public enum ChargeStatus
     Canceled = 4,
     // Part of a debt agreement: kept in the history, out of delinquency, no more fine/interest.
     // Goes back to Overdue if the agreement is broken or canceled.
-    Renegotiated = 5
+    Renegotiated = 5,
+    // Monthly bill still being put together by the management: residents don't see it,
+    // it can't be paid and no job touches it until it is sent (then it becomes Pending).
+    Draft = 6
 }

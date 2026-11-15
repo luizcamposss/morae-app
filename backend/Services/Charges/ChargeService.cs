@@ -210,6 +210,9 @@ public class ChargeService : IChargeService
         if (charge.Status == ChargeStatus.Canceled)
             throw new BadRequestException("Esta cobrança já foi cancelada.");
 
+        if (charge.Status == ChargeStatus.Draft)
+            throw new BadRequestException("Esta conta ainda é um rascunho: remova os itens em Contas do mês.");
+
         // Agreement charges change together with the agreement (cancel the agreement instead).
         if (charge.Status == ChargeStatus.Renegotiated || charge.AgreementId.HasValue)
             throw new BadRequestException("Esta cobrança faz parte de um acordo. Para mudar, cancele o acordo.");
@@ -657,10 +660,13 @@ public class ChargeService : IChargeService
         return user;
     }
 
+    // Drafts of monthly bills are left out: only the monthly bills screen (InvoiceService) shows them.
     private IQueryable<Charge> BuildChargeResponseQuery()
     {
         return _context.Charges
             .AsNoTracking()
+            .Where(c => c.Status != ChargeStatus.Draft)
+            .Include(c => c.Items)
             .Include(c => c.Condominium)
             .Include(c => c.RecipientPerson)
             .Include(c => c.Unit)
@@ -732,6 +738,12 @@ public class ChargeService : IChargeService
                 c.CreatedByUserId == userId);
     }
 
+    public async Task NotifyNewChargeAsync(Charge charge)
+    {
+        await CreateChargeNotificationsAsync(charge);
+        await _chargeEmailNotifier.QueueNewChargeAsync(charge);
+    }
+
     private async Task CreateChargeNotificationsAsync(Charge charge)
     {
         var condominiumName = await _context.Condominiums
@@ -768,11 +780,15 @@ public class ChargeService : IChargeService
             // Same people who get the e-mail: only the recipient when the charge has one.
             var residentUserIds = await _chargeEmailNotifier.GetPayerUserIdsAsync(charge);
 
+            var isMonthlyBill = charge.Category == ChargeCategory.MonthlyBill;
+
             await _notificationService.CreateManyAsync(
                 residentUserIds,
                 NotificationType.Charge,
-                "Novo boleto disponível",
-                $"Uma cobrança de {charge.Value.ToString("C", CultureInfo.GetCultureInfo("pt-BR"))} foi gerada para sua unidade.",
+                isMonthlyBill ? "Sua conta do mês chegou" : "Novo boleto disponível",
+                isMonthlyBill
+                    ? $"{charge.Description}: {charge.Value.ToString("C", CultureInfo.GetCultureInfo("pt-BR"))}, com o detalhe de cada item."
+                    : $"Uma cobrança de {charge.Value.ToString("C", CultureInfo.GetCultureInfo("pt-BR"))} foi gerada para sua unidade.",
                 "/resident/bills",
                 charge.CondominiumId);
         }
