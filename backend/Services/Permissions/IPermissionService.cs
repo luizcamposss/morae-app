@@ -28,6 +28,10 @@ public interface IPermissionService
     Task EnsurePersonAccessAsync(int userId, int personId);
     Task EnsureCondominiumPermissionAsync(int userId, int condominiumId, string permissionKey);
 
+    // Modules the condominium turned on (Constants/AppModules). A disabled module keeps its data.
+    Task<bool> IsModuleEnabledAsync(int condominiumId, string module);
+    Task EnsureModuleEnabledAsync(int condominiumId, string module);
+
     // The user's active role in that condominium (Admin, Syndic, Resident) or null. Roles are per
     // condominium: being Syndic in one condominium says nothing about another.
     Task<string?> GetCondominiumRoleAsync(int userId, int condominiumId);

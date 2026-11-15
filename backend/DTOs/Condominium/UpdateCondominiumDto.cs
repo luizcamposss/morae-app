@@ -31,4 +31,8 @@ public class UpdateCondominiumDto
     public string EmailContact { get; set; } = string.Empty;
 
     public Status Status { get; set; }
+
+    // Optional (omitted = unchanged). A new type resets the enabled modules to its defaults.
+    [EnumDataType(typeof(CondominiumType))]
+    public CondominiumType? Type { get; set; }
 }

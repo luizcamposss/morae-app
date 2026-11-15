@@ -30,6 +30,9 @@ export type MeCondominiumResponse = {
   condominiumName: string;
   role: string;
   status: string;
+  // 1 Residential, 2 Rental, 3 Mixed (features/modules).
+  type: number;
+  enabledModules: string[];
 };
 
 export type MeUnitResponse = {

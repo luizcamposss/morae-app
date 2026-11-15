@@ -5,6 +5,7 @@ import { useAuth } from "../../app/providers/useAuth";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { useSyndicAccess } from "../../features/syndicAccess/useSyndicAccess";
 import { hasSyndicAccess } from "../../features/syndicAccess/syndicAccessService";
+import { isModuleEnabled } from "../../features/modules/modules";
 import { getPrimaryRole, roleAreas, type AreaRole } from "../../app/routes";
 import { MoraeMark } from "../components/MoraeMark";
 import { Modal } from "../components/Modal";
@@ -17,12 +18,13 @@ type MenuItem = {
   placement?: "footer";
 };
 
-// Menu entries come from the role registries; a syndic only sees what the Admin allowed.
-function getMenuItems(role: AreaRole, syndicAccess: ReturnType<typeof useSyndicAccess>): MenuItem[] {
+// Menu entries come from the role registries; a syndic only sees what the Admin allowed, and
+// nobody sees the modules the condominium turned off.
+function getMenuItems(role: AreaRole, syndicAccess: ReturnType<typeof useSyndicAccess>, enabledModules: string[] | undefined): MenuItem[] {
   const area = roleAreas[role];
 
-  return area.routes.flatMap(({ path, nav, syndicAccess: requirement }) => {
-    if (!nav || (requirement && !hasSyndicAccess(syndicAccess, requirement))) {
+  return area.routes.flatMap(({ path, nav, syndicAccess: requirement, module }) => {
+    if (!nav || (requirement && !hasSyndicAccess(syndicAccess, requirement)) || (module && !isModuleEnabled(enabledModules, module))) {
       return [];
     }
 
@@ -35,7 +37,8 @@ export function Sidebar() {
   const { user, logout } = useAuth();
   const syndicAccess = useSyndicAccess();
   const primaryRole = getPrimaryRole(user?.roles ?? []);
-  const menuItems = getMenuItems(primaryRole, syndicAccess);
+  const { activeCondominium } = useCondominium();
+  const menuItems = getMenuItems(primaryRole, syndicAccess, activeCondominium?.enabledModules);
   const mainItems = menuItems.filter((item) => item.placement !== "footer");
   const footerItems = menuItems.filter((item) => item.placement === "footer");
   // The bottom bar fits five slots: past that, the fifth becomes "Mais" and opens every entry.

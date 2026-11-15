@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
+using backend.Constants;
 using backend.Enums;
 
 namespace backend.Models;
@@ -48,6 +49,12 @@ public class Condominium
     [Required]
     [StringLength(20)]
     public Status Status { get; set; } = Status.Active;
+
+    public CondominiumType Type { get; set; } = CondominiumType.Residential;
+
+    // Enabled module keys (Constants/AppModules), comma-separated. Read it through AppModules.Parse.
+    [StringLength(300)]
+    public string EnabledModules { get; set; } = AppModules.Serialize(AppModules.All);
 
     public int CreatedByUserId { get; set; }
     public ApplicationUser CreatedByUser { get; set; } = null!;

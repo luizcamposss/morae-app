@@ -3,6 +3,7 @@ import { Button } from "../../shared/components/Button";
 import { Modal } from "../../shared/components/Modal";
 import { SelectField } from "../../shared/components/SelectField";
 import { StateSelectField } from "../../shared/components/StateSelectField";
+import { condominiumTypeOptions } from "../modules/modules";
 import { TextField } from "../../shared/components/TextField";
 import type { MasterUserResponse } from "../masterUsers/types";
 import {
@@ -188,6 +189,18 @@ export function CondominiumFormModal({
             options={BRAZILIAN_STATES}
             error={fieldErrors.state}
           />
+          <div className="flex flex-col gap-2 sm:col-span-2">
+            <SelectField
+              label="Tipo do condomínio"
+              value={String(form.type)}
+              onChange={(event) => updateField("type", Number(event.target.value))}
+              options={condominiumTypeOptions.map((option) => ({ value: String(option.value), label: option.label }))}
+            />
+            <p className="text-[13px] text-tinta-suave">
+              {condominiumTypeOptions.find((option) => option.value === form.type)?.hint}{" "}
+              {isEdit ? "Trocar o tipo volta os módulos ao padrão dele." : "Define o que aparece no menu; o Admin ajusta depois."}
+            </p>
+          </div>
         </fieldset>
 
         {isEdit ? (

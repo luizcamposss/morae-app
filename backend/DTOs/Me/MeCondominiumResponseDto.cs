@@ -12,4 +12,7 @@ public class MeCondominiumResponseDto
     public string CondominiumName { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
     public UserCondominiumStatus Status { get; set; }
+    public CondominiumType Type { get; set; }
+    // Enabled module keys (Constants/AppModules); screens of other modules are hidden.
+    public IReadOnlyList<string> EnabledModules { get; set; } = [];
 }

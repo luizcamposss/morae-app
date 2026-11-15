@@ -112,7 +112,10 @@ public class OccurrenceService : IOccurrenceService
     public async Task<IEnumerable<OccurrenceResponseDto>> GetMineAsync(int userId)
     {
         var occurrences = await QueryWithDetails()
-            .Where(o => o.CreatedByUserId == userId && o.Condominium.Status == Status.Active)
+            .Where(o =>
+                o.CreatedByUserId == userId &&
+                o.Condominium.Status == Status.Active &&
+                o.Condominium.EnabledModules.Contains(AppModules.Occurrences))
             .OrderByDescending(o => o.CreatedAt)
             .ToListAsync();
 
@@ -317,6 +320,8 @@ public class OccurrenceService : IOccurrenceService
         if (user is null)
             throw new NotFoundException("Usuário não encontrado.");
 
+        await _permissionService.EnsureModuleEnabledAsync(dto.CondominiumId, AppModules.Occurrences);
+
         if (await _userManager.IsInRoleAsync(user, AppRoles.Master))
             throw new ForbiddenException("O Master não abre ocorrências.");
 
@@ -355,6 +360,8 @@ public class OccurrenceService : IOccurrenceService
         if (user is null)
             throw new NotFoundException("Usuário não encontrado.");
 
+        await _permissionService.EnsureModuleEnabledAsync(occurrence.CondominiumId, AppModules.Occurrences);
+
         if (occurrence.CreatedByUserId == userId)
             return;
 
@@ -385,6 +392,8 @@ public class OccurrenceService : IOccurrenceService
         if (user is null)
             throw new NotFoundException("Usuário não encontrado.");
 
+        await _permissionService.EnsureModuleEnabledAsync(condominiumId, AppModules.Occurrences);
+
         if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
         {
             await _permissionService.EnsureCondominiumAdminAsync(userId, condominiumId);
@@ -410,6 +419,8 @@ public class OccurrenceService : IOccurrenceService
 
         if (user is null)
             throw new NotFoundException("Usuário não encontrado.");
+
+        await _permissionService.EnsureModuleEnabledAsync(occurrence.CondominiumId, AppModules.Occurrences);
 
         if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
         {

@@ -74,6 +74,7 @@ public class AssemblyService : IAssemblyService
     public async Task<IEnumerable<AssemblyResponseDto>> GetByCondominiumAsync(int userId, int condominiumId)
     {
         await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
+        await _permissionService.EnsureModuleEnabledAsync(condominiumId, AppModules.Assemblies);
 
         var canManage = await CanManageAsync(userId, condominiumId);
 
@@ -100,6 +101,8 @@ public class AssemblyService : IAssemblyService
             ?? throw new NotFoundException("Assembleia não encontrada.");
 
         await _permissionService.EnsureCondominiumAccessAsync(userId, assembly.CondominiumId);
+
+        await _permissionService.EnsureModuleEnabledAsync(assembly.CondominiumId, AppModules.Assemblies);
 
         // Drafts exist only for the management.
         if (assembly.Status == AssemblyStatus.Draft && !await CanManageAsync(userId, assembly.CondominiumId))
@@ -534,6 +537,8 @@ public class AssemblyService : IAssemblyService
 
         await _permissionService.EnsureCondominiumAccessAsync(userId, row.CondominiumId);
 
+        await _permissionService.EnsureModuleEnabledAsync(row.CondominiumId, AppModules.Assemblies);
+
         if (row.Status == AssemblyStatus.Draft && !await CanManageAsync(userId, row.CondominiumId))
             throw new NotFoundException("Opção não encontrada.");
 
@@ -574,7 +579,8 @@ public class AssemblyService : IAssemblyService
                 assembly.ClosingReminderSentAt == null &&
                 assembly.VotingStartsAt <= now &&
                 assembly.VotingEndsAt > now &&
-                assembly.VotingEndsAt <= now.AddHours(24))
+                assembly.VotingEndsAt <= now.AddHours(24) &&
+                assembly.Condominium.EnabledModules.Contains(AppModules.Assemblies))
             .ToListAsync(cancellationToken);
 
         foreach (var assembly in assemblies)
@@ -763,6 +769,8 @@ public class AssemblyService : IAssemblyService
             ?? throw new NotFoundException("Assembleia não encontrada.");
 
         await _permissionService.EnsureCondominiumAccessAsync(userId, assembly.CondominiumId);
+
+        await _permissionService.EnsureModuleEnabledAsync(assembly.CondominiumId, AppModules.Assemblies);
 
         if (assembly.Status == AssemblyStatus.Draft)
             throw new NotFoundException("Assembleia não encontrada.");

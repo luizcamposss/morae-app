@@ -54,6 +54,8 @@ public class MaintenanceReminderService : IMaintenanceReminderService
             .Where(plan =>
                 plan.CreatedAt < startOfTodayUtc &&
                 plan.Condominium.Status == Status.Active &&
+                // A disabled module sends nothing (its plans come back when it is turned on).
+                plan.Condominium.EnabledModules.Contains(AppModules.Maintenance) &&
                 ((plan.NextDueDate < today && plan.OverdueReminderSentFor != plan.NextDueDate) ||
                  (plan.NextDueDate >= today && plan.NextDueDate <= firstLimit &&
                   (plan.Reminder30SentFor != plan.NextDueDate || plan.Reminder7SentFor != plan.NextDueDate))))

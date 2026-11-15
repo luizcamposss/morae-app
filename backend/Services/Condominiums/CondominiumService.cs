@@ -84,6 +84,7 @@ public class CondominiumService : ICondominiumService
 
         var condominium = _mapper.Map<Condominium>(dto.Condominium);
 
+        condominium.EnabledModules = AppModules.Serialize(AppModules.DefaultsFor(condominium.Type));
         condominium.CreatedByUserId = masterUserId;
         condominium.CreatedAt = DateTime.UtcNow;
         condominium.UpdatedAt = DateTime.UtcNow;
@@ -129,6 +130,7 @@ public class CondominiumService : ICondominiumService
 
         var condominium = _mapper.Map<Condominium>(dto);
 
+        condominium.EnabledModules = AppModules.Serialize(AppModules.DefaultsFor(condominium.Type));
         condominium.CreatedByUserId = userId;
         condominium.CreatedAt = DateTime.UtcNow;
         condominium.UpdatedAt = DateTime.UtcNow;
@@ -158,6 +160,7 @@ public class CondominiumService : ICondominiumService
                 State = c.State,
                 EmailContact = c.EmailContact,
                 Status = c.Status,
+                Type = c.Type,
                 CreatedAt = c.CreatedAt,
                 AdminUserId = c.UserCondominiums
                     .Where(uc =>
@@ -217,6 +220,12 @@ public class CondominiumService : ICondominiumService
         if (condominium is null) return false;
 
         _mapper.Map(dto, condominium);
+
+        if (dto.Type is { } type && type != condominium.Type)
+        {
+            condominium.Type = type;
+            condominium.EnabledModules = AppModules.Serialize(AppModules.DefaultsFor(type));
+        }
 
         condominium.UpdatedAt = DateTime.UtcNow;
 
@@ -370,6 +379,53 @@ public class CondominiumService : ICondominiumService
         return true;
     }
 
+    public async Task<CondominiumModulesDto> GetModulesAsync(int userId, int condominiumId)
+    {
+        await _permissionService.EnsureCondominiumAdminAsync(userId, condominiumId);
+
+        var condominium = await _context.Condominiums
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.Id == condominiumId)
+            ?? throw new NotFoundException("Condomínio não encontrado.");
+
+        return ToModulesDto(condominium);
+    }
+
+    public async Task<CondominiumModulesDto> UpdateModulesAsync(int userId, int condominiumId, UpdateCondominiumModulesDto dto)
+    {
+        await _permissionService.EnsureCondominiumAdminAsync(userId, condominiumId);
+
+        var unknown = dto.EnabledModules.Where(key => !AppModules.All.Contains(key)).ToList();
+
+        if (unknown.Count > 0)
+            throw new BadRequestException($"Módulo desconhecido: {string.Join(", ", unknown)}.");
+
+        var condominium = await _context.Condominiums
+            .FirstOrDefaultAsync(c => c.Id == condominiumId)
+            ?? throw new NotFoundException("Condomínio não encontrado.");
+
+        condominium.EnabledModules = AppModules.Serialize(dto.EnabledModules);
+        condominium.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        return ToModulesDto(condominium);
+    }
+
+    private static CondominiumModulesDto ToModulesDto(Condominium condominium)
+    {
+        var enabled = AppModules.Parse(condominium.EnabledModules);
+
+        return new CondominiumModulesDto
+        {
+            CondominiumId = condominium.Id,
+            Type = condominium.Type,
+            Modules = AppModules.All
+                .Select(key => new CondominiumModuleDto { Key = key, Label = AppModules.Labels[key], Enabled = enabled.Contains(key) })
+                .ToList()
+        };
+    }
+
     private async Task<CondominiumResponseDto> GetCondominiumResponseOrThrowAsync(int id)
     {
         var condominium = await _context.Condominiums
@@ -387,6 +443,7 @@ public class CondominiumService : ICondominiumService
                 State = c.State,
                 EmailContact = c.EmailContact,
                 Status = c.Status,
+                Type = c.Type,
                 CreatedAt = c.CreatedAt,
                 AdminUserId = c.UserCondominiums
                     .Where(uc =>

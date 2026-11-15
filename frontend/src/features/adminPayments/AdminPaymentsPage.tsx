@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ChevronRight, Handshake, Plus, Repeat, Search, TriangleAlert, X } from "lucide-react";
+import { useModuleEnabled } from "../modules/modules";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { Button, ButtonLink } from "../../shared/components/Button";
 import { ConfirmDialog, type ConfirmRequest } from "../../shared/components/ConfirmDialog";
@@ -149,6 +150,9 @@ export function AdminPaymentsPage() {
   const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
   const isSyndic = useIsSyndicArea();
   const canCreate = useSyndicCan("charges.create");
+  // With the agreements module off no new agreement starts; the existing ones stay listed.
+  const hasAgreementsModule = useModuleEnabled("agreements");
+  const canAgree = canCreate && hasAgreementsModule;
   const canMarkPaid = useSyndicCan("charges.mark_as_paid");
 
   useEffect(() => {
@@ -437,7 +441,7 @@ export function AdminPaymentsPage() {
     .join(" · ");
   const views: Array<{ key: View; label: string; count?: number }> = [
     { key: "charges", label: "Cobranças" },
-    { key: "agreements", label: "Acordos", count: activeAgreements || undefined },
+    ...(hasAgreementsModule || agreements.length > 0 ? [{ key: "agreements" as const, label: "Acordos", count: activeAgreements || undefined }] : []),
     { key: "recurring", label: "Recorrências", count: activeRecurring },
     ...(isSyndic ? [] : [{ key: "platform" as const, label: "Mensalidade Moraê", count: openPlatform || undefined }]),
   ];
@@ -598,7 +602,7 @@ export function AdminPaymentsPage() {
             </div>
           )}
 
-          {unitFilter && canCreate && unitLateCharges.length > 0 && (
+          {unitFilter && canAgree && unitLateCharges.length > 0 && (
             <div className="mb-4 flex flex-col gap-3 rounded-card bg-vermelho-suave px-5 py-4 sm:flex-row sm:items-center">
               <TriangleAlert size={20} strokeWidth={1.8} aria-hidden className="shrink-0 text-vermelho" />
               <p className="flex-1 text-sm text-tinta">
@@ -677,7 +681,7 @@ export function AdminPaymentsPage() {
         <>
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-tinta-suave">Dívidas atrasadas de uma unidade parceladas, com desconto opcional na multa e nos juros.</p>
-            {canCreate && (
+            {canAgree && (
               <Button
                 variant="quiet"
                 size="sm"
@@ -813,7 +817,7 @@ export function AdminPaymentsPage() {
                 >
                   Cancelar
                 </button>}
-                {canCreate && selectedCharge.status === CHARGE_STATUS.overdue && !selectedCharge.agreementId && (
+                {canAgree && selectedCharge.status === CHARGE_STATUS.overdue && !selectedCharge.agreementId && (
                   <Button variant="quiet" onClick={() => openAgreementWizard(selectedCharge.unitId ?? null)}>
                     Fazer acordo
                   </Button>

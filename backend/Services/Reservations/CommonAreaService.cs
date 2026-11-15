@@ -61,6 +61,7 @@ public class CommonAreaService : ICommonAreaService
     public async Task<IEnumerable<CommonAreaResponseDto>> GetBookableAsync(int userId, int condominiumId)
     {
         await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
+        await _permissionService.EnsureModuleEnabledAsync(condominiumId, AppModules.Reservations);
 
         var buildingIds = (await ReservationRules.GetUserUnitsAsync(_context, userId, condominiumId))
             .Select(unit => unit.BuildingId)
@@ -195,6 +196,8 @@ public class CommonAreaService : ICommonAreaService
             ?? throw new NotFoundException("Área não encontrada.");
 
         await _permissionService.EnsureCondominiumAccessAsync(userId, area.CondominiumId);
+
+        await _permissionService.EnsureModuleEnabledAsync(area.CondominiumId, AppModules.Reservations);
 
         if (!await CanSeeAsync(userId, area))
             throw new NotFoundException("Área não encontrada.");

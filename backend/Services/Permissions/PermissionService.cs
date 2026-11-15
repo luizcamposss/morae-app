@@ -265,6 +265,11 @@ public class PermissionService : IPermissionService
         if (userCondominium is null)
             return false;
 
+        // A module's permission only works while the module is on, for the Admin too.
+        if (AppModules.ByPermission.TryGetValue(permissionKey, out var module) &&
+            !await IsModuleEnabledAsync(condominiumId, module))
+            return false;
+
         if (userCondominium.Role == AppRoles.Admin)
             return true;
 
@@ -310,8 +315,28 @@ public class PermissionService : IPermissionService
             throw new ForbiddenException("Você não tem acesso a esta pessoa.");
     }
 
+    public async Task<bool> IsModuleEnabledAsync(int condominiumId, string module)
+    {
+        var enabledModules = await _context.Condominiums
+            .AsNoTracking()
+            .Where(c => c.Id == condominiumId)
+            .Select(c => c.EnabledModules)
+            .FirstOrDefaultAsync();
+
+        return AppModules.Parse(enabledModules).Contains(module);
+    }
+
+    public async Task EnsureModuleEnabledAsync(int condominiumId, string module)
+    {
+        if (!await IsModuleEnabledAsync(condominiumId, module))
+            throw new ForbiddenException($"O módulo \"{AppModules.Labels[module]}\" está desligado neste condomínio.");
+    }
+
     public async Task EnsureCondominiumPermissionAsync(int userId, int condominiumId, string permissionKey)
     {
+        if (AppModules.ByPermission.TryGetValue(permissionKey, out var module))
+            await EnsureModuleEnabledAsync(condominiumId, module);
+
         var hasPermission = await HasCondominiumPermissionAsync(userId, condominiumId, permissionKey);
 
         if (!hasPermission)

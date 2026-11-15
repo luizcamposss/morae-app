@@ -15,6 +15,7 @@ import { NewsDetailsModal } from "../news/NewsDetailsModal";
 import { newsAudienceLabel } from "../news/newsAudience";
 import { NEWS_PRIORITY } from "../news/newsPriority";
 import { getNewsByCondominium, markNewsAsRead } from "../news/newsService";
+import { useModuleEnabled } from "../modules/modules";
 import { PriorityChip } from "../news/PriorityChip";
 import type { NewsResponse } from "../news/types";
 
@@ -44,14 +45,16 @@ export function ResidentNoticeBoardPage() {
   const [downloadingId, setDownloadingId] = useState<number | null>(null);
   const [downloadError, setDownloadError] = useState("");
 
-  const showDocuments = searchParams.get("tab") === DOCUMENTS_TAB;
+  // With the documents module off, the screen is just the notices (no tabs).
+  const hasDocuments = useModuleEnabled("documents");
+  const showDocuments = hasDocuments && searchParams.get("tab") === DOCUMENTS_TAB;
 
   useEffect(() => {
     if (!activeCondominiumId) return;
     let isMounted = true;
 
     // Each list fails on its own, so a documents error still shows the notices.
-    Promise.allSettled([getNewsByCondominium(activeCondominiumId), getDocuments(activeCondominiumId)]).then(([news, documents]) => {
+    Promise.allSettled([getNewsByCondominium(activeCondominiumId), hasDocuments ? getDocuments(activeCondominiumId) : Promise.resolve([])]).then(([news, documents]) => {
       if (!isMounted) return;
       setLoaded({
         condominiumId: activeCondominiumId,
@@ -65,7 +68,7 @@ export function ResidentNoticeBoardPage() {
     return () => {
       isMounted = false;
     };
-  }, [activeCondominiumId]);
+  }, [activeCondominiumId, hasDocuments]);
 
   // Data from a previous condominium counts as "still loading" for the new one.
   const isLoading = Boolean(activeCondominiumId) && loaded.condominiumId !== activeCondominiumId;
@@ -116,7 +119,7 @@ export function ResidentNoticeBoardPage() {
 
   return (
     <>
-      <PageHeader overline={activeCondominium?.condominiumName} title="Avisos e documentos" />
+      <PageHeader overline={activeCondominium?.condominiumName} title={hasDocuments ? "Avisos e documentos" : "Avisos"} />
 
       {condominiums.length > 1 && (
         <SelectField
@@ -128,7 +131,7 @@ export function ResidentNoticeBoardPage() {
         />
       )}
 
-      <div role="group" aria-label="Avisos ou documentos" className="mb-6 grid grid-cols-2 gap-1 rounded-block bg-menu p-1 sm:inline-grid sm:min-w-80">
+      {hasDocuments && <div role="group" aria-label="Avisos ou documentos" className="mb-6 grid grid-cols-2 gap-1 rounded-block bg-menu p-1 sm:inline-grid sm:min-w-80">
         {mainTabs.map((tab) => {
           const isActive = showDocuments === tab.toDocuments;
           return (
@@ -146,7 +149,7 @@ export function ResidentNoticeBoardPage() {
             </button>
           );
         })}
-      </div>
+      </div>}
 
       {shownError && (
         <p role="alert" className="mb-6 rounded-field bg-vermelho-suave px-4 py-3 text-sm font-medium text-vermelho">
