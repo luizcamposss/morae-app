@@ -6,15 +6,14 @@ import { useGuide } from "./useGuide";
 
 // Ajustes → "Ajuda e tutorial": the role's tour on demand and the screen tips on/off.
 export function HelpSettings() {
-  const { hasTour, startTour, showTips, setShowTips, resetTips } = useGuide();
+  const { hasTour, startTour, showTips, setShowTips } = useGuide();
   const [isSaving, setIsSaving] = useState(false);
 
   if (!hasTour) return null;
 
   async function toggleTips(checked: boolean) {
     setIsSaving(true);
-    // Turning the tips back on shows them again from the start.
-    await (checked ? resetTips().then(() => setShowTips(true)) : setShowTips(false));
+    await setShowTips(checked);
     setIsSaving(false);
   }
 

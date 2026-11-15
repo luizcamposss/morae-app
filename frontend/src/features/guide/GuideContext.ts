@@ -4,9 +4,8 @@ export type GuideContextValue = {
   // Starts the tour of the user's role now (Ajustes → "Ver tutorial").
   startTour: () => void;
   showTips: boolean;
+  // Turning them back on shows every screen tip again (the tour stays as seen).
   setShowTips: (value: boolean) => Promise<void>;
-  // Shows the screen tips again, from the start (the tour stays as seen).
-  resetTips: () => Promise<void>;
   hasTour: boolean;
 };
 

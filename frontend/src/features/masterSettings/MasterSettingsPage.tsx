@@ -1,3 +1,4 @@
+import { HelpSettings } from "../guide/HelpSettings";
 import { useEffect, useState } from "react";
 import { Bell, CreditCard, KeyRound, Lock, QrCode } from "lucide-react";
 import { useAuth } from "../../app/providers/useAuth";
@@ -62,6 +63,8 @@ export function MasterSettingsPage() {
             <GroupedRow icon={Lock} title="Senha" subtitle="Trocar a senha desconecta os outros aparelhos" onClick={() => setModal("password")} />
             <GroupedRow icon={Bell} title="Notificações" subtitle="Avisos, cobranças e cadastros" onClick={() => setModal("notifications")} />
           </GroupedList>
+
+          <HelpSettings />
         </div>
 
         <div className="flex flex-col gap-4">

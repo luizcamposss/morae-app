@@ -20,6 +20,21 @@ const notifications = {
 };
 
 export const tours: Partial<Record<AreaRole, Guide>> = {
+  Master: {
+    key: "tour:master",
+    steps: [
+      { title: "Boas-vindas ao Moraê", body: "Este é o painel da plataforma. Em 1 minuto mostramos onde fica cada coisa. Dá para rever em Ajustes → Ajuda e tutorial." },
+      { nav: "/master/dashboard", title: "Início", body: "Os números da plataforma: condomínios ativos, receita do mês e o que precisa de você." },
+      { nav: "/master/condominiums", title: "Condomínios", body: "Cadastre condomínios, escolha o tipo e os módulos de cada um, e ative ou pause o acesso." },
+      { nav: "/master/admins", title: "Administradores", body: "Quem administra cada condomínio. Convide por e-mail e acompanhe os convites." },
+      { nav: "/master/payments", title: "Receita", body: "As mensalidades do Moraê que cada condomínio paga, com o que entrou e o que está em aberto." },
+      { nav: "/master/contacts", title: "Contatos", body: "Quem pediu contato pela página do Moraê. Responda e marque o andamento de cada um." },
+      { nav: "/master/news", title: "Avisos", body: "Avisos da plataforma para os administradores dos condomínios." },
+      notifications,
+      { nav: "/master/settings", title: "Ajustes", body: "Seus dados, senha e a chave Pix que recebe as mensalidades." },
+      done,
+    ],
+  },
   Admin: {
     key: "tour:admin",
     steps: [
