@@ -586,7 +586,7 @@ export function AdminPaymentsPage() {
                 {isLoading
                   ? "Carregando…"
                   : charges.length === 0
-                    ? "Nenhuma cobrança ainda. Use “Lançar cobrança” para uma taxa, rateio ou multa. Aluguel é pelo contrato, e água, luz e gás pela tela própria."
+                    ? "Nenhuma cobrança ainda. Use “Lançar cobrança” para taxa, aluguel, água, luz, gás, rateio ou multa."
                     : term || buildingFilter || monthFilter || categoryFilter || unitFilter
                       ? "Nenhuma cobrança encontrada com esses filtros."
                       : "Nenhuma cobrança nesta situação."}
