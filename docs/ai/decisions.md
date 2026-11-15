@@ -132,9 +132,16 @@ Decisões já tomadas com o Luiz. Siga sem perguntar de novo; se algo novo contr
 - O valor entra na conta do mês do inquilino quando o contrato inclui aquela conta; senão, na conta da unidade. Correção só enquanto a conta é rascunho.
 - O morador vê o gráfico dos últimos 12 meses em Minhas contas. O "Nova cobrança" continua com o cálculo por leitura digitada (não usa as leituras guardadas).
 
+## Relatórios financeiros (#191)
+
+- Aba **Relatórios** no Financeiro (Admin e síndico): inadimplência, recebimentos, despesas e balanço mensal em Excel (.xlsx) ou PDF, por intervalo de datas, com filtro opcional por prédio.
+- Síndico vê só os prédios dele. Inadimplência exige `delinquency.view`; recebimentos, acesso ao financeiro; despesas, `expenses.manage`; balanço, os dois. Despesas e balanço exigem o módulo Despesas ligado (para o Admin também).
+- Recebimentos dividem a conta do mês pelas categorias dos itens (mesma regra do balanço).
+- PDF com QuestPDF (licença Community: grátis para empresas com receita anual bruta abaixo de US$ 1 milhão; acima disso, licença paga). Excel com ClosedXML (MIT).
+
 ## Ficou de fora (não implementar sem o Luiz pedir)
 
-Encomendas, veículos/pets, relatórios, papel de porteiro/funcionário, registro de entrada/saída, QR code de visitante, ligar/desligar módulos por condomínio, voto por fração ideal, "reenviar e-mail" de convite ainda válido.
+Encomendas, veículos/pets, papel de porteiro/funcionário, registro de entrada/saída, QR code de visitante, voto por fração ideal, "reenviar e-mail" de convite ainda válido.
 
 ## Deploy (G, ainda não feito)
 

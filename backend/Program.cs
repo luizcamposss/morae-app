@@ -51,10 +51,14 @@ using backend.Services.Notifications;
 using backend.Services.MercadoPago;
 using backend.Services.Imports;
 using backend.Services.LandingContacts;
+using backend.Services.Reports;
 
 DotEnv.Load();
 
 var builder = WebApplication.CreateBuilder(args);
+
+// QuestPDF Community is free for eligible organisations under the published revenue threshold.
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
 builder.Services.AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new TimeOnlyJsonConverter()))
@@ -197,6 +201,7 @@ builder.Services.AddScoped<backend.Services.Rentals.IRentalContractService, back
 builder.Services.AddScoped<backend.Services.Consumption.IConsumptionService, backend.Services.Consumption.ConsumptionService>();
 builder.Services.AddScoped<ICondominiumService, CondominiumService>();
 builder.Services.AddScoped<IDelinquencyService, DelinquencyService>();
+builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<IMeService, MeService>();
 builder.Services.AddScoped<INewsService, NewsService>();
