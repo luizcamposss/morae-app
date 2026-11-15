@@ -116,7 +116,7 @@ export function ResidentDashboardPage() {
       {!activeCondominiumId ? (
         <EmptyCard text="Seu usuário ainda não tem acesso ativo a um condomínio." />
       ) : (
-        <div className="grid gap-x-6 gap-y-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-x-6 gap-y-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
           <div className="space-y-10">
             <section>
               <SectionTitle title="Para pagar" />

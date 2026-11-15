@@ -377,6 +377,13 @@ namespace backend.Migrations
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("longtext");
 
+                    b.Property<string>("SeenGuides")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<bool>("ShowTips")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("tinyint(1)");
 

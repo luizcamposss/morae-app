@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, Ref } from "react";
 import { Link, type LinkProps } from "react-router-dom";
 import { MoraeMark } from "./MoraeMark";
 
@@ -6,6 +6,7 @@ type ButtonVariant = "primary" | "accent" | "quiet" | "danger";
 type ButtonSize = "md" | "sm";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  ref?: Ref<HTMLButtonElement>;
   variant?: ButtonVariant;
   size?: ButtonSize;
   fullWidth?: boolean;

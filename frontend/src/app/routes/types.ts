@@ -15,6 +15,8 @@ export type AppRoute = {
   module?: ModuleRequirement;
   // Resident screens only for owners who rent out a unit in the active condominium.
   ownRentalsOnly?: boolean;
+  // Management screens only for an Admin/síndico who also owns a unit there ("Meus aluguéis").
+  unitOwnerOnly?: boolean;
 };
 
 export type RoleArea = {

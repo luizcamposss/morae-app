@@ -10,6 +10,7 @@ import { PublicRoute } from "../features/auth/PublicRoute";
 import { RoleRoute } from "../features/auth/RoleRoute";
 import { AcceptInvitationPage } from "../features/invitations/AcceptInvitationPage";
 import { MercadoPagoOAuthReturnPage } from "../features/mercadoPago/MercadoPagoOAuthReturnPage";
+import { MyRentalsRedirect } from "../features/rentals/MyRentalsRedirect";
 import { SyndicAccessProvider } from "../features/syndicAccess/SyndicAccessProvider";
 import { SyndicAccessRoute } from "../features/syndicAccess/SyndicAccessRoute";
 import { ModuleRoute } from "../features/modules/ModuleRoute";
@@ -33,6 +34,7 @@ export function AppRouter() {
                 <Route element={<ProtectedRoute />}>
                     <Route path="/suspended" element={<SuspendedAccessPage />} />
                     <Route path="/mercadopago/return" element={<MercadoPagoOAuthReturnPage />} />
+                    <Route path="/my-rentals" element={<MyRentalsRedirect />} />
 
                     {areaRoute("Master")}
                     {areaRoute("Admin")}

@@ -1,3 +1,5 @@
+import type { Guides } from "../guide/types";
+
 export type MeResponse = {
   userId: number;
   email: string;
@@ -12,6 +14,8 @@ export type MeResponse = {
   // True when every active link of the user points to an inactive condominium (Master excluded).
   isCondominiumInactive: boolean;
   roles: string[];
+  // In-app tutorial: what was already shown and whether screen tips show.
+  guides?: Guides;
 };
 
 export type UpdateMyProfileRequest = {

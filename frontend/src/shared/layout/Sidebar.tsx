@@ -1,54 +1,17 @@
+import { SelectField } from "../components/SelectField";
 import { useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { ChevronDown, LogOut, Menu, type LucideIcon } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 import { useAuth } from "../../app/providers/useAuth";
 import { useCondominium } from "../../app/providers/useCondominium";
-import { useSyndicAccess } from "../../features/syndicAccess/useSyndicAccess";
-import { hasSyndicAccess } from "../../features/syndicAccess/syndicAccessService";
-import { isModuleEnabled } from "../../features/modules/modules";
-import { getPrimaryRole, roleAreas, type AreaRole } from "../../app/routes";
+import { useMenuItems, type MenuItem } from "./useMenuItems";
 import { MoraeMark } from "../components/MoraeMark";
 import { Modal } from "../components/Modal";
 
-type MenuItem = {
-  label: string;
-  shortLabel?: string;
-  icon: LucideIcon;
-  to: string;
-  placement?: "footer";
-};
-
-// Menu entries come from the role registries; a syndic only sees what the Admin allowed, and
-// nobody sees the modules the condominium turned off.
-function getMenuItems(
-  role: AreaRole,
-  syndicAccess: ReturnType<typeof useSyndicAccess>,
-  enabledModules: string[] | undefined,
-  hasOwnRentals: boolean,
-): MenuItem[] {
-  const area = roleAreas[role];
-
-  return area.routes.flatMap(({ path, nav, syndicAccess: requirement, module, ownRentalsOnly }) => {
-    if (
-      !nav ||
-      (requirement && !hasSyndicAccess(syndicAccess, requirement)) ||
-      (module && !isModuleEnabled(enabledModules, module)) ||
-      (ownRentalsOnly && !hasOwnRentals)
-    ) {
-      return [];
-    }
-
-    return [{ ...nav, to: `${area.basePath}/${path}` }];
-  });
-}
-
 export function Sidebar() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
-  const syndicAccess = useSyndicAccess();
-  const primaryRole = getPrimaryRole(user?.roles ?? []);
-  const { activeCondominium } = useCondominium();
-  const menuItems = getMenuItems(primaryRole, syndicAccess, activeCondominium?.enabledModules, Boolean(activeCondominium?.hasOwnRentalContracts));
+  const { logout } = useAuth();
+  const { primaryRole, menuItems } = useMenuItems();
   const mainItems = menuItems.filter((item) => item.placement !== "footer");
   const footerItems = menuItems.filter((item) => item.placement === "footer");
   // The bottom bar fits five slots: past that, the fifth becomes "Mais" and opens every entry.
@@ -105,7 +68,7 @@ export function Sidebar() {
         {/* Equal columns, no minimum width: the five items always fit, even at 320 px. */}
         <div className="grid auto-cols-fr grid-flow-col gap-1">
           {barItems.map((item) => (
-            <NavLink key={item.to} to={item.to} className={({ isActive }) => bottomItemClass(isActive)}>
+            <NavLink key={item.to} to={item.to} data-tour={`nav:${item.to}`} className={({ isActive }) => bottomItemClass(isActive)}>
               <item.icon size={20} strokeWidth={1.6} aria-hidden />
               <span className="max-w-full truncate">{item.shortLabel ?? item.label}</span>
             </NavLink>
@@ -115,6 +78,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => setIsMoreOpen(true)}
+              data-tour="nav:more"
               aria-haspopup="dialog"
               aria-expanded={isMoreOpen}
               className={bottomItemClass(isMoreActive)}
@@ -161,6 +125,7 @@ function SidebarLink({ item }: { item: MenuItem }) {
   return (
     <NavLink
       to={item.to}
+      data-tour={`nav:${item.to}`}
       className={({ isActive }) =>
         `group flex items-center gap-3 rounded-field px-2.5 py-2.5 text-[15px] transition-colors duration-150 ${
           isActive
@@ -197,20 +162,14 @@ function CondominiumSwitcher() {
   }
 
   return (
-    <label className="relative mt-5 flex items-center">
-      <span className="sr-only">Condomínio</span>
-      <select
-        value={activeCondominium.condominiumId}
-        onChange={(event) => setActiveCondominiumId(Number(event.target.value))}
-        className="w-full cursor-pointer appearance-none truncate rounded-chip bg-transparent py-1 pr-6 text-sm font-semibold text-tinta hover:text-tinta-forte"
-      >
-        {condominiums.map((condominium) => (
-          <option key={condominium.condominiumId} value={condominium.condominiumId}>
-            {condominium.condominiumName}
-          </option>
-        ))}
-      </select>
-      <ChevronDown size={16} strokeWidth={1.8} aria-hidden className="pointer-events-none absolute right-0 text-tinta-suave" />
-    </label>
+    <SelectField
+      label="Condomínio"
+      hideLabel
+      variant="plain"
+      className="mt-5"
+      value={activeCondominium.condominiumId}
+      onChange={(event) => setActiveCondominiumId(Number(event.target.value))}
+      options={condominiums.map((condominium) => ({ value: String(condominium.condominiumId), label: condominium.condominiumName }))}
+    />
   );
 }

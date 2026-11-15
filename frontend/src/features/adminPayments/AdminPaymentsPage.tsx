@@ -16,7 +16,7 @@ import type { AgreementResponse } from "../agreements/types";
 import { getBuildingsByCondominium } from "../buildings/buildingService";
 import { createChargeBatch, getBillingSettings } from "../charges/billingService";
 import { cancelCharge, createCharge, getChargesByCondominium, getPlatformCharges } from "../charges/chargeService";
-import { categoryOptions } from "../charges/chargeCategories";
+import { CHARGE_CATEGORIES, categoryOptions, isUtility } from "../charges/chargeCategories";
 import { ChargeCategoryChip } from "../charges/ChargeCategoryChip";
 import { PaymentProofChip } from "../charges/PaymentProofChip";
 import { proofState } from "../charges/paymentProof";
@@ -37,6 +37,8 @@ import { BatchResultModal, CancelChargeModal, ChargeDetailsModal, ManualPaymentM
 import { NewChargeWizard } from "./NewChargeWizard";
 import { billedUnits, monthName, targetUnits, unitValuesFor, type NewChargeForm } from "./newChargeForm";
 import { launchCharge } from "../invoices/invoiceService";
+import { saveUtilityMonth } from "../consumption/consumptionService";
+import { isModuleEnabled } from "../modules/modules";
 import { InvoicesBoard } from "../invoices/InvoicesPage";
 import { useIsSyndicArea, useSyndicCan } from "../syndicAccess/useSyndicAccess";
 import {
@@ -290,13 +292,23 @@ export function AdminPaymentsPage() {
     setModalError("");
     clearMessages();
     try {
-      if (!form.repeat && form.destination === "bill") {
+      if (!form.repeat && form.destination === "bill" && isUtility(form.category) && !recipientPersonId && isModuleEnabled(activeCondominium?.enabledModules, "consumption")) {
+        // Water, light and gas of the month: the same values as the "Água, luz e gás" screen,
+        // so they show there and are never billed twice.
+        const category = form.category;
+        const billed = billedUnits(form, units);
+        const result = await saveUtilityMonth(activeCondominiumId, form.billMonth, billed.map((item) => ({ unitId: item.unit.id, category, amount: item.value })));
+        setSuccessMessage(
+          `${CHARGE_CATEGORIES[category].label} de ${monthName(form.billMonth)} entrou em ${billed.length === 1 ? "1 conta" : `${billed.length} contas`} (${formatCurrency(result.total)}). Aparece também em Água, luz e gás.`,
+        );
+      } else if (!form.repeat && form.destination === "bill") {
         // Into each unit's bill of the month (drafts until they go out).
         const result = await launchCharge(activeCondominiumId, {
           month: form.billMonth,
           category: form.category,
           description: common.description,
           units: billedUnits(form, units).map((item) => ({ unitId: item.unit.id, amount: item.value })),
+          recipientPersonId,
         });
         setSuccessMessage(
           `${common.description}${label} entrou em ${result.createdCount === 1 ? "1 conta" : `${result.createdCount} contas`} de ${monthName(form.billMonth)} (${formatCurrency(result.total)}).` +
@@ -404,7 +416,7 @@ export function AdminPaymentsPage() {
     <>
       <PageHeader overline={overline || undefined} title="Financeiro">
         {canCreate && (
-          <Button variant="accent" size="sm" onClick={() => openWizard()} disabled={isLoading || units.length === 0 || !page.isReceivingReady}>
+          <Button variant="accent" size="sm" data-tour="finance:launch" onClick={() => openWizard()} disabled={isLoading || units.length === 0 || !page.isReceivingReady}>
             <Plus size={16} strokeWidth={2} aria-hidden />
             Lançar cobrança
           </Button>
@@ -473,6 +485,7 @@ export function AdminPaymentsPage() {
                     type="button"
                     role="tab"
                     aria-selected={tab === item.key}
+                    data-tour={item.key === "draft" ? "finance:drafts" : undefined}
                     onClick={() => setTab(item.key)}
                     className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
                       tab === item.key ? "bg-tinta text-white" : "text-tinta-suave hover:bg-menu hover:text-tinta"
@@ -573,7 +586,7 @@ export function AdminPaymentsPage() {
                 {isLoading
                   ? "Carregando…"
                   : charges.length === 0
-                    ? "Nenhuma cobrança ainda. Use “Lançar cobrança” para uma taxa, rateio ou multa. Aluguel é pelo contrato, e água, luz e gás pela tela própria."
+                    ? "Nenhuma cobrança ainda. Use “Lançar cobrança” para taxa, aluguel, água, luz, gás, rateio ou multa."
                     : term || buildingFilter || monthFilter || categoryFilter || unitFilter
                       ? "Nenhuma cobrança encontrada com esses filtros."
                       : "Nenhuma cobrança nesta situação."}

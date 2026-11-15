@@ -192,18 +192,15 @@ export function UnitsStep({ data, unitsPerFloor, onSaved }: UnitsStepProps) {
                         <span className="col-span-2 text-[13px] text-tinta-suave">Já cadastrada, será pulada</span>
                       ) : (
                         <>
-                          <select
-                            aria-label="Tipo"
-                            className="min-h-10 w-full min-w-0 rounded-field bg-campo px-2 text-sm text-tinta outline-none focus:ring-2 focus:ring-verde"
+                          <SelectField
+                            label="Tipo"
+                            hideLabel
+                            variant="compact"
+                            className="w-full min-w-0"
                             value={row.unitType}
                             onChange={(event) => update(row.id, { unitType: Number(event.target.value) })}
-                          >
-                            {unitTypeOptions.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
+                            options={unitTypeOptions.map((option) => ({ value: String(option.value), label: option.label }))}
+                          />
                           <input
                             aria-label="Metragem em m²"
                             inputMode="decimal"

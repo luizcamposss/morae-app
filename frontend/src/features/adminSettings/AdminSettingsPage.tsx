@@ -1,3 +1,4 @@
+import { HelpSettings } from "../guide/HelpSettings";
 import { useEffect, useMemo, useState } from "react";
 import { Bell, Building2, CalendarClock, CreditCard, Gauge, KeyRound, LayoutGrid, Lock, QrCode, Scale, Send, ShieldCheck } from "lucide-react";
 import { useAuth } from "../../app/providers/useAuth";
@@ -136,6 +137,8 @@ export function AdminSettingsPage() {
             <GroupedRow icon={Lock} title="Senha" subtitle="Trocar a senha desconecta os outros aparelhos" onClick={() => setModal("password")} />
             <GroupedRow icon={Bell} title="Notificações" subtitle="Avisos, cobranças e cadastros" onClick={() => setModal("notifications")} />
           </GroupedList>
+
+          <HelpSettings />
 
           {activeCondominiumId && (
             <GroupedList title="Condomínio">
