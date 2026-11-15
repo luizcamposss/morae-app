@@ -1,4 +1,4 @@
-import { CalendarCheck, CalendarDays, DoorOpen, FileText, House, Megaphone, SlidersHorizontal, TriangleAlert, Users, Vote, Wallet, Wrench } from "lucide-react";
+import { CalendarCheck, CalendarDays, DoorOpen, FileText, House, KeyRound, Megaphone, SlidersHorizontal, TriangleAlert, Users, Vote, Wallet, Wrench } from "lucide-react";
 import { AdminAssembliesPage } from "../../features/adminAssemblies/AdminAssembliesPage";
 import { AdminAssemblyDetailPage } from "../../features/adminAssemblies/AdminAssemblyDetailPage";
 import { AdminNewsPage } from "../../features/adminNews/AdminNewsPage";
@@ -16,6 +16,7 @@ import { SyndicResidentsPage } from "../../features/syndicResidents/SyndicReside
 import { SyndicSettingsPage } from "../../features/syndicSettings/SyndicSettingsPage";
 import { FinanceHome } from "../../features/finance/FinanceHome";
 import { redirectTo } from "../../features/finance/redirectTo";
+import { RentalsPage } from "../../features/rentals/RentalsPage";
 import type { RoleArea } from "./types";
 
 // The syndic reuses the Admin screens; the API limits the data to his buildings and permissions.
@@ -24,6 +25,7 @@ export const syndicArea: RoleArea = {
   routes: [
     { path: "dashboard", component: SyndicDashboardPage, nav: { label: "Início", icon: House } },
     { path: "residents", component: SyndicResidentsPage, nav: { label: "Moradores", icon: Users }, syndicAccess: "residents" },
+    { path: "rentals", component: RentalsPage, nav: { label: "Aluguéis", icon: KeyRound }, syndicAccess: "rentals.manage", module: "rentals" },
     { path: "finance", component: FinanceHome, nav: { label: "Financeiro", icon: Wallet } },
     { path: "finance/receivables", component: AdminPaymentsPage, syndicAccess: "finance" },
     { path: "finance/expenses", component: ExpensesPage, syndicAccess: "expenses.manage", module: "expenses" },

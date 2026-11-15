@@ -2283,6 +2283,129 @@ namespace backend.Migrations
                     b.ToTable("RefreshTokens");
                 });
 
+            modelBuilder.Entity("backend.Models.RentalContract", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AdjustmentIndex")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly?>("AdjustmentReminderSentFor")
+                        .HasColumnType("date");
+
+                    b.Property<decimal?>("CondominiumFeeAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("CondominiumId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DueDay")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("EndReason")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("EndedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IncludesCondominiumFee")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IncludesElectricity")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IncludesGas")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IncludesWater")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateOnly?>("LastBilledMonth")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("MonthlyRent")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<DateOnly?>("NextAdjustmentDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantPersonId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UnitId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CondominiumId");
+
+                    b.HasIndex("TenantPersonId");
+
+                    b.HasIndex("UnitId", "Status");
+
+                    b.ToTable("RentalContracts");
+                });
+
+            modelBuilder.Entity("backend.Models.RentalContractValueChange", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ChangedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateOnly>("EffectiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("NewValue")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal?>("PreviousValue")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("RentalContractId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RentalContractId");
+
+                    b.ToTable("RentalContractValueChanges");
+                });
+
             modelBuilder.Entity("backend.Models.Reservation", b =>
                 {
                     b.Property<int>("Id")
@@ -3398,6 +3521,44 @@ namespace backend.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("backend.Models.RentalContract", b =>
+                {
+                    b.HasOne("backend.Models.Condominium", "Condominium")
+                        .WithMany()
+                        .HasForeignKey("CondominiumId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Person", "TenantPerson")
+                        .WithMany()
+                        .HasForeignKey("TenantPersonId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Condominium");
+
+                    b.Navigation("TenantPerson");
+
+                    b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("backend.Models.RentalContractValueChange", b =>
+                {
+                    b.HasOne("backend.Models.RentalContract", "RentalContract")
+                        .WithMany("ValueChanges")
+                        .HasForeignKey("RentalContractId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("RentalContract");
+                });
+
             modelBuilder.Entity("backend.Models.Reservation", b =>
                 {
                     b.HasOne("backend.Models.ApplicationUser", "CanceledByUser")
@@ -3600,6 +3761,11 @@ namespace backend.Migrations
             modelBuilder.Entity("backend.Models.RecurringCharge", b =>
                 {
                     b.Navigation("UnitValues");
+                });
+
+            modelBuilder.Entity("backend.Models.RentalContract", b =>
+                {
+                    b.Navigation("ValueChanges");
                 });
 
             modelBuilder.Entity("backend.Models.UserCondominium", b =>

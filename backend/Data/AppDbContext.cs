@@ -60,6 +60,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<ExpenseCategory> ExpenseCategories { get; set; }
     public DbSet<Expense> Expenses { get; set; }
     public DbSet<ChargeItem> ChargeItems { get; set; }
+    public DbSet<RentalContract> RentalContracts { get; set; }
+    public DbSet<RentalContractValueChange> RentalContractValueChanges { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -73,6 +75,23 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
         builder.Entity<ChargeItem>()
             .Property(item => item.Amount)
             .HasPrecision(10, 2);
+
+        builder.Entity<RentalContract>(contract =>
+        {
+            contract.Property(c => c.MonthlyRent).HasPrecision(10, 2);
+            contract.Property(c => c.CondominiumFeeAmount).HasPrecision(10, 2);
+            contract.HasOne(c => c.Condominium).WithMany().HasForeignKey(c => c.CondominiumId).OnDelete(DeleteBehavior.Cascade);
+            contract.HasOne(c => c.Unit).WithMany().HasForeignKey(c => c.UnitId).OnDelete(DeleteBehavior.Restrict);
+            contract.HasOne(c => c.TenantPerson).WithMany().HasForeignKey(c => c.TenantPersonId).OnDelete(DeleteBehavior.Restrict);
+            contract.HasIndex(c => new { c.UnitId, c.Status });
+        });
+
+        builder.Entity<RentalContractValueChange>(change =>
+        {
+            change.Property(c => c.PreviousValue).HasPrecision(10, 2);
+            change.Property(c => c.NewValue).HasPrecision(10, 2);
+            change.HasOne(c => c.RentalContract).WithMany(c => c.ValueChanges).HasForeignKey(c => c.RentalContractId).OnDelete(DeleteBehavior.Cascade);
+        });
 
         builder.Entity<ApplicationUser>()
             .HasOne(u => u.Person)

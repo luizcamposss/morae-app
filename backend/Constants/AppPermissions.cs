@@ -15,6 +15,7 @@ public static class AppPermissions
     public const string AssembliesManage = "assemblies.manage";
     public const string ReservationsManage = "reservations.manage";
     public const string ExpensesManage = "expenses.manage";
+    public const string RentalsManage = "rentals.manage";
 
     // Any of these gives a syndic access to the condominium's charges and payments (the "Financeiro" area).
     public static readonly IReadOnlyList<string> FinanceAccess = [ChargesCreate, ChargesMarkAsPaid, DelinquencyView];
@@ -37,6 +38,7 @@ public static class AppPermissions
         VisitorsManage,
         AssembliesManage,
         ReservationsManage,
-        ExpensesManage
+        ExpensesManage,
+        RentalsManage
     };
 }

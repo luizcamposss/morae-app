@@ -7,7 +7,7 @@ Decisões já tomadas com o Luiz. Siga sem perguntar de novo; se algo novo contr
 - 4 papéis: **Master, Admin, Síndico, Morador**. Papel por condomínio.
 - Master: plataforma (condomínios, Admins, cobranças da plataforma). Não vê dados internos do condomínio.
 - Síndico: permissões ligadas pelo Admin. Um **síndico novo nasce com todas as permissões** e gerenciando **todos os prédios** (padrão do mercado). O Admin restringe (subsíndico, síndico de bloco). Síndico paga só as cobranças da própria unidade.
-- Permissões do síndico (`AppPermissions`): `residents.view`, `news.create`, `news.edit`, `charges.create`, `charges.mark_as_paid`, `delinquency.view`, `occurrences.manage`, `documents.manage`, `maintenance.manage`, `visitors.manage`, `assemblies.manage`, `reservations.manage`, `expenses.manage`.
+- Permissões do síndico (`AppPermissions`): `residents.view`, `news.create`, `news.edit`, `charges.create`, `charges.mark_as_paid`, `delinquency.view`, `occurrences.manage`, `documents.manage`, `maintenance.manage`, `visitors.manage`, `assemblies.manage`, `reservations.manage`, `expenses.manage`, `rentals.manage`.
 - Condomínio **inativo** bloqueia Admin, síndico e morador (o login funciona; as cobranças da plataforma continuam visíveis e pagáveis pelo Admin).
 - Não existe papel de porteiro/funcionário. Foi discutido e **adiado**: por agora não há registro de entrada/saída.
 
@@ -117,6 +117,13 @@ Decisões já tomadas com o Luiz. Siga sem perguntar de novo; se algo novo contr
 - Nasce em **rascunho** (o morador não vê). A gestão monta, muda o vencimento, tira itens e clica em **Enviar contas**; ou liga o **envio automático** X dias antes do vencimento (Admin). Rascunho vencido não sai: precisa de novo vencimento. Depois de enviada a conta não muda; se precisar, cancela em A receber.
 - Por enquanto o único recebedor é o condomínio. Contratos de aluguel (#199) e leituras (#200) vão colocar itens sozinhos no rascunho.
 - **Menu:** Admin e síndico têm um item **Financeiro** com as abas Contas do mês · A receber · Despesas · Balanço (endereços antigos redirecionam). O morador tem **Minhas contas** (antes "Boletos"), com a prestação de contas como link no fim e o botão **Pagar tudo** quando há mais de uma conta em aberto (um pagamento depois do outro).
+
+## Contrato de aluguel (#199)
+
+- Módulo **Aluguéis** (ligado em Prédio de aluguel e Os dois). Admin e síndico com `rentals.manage` cadastram: unidade, inquilino (vinculado à unidade), valor, dia de vencimento, início, fim opcional, o que entra na conta do inquilino (água, luz, gás pela leitura; taxa de condomínio com valor fixo) e reajuste anual (IPCA, IGP-M, valor combinado ou sem reajuste).
+- O aluguel entra sozinho no **rascunho da conta do mês** do inquilino 20 dias antes de vencer; mês já vencido não é gerado (a gestão lança à mão, se quiser). Um contrato ativo por unidade.
+- Reajuste: a gestão é avisada 30 dias antes e digita o novo valor; o histórico fica guardado e o valor novo vale do próximo mês ainda não gerado. Sem busca automática do índice.
+- Encerrar: para de gerar depois do mês do fim; contas já geradas ficam. O inquilino vê o resumo do contrato em Minha unidade. Atalho "Alugar esta unidade" na ficha da unidade.
 
 ## Ficou de fora (não implementar sem o Luiz pedir)
 

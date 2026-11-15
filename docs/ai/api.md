@@ -93,7 +93,7 @@ PUT    /api/condominium/{id}/status
 GET    /api/condominiums/{condominiumId}/modules        (só Admin)
 PUT    /api/condominiums/{condominiumId}/modules        (só Admin)  { enabledModules: ["occurrences", ...] }
 ```
-- Resposta: `{ condominiumId, type, modules: [{ key, label, enabled }] }`. Chaves: `occurrences`, `visitors`, `maintenance`, `documents`, `assemblies`, `reservations`, `agreements`, `expenses`. Financeiro, moradores, unidades e avisos não são módulos (sempre ligados).
+- Resposta: `{ condominiumId, type, modules: [{ key, label, enabled }] }`. Chaves: `occurrences`, `visitors`, `maintenance`, `documents`, `assemblies`, `reservations`, `agreements`, `expenses`, `rentals` (aluguéis: só vem ligado em Prédio de aluguel e Os dois). Financeiro, moradores, unidades e avisos não são módulos (sempre ligados).
 - `GET /api/me/condominiums` traz `type` e `enabledModules` de cada condomínio (o front esconde o que está desligado).
 - Módulo desligado: as rotas dele respondem **403** ("O módulo … está desligado neste condomínio."), para Admin, síndico e morador; a permissão do síndico daquele módulo não vale. Nada é apagado. Exceção: **acordos** desligados só impedem acordo novo (os que existem continuam listados e valendo). Lembretes automáticos de manutenção e de "últimas horas" da assembleia param enquanto o módulo está desligado.
 
@@ -210,6 +210,20 @@ DELETE /api/invoice-items/{itemId}                                  (rascunho; o
 - Rascunho (`ChargeStatus.Draft` = 6) não aparece em nenhuma outra rota (morador, A receber, inadimplência, lembretes) e não pode ser pago. `send` vira Pendente, copia a regra de multa/juros, avisa no sininho e por e-mail com os itens. Rascunho com vencimento que já passou não é enviado (400).
 - Envio automático: `billing-settings` traz `invoiceAutoSendDaysBefore` (null = só manual); no `PUT`, `{ invoiceAutoSend: true, invoiceAutoSendDaysBefore: 10 }` (0–28) ou `{ invoiceAutoSend: false }`. A rotina de hora em hora (a partir das 9h) envia os rascunhos cujo dia chegou.
 - `ChargeResponseDto` e o comprovante (`/receipt`) trazem `items`. O balanço divide o pagamento de uma conta do mês entre as categorias dos itens, na proporção de cada um.
+
+### Contratos de aluguel (#199)
+```
+GET    /api/condominiums/{condominiumId}/rental-contracts     (rentals.manage)
+POST   /api/condominiums/{condominiumId}/rental-contracts     (rentals.manage)
+PUT    /api/rental-contracts/{id}                             (rentals.manage; não muda unidade, inquilino, início nem valor)
+POST   /api/rental-contracts/{id}/adjust                      { newValue }
+POST   /api/rental-contracts/{id}/end                         { endDate, reason? }
+GET    /api/my/rental-contracts                               (inquilino: contratos ativos dele)
+```
+- Corpo: `{ unitId, tenantPersonId, monthlyRent, dueDay, startDate: "2026-11-01", endDate?, includesWater, includesElectricity, includesGas, includesCondominiumFee, condominiumFeeAmount?, adjustmentIndex, nextAdjustmentDate? }`. O inquilino precisa estar vinculado à unidade; um contrato ativo por unidade (409).
+- Módulo `rentals` (permissão do síndico `rentals.manage`). A rotina de hora em hora (a partir das 9h) põe "Aluguel" (e "Taxa de condomínio", se incluída) no rascunho da conta do mês do inquilino **20 dias antes do vencimento**, uma vez por mês; mês com vencimento já passado é pulado; inquilino que saiu da unidade = mês pulado. Também roda ao cadastrar/editar.
+- Reajuste: aviso no sininho para a gestão 30 dias antes de `nextAdjustmentDate`; `adjust` grava o histórico (`valueChanges`) e vale do próximo mês ainda não gerado; a próxima data anda 12 meses.
+- `end` com data passada encerra na hora; com data futura, a rotina encerra depois do último mês.
 
 ### Pagamentos e comprovante
 ```
@@ -430,6 +444,7 @@ POST   /api/reservations/{id}/reject
 - `AssemblyItemOutcome`: 1 Approved, 2 Rejected, 3 Decided, 4 Undecided
 - `BankAccountType`: 1 Checking, 2 Savings, 3 Payment
 - `ChargeScope`: 1 Platform, 2 Condominium
+- `RentAdjustmentIndex`: 1 Ipca, 2 Igpm, 3 Agreed (valor combinado), 4 None; `RentalContractStatus`: 1 Active, 2 Ended
 - `CondominiumType`: 1 Residential (todos os módulos), 2 Rental (prédio de aluguel: sem assembleias), 3 Mixed (todos)
 - `ChargeCategory`: 1 CondominiumFee (Taxa de condomínio), 2 Rent (Aluguel), 3 Water (Água), 4 Electricity (Luz), 5 Gas (Gás), 6 Apportionment (Rateio), 7 Fine (Multa), 8 Reservation (Reserva), 9 Agreement (Acordo), 10 Other (Outros), 11 MonthlyBill (Conta do mês, com itens)
 - `ChargeStatus`: 1 Pending, 2 Paid, 3 Overdue, 4 Canceled, 5 Renegotiated (dentro de um acordo), 6 Draft (conta do mês ainda não enviada)

@@ -1,4 +1,4 @@
-import { Briefcase, Building, Building2, CalendarCheck, CalendarDays, DoorOpen, FileSpreadsheet, FileText, House, Mail, Megaphone, SlidersHorizontal, TriangleAlert, Users, Vote, Wallet, Wrench } from "lucide-react";
+import { Briefcase, Building, Building2, CalendarCheck, CalendarDays, DoorOpen, FileSpreadsheet, FileText, House, KeyRound, Mail, Megaphone, SlidersHorizontal, TriangleAlert, Users, Vote, Wallet, Wrench } from "lucide-react";
 import { AdminAssembliesPage } from "../../features/adminAssemblies/AdminAssembliesPage";
 import { AdminAssemblyDetailPage } from "../../features/adminAssemblies/AdminAssemblyDetailPage";
 import { AdminDashboardPage } from "../../features/adminDashboard/AdminDashboardPage";
@@ -22,6 +22,7 @@ import { ImportPage } from "../../features/spreadsheetImport/ImportPage";
 import { AdminOccurrencesPage } from "../../features/adminOccurrences/AdminOccurrencesPage";
 import { FinanceHome } from "../../features/finance/FinanceHome";
 import { redirectTo } from "../../features/finance/redirectTo";
+import { RentalsPage } from "../../features/rentals/RentalsPage";
 import type { RoleArea } from "./types";
 
 export const adminArea: RoleArea = {
@@ -35,6 +36,7 @@ export const adminArea: RoleArea = {
     { path: "invitations", component: InvitationsPage, nav: { label: "Convites", icon: Mail } },
     { path: "documents", component: DocumentsPage, nav: { label: "Documentos", icon: FileText }, module: "documents" },
     // "Financeiro": monthly bills, receivables, expenses and balance as tabs of one menu entry.
+    { path: "rentals", component: RentalsPage, nav: { label: "Aluguéis", icon: KeyRound }, module: "rentals" },
     { path: "finance", component: FinanceHome, nav: { label: "Financeiro", icon: Wallet } },
     { path: "finance/receivables", component: AdminPaymentsPage },
     { path: "finance/expenses", component: ExpensesPage, module: "expenses" },
