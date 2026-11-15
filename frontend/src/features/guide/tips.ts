@@ -13,6 +13,7 @@ const tipTexts: Record<string, Tip> = {
   "/admin/invitations": { title: "Convites", body: "Acompanhe quem já entrou no app e reenvie o convite de quem ainda não criou a senha.", action: "“Novo convite” manda o link por e-mail. Ele vale por 7 dias." },
   "/admin/documents": { title: "Documentos", body: "Atas, regulamentos e contratos do condomínio, por categoria. Os moradores veem em Avisos e documentos." },
   "/admin/rentals": { title: "Aluguéis", body: "Os contratos de aluguel do condomínio. O aluguel entra sozinho na conta do inquilino todo mês, e o reajuste avisa antes.", action: "“Alugar unidade” cria o contrato." },
+  "/admin/my-rentals": { title: "Meus aluguéis", body: "O aluguel do imóvel que é seu. Ele cai na sua conta pessoal do Mercado Pago, separado da conta do condomínio, e a gestão não vê os valores.", action: "“Alugar unidade” cria o contrato." },
   "/admin/utilities": { title: "Água, luz e gás", body: "Digite o valor do mês de cada unidade. Ele entra na conta do mês de quem paga a unidade." },
   "/admin/finance": { title: "Resumo do financeiro", body: "O que entrou, o que falta receber e o que está atrasado. Em “Precisa de você” ficam as tarefas do mês." },
   "/admin/finance/accounts": { title: "Contas", body: "Todas as cobranças: a sair, em aberto, atrasadas e pagas. Clique numa para ver detalhes, comprovante e histórico.", action: "“Lançar cobrança” cria taxa, aluguel, água, luz, gás, multa ou rateio." },
@@ -30,6 +31,7 @@ const tipTexts: Record<string, Tip> = {
   // Síndico
   "/syndic/residents": { title: "Moradores", body: "Quem mora em cada unidade dos prédios que você cuida." },
   "/syndic/rentals": { title: "Aluguéis", body: "Os contratos de aluguel. O aluguel entra sozinho na conta do inquilino todo mês." },
+  "/syndic/my-rentals": { title: "Meus aluguéis", body: "O aluguel do imóvel que é seu. Ele cai na sua conta pessoal do Mercado Pago, separado da conta do condomínio, e a gestão não vê os valores.", action: "“Alugar unidade” cria o contrato." },
   "/syndic/utilities": { title: "Água, luz e gás", body: "Digite o valor do mês de cada unidade. Ele entra na conta do mês de quem paga a unidade." },
   "/syndic/finance": { title: "Financeiro", body: "O que entrou, o que falta receber e o que está atrasado, conforme o acesso que a administração liberou." },
   "/syndic/finance/accounts": { title: "Contas", body: "As cobranças do condomínio: a sair, em aberto, atrasadas e pagas. Clique numa para ver os detalhes." },

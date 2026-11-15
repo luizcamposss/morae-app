@@ -81,6 +81,7 @@ function managementTour(role: "admin" | "syndic"): Guide[] {
         at(`${base}/finance`, "text:Precisa de você", "Precisa de você", "As tarefas do financeiro: contas para sair, água e luz para lançar, comprovantes Pix para conferir, unidades atrasadas."),
         at(`${base}/finance/accounts`, "finance:launch", "Lançar cobrança", "Para cobrar qualquer coisa: taxa, aluguel, água, luz, gás, multa, rateio ou outro."),
         inWindow(`${base}/finance/accounts`, "finance:launch", "text:Aluguel", "O que cobrar", "Escolha o tipo. Depois você escolhe de quem (uma unidade, várias ou só uma pessoa), o valor e se entra na conta do mês ou sai separada."),
+        inWindow(`${base}/finance/accounts`, "finance:launch", "text:Água", "Água, luz e gás", "O valor do mês de cada unidade também é lançado aqui. Para lançar todas as unidades de uma vez, use o aviso “Lançar” no Resumo do financeiro."),
         at(`${base}/finance/accounts`, "finance:drafts", "A sair", "As contas do mês ficam aqui como rascunho. Elas saem sozinhas 10 dias antes do vencimento, e até lá dá para corrigir."),
         at(`${base}/finance/accounts`, "text:Atrasadas", "Situação", "Em aberto, atrasadas, pagas, renegociadas e canceladas. Clique numa cobrança para ver detalhes, comprovante e histórico."),
         at(`${base}/finance/accounts`, "text:Categoria", "Filtros", "Filtre por prédio, mês de vencimento e tipo de cobrança, ou busque pela unidade ou pelo nome."),
@@ -91,7 +92,12 @@ function managementTour(role: "admin" | "syndic"): Guide[] {
         nav(`${base}/rentals`, "Aluguéis", "Os contratos de aluguel que o condomínio administra."),
         inWindow(`${base}/rentals`, "page:action", "text:Inquilino", "Alugar unidade", "Unidade, inquilino, valor, dia do vencimento e início. O aluguel entra sozinho na conta do inquilino 20 dias antes de vencer."),
         inWindow(`${base}/rentals`, "page:action", "text:Reajuste anual", "Reajuste", "Escolha o índice (IPCA, IGP-M ou combinado). O Moraê avisa quando chegar a hora de reajustar."),
-        nav(`${base}/utilities`, "Água, luz e gás", "Digite o valor do mês de cada unidade e salve. Ele entra na conta do mês de quem paga a unidade."),
+        nav(
+          `${base}/my-rentals`,
+          "Meus aluguéis",
+          "Aparece porque você também é dono de uma unidade aqui. É o aluguel do seu imóvel: cai na sua conta pessoal do Mercado Pago, separado do dinheiro do condomínio, e a gestão não vê os valores.",
+        ),
+        at(`${base}/my-rentals`, "text:Alugar unidade", "Alugar o seu imóvel", "Cadastre o inquilino, o valor e o vencimento. A conta chega para ele 10 dias antes, sem multa nem juros."),
       ],
     },
     {
