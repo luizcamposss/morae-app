@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { CalendarClock, KeyRound, Plus } from "lucide-react";
 import { useCondominium } from "../../app/providers/useCondominium";
-import { Button } from "../../shared/components/Button";
+import { Button, ButtonLink } from "../../shared/components/Button";
 import { Modal } from "../../shared/components/Modal";
 import { TextField } from "../../shared/components/TextField";
 import { PageHeader } from "../../shared/layout/PageHeader";
@@ -14,7 +14,11 @@ import { FormFeedback } from "../settings/FormFeedback";
 import { StatusChip } from "../settings/StatusChip";
 import { getUnitsByBuilding } from "../units/unitService";
 import type { UnitResponse } from "../units/types";
+import { getChargesByCondominium } from "../charges/chargeService";
+import type { ChargeResponse } from "../charges/types";
+import { useIsSyndicArea } from "../syndicAccess/useSyndicAccess";
 import { RentalContractModal } from "./RentalContractModal";
+import { RentSummary } from "./RentSummary";
 import { RENTAL_STATUS, adjustRent, adjustmentLabel, describeIncludes, endRentalContract, getRentalContracts, type RentalContract } from "./rentalService";
 
 // Opened from a unit ("Alugar esta unidade") with the unit already chosen.
@@ -28,6 +32,8 @@ export function RentalsPage() {
   const navigate = useNavigate();
   const [contracts, setContracts] = useState<{ key: string; list: RentalContract[]; error: string } | null>(null);
   const [units, setUnits] = useState<UnitResponse[]>([]);
+  const [bills, setBills] = useState<ChargeResponse[]>([]);
+  const isSyndic = useIsSyndicArea();
   const [dialog, setDialog] = useState<Dialog>(() => {
     const unitId = (location.state as RentalsLocationState)?.rentUnitId;
     return unitId ? { kind: "new", unitId } : null;
@@ -51,6 +57,10 @@ export function RentalsPage() {
       .then((buildings) => Promise.all(buildings.map((building) => getUnitsByBuilding(building.id))))
       .then((lists) => isMounted && setUnits(lists.flat()))
       .catch(() => isMounted && setUnits([]));
+    // The bills with rent, for the numbers on top (a syndic without finance access gets none).
+    getChargesByCondominium(activeCondominiumId)
+      .then((charges) => isMounted && setBills(charges))
+      .catch(() => isMounted && setBills([]));
     return () => {
       isMounted = false;
     };
@@ -63,7 +73,6 @@ export function RentalsPage() {
   // The owners' own contracts have no values here (the rent is theirs): out of the total.
   const managedActive = active.filter((contract) => !contract.isOwnerContract);
   const ownerActive = active.length - managedActive.length;
-  const monthlyTotal = managedActive.reduce((sum, contract) => sum + contract.monthlyRent, 0);
 
   return (
     <>
@@ -80,14 +89,27 @@ export function RentalsPage() {
         </p>
       )}
 
-      {!isLoading && active.length > 0 && (
-        <p className="mb-6 text-sm text-tinta-suave tabular-nums">
-          {managedActive.length > 0 &&
-            `${managedActive.length === 1 ? "1 unidade alugada" : `${managedActive.length} unidades alugadas`} · ${formatCurrency(monthlyTotal)} de aluguel por mês`}
-          {managedActive.length > 0 && ownerActive > 0 && " · "}
-          {ownerActive > 0 && `${ownerActive === 1 ? "1 alugada" : `${ownerActive} alugadas`} pelo proprietário`}
+      <RentSummary bills={bills} activeContracts={managedActive.length} isLoading={isLoading} />
+
+      {ownerActive > 0 && (
+        <p className="mt-3 px-1 text-[13px] text-tinta-suave">
+          {ownerActive === 1 ? "1 unidade é alugada" : `${ownerActive} unidades são alugadas`} pelo próprio proprietário, que recebe direto (sem valores aqui).
         </p>
       )}
+
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-card bg-superficie px-5 py-4 shadow-whisper">
+        <div>
+          <p className="text-[15px] font-semibold text-tinta">Onde o aluguel cai</p>
+          <p className="text-[13px] text-tinta-suave">Na conta de recebimento do condomínio (Mercado Pago ou Pix), junto com as outras contas.</p>
+        </div>
+        {!isSyndic && (
+          <ButtonLink to="/admin/settings" variant="quiet" size="sm">
+            Ver nos Ajustes
+          </ButtonLink>
+        )}
+      </div>
+
+      <div className="mb-6" />
 
       {!isLoading && list.length === 0 && !contracts?.error && (
         <div className="rounded-card bg-campo px-6 py-10 text-center">

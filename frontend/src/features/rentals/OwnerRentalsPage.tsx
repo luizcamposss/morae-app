@@ -13,6 +13,7 @@ import type { MeUnitResponse } from "../me/types";
 import { MercadoPagoConnectionPanel } from "../mercadoPago/MercadoPagoConnectionPanel";
 import { StatusChip } from "../settings/StatusChip";
 import { RentalContractModal } from "./RentalContractModal";
+import { RentSummary } from "./RentSummary";
 import { AdjustModal, EndModal, type RentalsLocationState } from "./RentalsPage";
 import { RENTAL_STATUS, adjustmentLabel, describeIncludes, getOwnedRentalContracts, getRentReceivedAsOwner, type RentalContract } from "./rentalService";
 
@@ -68,8 +69,6 @@ export function OwnerRentalsPage() {
     .map((unit) => ({ id: unit.unitId, buildingName: unit.buildingName, number: unit.unitNumber }));
   const shown = (contracts ?? []).filter((contract) => contract.condominiumId === activeCondominiumId);
   const shownBills = bills.filter((bill) => bill.condominiumId === activeCondominiumId);
-  const received = shownBills.filter((bill) => bill.status === 2).reduce((sum, bill) => sum + bill.value, 0);
-  const late = shownBills.filter((bill) => bill.status === 3);
 
   return (
     <>
@@ -88,7 +87,9 @@ export function OwnerRentalsPage() {
         </p>
       )}
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+      <RentSummary bills={shownBills} activeContracts={shown.filter((contract) => contract.status === RENTAL_STATUS.active).length} isLoading={contracts === null} />
+
+      <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <div className="flex flex-col gap-6">
           <section>
             <h2 className="mb-3 px-1 text-sm font-semibold text-tinta-suave">Contratos</h2>
@@ -140,9 +141,6 @@ export function OwnerRentalsPage() {
           <section>
             <h2 className="mb-3 flex items-baseline justify-between px-1 text-sm font-semibold text-tinta-suave">
               Contas do aluguel
-              <span className="font-normal tabular-nums">
-                {formatCurrency(received)} recebido{late.length > 0 ? ` · ${late.length} em atraso` : ""}
-              </span>
             </h2>
             <ul className="divide-y divide-linha overflow-hidden rounded-card bg-superficie shadow-whisper">
               {shownBills.length === 0 ? (

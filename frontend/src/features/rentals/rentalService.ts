@@ -107,3 +107,9 @@ export function createOwnedRentalContract(data: SaveRentalContractRequest) {
 export function getRentReceivedAsOwner() {
   return apiRequest<ChargeResponse[]>("/api/charges/received-as-owner", { auth: true });
 }
+
+// The rent inside a bill: its rent items, or the whole charge when it is a rent charge.
+export function rentOf(charge: ChargeResponse) {
+  if (charge.items?.length) return charge.items.filter((item) => item.category === 2).reduce((total, item) => total + item.amount, 0);
+  return charge.category === 2 ? charge.value : 0;
+}
