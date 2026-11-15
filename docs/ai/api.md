@@ -246,9 +246,9 @@ PUT    /api/condominiums/{condominiumId}/condominium-fee     (só Admin)  { enab
 
 ### Lançar cobrança (#209)
 ```
-POST   /api/condominiums/{condominiumId}/invoices/launch                  (charges.create)  { month, category, description, units: [{ unitId, amount }] }
+POST   /api/condominiums/{condominiumId}/invoices/launch                  (charges.create)  { month, category, description, units: [{ unitId, amount }], recipientPersonId? }
 ```
-- Um jeito só para cobrar: aluguel só pelo contrato e água/luz/gás só pela tela própria — essas categorias são recusadas (400) aqui, no "Adicionar à conta", na cobrança avulsa, no lote e na cobrança fixa nova. Lançamento manual = taxa, rateio, multa, outros.
+- Aceita todas as categorias de cobrança comum (taxa, aluguel, água, luz, gás, rateio, multa, outros), aqui e nas rotas de avulsa/lote/fixa (desde 2026-11-15; antes o #209 recusava aluguel e água/luz/gás). `recipientPersonId` só com uma unidade: o item vai só para essa pessoa (ex.: o inquilino). Pelo app, água/luz/gás na conta do mês sem pessoa vão por `POST utilities` (valor do mês da unidade).
 - Entra como item na conta do mês de cada unidade (unidade sem ninguém vinculado volta em `skipped`). "Agora, separada" usa as rotas de cobrança avulsa/lote.
 - **Cobrança fixa** (antes "recorrência", `recurring-charges`): a rotina põe o item na conta do mês 20 dias antes do vencimento, uma vez por mês e unidade (`ChargeItem.recurringChargeId`); não repete um mês que já teve cobrança solta antiga.
 - Envio automático passou a ser o padrão: condomínios sem regra ficaram com 10 dias antes do vencimento.
