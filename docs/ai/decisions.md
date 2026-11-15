@@ -151,7 +151,8 @@ Decisões já tomadas com o Luiz. Siga sem perguntar de novo; se algo novo contr
 - **Quem paga as contas do condomínio de uma unidade** (taxa, água, luz, rateio…; regra única em `Services/Charges/UnitPayers.cs`): alugada com "inquilino paga" (padrão do contrato) → o **inquilino**, para contas que vencem **a partir do início do contrato** (dívidas antigas ficam com o proprietário); senão → os **proprietários**; sem proprietário cadastrado → todos os vinculados. O proprietário nunca paga aluguel. Vale para Minhas contas, sininho, e-mail, pagamento e acordos.
 - Itens do condomínio de uma unidade cujo inquilino paga entram na mesma conta do aluguel quando o condomínio também recebe o aluguel (um Pix só).
 - **Minhas contas**: "A pagar agora" + Pagar tudo, contas abertas com itens e para quem, pagas recolhidas, consumo e prestação de contas no fim. **Meus aluguéis** só aparece no menu de quem tem contrato; para começar, "Alugar este apartamento" em Minha unidade.
-- Decidido também: reserva e parcela de acordo continuam **separadas** da conta do mês; envio automático é o padrão (#211); água/luz/gás passam a ser valor digitado (#209).
+- Decidido também: reserva e parcela de acordo continuam **separadas** da conta do mês; envio automático é o padrão (10 dias antes; a gestão pode voltar para "só quando clicar").
+- **Um jeito só para cobrar (#209):** aluguel só pelo contrato; água, luz e gás só na tela **Água, luz e gás**, com **valor digitado em R$** (sem leitura de relógio nem preço por m³/kWh); taxa, rateio, multa e outros pelo **Lançar cobrança** — na conta do mês (padrão) ou "agora, separada"; a taxa do mês é uma **cobrança fixa** que entra sozinha na conta de cada mês. O gráfico do morador mostra R$ por mês.
 
 ## Ficou de fora (não implementar sem o Luiz pedir)
 

@@ -226,29 +226,24 @@ GET    /api/my/rental-contracts                               (inquilino: contra
 - Reajuste: aviso no sininho para a gestão 30 dias antes de `nextAdjustmentDate`; `adjust` grava o histórico (`valueChanges`) e vale do próximo mês ainda não gerado; a próxima data anda 12 meses.
 - `end` com data passada encerra na hora; com data futura, a rotina encerra depois do último mês.
 
-### Consumo individual: água, luz e gás (#200)
+### Água, luz e gás (#200, valor digitado desde #209)
 ```
-GET    /api/condominiums/{condominiumId}/utility-rates                    (Admin; síndico com financeiro)
-PUT    /api/condominiums/{condominiumId}/utility-rates                    (só Admin)  { rates: [{ category, enabled, pricePerUnit, minimumCharge }] }
-GET    /api/condominiums/{condominiumId}/readings?month=AAAA-MM&category=3 (Admin; síndico com financeiro)
-POST   /api/condominiums/{condominiumId}/readings                         (charges.create)  { month, category, readings: [{ unitId, currentReading, previousReading? }] }
-GET    /api/my/consumption                                                (morador: últimos 12 meses por unidade e conta)
+GET    /api/condominiums/{condominiumId}/utilities?month=AAAA-MM          (Admin; síndico com financeiro)
+POST   /api/condominiums/{condominiumId}/utilities                        (charges.create)  { month, amounts: [{ unitId, category, amount|null }] }
+PUT    /api/condominiums/{condominiumId}/utilities/settings               (só Admin)  { utilities: [3, 4] }
+GET    /api/my/consumption                                                (morador: R$ dos últimos 12 meses, das unidades que ele paga)
 ```
-- Módulo `consumption`. `category` = 3 Água, 4 Luz, 5 Gás. Uma leitura por unidade, conta e mês. A anterior vem da última leitura guardada; na primeira leitura da unidade, `previousReading` é obrigatório. Atual menor que a anterior = 400 (nada é salvo).
-- Valor = máx(consumo × preço, mínimo). Entra como item "Água (18 m³)" no rascunho da conta do mês: do **inquilino** (vencimento do contrato) quando o contrato de aluguel ativo inclui aquela conta; senão, da unidade. Reenviar a leitura corrige o item enquanto a conta é rascunho; depois de enviada, 400 (`isLocked` na grade).
-- A grade traz `previousReading`, `currentReading`, `consumption`, `amount`, `averageConsumption` (média de até 3 meses anteriores; a tela avisa acima de 2×) e o pagador.
+- Módulo `consumption`. Sem leitura de relógio nem preço: a gestão digita o valor em R$ de cada unidade (3 Água, 4 Luz, 5 Gás; quais aparecem = `utilities` do condomínio, padrão água e luz).
+- Cada valor vira item "Água"/"Luz"/"Gás" no rascunho da conta do mês de quem paga as contas da unidade (#208). Mudar o valor troca o item; `null`/0 tira; depois que a conta sai, o valor trava (400, `isLocked`).
 
-### Proprietário recebe o aluguel (#201)
+### Lançar cobrança (#209)
 ```
-GET    /api/my/owned-rental-contracts            (proprietário: contratos das unidades dele)
-POST   /api/my/owned-rental-contracts            (proprietário)  mesmo corpo do contrato; sem taxa de condomínio
-GET    /api/charges/received-as-owner            (proprietário: contas do aluguel que ele recebe)
-POST   /api/mercadopago/oauth/connect            { asOwner: true }  · GET oauth/status?asOwner=true · DELETE oauth/connection?asOwner=true
+POST   /api/condominiums/{condominiumId}/invoices/launch                  (charges.create)  { month, category, description, units: [{ unitId, amount }] }
 ```
-- O proprietário (vínculo Proprietário na unidade) conecta o **próprio** Mercado Pago (`MercadoPagoAccount.OwnerPersonId`; plataforma = sem condomínio e sem proprietário). `GET /api/me/condominiums` traz `isUnitOwner`.
-- Contrato do proprietário = `RentalContract.ReceiverPersonId`; reajustar/editar/encerrar usam as rotas de contrato, mas só o proprietário mexe (a gestão recebe 403). Na lista da gestão vem `isOwnerContract: true`, `ownerName` e valores zerados.
-- A conta do aluguel é uma conta do mês com `ReceiverPersonId` (nunca mistura recebedores). Sai sozinha **10 dias antes** do vencimento quando a conta do proprietário está conectada; **sem multa e juros**. Pagamento só online (Pix do condomínio é recusado); baixa manual, cancelamento e estorno só pelo proprietário. `ChargeResponseDto` traz `receiverPersonId`/`receiverName`.
-- A gestão não vê essas contas em nenhuma rota (A receber, Contas do mês, inadimplência, balanço, relatórios, comprovante); elas não entram em acordo nem bloqueiam voto em assembleia.
+- Um jeito só para cobrar: aluguel só pelo contrato e água/luz/gás só pela tela própria — essas categorias são recusadas (400) aqui, no "Adicionar à conta", na cobrança avulsa, no lote e na cobrança fixa nova. Lançamento manual = taxa, rateio, multa, outros.
+- Entra como item na conta do mês de cada unidade (unidade sem ninguém vinculado volta em `skipped`). "Agora, separada" usa as rotas de cobrança avulsa/lote.
+- **Cobrança fixa** (antes "recorrência", `recurring-charges`): a rotina põe o item na conta do mês 20 dias antes do vencimento, uma vez por mês e unidade (`ChargeItem.recurringChargeId`); não repete um mês que já teve cobrança solta antiga.
+- Envio automático passou a ser o padrão: condomínios sem regra ficaram com 10 dias antes do vencimento.
 
 ### Pagamentos e comprovante
 ```

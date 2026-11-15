@@ -17,7 +17,7 @@ import { SyndicSettingsPage } from "../../features/syndicSettings/SyndicSettings
 import { FinanceHome } from "../../features/finance/FinanceHome";
 import { redirectTo } from "../../features/finance/redirectTo";
 import { RentalsPage } from "../../features/rentals/RentalsPage";
-import { ReadingsPage } from "../../features/consumption/ReadingsPage";
+import { UtilitiesPage } from "../../features/consumption/UtilitiesPage";
 import { ReportsPage } from "../../features/reports/ReportsPage";
 import type { RoleArea } from "./types";
 
@@ -28,12 +28,13 @@ export const syndicArea: RoleArea = {
     { path: "dashboard", component: SyndicDashboardPage, nav: { label: "Início", icon: House } },
     { path: "residents", component: SyndicResidentsPage, nav: { label: "Moradores", icon: Users }, syndicAccess: "residents" },
     { path: "rentals", component: RentalsPage, nav: { label: "Aluguéis", icon: KeyRound }, syndicAccess: "rentals.manage", module: "rentals" },
-    { path: "readings", component: ReadingsPage, nav: { label: "Leituras", icon: Gauge }, syndicAccess: "finance", module: "consumption" },
+    { path: "utilities", component: UtilitiesPage, nav: { label: "Água, luz e gás", shortLabel: "Consumo", icon: Gauge }, syndicAccess: "finance", module: "consumption" },
     { path: "finance", component: FinanceHome, nav: { label: "Financeiro", icon: Wallet } },
     { path: "finance/receivables", component: AdminPaymentsPage, syndicAccess: "finance" },
     { path: "finance/expenses", component: ExpensesPage, syndicAccess: "expenses.manage", module: "expenses" },
     { path: "finance/balance", component: MonthlyBalancePage, module: "expenses" },
     { path: "finance/reports", component: ReportsPage },
+    { path: "readings", component: redirectTo("/syndic/utilities") },
     { path: "payments", component: redirectTo("/syndic/finance/receivables") },
     { path: "expenses", component: redirectTo("/syndic/finance/expenses") },
     { path: "balance", component: redirectTo("/syndic/finance/balance") },

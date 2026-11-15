@@ -87,3 +87,37 @@ public class SendInvoicesResultDto
 {
     public int Sent { get; set; }
 }
+
+// "Lançar cobrança" (#209): one item for several units, into each one's bill of the month.
+public class LaunchChargeDto
+{
+    [Required]
+    public string Month { get; set; } = string.Empty;
+
+    [EnumDataType(typeof(ChargeCategory))]
+    public ChargeCategory Category { get; set; } = ChargeCategory.Other;
+
+    [Required]
+    [StringLength(150)]
+    public string Description { get; set; } = string.Empty;
+
+    // The units and each one's amount.
+    [Required]
+    public List<LaunchUnitValueDto> Units { get; set; } = [];
+}
+
+public class LaunchUnitValueDto
+{
+    public int UnitId { get; set; }
+
+    [Range(0.01, 1_000_000)]
+    public decimal Amount { get; set; }
+}
+
+public class LaunchChargeResultDto
+{
+    public int CreatedCount { get; set; }
+    public decimal Total { get; set; }
+    // Units with nobody linked: nobody would see the bill.
+    public List<string> Skipped { get; set; } = [];
+}

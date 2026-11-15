@@ -1,13 +1,11 @@
 using backend.DTOs.Consumption;
-using backend.Enums;
 
 namespace backend.Services.Consumption;
 
 public interface IConsumptionService
 {
-    Task<List<UtilityRateDto>> GetRatesAsync(int userId, int condominiumId);
-    Task<List<UtilityRateDto>> SaveRatesAsync(int userId, int condominiumId, SaveUtilityRatesDto dto);
-    Task<ReadingMonthDto> GetMonthAsync(int userId, int condominiumId, string? month, ChargeCategory category);
-    Task<SaveReadingsResultDto> SaveReadingsAsync(int userId, int condominiumId, SaveReadingsDto dto);
+    Task<UtilitySettingsDto> SaveSettingsAsync(int userId, int condominiumId, UtilitySettingsDto dto);
+    Task<UtilityMonthDto> GetMonthAsync(int userId, int condominiumId, string? month);
+    Task<SaveUtilitiesResultDto> SaveMonthAsync(int userId, int condominiumId, SaveUtilitiesDto dto);
     Task<List<ConsumptionHistoryDto>> GetMineAsync(int userId);
 }

@@ -34,13 +34,13 @@ export function RecurringChargesList({ items, isLoading, busyId, onCreate, onPau
             <span className="grid size-12 place-items-center rounded-block bg-verde-suave text-verde-tinta">
               <Repeat size={22} strokeWidth={1.8} aria-hidden />
             </span>
-            <span className="mt-4 font-display text-lg font-bold text-tinta">Nenhuma recorrência ainda</span>
+            <span className="mt-4 font-display text-lg font-bold text-tinta">Nenhuma cobrança fixa ainda</span>
             <span className="mt-1 max-w-sm text-sm text-tinta-suave">
               Crie a taxa do condomínio uma vez e o Moraê gera as cobranças de cada unidade todo mês, 10 dias antes do vencimento.
             </span>
             {canManage && (
               <Button variant="quiet" size="sm" className="mt-5" onClick={onCreate}>
-                Criar recorrência
+                Criar cobrança fixa
               </Button>
             )}
           </>

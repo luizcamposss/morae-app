@@ -96,7 +96,7 @@ export function BatchResultModal({ title, result, onClose }: { title: string; re
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-[13px] text-tinta-suave">Resolva o vínculo da unidade e use “Nova cobrança” para cobrar essas unidades.</p>
+          <p className="mt-2 text-[13px] text-tinta-suave">Resolva o vínculo da unidade e use “Lançar cobrança” para cobrar essas unidades.</p>
         </div>
       )}
     </Modal>
@@ -235,7 +235,7 @@ export function ChargeDetailsModal({ charge, place, person, footer, extra, showT
         <div>
           <dt className="text-xs text-tinta-suave">Origem</dt>
           <dd className="font-semibold text-tinta">
-            {charge.recurringChargeId ? `Recorrência${charge.referenceMonth ? ` · ${formatMonthKey(charge.referenceMonth.slice(0, 7))}` : ""}` : "Lançada pela gestão"}
+            {charge.recurringChargeId ? `Cobrança fixa${charge.referenceMonth ? ` · ${formatMonthKey(charge.referenceMonth.slice(0, 7))}` : ""}` : "Lançada pela gestão"}
           </dd>
         </div>
         <div className="col-span-2">

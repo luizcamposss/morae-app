@@ -1,3 +1,4 @@
+using backend.Services.Invoices;
 using AutoMapper;
 using backend.Constants;
 using backend.Data;
@@ -15,12 +16,15 @@ namespace backend.Services.Charges;
 public class ChargeBillingService : IChargeBillingService
 {
     // Recurring charges are generated this many days before their due date.
-    private const int GenerateDaysBeforeDue = 10;
+    // A fixed monthly charge enters the month's bill this many days before it is due (#209),
+    // before the bill goes out automatically (10 days before, by default).
+    private const int GenerateDaysBeforeDue = 20;
 
     private readonly AppDbContext _context;
     private readonly IMapper _mapper;
     private readonly IPermissionService _permissionService;
     private readonly IChargeService _chargeService;
+    private readonly IInvoiceService _invoiceService;
     private readonly ILogger<ChargeBillingService> _logger;
 
     public ChargeBillingService(
@@ -28,11 +32,13 @@ public class ChargeBillingService : IChargeBillingService
         IMapper mapper,
         IPermissionService permissionService,
         IChargeService chargeService,
+        IInvoiceService invoiceService,
         ILogger<ChargeBillingService> logger)
     {
         _context = context;
         _mapper = mapper;
         _permissionService = permissionService;
+        _invoiceService = invoiceService;
         _chargeService = chargeService;
         _logger = logger;
     }
@@ -118,7 +124,11 @@ public class ChargeBillingService : IChargeBillingService
         int condominiumId,
         CreateRecurringChargeDto dto)
     {
-        // A recurrence for one unit (e.g. rent) bills it alone, in the unit's building.
+        // One way to charge each thing (#209): rent by the contract, water/light/gas on their own screen.
+        if (dto.Category.HasValue)
+            InvoiceService.EnsureManualCategory(dto.Category.Value);
+
+        // A recurrence for one unit bills it alone, in the unit's building.
         if (dto.UnitId.HasValue)
         {
             var unitBuildingId = await _context.Units
@@ -248,23 +258,63 @@ public class ChargeBillingService : IChargeBillingService
             if (dueDate < today.Date || today.Date < dueDate.AddDays(-GenerateDaysBeforeDue))
                 continue;
 
-            return await _chargeService.GenerateForUnitsAsync(new ChargeGenerationRequest(
-                recurring.CondominiumId,
-                recurring.BuildingId,
-                null,
-                recurring.Value,
-                recurring.UnitValues.ToDictionary(item => item.UnitId, item => item.Value),
-                dueDate,
-                recurring.Description,
-                recurring.CreatedByUserId,
-                recurring.Category,
-                recurring.UnitId.HasValue ? [recurring.UnitId.Value] : null,
-                recurring.RecipientPersonId,
-                recurring.Id,
-                new DateOnly(month.Year, month.Month, 1)));
+            return await AddToMonthlyBillsAsync(recurring, new DateOnly(month.Year, month.Month, 1), dueDate);
         }
 
         return null;
+    }
+
+    // A fixed monthly charge is an item of each unit's bill of the month (#209), never twice per month
+    // (also not on top of a standalone charge it created before this change).
+    private async Task<ChargeBatchResultDto> AddToMonthlyBillsAsync(RecurringCharge recurring, DateOnly month, DateTime dueDate)
+    {
+        var units = await _context.Units
+            .AsNoTracking()
+            .Where(unit =>
+                unit.Building.CondominiumId == recurring.CondominiumId &&
+                (recurring.UnitId == null || unit.Id == recurring.UnitId) &&
+                (recurring.BuildingId == null || unit.BuildingId == recurring.BuildingId))
+            .Select(unit => new
+            {
+                unit.Id,
+                unit.Number,
+                BuildingName = unit.Building.Name,
+                HasPeople = _context.PersonUnits.Any(link => link.UnitId == unit.Id),
+                AlreadyBilled =
+                    _context.ChargeItems.Any(item => item.RecurringChargeId == recurring.Id && item.Charge.UnitId == unit.Id && item.Charge.ReferenceMonth == month) ||
+                    _context.Charges.Any(charge => charge.RecurringChargeId == recurring.Id && charge.UnitId == unit.Id && charge.ReferenceMonth == month)
+            })
+            .ToListAsync();
+
+        var values = recurring.UnitValues.ToDictionary(item => item.UnitId, item => item.Value);
+        var result = new ChargeBatchResultDto { DueDate = dueDate };
+
+        foreach (var unit in units.Where(unit => !unit.AlreadyBilled))
+        {
+            if (!unit.HasPeople)
+            {
+                result.Skipped.Add(new SkippedUnitDto { UnitId = unit.Id, UnitNumber = unit.Number, BuildingName = unit.BuildingName, Reason = "Ninguém vinculado à unidade." });
+                continue;
+            }
+
+            var amount = values.GetValueOrDefault(unit.Id, recurring.Value);
+
+            await _invoiceService.AddItemToDraftAsync(new InvoiceItemRequest(
+                recurring.CondominiumId,
+                unit.Id,
+                recurring.RecipientPersonId,
+                month,
+                recurring.Category,
+                recurring.Description,
+                amount,
+                recurring.CreatedByUserId,
+                RecurringChargeId: recurring.Id));
+
+            result.CreatedCount++;
+            result.TotalValue += amount;
+        }
+
+        return result;
     }
 
     private async Task<RecurringChargeResponseDto> ChangeStatusAsync(

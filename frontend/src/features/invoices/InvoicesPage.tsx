@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarClock, Pencil, Plus, Send, Trash2 } from "lucide-react";
 import { useCondominium } from "../../app/providers/useCondominium";
-import { Button } from "../../shared/components/Button";
+import { Button, ButtonLink } from "../../shared/components/Button";
 import { ConfirmDialog, type ConfirmRequest } from "../../shared/components/ConfirmDialog";
 import { PageHeader } from "../../shared/layout/PageHeader";
 import { formatCurrency } from "../../shared/lib/currency";
 import { formatCalendarDate, todayInputDate } from "../../shared/lib/date";
-import { getBuildingsByCondominium } from "../buildings/buildingService";
 import { CHARGE_CATEGORIES } from "../charges/chargeCategories";
 import { CHARGE_STATUS } from "../charges/platformRevenue";
 import type { ChargeItem } from "../charges/types";
@@ -15,13 +14,11 @@ import { monthLabel, monthOf, shiftMonth } from "../expenses/expenseMeta";
 import { FinanceTabs } from "../finance/FinanceTabs";
 import { StatusChip } from "../settings/StatusChip";
 import { useIsSyndicArea, useSyndicCan } from "../syndicAccess/useSyndicAccess";
-import { getUnitsByBuilding } from "../units/unitService";
-import type { UnitResponse } from "../units/types";
 import { InvoiceItemModal } from "./InvoiceItemModal";
 import { AutoSendModal, DueDateModal } from "./InvoiceSettingsModals";
 import { deleteInvoiceDraft, deleteInvoiceItem, getInvoiceMonth, sendInvoices, type InvoiceMonth, type InvoiceResponse } from "./invoiceService";
 
-type ItemModal = { item?: ChargeItem; preset?: { unitId: number; recipientPersonId: number | null } } | null;
+type ItemModal = { item: ChargeItem } | null;
 
 const statusChip: Record<number, { tone: "success" | "warning" | "danger" | "neutral"; label: string }> = {
   [CHARGE_STATUS.draft]: { tone: "neutral", label: "Rascunho" },
@@ -36,11 +33,11 @@ const statusChip: Record<number, { tone: "success" | "warning" | "danger" | "neu
 export function InvoicesPage() {
   const { activeCondominium, activeCondominiumId } = useCondominium();
   const isSyndic = useIsSyndicArea();
+  const financeBase = isSyndic ? "/syndic/finance" : "/admin/finance";
   const canEdit = useSyndicCan("charges.create");
   const currentMonth = monthOf(todayInputDate());
   const [month, setMonth] = useState(currentMonth);
   const [data, setData] = useState<{ key: string; month: InvoiceMonth | null; error: string } | null>(null);
-  const [units, setUnits] = useState<UnitResponse[]>([]);
   const [itemModal, setItemModal] = useState<ItemModal>(null);
   const [dueDateBill, setDueDateBill] = useState<InvoiceResponse | null>(null);
   const [isAutoSendOpen, setIsAutoSendOpen] = useState(false);
@@ -61,17 +58,6 @@ export function InvoicesPage() {
     };
   }, [activeCondominiumId, month, key]);
 
-  useEffect(() => {
-    if (!activeCondominiumId || !canEdit) return;
-    let isMounted = true;
-    getBuildingsByCondominium(activeCondominiumId)
-      .then((buildings) => Promise.all(buildings.map((building) => getUnitsByBuilding(building.id))))
-      .then((lists) => isMounted && setUnits(lists.flat()))
-      .catch(() => isMounted && setUnits([]));
-    return () => {
-      isMounted = false;
-    };
-  }, [activeCondominiumId, canEdit]);
 
   const isLoading = data?.key !== key;
   const bills = useMemo(() => (isLoading ? [] : (data?.month?.invoices ?? [])), [data, isLoading]);
@@ -129,10 +115,10 @@ export function InvoicesPage() {
     <>
       <PageHeader overline={activeCondominium?.condominiumName} title="Financeiro">
         {canEdit && (
-          <Button variant="accent" size="sm" onClick={() => setItemModal({})} disabled={units.length === 0}>
+          <ButtonLink to={`${financeBase}/receivables?lancar=1`} variant="accent" size="sm">
             <Plus size={16} strokeWidth={2} aria-hidden />
-            Adicionar à conta
-          </Button>
+            Lançar cobrança
+          </ButtonLink>
         )}
       </PageHeader>
       <FinanceTabs />
@@ -193,7 +179,7 @@ export function InvoicesPage() {
         <div className="rounded-card bg-campo px-6 py-10 text-center">
           <p className="font-semibold text-tinta">Nenhuma conta em {monthLabel(month)}</p>
           <p className="mx-auto mt-1 max-w-md text-sm text-tinta-suave">
-            A conta do mês junta aluguel, água, luz e o que mais a unidade paga, num Pix só. Comece em "Adicionar à conta".
+            A conta do mês junta o que a unidade paga no mês (taxa, aluguel, água, luz), num Pix só. Ela se monta sozinha pelos contratos, pela tela Água, luz e gás e pelo "Lançar cobrança".
           </p>
         </div>
       )}
@@ -252,10 +238,6 @@ export function InvoicesPage() {
 
               {isDraft && canEdit && (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Button variant="quiet" size="sm" onClick={() => setItemModal({ preset: { unitId: bill.unitId, recipientPersonId: bill.recipientPersonId } })}>
-                    <Plus size={14} strokeWidth={2} aria-hidden />
-                    Item
-                  </Button>
                   <button type="button" onClick={() => askDeleteDraft(bill)} className="ml-auto rounded-full px-2 text-sm font-semibold text-vermelho hover:underline">
                     Apagar rascunho
                   </button>
@@ -266,17 +248,7 @@ export function InvoicesPage() {
         })}
       </div>
 
-      {itemModal && activeCondominiumId && (
-        <InvoiceItemModal
-          condominiumId={activeCondominiumId}
-          month={month}
-          units={units}
-          item={itemModal.item}
-          preset={itemModal.preset}
-          onClose={() => setItemModal(null)}
-          onSaved={reload}
-        />
-      )}
+      {itemModal && <InvoiceItemModal item={itemModal.item} onClose={() => setItemModal(null)} onSaved={reload} />}
       {dueDateBill && <DueDateModal chargeId={dueDateBill.chargeId} dueDate={dueDateBill.dueDate} onClose={() => setDueDateBill(null)} onSaved={reload} />}
       {isAutoSendOpen && activeCondominiumId && <AutoSendModal condominiumId={activeCondominiumId} onClose={() => setIsAutoSendOpen(false)} onSaved={reload} />}
       {confirm && <ConfirmDialog request={confirm} onClose={() => setConfirm(null)} />}

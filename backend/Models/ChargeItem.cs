@@ -21,6 +21,9 @@ public class ChargeItem
 
     public decimal Amount { get; set; }
 
+    // Set when a fixed monthly charge (RecurringCharge) put it there: never twice in the same month.
+    public int? RecurringChargeId { get; set; }
+
     public int CreatedByUserId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

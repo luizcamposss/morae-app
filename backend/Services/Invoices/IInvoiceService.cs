@@ -7,6 +7,9 @@ public interface IInvoiceService
 {
     Task<InvoiceMonthDto> GetMonthAsync(int userId, int condominiumId, string? month);
     Task<InvoiceResponseDto> AddItemAsync(int userId, int condominiumId, AddInvoiceItemDto dto);
+
+    // "Lançar cobrança": the same item (or a value per unit) into the month's bill of several units.
+    Task<LaunchChargeResultDto> LaunchAsync(int userId, int condominiumId, LaunchChargeDto dto);
     Task<InvoiceResponseDto> UpdateItemAsync(int userId, int itemId, UpdateInvoiceItemDto dto);
     Task DeleteItemAsync(int userId, int itemId);
     Task<InvoiceResponseDto> UpdateAsync(int userId, int chargeId, UpdateInvoiceDto dto);
@@ -37,6 +40,8 @@ public record InvoiceItemRequest(
     // Null = the condominium's due day in that month.
     DateTime? DueDate = null,
     // Who receives: null = the condominium; set = the unit owner (their rent, kept in a bill of its own).
-    int? ReceiverPersonId = null);
+    int? ReceiverPersonId = null,
+    // A fixed monthly charge that put the item there (dedup per month).
+    int? RecurringChargeId = null);
 
 public record InvoiceItemResult(int ChargeId, int ItemId);

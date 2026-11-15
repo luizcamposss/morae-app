@@ -804,6 +804,9 @@ namespace backend.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("varchar(150)");
 
+                    b.Property<int?>("RecurringChargeId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ChargeId");
@@ -940,6 +943,11 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
+
+                    b.Property<string>("BilledUtilities")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
 
                     b.Property<int>("BillingDueDay")
                         .HasColumnType("int");
@@ -1717,64 +1725,6 @@ namespace backend.Migrations
                         .IsUnique();
 
                     b.ToTable("MercadoPagoPayments");
-                });
-
-            modelBuilder.Entity("backend.Models.MeterReading", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
-
-                    b.Property<int>("Category")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("ChargeItemId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("CondominiumId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("Consumption")
-                        .HasPrecision(12, 3)
-                        .HasColumnType("decimal(12,3)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.Property<int>("CreatedByUserId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("CurrentReading")
-                        .HasPrecision(12, 3)
-                        .HasColumnType("decimal(12,3)");
-
-                    b.Property<DateOnly>("Month")
-                        .HasColumnType("date");
-
-                    b.Property<decimal>("PreviousReading")
-                        .HasPrecision(12, 3)
-                        .HasColumnType("decimal(12,3)");
-
-                    b.Property<int>("UnitId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CondominiumId");
-
-                    b.HasIndex("UnitId", "Category", "Month")
-                        .IsUnique();
-
-                    b.ToTable("MeterReadings");
                 });
 
             modelBuilder.Entity("backend.Models.News", b =>
@@ -2775,7 +2725,7 @@ namespace backend.Migrations
                     b.ToTable("UserNotificationPreferences");
                 });
 
-            modelBuilder.Entity("backend.Models.UtilityRate", b =>
+            modelBuilder.Entity("backend.Models.UtilityCharge", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -2783,32 +2733,42 @@ namespace backend.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
                     b.Property<int>("Category")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ChargeItemId")
                         .HasColumnType("int");
 
                     b.Property<int>("CondominiumId")
                         .HasColumnType("int");
 
-                    b.Property<bool>("Enabled")
-                        .HasColumnType("tinyint(1)");
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
 
-                    b.Property<decimal>("MinimumCharge")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("decimal(10,2)");
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
 
-                    b.Property<decimal>("PricePerUnit")
-                        .HasPrecision(10, 4)
-                        .HasColumnType("decimal(10,4)");
+                    b.Property<DateOnly>("Month")
+                        .HasColumnType("date");
+
+                    b.Property<int>("UnitId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CondominiumId", "Category")
+                    b.HasIndex("CondominiumId");
+
+                    b.HasIndex("UnitId", "Category", "Month")
                         .IsUnique();
 
-                    b.ToTable("UtilityRates");
+                    b.ToTable("UtilityCharges");
                 });
 
             modelBuilder.Entity("Invitation", b =>
@@ -3382,25 +3342,6 @@ namespace backend.Migrations
                     b.Navigation("Payment");
                 });
 
-            modelBuilder.Entity("backend.Models.MeterReading", b =>
-                {
-                    b.HasOne("backend.Models.Condominium", "Condominium")
-                        .WithMany()
-                        .HasForeignKey("CondominiumId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("backend.Models.Unit", "Unit")
-                        .WithMany()
-                        .HasForeignKey("UnitId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Condominium");
-
-                    b.Navigation("Unit");
-                });
-
             modelBuilder.Entity("backend.Models.News", b =>
                 {
                     b.HasOne("backend.Models.Building", "Building")
@@ -3855,7 +3796,7 @@ namespace backend.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("backend.Models.UtilityRate", b =>
+            modelBuilder.Entity("backend.Models.UtilityCharge", b =>
                 {
                     b.HasOne("backend.Models.Condominium", "Condominium")
                         .WithMany()
@@ -3863,7 +3804,15 @@ namespace backend.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("backend.Models.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.Navigation("Condominium");
+
+                    b.Navigation("Unit");
                 });
 
             modelBuilder.Entity("backend.Models.Agreement", b =>

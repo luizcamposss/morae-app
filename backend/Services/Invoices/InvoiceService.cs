@@ -26,6 +26,11 @@ public class InvoiceService : IInvoiceService
     private static readonly HashSet<ChargeCategory> NotAllowedItemCategories =
         [ChargeCategory.MonthlyBill, ChargeCategory.Agreement, ChargeCategory.Reservation];
 
+    // One way to charge each thing (#209): rent only through the contract, water/light/gas only
+    // through their own screen. What the management launches by hand is the rest.
+    public static readonly HashSet<ChargeCategory> ManualCategories =
+        [ChargeCategory.CondominiumFee, ChargeCategory.Apportionment, ChargeCategory.Fine, ChargeCategory.Other];
+
     private readonly AppDbContext _context;
     private readonly IPermissionService _permissionService;
     private readonly IChargeService _chargeService;
@@ -88,6 +93,7 @@ public class InvoiceService : IInvoiceService
         await EnsureCanEditAsync(userId, condominiumId);
         await EnsureUnitManagedAsync(userId, condominiumId, dto.UnitId);
         await _chargeService.EnsureRecipientLinkedAsync(dto.RecipientPersonId, dto.UnitId);
+        EnsureManualCategory(dto.Category);
 
         var (chargeId, _) = await AddItemToDraftAsync(new InvoiceItemRequest(
             condominiumId,
@@ -100,6 +106,53 @@ public class InvoiceService : IInvoiceService
             userId));
 
         return await GetResponseAsync(chargeId);
+    }
+
+    public async Task<LaunchChargeResultDto> LaunchAsync(int userId, int condominiumId, LaunchChargeDto dto)
+    {
+        await EnsureCanEditAsync(userId, condominiumId);
+        EnsureManualCategory(dto.Category);
+
+        var month = ParseMonth(dto.Month);
+        var unitIds = dto.Units.Select(row => row.UnitId).Distinct().ToList();
+
+        if (unitIds.Count == 0 || unitIds.Count != dto.Units.Count)
+            throw new BadRequestException("Escolha as unidades (cada uma uma vez só).");
+
+        foreach (var unitId in unitIds)
+            await EnsureUnitManagedAsync(userId, condominiumId, unitId);
+
+        var units = await _context.Units
+            .AsNoTracking()
+            .Where(unit => unitIds.Contains(unit.Id))
+            .Select(unit => new { unit.Id, Label = unit.Building.Name + " · " + unit.Number, HasPeople = _context.PersonUnits.Any(link => link.UnitId == unit.Id) })
+            .ToDictionaryAsync(unit => unit.Id);
+
+        var result = new LaunchChargeResultDto();
+
+        foreach (var row in dto.Units)
+        {
+            if (!units[row.UnitId].HasPeople)
+            {
+                result.Skipped.Add(units[row.UnitId].Label);
+                continue;
+            }
+
+            await AddItemToDraftAsync(new InvoiceItemRequest(condominiumId, row.UnitId, null, month, dto.Category, dto.Description, row.Amount, userId));
+            result.CreatedCount++;
+            result.Total += Math.Round(row.Amount, 2);
+        }
+
+        return result;
+    }
+
+    public static void EnsureManualCategory(ChargeCategory category)
+    {
+        if (category == ChargeCategory.Rent)
+            throw new BadRequestException("Aluguel é cobrado pelo contrato, em Aluguéis.");
+
+        if (category is ChargeCategory.Water or ChargeCategory.Electricity or ChargeCategory.Gas)
+            throw new BadRequestException("Água, luz e gás são lançados na tela Água, luz e gás.");
     }
 
     public async Task<InvoiceItemResult> AddItemToDraftAsync(InvoiceItemRequest request)
@@ -167,6 +220,7 @@ public class InvoiceService : IInvoiceService
             Category = category,
             Description = description,
             Amount = amount,
+            RecurringChargeId = request.RecurringChargeId,
             CreatedByUserId = request.CreatedByUserId,
             CreatedAt = DateTime.UtcNow
         };
