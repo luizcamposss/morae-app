@@ -21,15 +21,17 @@ function getMenuItems(
   syndicAccess: ReturnType<typeof useSyndicAccess>,
   enabledModules: string[] | undefined,
   hasOwnRentals: boolean,
+  isUnitOwner: boolean,
 ): MenuItem[] {
   const area = roleAreas[role];
 
-  return area.routes.flatMap(({ path, nav, syndicAccess: requirement, module, ownRentalsOnly }) => {
+  return area.routes.flatMap(({ path, nav, syndicAccess: requirement, module, ownRentalsOnly, unitOwnerOnly }) => {
     if (
       !nav ||
       (requirement && !hasSyndicAccess(syndicAccess, requirement)) ||
       (module && !isModuleEnabled(enabledModules, module)) ||
-      (ownRentalsOnly && !hasOwnRentals)
+      (ownRentalsOnly && !hasOwnRentals) ||
+      (unitOwnerOnly && !isUnitOwner)
     ) {
       return [];
     }
@@ -44,6 +46,6 @@ export function useMenuItems() {
   const syndicAccess = useSyndicAccess();
   const primaryRole = getPrimaryRole(user?.roles ?? []);
   const { activeCondominium } = useCondominium();
-  return { primaryRole, menuItems: getMenuItems(primaryRole, syndicAccess, activeCondominium?.enabledModules, Boolean(activeCondominium?.hasOwnRentalContracts)) };
+  return { primaryRole, menuItems: getMenuItems(primaryRole, syndicAccess, activeCondominium?.enabledModules, Boolean(activeCondominium?.hasOwnRentalContracts), Boolean(activeCondominium?.isUnitOwner)) };
 }
 

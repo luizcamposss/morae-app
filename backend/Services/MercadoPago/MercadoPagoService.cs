@@ -845,7 +845,7 @@ public class MercadoPagoService : IMercadoPagoService
                 NotificationType.Payment,
                 title,
                 message,
-                "/resident/rentals",
+                "/my-rentals",
                 charge.CondominiumId);
             return;
         }

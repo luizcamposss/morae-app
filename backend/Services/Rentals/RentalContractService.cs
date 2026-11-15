@@ -327,7 +327,7 @@ public class RentalContractService : IRentalContractService
                     "Reajuste de aluguel chegando",
                     $"O aluguel de {contract.Unit.Building.Name} · {contract.Unit.Number} ({contract.TenantPerson.Name}) tem reajuste em " +
                     $"{contract.NextAdjustmentDate!.Value.ToString("dd/MM/yyyy", PtBr)}. Informe o novo valor em Meus aluguéis.",
-                    "/resident/rentals",
+                    "/my-rentals",
                     contract.CondominiumId);
 
                 contract.AdjustmentReminderSentFor = contract.NextAdjustmentDate;
