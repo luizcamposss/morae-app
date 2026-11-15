@@ -18,7 +18,7 @@ export function ProtectedRoute() {
   // can still see and pay the Moraê subscription (docs/ai/decisions.md → Papéis e permissões).
   const isPaused = user?.isSuspended || user?.isCondominiumInactive;
   const canStillPay =
-    user?.isCondominiumInactive && user.roles.includes("Admin") && (location.pathname.startsWith("/admin/payments") || location.pathname.startsWith("/admin/finance/receivables"));
+    user?.isCondominiumInactive && user.roles.includes("Admin") && (location.pathname.startsWith("/admin/payments") || location.pathname.startsWith("/admin/finance/accounts"));
 
   if (isPaused && !canStillPay && location.pathname !== "/suspended") {
     return <Navigate to="/suspended" replace />;
