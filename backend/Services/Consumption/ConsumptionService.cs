@@ -12,12 +12,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services.Consumption;
 
-// Individual meters (module "Consumo"): prices per condominium, the month's readings typed by the
-// management and the resulting items in the monthly bills.
+// Water, light and gas per unit (module "Consumo", #209): the management types each month's amount
+// in R$; it goes as an item into the monthly bill of whoever pays the unit's condominium bills.
 public class ConsumptionService : IConsumptionService
 {
     private static readonly ChargeCategory[] Utilities = [ChargeCategory.Water, ChargeCategory.Electricity, ChargeCategory.Gas];
-    private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
     private readonly AppDbContext _context;
     private readonly IPermissionService _permissionService;
@@ -30,207 +29,148 @@ public class ConsumptionService : IConsumptionService
         _invoiceService = invoiceService;
     }
 
-    public async Task<List<UtilityRateDto>> GetRatesAsync(int userId, int condominiumId)
+    public async Task<UtilitySettingsDto> SaveSettingsAsync(int userId, int condominiumId, UtilitySettingsDto dto)
     {
-        await EnsureCanViewAsync(userId, condominiumId);
-
-        var rates = await _context.UtilityRates
-            .AsNoTracking()
-            .Where(rate => rate.CondominiumId == condominiumId)
-            .ToListAsync();
-
-        return Utilities
-            .Select(category => rates.FirstOrDefault(rate => rate.Category == category) is { } rate
-                ? ToDto(rate)
-                : new UtilityRateDto { Category = category, Enabled = false })
-            .ToList();
-    }
-
-    public async Task<List<UtilityRateDto>> SaveRatesAsync(int userId, int condominiumId, SaveUtilityRatesDto dto)
-    {
-        // Prices are a billing rule of the condominium, like fine and interest: Admin only.
+        // What the condominium bills is a billing rule, like fine and interest: Admin only.
         await _permissionService.EnsureCondominiumAdminAsync(userId, condominiumId);
         await _permissionService.EnsureModuleEnabledAsync(condominiumId, AppModules.Consumption);
 
-        var existing = await _context.UtilityRates.Where(rate => rate.CondominiumId == condominiumId).ToListAsync();
+        if (dto.Utilities.Any(category => !Utilities.Contains(category)))
+            throw new BadRequestException("Escolha entre água, luz e gás.");
 
-        foreach (var item in dto.Rates)
-        {
-            if (!Utilities.Contains(item.Category))
-                throw new BadRequestException("Os preços são de água, luz e gás.");
-
-            if (item.Enabled && item.PricePerUnit <= 0)
-                throw new BadRequestException($"Informe o preço por {MeterUnit(item.Category)} de {UtilityName(item.Category).ToLowerInvariant()}.");
-
-            var rate = existing.FirstOrDefault(row => row.Category == item.Category);
-
-            if (rate is null)
-            {
-                rate = new UtilityRate { CondominiumId = condominiumId, Category = item.Category };
-                _context.UtilityRates.Add(rate);
-            }
-
-            rate.Enabled = item.Enabled;
-            rate.PricePerUnit = Math.Round(item.PricePerUnit, 4);
-            rate.MinimumCharge = Math.Round(item.MinimumCharge, 2);
-            rate.UpdatedAt = DateTime.UtcNow;
-        }
-
+        var condominium = await _context.Condominiums.FirstAsync(c => c.Id == condominiumId);
+        condominium.BilledUtilities = string.Join(',', Utilities.Where(dto.Utilities.Contains).Select(category => (int)category));
+        condominium.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
-        return await GetRatesAsync(userId, condominiumId);
+        return new UtilitySettingsDto { Utilities = ParseUtilities(condominium.BilledUtilities) };
     }
 
-    public async Task<ReadingMonthDto> GetMonthAsync(int userId, int condominiumId, string? month, ChargeCategory category)
+    public async Task<UtilityMonthDto> GetMonthAsync(int userId, int condominiumId, string? month)
     {
         await EnsureCanViewAsync(userId, condominiumId);
-        EnsureUtility(category);
 
         var start = ParseMonth(month);
         var units = await ManagedUnitsAsync(userId, condominiumId);
         var unitIds = units.Select(unit => unit.Id).ToList();
+        var billed = await _context.Condominiums.Where(c => c.Id == condominiumId).Select(c => c.BilledUtilities).FirstAsync();
 
-        var readings = await _context.MeterReadings
+        var amounts = await _context.UtilityCharges
             .AsNoTracking()
-            .Where(reading => unitIds.Contains(reading.UnitId) && reading.Category == category && reading.Month <= start)
-            .OrderByDescending(reading => reading.Month)
+            .Where(row => unitIds.Contains(row.UnitId) && row.Month == start)
             .ToListAsync();
 
-        var payers = await PayersAsync(condominiumId, category);
-        var lockedItemIds = await LockedItemIdsAsync(readings.Where(reading => reading.Month == start).Select(reading => reading.ChargeItemId));
-        var rate = await _context.UtilityRates.AsNoTracking().FirstOrDefaultAsync(row => row.CondominiumId == condominiumId && row.Category == category);
+        var lockedItemIds = await LockedItemIdsAsync(amounts.Select(row => row.ChargeItemId));
+        var payerNames = await PayerNamesAsync(unitIds, start);
 
-        return new ReadingMonthDto
+        return new UtilityMonthDto
         {
             Month = start.ToString("yyyy-MM", CultureInfo.InvariantCulture),
-            Category = category,
-            Rate = rate is null ? null : ToDto(rate),
-            Rows = units.Select(unit =>
+            Utilities = ParseUtilities(billed),
+            Rows = units.Select(unit => new UtilityRowDto
             {
-                var current = readings.FirstOrDefault(reading => reading.UnitId == unit.Id && reading.Month == start);
-                var before = readings.Where(reading => reading.UnitId == unit.Id && reading.Month < start).ToList();
-                var payer = payers.GetValueOrDefault(unit.Id);
-
-                return new ReadingRowDto
-                {
-                    UnitId = unit.Id,
-                    UnitNumber = unit.Number,
-                    BuildingName = unit.Building.Name,
-                    PayerPersonId = payer?.PersonId,
-                    PayerName = payer?.Name,
-                    PreviousReading = current?.PreviousReading ?? before.FirstOrDefault()?.CurrentReading,
-                    CurrentReading = current?.CurrentReading,
-                    Consumption = current?.Consumption,
-                    Amount = current?.Amount,
-                    AverageConsumption = before.Count == 0 ? null : Math.Round(before.Take(3).Average(reading => reading.Consumption), 3),
-                    IsLocked = current?.ChargeItemId is { } itemId && lockedItemIds.Contains(itemId)
-                };
+                UnitId = unit.Id,
+                UnitNumber = unit.Number,
+                BuildingName = unit.Building.Name,
+                PayerName = payerNames.GetValueOrDefault(unit.Id),
+                Amounts = amounts
+                    .Where(row => row.UnitId == unit.Id)
+                    .Select(row => new UtilityAmountDto
+                    {
+                        Category = row.Category,
+                        Amount = row.Amount,
+                        IsLocked = row.ChargeItemId is { } itemId && lockedItemIds.Contains(itemId)
+                    })
+                    .ToList()
             }).ToList()
         };
     }
 
-    public async Task<SaveReadingsResultDto> SaveReadingsAsync(int userId, int condominiumId, SaveReadingsDto dto)
+    public async Task<SaveUtilitiesResultDto> SaveMonthAsync(int userId, int condominiumId, SaveUtilitiesDto dto)
     {
         await _permissionService.EnsureCondominiumPermissionAsync(userId, condominiumId, AppPermissions.ChargesCreate);
         await _permissionService.EnsureModuleEnabledAsync(condominiumId, AppModules.Consumption);
-        EnsureUtility(dto.Category);
 
         var start = ParseMonth(dto.Month);
-        var rate = await _context.UtilityRates.AsNoTracking().FirstOrDefaultAsync(row => row.CondominiumId == condominiumId && row.Category == dto.Category);
-
-        if (rate is not { Enabled: true })
-            throw new BadRequestException($"Configure o preço de {UtilityName(dto.Category).ToLowerInvariant()} antes de lançar as leituras.");
-
         var units = (await ManagedUnitsAsync(userId, condominiumId)).ToDictionary(unit => unit.Id);
-        var unitIds = dto.Readings.Select(row => row.UnitId).Distinct().ToList();
+        var unitIds = dto.Amounts.Select(row => row.UnitId).Distinct().ToList();
 
-        if (unitIds.Count != dto.Readings.Count)
-            throw new BadRequestException("Cada unidade aparece uma vez só.");
-
-        var stored = await _context.MeterReadings
-            .Where(reading => unitIds.Contains(reading.UnitId) && reading.Category == dto.Category && reading.Month <= start)
-            .OrderByDescending(reading => reading.Month)
+        var stored = await _context.UtilityCharges
+            .Where(row => unitIds.Contains(row.UnitId) && row.Month == start)
             .ToListAsync();
-
-        var lockedItemIds = await LockedItemIdsAsync(stored.Where(reading => reading.Month == start).Select(reading => reading.ChargeItemId));
-        var payers = await PayersAsync(condominiumId, dto.Category);
-        var plans = new List<(SaveReadingDto Row, MeterReading? Existing, decimal Previous)>();
+        var lockedItemIds = await LockedItemIdsAsync(stored.Select(row => row.ChargeItemId));
 
         // Everything is checked before anything is saved.
-        foreach (var row in dto.Readings)
+        foreach (var row in dto.Amounts)
         {
             if (!units.TryGetValue(row.UnitId, out var unit))
                 throw new BadRequestException("Uma das unidades não é deste condomínio ou não é do seu prédio.");
 
-            var label = $"{unit.Building.Name} · {unit.Number}";
-            var existing = stored.FirstOrDefault(reading => reading.UnitId == row.UnitId && reading.Month == start);
+            if (!Utilities.Contains(row.Category))
+                throw new BadRequestException("Os valores são de água, luz e gás.");
 
-            if (existing?.ChargeItemId is { } itemId && lockedItemIds.Contains(itemId))
-                throw new BadRequestException($"{label}: a conta deste mês já foi enviada; a leitura não pode mais mudar.");
+            if (row.Amount is < 0)
+                throw new BadRequestException("Informe um valor positivo.");
 
-            var previous = existing?.PreviousReading
-                ?? stored.FirstOrDefault(reading => reading.UnitId == row.UnitId && reading.Month < start)?.CurrentReading
-                ?? row.PreviousReading
-                ?? throw new BadRequestException($"{label}: é a primeira leitura; informe também a leitura anterior.");
+            var existing = stored.FirstOrDefault(item => item.UnitId == row.UnitId && item.Category == row.Category);
 
-            if (row.CurrentReading < previous)
-                throw new BadRequestException($"{label}: a leitura atual ({row.CurrentReading.ToString("0.###", PtBr)}) é menor que a anterior ({previous.ToString("0.###", PtBr)}).");
-
-            plans.Add((row, existing, previous));
+            if (existing?.ChargeItemId is { } itemId && lockedItemIds.Contains(itemId) && existing.Amount != Math.Round(row.Amount ?? 0, 2))
+                throw new BadRequestException($"{unit.Building.Name} · {unit.Number}: a conta deste mês já foi enviada; o valor não pode mais mudar.");
         }
 
+        var saved = 0;
         decimal total = 0;
 
-        foreach (var (row, existing, previous) in plans)
+        foreach (var row in dto.Amounts)
         {
-            var consumption = row.CurrentReading - previous;
-            var amount = Math.Round(Math.Max(consumption * rate.PricePerUnit, rate.MinimumCharge), 2);
-            var reading = existing ?? new MeterReading
+            var amount = Math.Round(row.Amount ?? 0, 2);
+            var existing = stored.FirstOrDefault(item => item.UnitId == row.UnitId && item.Category == row.Category);
+
+            if (existing is not null && existing.Amount == amount)
+            {
+                total += amount;
+                continue;
+            }
+
+            if (existing?.ChargeItemId is { } oldItemId)
+                await _invoiceService.RemoveDraftItemAsync(oldItemId);
+
+            if (amount <= 0)
+            {
+                if (existing is not null)
+                    _context.UtilityCharges.Remove(existing);
+
+                await _context.SaveChangesAsync();
+                continue;
+            }
+
+            var record = existing ?? new UtilityCharge
             {
                 CondominiumId = condominiumId,
                 UnitId = row.UnitId,
-                Category = dto.Category,
+                Category = row.Category,
                 Month = start,
                 CreatedByUserId = userId,
                 CreatedAt = DateTime.UtcNow
             };
 
             if (existing is null)
-                _context.MeterReadings.Add(reading);
+                _context.UtilityCharges.Add(record);
 
-            // A corrected reading replaces its item in the draft bill.
-            if (reading.ChargeItemId is { } oldItemId)
-                await _invoiceService.RemoveDraftItemAsync(oldItemId);
+            // Recipient left open: the bill goes to whoever pays the unit's condominium bills (#208).
+            var result = await _invoiceService.AddItemToDraftAsync(new InvoiceItemRequest(
+                condominiumId, row.UnitId, null, start, row.Category, UtilityName(row.Category), amount, userId));
 
-            reading.PreviousReading = previous;
-            reading.CurrentReading = row.CurrentReading;
-            reading.Consumption = consumption;
-            reading.Amount = amount;
-            reading.ChargeItemId = null;
-            reading.UpdatedAt = DateTime.UtcNow;
-
-            if (amount > 0)
-            {
-                var payer = payers.GetValueOrDefault(row.UnitId);
-                var result = await _invoiceService.AddItemToDraftAsync(new InvoiceItemRequest(
-                    condominiumId,
-                    row.UnitId,
-                    payer?.PersonId,
-                    start,
-                    dto.Category,
-                    $"{UtilityName(dto.Category)} ({consumption.ToString("0.###", PtBr)} {MeterUnit(dto.Category)})",
-                    amount,
-                    userId,
-                    payer is null ? null : ChargeLateFees.DueDateIn(start.Year, start.Month, payer.DueDay)));
-
-                reading.ChargeItemId = result.ItemId;
-            }
-
+            record.Amount = amount;
+            record.ChargeItemId = result.ItemId;
+            record.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
+
+            saved++;
             total += amount;
         }
 
-        return new SaveReadingsResultDto { Saved = plans.Count, Total = total };
+        return new SaveUtilitiesResultDto { Saved = saved, Total = total };
     }
 
     public async Task<List<ConsumptionHistoryDto>> GetMineAsync(int userId)
@@ -239,26 +179,23 @@ public class ConsumptionService : IConsumptionService
         var since = DateOnly.FromDateTime(AppTimeZone.Today).AddMonths(-11);
         since = new DateOnly(since.Year, since.Month, 1);
 
-        var readings = await _context.MeterReadings
+        var unitIds = await _context.PersonUnits.Where(link => link.PersonId == personId).Select(link => link.UnitId).Distinct().ToListAsync();
+        // Only the units whose condominium bills this person pays (#208).
+        var rules = await UnitPayers.GetRulesAsync(_context, unitIds);
+
+        var rows = await _context.UtilityCharges
             .AsNoTracking()
-            .Where(reading =>
-                reading.Month >= since &&
-                _context.PersonUnits.Any(link => link.PersonId == personId && link.UnitId == reading.UnitId) &&
-                reading.Condominium.Status == Status.Active &&
-                reading.Condominium.EnabledModules.Contains(AppModules.Consumption))
-            .Select(reading => new
-            {
-                reading.UnitId,
-                UnitLabel = reading.Unit.Building.Name + " · " + reading.Unit.Number,
-                reading.Category,
-                reading.Month,
-                reading.Consumption,
-                reading.Amount
-            })
+            .Where(row =>
+                row.Month >= since &&
+                unitIds.Contains(row.UnitId) &&
+                row.Condominium.Status == Status.Active &&
+                row.Condominium.EnabledModules.Contains(AppModules.Consumption))
+            .Select(row => new { row.UnitId, UnitLabel = row.Unit.Building.Name + " · " + row.Unit.Number, row.Category, row.Month, row.Amount })
             .ToListAsync();
 
-        return readings
-            .GroupBy(reading => new { reading.UnitId, reading.UnitLabel, reading.Category })
+        return rows
+            .Where(row => rules[row.UnitId].For(row.Month.ToDateTime(TimeOnly.MinValue)).Contains(personId))
+            .GroupBy(row => new { row.UnitId, row.UnitLabel, row.Category })
             .OrderBy(group => group.Key.UnitLabel)
             .ThenBy(group => group.Key.Category)
             .Select(group => new ConsumptionHistoryDto
@@ -267,34 +204,23 @@ public class ConsumptionService : IConsumptionService
                 UnitLabel = group.Key.UnitLabel,
                 Category = group.Key.Category,
                 Months = group
-                    .OrderBy(reading => reading.Month)
-                    .Select(reading => new ConsumptionPointDto
-                    {
-                        Month = reading.Month.ToString("yyyy-MM", CultureInfo.InvariantCulture),
-                        Consumption = reading.Consumption,
-                        Amount = reading.Amount
-                    })
+                    .OrderBy(row => row.Month)
+                    .Select(row => new ConsumptionPointDto { Month = row.Month.ToString("yyyy-MM", CultureInfo.InvariantCulture), Amount = row.Amount })
                     .ToList()
             })
             .ToList();
     }
 
-    // Tenant who pays the condominium's bills, per unit (active contract with the tenant paying).
-    private async Task<Dictionary<int, Payer>> PayersAsync(int condominiumId, ChargeCategory category)
+    // Who pays each unit's condominium bills that month, for the "Para" column.
+    private async Task<Dictionary<int, string>> PayerNamesAsync(List<int> unitIds, DateOnly month)
     {
-        var contracts = await _context.RentalContracts
-            .AsNoTracking()
-            .Where(contract =>
-                contract.CondominiumId == condominiumId &&
-                contract.Status == RentalContractStatus.Active &&
-                // The tenant pays the condominium's bills when the contract says so (#208).
-                contract.CondominiumBillsPaidBy == CondominiumBillsPayer.Tenant)
-            .Select(contract => new { contract.UnitId, contract.TenantPersonId, contract.TenantPerson.Name, contract.DueDay })
-            .ToListAsync();
+        var rules = await UnitPayers.GetRulesAsync(_context, unitIds);
+        var personIds = rules.Values.SelectMany(rule => rule.For(month.ToDateTime(TimeOnly.MinValue))).Distinct().ToList();
+        var names = await _context.Persons.AsNoTracking().Where(person => personIds.Contains(person.Id)).ToDictionaryAsync(person => person.Id, person => person.Name);
 
-        return contracts
-            .GroupBy(contract => contract.UnitId)
-            .ToDictionary(group => group.Key, group => new Payer(group.First().TenantPersonId, group.First().Name, group.First().DueDay));
+        return rules.ToDictionary(
+            pair => pair.Key,
+            pair => string.Join(", ", pair.Value.For(month.ToDateTime(TimeOnly.MinValue)).Select(id => names.GetValueOrDefault(id)).Where(name => name is not null)));
     }
 
     // Items whose bill already left the draft.
@@ -343,24 +269,17 @@ public class ConsumptionService : IConsumptionService
             return;
 
         if (role != AppRoles.Syndic)
-            throw new ForbiddenException("Você não tem acesso às leituras deste condomínio.");
+            throw new ForbiddenException("Você não tem acesso a água, luz e gás deste condomínio.");
 
         await _permissionService.EnsureAnyCondominiumPermissionAsync(userId, condominiumId, AppPermissions.FinanceAccess);
     }
 
-    private static void EnsureUtility(ChargeCategory category)
-    {
-        if (!Utilities.Contains(category))
-            throw new BadRequestException("As leituras são de água, luz e gás.");
-    }
-
-    private static UtilityRateDto ToDto(UtilityRate rate) => new()
-    {
-        Category = rate.Category,
-        Enabled = rate.Enabled,
-        PricePerUnit = rate.PricePerUnit,
-        MinimumCharge = rate.MinimumCharge
-    };
+    private static List<ChargeCategory> ParseUtilities(string? value) =>
+        (value ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(part => int.TryParse(part, out var number) ? (ChargeCategory)number : 0)
+            .Where(Utilities.Contains)
+            .ToList();
 
     private static string UtilityName(ChargeCategory category) => category switch
     {
@@ -368,8 +287,6 @@ public class ConsumptionService : IConsumptionService
         ChargeCategory.Electricity => "Luz",
         _ => "Gás"
     };
-
-    private static string MeterUnit(ChargeCategory category) => category == ChargeCategory.Electricity ? "kWh" : "m³";
 
     private static DateOnly ParseMonth(string? month)
     {
@@ -385,6 +302,4 @@ public class ConsumptionService : IConsumptionService
 
         throw new BadRequestException("Informe o mês no formato AAAA-MM.");
     }
-
-    private record Payer(int PersonId, string Name, int DueDay);
 }

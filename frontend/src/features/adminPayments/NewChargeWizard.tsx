@@ -1,14 +1,13 @@
 import { useState, type ReactNode } from "react";
-import { Building, Check, ClipboardList, Gauge, Home, ListChecks, Repeat, Rows3, User } from "lucide-react";
+import { Building, CalendarClock, Check, ClipboardList, Home, ListChecks, ReceiptText, Repeat, Rows3, User } from "lucide-react";
 import { Button } from "../../shared/components/Button";
 import { Modal } from "../../shared/components/Modal";
 import { SelectField } from "../../shared/components/SelectField";
 import { Switch } from "../../shared/components/Switch";
 import { TextField } from "../../shared/components/TextField";
-import { formatCurrency } from "../../shared/lib/currency";
 import { formatCalendarDate, todayInputDate } from "../../shared/lib/date";
 import type { BuildingResponse } from "../buildings/types";
-import { CHARGE_CATEGORIES, WIZARD_CATEGORIES, meterUnit } from "../charges/chargeCategories";
+import { CHARGE_CATEGORIES, WIZARD_CATEGORIES } from "../charges/chargeCategories";
 import type { ChargeCategory } from "../charges/types";
 import { getPeopleByUnit } from "../personUnits/personUnitService";
 import type { PersonUnitResponse } from "../personUnits/types";
@@ -19,8 +18,7 @@ import {
   billedUnits,
   canRepeat,
   initialNewChargeForm,
-  isMetered,
-  readingFor,
+  monthName,
   suggestedDescription,
   summarize,
   targetUnits,
@@ -33,13 +31,23 @@ type NewChargeWizardProps = {
   units: UnitResponse[];
   buildings: BuildingResponse[];
   billingDueDay: number | null;
-  // Opened from "Recorrências": starts with "Repetir todo mês" on.
+  // Opened from "Cobranças fixas": starts with "Todo mês" on.
   startRepeating?: boolean;
   isSubmitting: boolean;
   error: string;
   onClose: () => void;
   onSubmit: (form: NewChargeForm, recipientName?: string) => void;
 };
+
+// The bill months a charge can go into: this one and the next two.
+function billMonthOptions() {
+  const today = todayInputDate();
+  const [year, month] = today.split("-").map(Number);
+  return [0, 1, 2].map((offset) => {
+    const date = new Date(Date.UTC(year, month - 1 + offset, 1));
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+  });
+}
 
 const stepTitles: Record<WizardStep, string> = {
   1: "O que você quer cobrar?",
@@ -87,7 +95,7 @@ export function MoneyInput({ label, value, placeholder, onChange, className = "w
   );
 }
 
-// "Nova cobrança" in three questions; the page decides which route (single, batch, recurring) to call.
+// "Lançar cobrança" in three questions; the page decides where it goes (month's bills, now, every month).
 export function NewChargeWizard({ units, buildings, billingDueDay, startRepeating = false, isSubmitting, error, onClose, onSubmit }: NewChargeWizardProps) {
   const [step, setStep] = useState<WizardStep>(1);
   const [form, setForm] = useState<NewChargeForm>(() => initialNewChargeForm(billingDueDay, startRepeating));
@@ -112,7 +120,7 @@ export function NewChargeWizard({ units, buildings, billingDueDay, startRepeatin
   function chooseCategory(value: ChargeCategory) {
     // Rent and fines go to one unit; the rest usually to many. Readings only exist for water, power and gas.
     const target = value === 2 || value === 7 ? "unit" : "many";
-    update({ category: value, target, pricing: form.pricing === "reading" && !CHARGE_CATEGORIES[value].isMetered ? "same" : form.pricing });
+    update({ category: value, target });
     setStepError("");
     setStep(2);
   }
@@ -150,13 +158,12 @@ export function NewChargeWizard({ units, buildings, billingDueDay, startRepeatin
   }
 
   const billed = step >= 3 ? billedUnits(form, units) : [];
-  const skippedByReading = form.pricing === "reading" ? scoped.length - billed.length : 0;
   const unitsWithoutPeople = billed.filter((item) => item.unit.residentCount === 0).length;
 
   return (
     <Modal
       size="lg"
-      title="Nova cobrança"
+      title="Lançar cobrança"
       description={
         <span className="flex items-center gap-2">
           <span className="tabular-nums">{step < 4 ? `Passo ${step} de 3` : "Resumo"}</span>
@@ -172,7 +179,7 @@ export function NewChargeWizard({ units, buildings, billingDueDay, startRepeatin
           </Button>
           {step > 1 && (
             <Button onClick={next} isLoading={isSubmitting} loadingText="Criando…">
-              {step === 3 ? "Revisar" : step === 4 ? (repeat ? "Criar recorrência" : "Criar cobrança") : "Continuar"}
+              {step === 3 ? "Revisar" : step === 4 ? (repeat ? "Criar cobrança fixa" : form.destination === "bill" ? "Lançar" : "Criar cobrança") : "Continuar"}
             </Button>
           )}
         </>
@@ -203,7 +210,7 @@ export function NewChargeWizard({ units, buildings, billingDueDay, startRepeatin
       {step === 2 && (
         <div className="grid gap-4">
           <div className="grid gap-2 sm:grid-cols-2">
-            <Choice compact selected={form.target === "unit"} icon={<Home size={18} strokeWidth={1.8} />} title="Uma unidade" hint="Ex.: aluguel, multa, reserva" onClick={() => update({ target: "unit" })} />
+            <Choice compact selected={form.target === "unit"} icon={<Home size={18} strokeWidth={1.8} />} title="Uma unidade" hint="Ex.: multa, taxa extra" onClick={() => update({ target: "unit" })} />
             <Choice compact selected={form.target === "many"} icon={<Rows3 size={18} strokeWidth={1.8} />} title="Várias unidades" hint="Condomínio todo, um prédio ou escolhidas" onClick={() => update({ target: "many" })} />
           </div>
 
@@ -249,7 +256,7 @@ export function NewChargeWizard({ units, buildings, billingDueDay, startRepeatin
               <div className="grid gap-2">
                 <Choice compact selected={form.manyScope === "all"} icon={<ClipboardList size={18} strokeWidth={1.8} />} title="Condomínio todo" hint={`${units.length} unidades`} onClick={() => update({ manyScope: "all" })} />
                 <Choice compact selected={form.manyScope === "building"} icon={<Building size={18} strokeWidth={1.8} />} title="Um prédio" onClick={() => update({ manyScope: "building" })} />
-                <Choice compact selected={form.manyScope === "pick"} icon={<ListChecks size={18} strokeWidth={1.8} />} title="Escolher unidades" hint="Ex.: só quem tem medidor de água" onClick={() => update({ manyScope: "pick" })} />
+                <Choice compact selected={form.manyScope === "pick"} icon={<ListChecks size={18} strokeWidth={1.8} />} title="Escolher unidades" hint="Ex.: só algumas unidades" onClick={() => update({ manyScope: "pick" })} />
               </div>
               {form.manyScope === "building" && (
                 <SelectField
@@ -302,28 +309,20 @@ export function NewChargeWizard({ units, buildings, billingDueDay, startRepeatin
 
       {step === 3 && (
         <div className="grid gap-4">
-          {(form.target === "many" || isMetered(form)) && (
-            <div className="grid gap-2 sm:grid-cols-3">
-              <Choice compact selected={form.pricing === "same"} icon={<Check size={18} strokeWidth={1.8} />} title={form.target === "unit" ? "Valor fixo" : "Mesmo valor"} onClick={() => update({ pricing: "same" })} />
-              {form.target === "many" && <Choice compact selected={form.pricing === "perUnit"} icon={<Rows3 size={18} strokeWidth={1.8} />} title="Valor por unidade" onClick={() => update({ pricing: "perUnit" })} />}
-              {isMetered(form) && <Choice compact selected={form.pricing === "reading"} icon={<Gauge size={18} strokeWidth={1.8} />} title="Pela leitura" onClick={() => update({ pricing: "reading" })} />}
+          {form.target === "many" && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Choice compact selected={form.pricing === "same"} icon={<Check size={18} strokeWidth={1.8} />} title="Mesmo valor" onClick={() => update({ pricing: "same" })} />
+              <Choice compact selected={form.pricing === "perUnit"} icon={<Rows3 size={18} strokeWidth={1.8} />} title="Valor por unidade" onClick={() => update({ pricing: "perUnit" })} />
             </div>
           )}
 
-          {form.pricing !== "reading" ? (
-            <TextField
-              label={form.pricing === "perUnit" ? "Valor padrão (R$)" : form.target === "unit" ? "Valor (R$)" : "Valor por unidade (R$)"}
-              value={form.value}
-              onChange={(event) => update({ value: event.target.value })}
-              placeholder="500,00"
-              inputMode="decimal"
-            />
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              <TextField label={`R$ por ${meterUnit(form.category ?? 3)}`} value={form.rate} onChange={(event) => update({ rate: event.target.value })} placeholder="7,50" inputMode="decimal" />
-              <TextField label="Taxa mínima (opcional)" value={form.minimum} onChange={(event) => update({ minimum: event.target.value })} placeholder="30,00" inputMode="decimal" />
-            </div>
-          )}
+          <TextField
+            label={form.pricing === "perUnit" ? "Valor padrão (R$)" : form.target === "unit" ? "Valor (R$)" : "Valor por unidade (R$)"}
+            value={form.value}
+            onChange={(event) => update({ value: event.target.value })}
+            placeholder="500,00"
+            inputMode="decimal"
+          />
 
           {form.pricing === "perUnit" && (
             <div className="rounded-block border border-linha">
@@ -345,50 +344,34 @@ export function NewChargeWizard({ units, buildings, billingDueDay, startRepeatin
             </div>
           )}
 
-          {form.pricing === "reading" && (
-            <div className="rounded-block border border-linha">
-              <div className="flex items-center justify-between gap-3 border-b border-linha px-4 py-2.5 text-xs font-semibold text-tinta-suave">
-                <span>Unidade · consumo</span>
-                <span className="flex gap-2">
-                  <span className="w-20 text-right">Anterior</span>
-                  <span className="w-20 text-right">Atual</span>
-                </span>
-              </div>
-              <ul className="max-h-72 divide-y divide-linha overflow-y-auto">
-                {scoped.map((unit) => {
-                  const reading = form.readings[unit.id] ?? { previous: "", current: "" };
-                  const result = readingFor(form, unit.id);
-                  const setReading = (field: "previous" | "current", value: string) => update({ readings: { ...form.readings, [unit.id]: { ...reading, [field]: value } } });
-                  return (
-                    <li key={unit.id} className="flex items-center justify-between gap-3 px-4 py-2">
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold text-tinta">{unitLabel(unit)}</span>
-                        <span className={`block truncate text-xs tabular-nums ${result && !result.isValid ? "text-vermelho" : "text-tinta-suave"}`}>
-                          {result
-                            ? result.isValid
-                              ? `${result.consumption.toLocaleString("pt-BR")} ${meterUnit(form.category ?? 3)} · ${formatCurrency(result.value)}`
-                              : "Atual menor que a anterior"
-                            : "Sem leitura: fica de fora"}
-                        </span>
-                      </span>
-                      <span className="flex shrink-0 gap-2">
-                        <MoneyInput label={`Leitura anterior de ${unitLabel(unit)}`} value={reading.previous} placeholder="0" className="w-20" onChange={(value) => setReading("previous", value)} />
-                        <MoneyInput label={`Leitura atual de ${unitLabel(unit)}`} value={reading.current} placeholder="–" className="w-20" onChange={(value) => setReading("current", value)} />
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
-
           {canRepeat(form) && (
             <div className="rounded-block border border-linha px-4">
               <Switch
-                label="Repetir todo mês"
-                description="O Moraê gera sozinho, 10 dias antes de cada vencimento, até você pausar."
+                label="Todo mês (cobrança fixa)"
+                description="Entra sozinha na conta de cada mês, até você pausar."
                 checked={form.repeat}
                 onChange={(checked) => update({ repeat: checked })}
+              />
+            </div>
+          )}
+
+          {!repeat && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Choice
+                compact
+                selected={form.destination === "bill"}
+                icon={<ReceiptText size={18} strokeWidth={1.8} />}
+                title="Na conta do mês"
+                hint="Junto com o resto, um Pix só"
+                onClick={() => update({ destination: "bill" })}
+              />
+              <Choice
+                compact
+                selected={form.destination === "now"}
+                icon={<CalendarClock size={18} strokeWidth={1.8} />}
+                title="Agora, separada"
+                hint="Uma conta só disso, com vencimento próprio"
+                onClick={() => update({ destination: "now" })}
               />
             </div>
           )}
@@ -402,6 +385,13 @@ export function NewChargeWizard({ units, buildings, billingDueDay, startRepeatin
                 placeholder={billingDueDay ? String(billingDueDay) : "10"}
                 inputMode="numeric"
                 hint={billingDueDay ? `O do condomínio é dia ${billingDueDay}.` : undefined}
+              />
+            ) : form.destination === "bill" ? (
+              <SelectField
+                label="Conta de"
+                value={form.billMonth}
+                onChange={(event) => update({ billMonth: event.target.value })}
+                options={billMonthOptions().map((month) => ({ value: month, label: monthName(month) }))}
               />
             ) : (
               <TextField label="Vencimento" type="date" min={todayInputDate()} value={form.dueDate} onChange={(event) => update({ dueDate: event.target.value })} />
@@ -431,8 +421,10 @@ export function NewChargeWizard({ units, buildings, billingDueDay, startRepeatin
               <dd className="font-semibold text-tinta [overflow-wrap:anywhere]">{form.description}</dd>
             </div>
             <div>
-              <dt className="text-xs text-tinta-suave">{repeat ? "Vence" : "Vencimento"}</dt>
-              <dd className="font-semibold tabular-nums text-tinta">{repeat ? `todo dia ${form.dueDay}` : formatCalendarDate(form.dueDate)}</dd>
+              <dt className="text-xs text-tinta-suave">{repeat ? "Vence" : form.destination === "bill" ? "Entra na conta de" : "Vencimento"}</dt>
+              <dd className="font-semibold tabular-nums text-tinta">
+                {repeat ? `todo dia ${form.dueDay}` : form.destination === "bill" ? monthName(form.billMonth) : formatCalendarDate(form.dueDate)}
+              </dd>
             </div>
             <div className="col-span-2">
               <dt className="text-xs text-tinta-suave">De quem</dt>
@@ -445,9 +437,8 @@ export function NewChargeWizard({ units, buildings, billingDueDay, startRepeatin
             </div>
           </dl>
 
-          {(skippedByReading > 0 || unitsWithoutPeople > 0) && (
+          {unitsWithoutPeople > 0 && (
             <p className="rounded-block bg-ambar-suave px-4 py-3 text-[13px] text-tinta">
-              {skippedByReading > 0 && `${skippedByReading} ${skippedByReading === 1 ? "unidade ficou" : "unidades ficaram"} sem leitura e não entra${skippedByReading === 1 ? "" : "m"}. `}
               {unitsWithoutPeople > 0 && `${unitsWithoutPeople} sem ninguém vinculado ${unitsWithoutPeople === 1 ? "fica" : "ficam"} de fora.`}
             </p>
           )}

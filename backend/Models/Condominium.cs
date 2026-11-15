@@ -81,6 +81,10 @@ public class Condominium
 
     // Monthly bills still in draft are sent by the hourly job this many days before they are due.
     // Null = only when the management clicks "Enviar contas".
-    public int? InvoiceAutoSendDaysBefore { get; set; }
+    public int? InvoiceAutoSendDaysBefore { get; set; } = 10;
+
+    // Which of water (3), light (4) and gas (5) the condominium bills per unit, comma-separated (#209).
+    [StringLength(20)]
+    public string BilledUtilities { get; set; } = "3,4";
     public DateOnly? OpeningBalanceMonth { get; set; }
 }

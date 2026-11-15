@@ -30,6 +30,12 @@ public class InvoicesController : ControllerBase
         return Ok(await _invoiceService.AddItemAsync(GetUserId(), condominiumId, dto));
     }
 
+    [HttpPost("api/condominiums/{condominiumId}/invoices/launch")]
+    public async Task<IActionResult> Launch([FromRoute] int condominiumId, [FromBody] LaunchChargeDto dto)
+    {
+        return Ok(await _invoiceService.LaunchAsync(GetUserId(), condominiumId, dto));
+    }
+
     [HttpPost("api/condominiums/{condominiumId}/invoices/send")]
     public async Task<IActionResult> Send([FromRoute] int condominiumId, [FromBody] SendInvoicesDto dto)
     {

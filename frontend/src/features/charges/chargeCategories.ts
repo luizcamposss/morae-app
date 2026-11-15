@@ -25,11 +25,12 @@ export const CHARGE_CATEGORIES: Record<ChargeCategory, CategoryInfo> = {
   11: { label: "Conta do mês", cardLabel: "Conta do mês", hint: "Vários itens numa conta só", icon: ReceiptText },
 };
 
-// What a monthly bill item can be (the other categories have their own flow).
-export const INVOICE_ITEM_CATEGORIES: ChargeCategory[] = [2, 3, 4, 5, 1, 6, 7, 10];
+// What the management charges by hand (#209): rent goes through the contract and water, light
+// and gas through their own screen, so they are not here.
+export const INVOICE_ITEM_CATEGORIES: ChargeCategory[] = [1, 6, 7, 10];
 
-// Cards of the wizard's first step, in the order people look for them.
-export const WIZARD_CATEGORIES: ChargeCategory[] = [1, 2, 3, 4, 5, 6, 7, 10];
+// Cards of the "Lançar cobrança" first step.
+export const WIZARD_CATEGORIES: ChargeCategory[] = [1, 6, 7, 10];
 
 export const categoryOptions = (Object.keys(CHARGE_CATEGORIES) as unknown as ChargeCategory[]).map((value) => ({
   value: String(value),

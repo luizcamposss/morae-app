@@ -36,7 +36,8 @@ import { ChargeReceiptModal } from "./ChargeReceiptModal";
 import { PaymentProofsPanel } from "./PaymentProofsPanel";
 import { BatchResultModal, CancelChargeModal, ChargeDetailsModal, ManualPaymentModal } from "./ChargeModals";
 import { NewChargeWizard } from "./NewChargeWizard";
-import { targetUnits, unitValuesFor, type NewChargeForm } from "./newChargeForm";
+import { billedUnits, monthName, targetUnits, unitValuesFor, type NewChargeForm } from "./newChargeForm";
+import { launchCharge } from "../invoices/invoiceService";
 import { RecurringChargesList } from "./RecurringChargesList";
 import { useIsSyndicArea, useSyndicCan } from "../syndicAccess/useSyndicAccess";
 import {
@@ -56,7 +57,7 @@ import {
 
 type View = "charges" | "agreements" | "recurring" | "platform";
 type Tab = "open" | "overdue" | "paid" | "renegotiated" | "canceled" | "all";
-// The "Nova cobrança" wizard; repeating = opened from "Recorrências".
+// The "Lançar cobrança" wizard; repeating = opened from "Cobranças fixas".
 type Wizard = { repeating: boolean } | null;
 type BatchResult = { title: string; result: ChargeBatchResult } | null;
 
@@ -244,10 +245,23 @@ export function AdminPaymentsPage() {
 
   function closeModals() {
     setWizard(null);
+    clearLaunchRequest();
     setAgreementWizard(null);
     setPaymentForm(null);
     setCancelForm(null);
     setModalError("");
+  }
+
+  // "Lançar cobrança" from Contas do mês lands here with ?lancar=1: the wizard stays open while the
+  // address asks for it (closing it clears the parameter).
+  const launchRequested = searchParams.get("lancar") === "1" && !isLoading && units.length > 0 && page.isReceivingReady;
+  const shownWizard: Wizard = wizard ?? (launchRequested ? { repeating: false } : null);
+
+  function clearLaunchRequest() {
+    if (!searchParams.has("lancar")) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("lancar");
+    setSearchParams(next, { replace: true });
   }
 
   function openWizard(repeating = false) {
@@ -299,7 +313,19 @@ export function AdminPaymentsPage() {
     setModalError("");
     clearMessages();
     try {
-      if (form.repeat) {
+      if (!form.repeat && form.destination === "bill") {
+        // Into each unit's bill of the month (drafts until they go out).
+        const result = await launchCharge(activeCondominiumId, {
+          month: form.billMonth,
+          category: form.category,
+          description: common.description,
+          units: billedUnits(form, units).map((item) => ({ unitId: item.unit.id, amount: item.value })),
+        });
+        setSuccessMessage(
+          `${common.description}${label} entrou em ${result.createdCount === 1 ? "1 conta" : `${result.createdCount} contas`} de ${monthName(form.billMonth)} (${formatCurrency(result.total)}).` +
+            (result.skipped.length ? ` Sem ninguém vinculado, ficaram de fora: ${result.skipped.join(", ")}.` : ""),
+        );
+      } else if (form.repeat) {
         const created = await createRecurringCharge(activeCondominiumId, {
           ...common,
           buildingId,
@@ -310,15 +336,14 @@ export function AdminPaymentsPage() {
         });
         setView("recurring");
         if (created.generation && created.generation.createdCount + created.generation.skipped.length > 0) {
-          setBatchResult({ title: "Recorrência criada", result: created.generation });
+          setBatchResult({ title: "Cobrança fixa criada", result: created.generation });
         } else {
-          setSuccessMessage(`Recorrência criada${label}. As cobranças saem sozinhas 10 dias antes de cada vencimento (dia ${created.effectiveDueDay}).`);
+          setSuccessMessage(`Cobrança fixa criada${label}. Entra sozinha na conta de cada mês (vencimento dia ${created.effectiveDueDay}).`);
         }
       } else if (unitId) {
         await createCharge({
           ...common,
-          // A reading for one unit sends the computed value.
-          value: unitValues[0]?.value ?? common.value,
+          value: common.value,
           scope: 2,
           condominiumId: activeCondominiumId,
           unitId,
@@ -329,11 +354,10 @@ export function AdminPaymentsPage() {
         setView("charges");
         setSuccessMessage(`Cobrança criada${label}.`);
       } else {
-        const pickedIds = form.pricing === "reading" ? unitValues.map((item) => item.unitId) : form.manyScope === "pick" ? targetUnits(form, units).map((unit) => unit.id) : null;
+        const pickedIds = form.manyScope === "pick" ? targetUnits(form, units).map((unit) => unit.id) : null;
         const result = await createChargeBatch(activeCondominiumId, {
           ...common,
-          // Every unit has its own value in a reading; the default only has to be valid.
-          value: form.pricing === "reading" ? Math.max(...unitValues.map((item) => item.value)) : common.value,
+          value: common.value,
           buildingId,
           unitIds: pickedIds,
           dueDate: form.dueDate,
@@ -343,6 +367,7 @@ export function AdminPaymentsPage() {
         setBatchResult({ title: "Cobranças criadas", result });
       }
       setWizard(null);
+      clearLaunchRequest();
       await reload();
     } catch (error) {
       setModalError(error instanceof Error ? error.message : "Não foi possível criar a cobrança.");
@@ -404,7 +429,7 @@ export function AdminPaymentsPage() {
     try {
       const updated = await changeRecurringCharge(item.id, action);
       if (action === "resume" && updated.generation && updated.generation.createdCount + updated.generation.skipped.length > 0) {
-        setBatchResult({ title: "Recorrência retomada", result: updated.generation });
+        setBatchResult({ title: "Cobrança fixa retomada", result: updated.generation });
       } else {
         setSuccessMessage(
           action === "pause"
@@ -416,7 +441,7 @@ export function AdminPaymentsPage() {
       }
       await reload();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Não foi possível alterar a recorrência.");
+      setErrorMessage(error instanceof Error ? error.message : "Não foi possível alterar a cobrança fixa.");
     } finally {
       setBusyRecurringId(null);
     }
@@ -424,9 +449,9 @@ export function AdminPaymentsPage() {
 
   function askEnd(item: RecurringChargeResponse) {
     setConfirmRequest({
-      title: "Encerrar esta recorrência?",
-      description: `"${item.description}" para de gerar cobranças. As que já foram criadas continuam valendo. Uma recorrência encerrada não volta: para cobrar de novo, crie outra.`,
-      confirmLabel: "Encerrar recorrência",
+      title: "Encerrar esta cobrança fixa?",
+      description: `"${item.description}" para de entrar nas contas. As que já entraram continuam valendo. Uma cobrança fixa encerrada não volta: para cobrar de novo, crie outra.`,
+      confirmLabel: "Encerrar cobrança fixa",
       tone: "danger",
       onConfirm: () => runRecurringAction(item, "end"),
     });
@@ -443,7 +468,7 @@ export function AdminPaymentsPage() {
   const views: Array<{ key: View; label: string; count?: number }> = [
     { key: "charges", label: "Cobranças" },
     ...(hasAgreementsModule || agreements.length > 0 ? [{ key: "agreements" as const, label: "Acordos", count: activeAgreements || undefined }] : []),
-    { key: "recurring", label: "Recorrências", count: activeRecurring },
+    { key: "recurring", label: "Cobranças fixas", count: activeRecurring },
     ...(isSyndic ? [] : [{ key: "platform" as const, label: "Mensalidade Moraê", count: openPlatform || undefined }]),
   ];
 
@@ -453,7 +478,7 @@ export function AdminPaymentsPage() {
         {canCreate && (
           <Button variant="accent" size="sm" onClick={() => openWizard()} disabled={isLoading || units.length === 0 || !page.isReceivingReady}>
             <Plus size={16} strokeWidth={2} aria-hidden />
-            Nova cobrança
+            Lançar cobrança
           </Button>
         )}
       </PageHeader>
@@ -627,7 +652,7 @@ export function AdminPaymentsPage() {
                 {isLoading
                   ? "Carregando…"
                   : charges.length === 0
-                    ? "Nenhuma cobrança ainda. Use “Nova cobrança” para gerar a taxa do mês, o aluguel ou a conta de água."
+                    ? "Nenhuma cobrança ainda. Use “Lançar cobrança” para uma taxa, rateio ou multa. Aluguel é pelo contrato, e água, luz e gás pela tela própria."
                     : term || buildingFilter || monthFilter || categoryFilter || unitFilter
                       ? "Nenhuma cobrança encontrada com esses filtros."
                       : "Nenhuma cobrança nesta situação."}
@@ -708,7 +733,7 @@ export function AdminPaymentsPage() {
             </p>
             {canCreate && <Button variant="quiet" size="sm" onClick={() => openWizard(true)} disabled={isLoading || units.length === 0 || !page.isReceivingReady} className="self-start bg-superficie shadow-whisper hover:bg-campo">
               <Repeat size={16} strokeWidth={2} aria-hidden />
-              Nova recorrência
+              Nova cobrança fixa
             </Button>}
           </div>
           <RecurringChargesList
@@ -838,12 +863,12 @@ export function AdminPaymentsPage() {
         />
       )}
 
-      {wizard && (
+      {shownWizard && (
         <NewChargeWizard
           units={units}
           buildings={buildings}
           billingDueDay={settings?.billingDueDay ?? null}
-          startRepeating={wizard.repeating}
+          startRepeating={shownWizard.repeating}
           isSubmitting={isSubmitting}
           error={modalError}
           onClose={closeModals}

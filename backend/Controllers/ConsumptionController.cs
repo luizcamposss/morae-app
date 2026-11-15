@@ -1,13 +1,12 @@
 using System.Security.Claims;
 using backend.DTOs.Consumption;
-using backend.Enums;
 using backend.Services.Consumption;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace backend.Controllers;
 
-// Individual meters (module "Consumo"): prices, monthly readings and the residents' history.
+// Water, light and gas per unit (module "Consumo"): monthly amounts in R$ and the residents' history.
 [ApiController]
 [Authorize]
 public class ConsumptionController : ControllerBase
@@ -19,21 +18,17 @@ public class ConsumptionController : ControllerBase
         _consumptionService = consumptionService;
     }
 
-    [HttpGet("api/condominiums/{condominiumId}/utility-rates")]
-    public async Task<IActionResult> GetRates([FromRoute] int condominiumId) =>
-        Ok(await _consumptionService.GetRatesAsync(GetUserId(), condominiumId));
+    [HttpGet("api/condominiums/{condominiumId}/utilities")]
+    public async Task<IActionResult> GetMonth([FromRoute] int condominiumId, [FromQuery] string? month) =>
+        Ok(await _consumptionService.GetMonthAsync(GetUserId(), condominiumId, month));
 
-    [HttpPut("api/condominiums/{condominiumId}/utility-rates")]
-    public async Task<IActionResult> SaveRates([FromRoute] int condominiumId, [FromBody] SaveUtilityRatesDto dto) =>
-        Ok(await _consumptionService.SaveRatesAsync(GetUserId(), condominiumId, dto));
+    [HttpPost("api/condominiums/{condominiumId}/utilities")]
+    public async Task<IActionResult> SaveMonth([FromRoute] int condominiumId, [FromBody] SaveUtilitiesDto dto) =>
+        Ok(await _consumptionService.SaveMonthAsync(GetUserId(), condominiumId, dto));
 
-    [HttpGet("api/condominiums/{condominiumId}/readings")]
-    public async Task<IActionResult> GetMonth([FromRoute] int condominiumId, [FromQuery] string? month, [FromQuery] ChargeCategory category = ChargeCategory.Water) =>
-        Ok(await _consumptionService.GetMonthAsync(GetUserId(), condominiumId, month, category));
-
-    [HttpPost("api/condominiums/{condominiumId}/readings")]
-    public async Task<IActionResult> Save([FromRoute] int condominiumId, [FromBody] SaveReadingsDto dto) =>
-        Ok(await _consumptionService.SaveReadingsAsync(GetUserId(), condominiumId, dto));
+    [HttpPut("api/condominiums/{condominiumId}/utilities/settings")]
+    public async Task<IActionResult> SaveSettings([FromRoute] int condominiumId, [FromBody] UtilitySettingsDto dto) =>
+        Ok(await _consumptionService.SaveSettingsAsync(GetUserId(), condominiumId, dto));
 
     [HttpGet("api/my/consumption")]
     public async Task<IActionResult> GetMine() => Ok(await _consumptionService.GetMineAsync(GetUserId()));

@@ -66,3 +66,15 @@ export function sendInvoices(condominiumId: number, month: string, chargeIds?: n
     auth: true,
   });
 }
+
+// "Lançar cobrança": the same item (or a value per unit) into each unit's bill of the month.
+export function launchCharge(
+  condominiumId: number,
+  data: { month: string; category: ChargeCategory; description: string; units: Array<{ unitId: number; amount: number }> },
+) {
+  return apiRequest<{ createdCount: number; total: number; skipped: string[] }>(`/api/condominiums/${condominiumId}/invoices/launch`, {
+    method: "POST",
+    body: data,
+    auth: true,
+  });
+}

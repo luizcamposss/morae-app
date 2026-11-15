@@ -1,3 +1,4 @@
+using backend.Services.Invoices;
 using System.Globalization;
 using System;
 using System.Collections.Generic;
@@ -253,6 +254,10 @@ public class ChargeService : IChargeService
         int condominiumId,
         CreateChargeBatchDto dto)
     {
+        // One way to charge each thing (#209): rent by the contract, water/light/gas on their own screen.
+        if (dto.Category.HasValue)
+            InvoiceService.EnsureManualCategory(dto.Category.Value);
+
         var unitIds = dto.UnitIds is { Count: > 0 } ? dto.UnitIds.Distinct().ToList() : null;
 
         await EnsureBatchTargetValidAsync(userId, condominiumId, dto.BuildingId, dto.UnitValues, unitIds);
@@ -512,6 +517,9 @@ public class ChargeService : IChargeService
 
     private async Task ValidateCreateAsync(int userId, CreateChargeDto dto)
     {
+        if (dto.Scope == ChargeScope.Condominium && dto.Category.HasValue)
+            InvoiceService.EnsureManualCategory(dto.Category.Value);
+
         if (IsPastDueDate(dto.DueDate))
             throw new BadRequestException(PastDueDateMessage);
 
