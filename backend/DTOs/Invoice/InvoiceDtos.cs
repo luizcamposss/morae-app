@@ -104,6 +104,9 @@ public class LaunchChargeDto
     // The units and each one's amount.
     [Required]
     public List<LaunchUnitValueDto> Units { get; set; } = [];
+
+    // Only this person of the unit gets the item (one unit only); empty = whoever pays the unit's bills.
+    public int? RecipientPersonId { get; set; }
 }
 
 public class LaunchUnitValueDto
