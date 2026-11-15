@@ -4,10 +4,10 @@ namespace backend.Services.MercadoPago;
 
 public interface IMercadoPagoService
 {
-    Task<MercadoPagoOAuthStartResponseDto> StartOAuthAsync(int userId, int? condominiumId);
+    Task<MercadoPagoOAuthStartResponseDto> StartOAuthAsync(int userId, int? condominiumId, bool asOwner = false);
     Task<MercadoPagoConnectionStatusDto> CompleteOAuthAsync(int userId, MercadoPagoOAuthCompleteDto dto);
-    Task<MercadoPagoConnectionStatusDto> GetConnectionStatusAsync(int userId, int? condominiumId);
-    Task DisconnectAsync(int userId, int? condominiumId);
+    Task<MercadoPagoConnectionStatusDto> GetConnectionStatusAsync(int userId, int? condominiumId, bool asOwner = false);
+    Task DisconnectAsync(int userId, int? condominiumId, bool asOwner = false);
     Task<MercadoPagoPaymentSetupDto> GetPaymentSetupAsync(int userId, int chargeId);
     Task<MercadoPagoPaymentResultDto> CreatePaymentAsync(int userId, int chargeId, MercadoPagoCreatePaymentDto dto);
     Task<MercadoPagoPaymentStatusDto> GetPaymentStatusAsync(int userId, int chargeId);

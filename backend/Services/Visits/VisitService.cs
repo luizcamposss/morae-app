@@ -29,6 +29,7 @@ public class VisitService : IVisitService
     public async Task<VisitResponseDto> CreateAsync(int userId, int condominiumId, SaveVisitDto dto)
     {
         await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
+        await _permissionService.EnsureModuleEnabledAsync(condominiumId, AppModules.Visitors);
 
         var schedule = Validate(dto, isNew: true);
         await EnsureCanWriteAsync(userId, condominiumId, dto.UnitId);
@@ -51,6 +52,7 @@ public class VisitService : IVisitService
     public async Task<IEnumerable<VisitResponseDto>> GetMineAsync(int userId, int condominiumId, bool includePast)
     {
         await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
+        await _permissionService.EnsureModuleEnabledAsync(condominiumId, AppModules.Visitors);
 
         var unitIds = await GetResidentUnitIdsAsync(userId, condominiumId);
         var today = Today();
@@ -147,6 +149,8 @@ public class VisitService : IVisitService
             ?? throw new NotFoundException("Visita não encontrada.");
 
         await _permissionService.EnsureCondominiumAccessAsync(userId, visit.CondominiumId);
+
+        await _permissionService.EnsureModuleEnabledAsync(visit.CondominiumId, AppModules.Visitors);
 
         if (!await CanWriteAsync(userId, visit.CondominiumId, visit.UnitId))
             throw new NotFoundException("Visita não encontrada.");

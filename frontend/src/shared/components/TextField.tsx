@@ -1,5 +1,6 @@
-import { useId, useState, type InputHTMLAttributes, type ReactNode } from "react";
+import { useId, useState, type ChangeEvent, type InputHTMLAttributes, type ReactNode } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { DateField, DateTimeField, MonthField, TimeField } from "./DateField";
 
 type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "id"> & {
   label: string;
@@ -9,7 +10,31 @@ type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "id"> & {
   labelAction?: ReactNode;
 };
 
-export function TextField({ label, error, hint, labelAction, type = "text", className = "", ...props }: TextFieldProps) {
+export function TextField(props: TextFieldProps) {
+  // Dates and times use the app's own pickers, never the browser's (same props, same onChange shape).
+  const pickers = { date: DateField, month: MonthField, time: TimeField, "datetime-local": DateTimeField } as const;
+  const Picker = props.type ? pickers[props.type as keyof typeof pickers] : undefined;
+  if (Picker) {
+    const { label, value, onChange, min, max, disabled, error, hint, className, placeholder } = props;
+    return (
+      <Picker
+        label={label}
+        value={String(value ?? "")}
+        onChange={(event) => onChange?.(event as unknown as ChangeEvent<HTMLInputElement>)}
+        min={min === undefined ? undefined : String(min)}
+        max={max === undefined ? undefined : String(max)}
+        disabled={disabled}
+        error={error}
+        hint={hint}
+        className={className}
+        placeholder={placeholder}
+      />
+    );
+  }
+  return <TextInput {...props} />;
+}
+
+function TextInput({ label, error, hint, labelAction, type = "text", className = "", ...props }: TextFieldProps) {
   const id = useId();
   const messageId = `${id}-message`;
   const isPassword = type === "password";

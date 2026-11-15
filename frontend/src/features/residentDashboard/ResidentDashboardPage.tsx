@@ -19,6 +19,7 @@ import { nextOpenCharge, type BillsLocationState } from "../residentBills/reside
 import { describeDay } from "../syndicDashboard/syndicDashboard";
 import { describeSchedule, describeTime, formatDayHeading, isRecurring, visitorTypeMeta } from "../visits/visitMeta";
 import { getMyVisits } from "../visits/visitService";
+import { useEnabledModules } from "../modules/modules";
 import {
   emptyResidentDashboard,
   getLatestNews,
@@ -41,6 +42,10 @@ export function ResidentDashboardPage() {
   const { activeCondominium, activeCondominiumId, condominiums, setActiveCondominiumId } = useCondominium();
   const navigate = useNavigate();
   const [loaded, setLoaded] = useState<LoadedDashboard | null>(null);
+  const isModuleOn = useEnabledModules();
+  const hasAssemblies = isModuleOn("assemblies");
+  const hasDocuments = isModuleOn("documents");
+  const hasVisitors = isModuleOn("visitors");
 
   useEffect(() => {
     if (!activeCondominiumId) {
@@ -51,10 +56,11 @@ export function ResidentDashboardPage() {
 
     Promise.all([
       getMyCharges(),
-      orNull(getAssemblies(activeCondominiumId)),
+      // Modules turned off are not asked for (their cards stay hidden).
+      hasAssemblies ? orNull(getAssemblies(activeCondominiumId)) : null,
       orNull(getNewsByCondominium(activeCondominiumId)),
-      orNull(getDocuments(activeCondominiumId)),
-      orNull(getMyVisits(activeCondominiumId)),
+      hasDocuments ? orNull(getDocuments(activeCondominiumId)) : null,
+      hasVisitors ? orNull(getMyVisits(activeCondominiumId)) : null,
     ])
       .then(([charges, assemblies, news, documents, visits]) => ({
         data: { charges: charges.filter((charge) => charge.condominiumId === activeCondominiumId), assemblies, news, documents, visits },
@@ -71,7 +77,7 @@ export function ResidentDashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, [activeCondominiumId]);
+  }, [activeCondominiumId, hasAssemblies, hasDocuments, hasVisitors]);
 
   const isLoading = !loaded || loaded.condominiumId !== activeCondominiumId;
   const { charges, assemblies, news, documents, visits } = isLoading ? emptyResidentDashboard : loaded.data;
@@ -110,7 +116,7 @@ export function ResidentDashboardPage() {
       {!activeCondominiumId ? (
         <EmptyCard text="Seu usuário ainda não tem acesso ativo a um condomínio." />
       ) : (
-        <div className="grid gap-x-6 gap-y-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-x-6 gap-y-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,380px)]">
           <div className="space-y-10">
             <section>
               <SectionTitle title="Para pagar" />
@@ -161,7 +167,7 @@ export function ResidentDashboardPage() {
           </div>
 
           <div className="space-y-10">
-            <section>
+            {hasVisitors && <section>
               <SectionTitle title="Próximas visitas" />
               {isLoading ? (
                 <EmptyCard text="Carregando…" />
@@ -180,7 +186,7 @@ export function ResidentDashboardPage() {
                   ))}
                 </GroupedList>
               )}
-            </section>
+            </section>}
 
             {newDocuments.length > 0 && (
               <section>

@@ -30,7 +30,7 @@ public class MercadoPagoController : ControllerBase
     [HttpPost("oauth/connect")]
     public async Task<IActionResult> StartOAuth([FromBody] MercadoPagoOAuthStartRequestDto? dto)
     {
-        var result = await _mercadoPagoService.StartOAuthAsync(GetUserId(), dto?.CondominiumId);
+        var result = await _mercadoPagoService.StartOAuthAsync(GetUserId(), dto?.CondominiumId, dto?.AsOwner ?? false);
 
         return Ok(result);
     }
@@ -72,18 +72,18 @@ public class MercadoPagoController : ControllerBase
 
     [Authorize]
     [HttpGet("oauth/status")]
-    public async Task<IActionResult> GetOAuthStatus([FromQuery] int? condominiumId)
+    public async Task<IActionResult> GetOAuthStatus([FromQuery] int? condominiumId, [FromQuery] bool asOwner = false)
     {
-        var result = await _mercadoPagoService.GetConnectionStatusAsync(GetUserId(), condominiumId);
+        var result = await _mercadoPagoService.GetConnectionStatusAsync(GetUserId(), condominiumId, asOwner);
 
         return Ok(result);
     }
 
     [Authorize]
     [HttpDelete("oauth/connection")]
-    public async Task<IActionResult> Disconnect([FromQuery] int? condominiumId)
+    public async Task<IActionResult> Disconnect([FromQuery] int? condominiumId, [FromQuery] bool asOwner = false)
     {
-        await _mercadoPagoService.DisconnectAsync(GetUserId(), condominiumId);
+        await _mercadoPagoService.DisconnectAsync(GetUserId(), condominiumId, asOwner);
 
         return NoContent();
     }

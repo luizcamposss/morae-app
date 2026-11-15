@@ -11,6 +11,7 @@ import type { OccurrenceResponse } from "../occurrences/types";
 import { useIsSyndicArea, useSyndicCan } from "../syndicAccess/useSyndicAccess";
 import { addDays, formatDayHeading } from "../visits/visitMeta";
 import type { VisitResponse } from "../visits/types";
+import type { ReservationResponse } from "../reservations/types";
 import {
   WEEKDAY_HEADERS,
   addMonths,
@@ -25,14 +26,16 @@ import {
   rangeOf,
   rangeTitle,
   visitItems,
+  reservationItems,
   type AgendaItem,
   type AgendaKind,
   type AgendaView,
 } from "./agendaMeta";
-import { loadAgendaSources, loadAgendaVisits } from "./agendaService";
+import { loadAgendaPeriod, loadAgendaSources } from "./agendaService";
+import { useEnabledModules } from "../modules/modules";
 
 type SourcesState = { key: string; plans: MaintenancePlanResponse[]; occurrences: OccurrenceResponse[]; failed: boolean };
-type VisitsState = { key: string; visits: VisitResponse[]; failed: boolean };
+type VisitsState = { key: string; visits: VisitResponse[]; reservations: ReservationResponse[]; failed: boolean };
 
 const views: Array<{ value: AgendaView; label: string }> = [
   { value: "twoWeeks", label: "2 semanas" },
@@ -80,11 +83,16 @@ export function AgendaPage() {
   const navigate = useNavigate();
   const { condominiums, activeCondominium, activeCondominiumId, setActiveCondominiumId } = useCondominium();
   const isSyndic = useIsSyndicArea();
-  // Outside the syndic area everything is allowed; the syndic sees only the modules he manages.
-  const canMaintenance = useSyndicCan("maintenance.manage");
-  const canVisit = useSyndicCan("visitors.manage");
-  const canOccurrence = useSyndicCan("maintenance");
-  const canSee: Record<AgendaKind, boolean> = { maintenance: canMaintenance, visit: canVisit, occurrence: canOccurrence };
+  // Outside the syndic area everything is allowed; the syndic sees only the modules he manages,
+  // and nobody sees the modules the condominium turned off.
+  const isModuleOn = useEnabledModules();
+  const canMaintenance = useSyndicCan("maintenance.manage") && isModuleOn("maintenance");
+  const canVisit = useSyndicCan("visitors.manage") && isModuleOn("visitors");
+  const canOccurrence = useSyndicCan("maintenance") && isModuleOn("occurrences");
+  const canReservation = useSyndicCan("reservations.manage") && isModuleOn("reservations");
+  const canSee: Record<AgendaKind, boolean> = { maintenance: canMaintenance, visit: canVisit, occurrence: canOccurrence, reservation: canReservation };
+  // Visits and reservations are fetched per period.
+  const needsPeriod = canVisit || canReservation;
   const shownKinds = (Object.keys(agendaKinds) as AgendaKind[]).filter((kind) => canSee[kind]);
 
   const today = todayInputDate();
@@ -93,12 +101,12 @@ export function AgendaPage() {
   const [selectedDay, setSelectedDay] = useState(today);
   const [hiddenKinds, setHiddenKinds] = useState<AgendaKind[]>([]);
   const [sources, setSources] = useState<SourcesState>({ key: "", plans: [], occurrences: [], failed: false });
-  const [visitsState, setVisitsState] = useState<VisitsState>({ key: "", visits: [], failed: false });
+  const [visitsState, setVisitsState] = useState<VisitsState>({ key: "", visits: [], reservations: [], failed: false });
 
   const { from, to } = rangeOf(view, anchor);
   const sourcesKey = [activeCondominiumId, canSee.maintenance, canSee.occurrence].join("|");
-  const visitsKey = [activeCondominiumId, from, to].join("|");
-  const isLoading = sources.key !== sourcesKey || (canSee.visit && visitsState.key !== visitsKey);
+  const visitsKey = [activeCondominiumId, from, to, canVisit, canReservation].join("|");
+  const isLoading = sources.key !== sourcesKey || (needsPeriod && visitsState.key !== visitsKey);
 
   useEffect(() => {
     if (!activeCondominiumId) return;
@@ -115,19 +123,18 @@ export function AgendaPage() {
   }, [sourcesKey]);
 
   useEffect(() => {
-    if (!activeCondominiumId || !canSee.visit) return;
+    if (!activeCondominiumId || !needsPeriod) return;
     let isMounted = true;
 
-    loadAgendaVisits(activeCondominiumId, from, to)
-      .then((visits) => isMounted && setVisitsState({ key: visitsKey, visits, failed: false }))
-      .catch(() => isMounted && setVisitsState({ key: visitsKey, visits: [], failed: true }));
+    loadAgendaPeriod(activeCondominiumId, from, to, { visit: canVisit, reservation: canReservation })
+      .then((result) => isMounted && setVisitsState({ key: visitsKey, ...result }));
 
     return () => {
       isMounted = false;
     };
     // visitsKey already sums up every input of this request.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visitsKey, canSee.visit]);
+  }, [visitsKey, needsPeriod]);
 
   const showBuilding = new Set(sources.occurrences.map((occurrence) => occurrence.buildingId)).size > 1;
   const itemsByDay = useMemo(() => {
@@ -135,16 +142,17 @@ export function AgendaPage() {
       ...(sources.key === sourcesKey ? maintenanceItems(sources.plans, from, to) : []),
       ...(sources.key === sourcesKey ? occurrenceItems(sources.occurrences, from, to, showBuilding) : []),
       ...(canVisit && visitsState.key === visitsKey ? visitItems(visitsState.visits) : []),
+      ...(canReservation && visitsState.key === visitsKey ? reservationItems(visitsState.reservations) : []),
     ].filter((item) => !hiddenKinds.includes(item.kind));
 
     const map = new Map<string, AgendaItem[]>();
     for (const item of all) map.set(item.date, [...(map.get(item.date) ?? []), item]);
     for (const list of map.values()) list.sort(compareItems);
     return map;
-  }, [sources, sourcesKey, visitsState, visitsKey, canVisit, from, to, showBuilding, hiddenKinds]);
+  }, [sources, sourcesKey, visitsState, visitsKey, canVisit, canReservation, from, to, showBuilding, hiddenKinds]);
 
   const countByKind = useMemo(() => {
-    const counts: Record<AgendaKind, number> = { maintenance: 0, visit: 0, occurrence: 0 };
+    const counts: Record<AgendaKind, number> = { maintenance: 0, visit: 0, occurrence: 0, reservation: 0 };
     for (const list of itemsByDay.values()) for (const item of list) counts[item.kind] += 1;
     return counts;
   }, [itemsByDay]);
@@ -155,7 +163,7 @@ export function AgendaPage() {
   const selectedItems = itemsByDay.get(selectedDay) ?? [];
   const currentMonth = anchor.slice(0, 7);
   const maxChips = view === "twoWeeks" ? 4 : 3;
-  const hasError = sources.failed || (canSee.visit && visitsState.failed);
+  const hasError = sources.failed || (needsPeriod && visitsState.failed);
   const basePath = isSyndic ? "/syndic" : "/admin";
 
   function moveTo(nextAnchor: string, nextView = view) {

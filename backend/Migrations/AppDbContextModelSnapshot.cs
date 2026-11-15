@@ -206,6 +206,123 @@ namespace backend.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("backend.Models.Agreement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BreakAfterDaysLate")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CondominiumId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("DiscountType")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("DiscountValue")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal?>("DownPayment")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("EndReason")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("EndedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<decimal>("FineAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("InstallmentCount")
+                        .HasColumnType("int");
+
+                    b.Property<int>("InstallmentDueDay")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("InterestAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<decimal>("OriginalAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int?>("RecipientPersonId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("UnitId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("RecipientPersonId");
+
+                    b.HasIndex("UnitId");
+
+                    b.HasIndex("CondominiumId", "Status");
+
+                    b.ToTable("Agreements");
+                });
+
+            modelBuilder.Entity("backend.Models.AgreementCharge", b =>
+                {
+                    b.Property<int>("AgreementId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ChargeId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("FineAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("InterestAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal>("Value")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.HasKey("AgreementId", "ChargeId");
+
+                    b.HasIndex("ChargeId");
+
+                    b.ToTable("AgreementCharges");
+                });
+
             modelBuilder.Entity("backend.Models.ApplicationUser", b =>
                 {
                     b.Property<int>("Id")
@@ -259,6 +376,13 @@ namespace backend.Migrations
 
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("longtext");
+
+                    b.Property<string>("SeenGuides")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<bool>("ShowTips")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("tinyint(1)");
@@ -559,11 +683,20 @@ namespace backend.Migrations
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AgreementId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("AgreementInstallmentNumber")
+                        .HasColumnType("int");
+
                     b.Property<string>("CancelReason")
                         .HasColumnType("longtext");
 
                     b.Property<DateTime?>("CanceledAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("int");
 
                     b.Property<int>("CondominiumId")
                         .HasColumnType("int");
@@ -596,6 +729,12 @@ namespace backend.Migrations
                     b.Property<DateTime?>("OverdueReminderSentAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int?>("ReceiverPersonId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RecipientPersonId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("RecurringChargeId")
                         .HasColumnType("int");
 
@@ -604,6 +743,9 @@ namespace backend.Migrations
 
                     b.Property<int>("Scope")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("datetime(6)");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
@@ -620,9 +762,15 @@ namespace backend.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AgreementId");
+
                     b.HasIndex("CondominiumId");
 
                     b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("ReceiverPersonId");
+
+                    b.HasIndex("RecipientPersonId");
 
                     b.HasIndex("TargetUserId");
 
@@ -632,6 +780,162 @@ namespace backend.Migrations
                         .IsUnique();
 
                     b.ToTable("Charges");
+                });
+
+            modelBuilder.Entity("backend.Models.ChargeItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ChargeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<int?>("RecurringChargeId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChargeId");
+
+                    b.ToTable("ChargeItems");
+                });
+
+            modelBuilder.Entity("backend.Models.CommonArea", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("BuildingId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Capacity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CondominiumId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<decimal?>("Fee")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int?>("FreeCancellationDays")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("FullDay")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("MaxAdvanceDays")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MinAdvanceDays")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MonthlyLimitPerUnit")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("PhotoContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("PhotoFileName")
+                        .HasMaxLength(160)
+                        .HasColumnType("varchar(160)");
+
+                    b.Property<string>("PhotoStorageKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<bool>("RequiresApproval")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Terms")
+                        .HasMaxLength(4000)
+                        .HasColumnType("varchar(4000)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuildingId");
+
+                    b.HasIndex("CondominiumId", "IsActive");
+
+                    b.ToTable("CommonAreas");
+                });
+
+            modelBuilder.Entity("backend.Models.CommonAreaShift", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CommonAreaId")
+                        .HasColumnType("int");
+
+                    b.Property<TimeOnly>("EndTime")
+                        .HasColumnType("time(6)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("varchar(60)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<TimeOnly>("StartTime")
+                        .HasColumnType("time(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CommonAreaId");
+
+                    b.ToTable("CommonAreaShifts");
                 });
 
             modelBuilder.Entity("backend.Models.Condominium", b =>
@@ -646,6 +950,11 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("varchar(200)");
+
+                    b.Property<string>("BilledUtilities")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("varchar(20)");
 
                     b.Property<int>("BillingDueDay")
                         .HasColumnType("int");
@@ -676,9 +985,17 @@ namespace backend.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("varchar(150)");
 
+                    b.Property<string>("EnabledModules")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("varchar(300)");
+
                     b.Property<decimal>("FinePercent")
                         .HasPrecision(5, 2)
                         .HasColumnType("decimal(5,2)");
+
+                    b.Property<int?>("InvoiceAutoSendDaysBefore")
+                        .HasColumnType("int");
 
                     b.Property<bool>("LateFeeEnabled")
                         .HasColumnType("tinyint(1)");
@@ -697,6 +1014,13 @@ namespace backend.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("varchar(20)");
 
+                    b.Property<decimal>("OpeningBalance")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<DateOnly?>("OpeningBalanceMonth")
+                        .HasColumnType("date");
+
                     b.Property<string>("State")
                         .IsRequired()
                         .HasMaxLength(2)
@@ -704,6 +1028,9 @@ namespace backend.Migrations
 
                     b.Property<int>("Status")
                         .HasMaxLength(20)
+                        .HasColumnType("int");
+
+                    b.Property<int>("Type")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -857,6 +1184,109 @@ namespace backend.Migrations
                     b.HasIndex("CondominiumId", "StartDate", "EndDate");
 
                     b.ToTable("ExpectedVisits");
+                });
+
+            modelBuilder.Entity("backend.Models.Expense", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<int?>("BuildingId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CondominiumId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int>("ExpenseCategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("PaidOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("ReceiptContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("ReceiptFileName")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<long?>("ReceiptSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ReceiptStorageKey")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Supplier")
+                        .HasMaxLength(150)
+                        .HasColumnType("varchar(150)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuildingId");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("ExpenseCategoryId");
+
+                    b.HasIndex("CondominiumId", "PaidOn");
+
+                    b.ToTable("Expenses");
+                });
+
+            modelBuilder.Entity("backend.Models.ExpenseCategory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CondominiumId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("IconKey")
+                        .HasMaxLength(30)
+                        .HasColumnType("varchar(30)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("varchar(60)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CondominiumId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("ExpenseCategories");
                 });
 
             modelBuilder.Entity("backend.Models.FinancialAccount", b =>
@@ -1136,6 +1566,9 @@ namespace backend.Migrations
                     b.Property<long?>("MercadoPagoUserId")
                         .HasColumnType("bigint");
 
+                    b.Property<int?>("OwnerPersonId")
+                        .HasColumnType("int");
+
                     b.Property<string>("PublicKey")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1167,6 +1600,8 @@ namespace backend.Migrations
 
                     b.HasIndex("MercadoPagoUserId");
 
+                    b.HasIndex("OwnerPersonId");
+
                     b.HasIndex("UserId");
 
                     b.ToTable("MercadoPagoAccounts");
@@ -1193,6 +1628,9 @@ namespace backend.Migrations
 
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("OwnerPersonId")
+                        .HasColumnType("int");
 
                     b.Property<string>("State")
                         .IsRequired()
@@ -1752,6 +2190,9 @@ namespace backend.Migrations
                     b.Property<int?>("BuildingId")
                         .HasColumnType("int");
 
+                    b.Property<int>("Category")
+                        .HasColumnType("int");
+
                     b.Property<int>("CondominiumId")
                         .HasColumnType("int");
 
@@ -1772,7 +2213,13 @@ namespace backend.Migrations
                     b.Property<DateTime?>("EndedAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int?>("RecipientPersonId")
+                        .HasColumnType("int");
+
                     b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("UnitId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -1789,6 +2236,10 @@ namespace backend.Migrations
                     b.HasIndex("CondominiumId");
 
                     b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("RecipientPersonId");
+
+                    b.HasIndex("UnitId");
 
                     b.ToTable("RecurringCharges");
                 });
@@ -1858,6 +2309,243 @@ namespace backend.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("RefreshTokens");
+                });
+
+            modelBuilder.Entity("backend.Models.RentalContract", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AdjustmentIndex")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly?>("AdjustmentReminderSentFor")
+                        .HasColumnType("date");
+
+                    b.Property<int>("CondominiumBillsPaidBy")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("CondominiumFeeAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("CondominiumId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DueDay")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("EndReason")
+                        .HasMaxLength(255)
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<DateTime?>("EndedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<bool>("IncludesCondominiumFee")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IncludesElectricity")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IncludesGas")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<bool>("IncludesWater")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateOnly?>("LastBilledMonth")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("MonthlyRent")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<DateOnly?>("NextAdjustmentDate")
+                        .HasColumnType("date");
+
+                    b.Property<int?>("ReceiverPersonId")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantPersonId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UnitId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CondominiumId");
+
+                    b.HasIndex("ReceiverPersonId");
+
+                    b.HasIndex("TenantPersonId");
+
+                    b.HasIndex("UnitId", "Status");
+
+                    b.ToTable("RentalContracts");
+                });
+
+            modelBuilder.Entity("backend.Models.RentalContractValueChange", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ChangedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateOnly>("EffectiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("NewValue")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<decimal?>("PreviousValue")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("RentalContractId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RentalContractId");
+
+                    b.ToTable("RentalContractValueChanges");
+                });
+
+            modelBuilder.Entity("backend.Models.Reservation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<DateTime?>("CanceledAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("CanceledByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ChargeId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CommonAreaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CondominiumId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("DecidedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<TimeOnly?>("EndTime")
+                        .HasColumnType("time(6)");
+
+                    b.Property<decimal?>("Fee")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<int>("RequestedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ShiftId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ShiftName")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("varchar(60)");
+
+                    b.Property<string>("SlotKey")
+                        .HasMaxLength(40)
+                        .HasColumnType("varchar(40)");
+
+                    b.Property<TimeOnly?>("StartTime")
+                        .HasColumnType("time(6)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("TermsAcceptedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("UnitId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CanceledByUserId");
+
+                    b.HasIndex("ChargeId");
+
+                    b.HasIndex("DecidedByUserId");
+
+                    b.HasIndex("RequestedByUserId");
+
+                    b.HasIndex("ShiftId");
+
+                    b.HasIndex("UnitId");
+
+                    b.HasIndex("CommonAreaId", "SlotKey")
+                        .IsUnique();
+
+                    b.HasIndex("CondominiumId", "Date");
+
+                    b.ToTable("Reservations");
                 });
 
             modelBuilder.Entity("backend.Models.Unit", b =>
@@ -2044,6 +2732,52 @@ namespace backend.Migrations
                     b.ToTable("UserNotificationPreferences");
                 });
 
+            modelBuilder.Entity("backend.Models.UtilityCharge", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("decimal(10,2)");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ChargeItemId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CondominiumId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly>("Month")
+                        .HasColumnType("date");
+
+                    b.Property<int>("UnitId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CondominiumId");
+
+                    b.HasIndex("UnitId", "Category", "Month")
+                        .IsUnique();
+
+                    b.ToTable("UtilityCharges");
+                });
+
             modelBuilder.Entity("Invitation", b =>
                 {
                     b.HasOne("backend.Models.Condominium", "Condominium")
@@ -2120,6 +2854,59 @@ namespace backend.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("backend.Models.Agreement", b =>
+                {
+                    b.HasOne("backend.Models.Condominium", "Condominium")
+                        .WithMany()
+                        .HasForeignKey("CondominiumId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.ApplicationUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Person", "RecipientPerson")
+                        .WithMany()
+                        .HasForeignKey("RecipientPersonId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("backend.Models.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Condominium");
+
+                    b.Navigation("CreatedByUser");
+
+                    b.Navigation("RecipientPerson");
+
+                    b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("backend.Models.AgreementCharge", b =>
+                {
+                    b.HasOne("backend.Models.Agreement", "Agreement")
+                        .WithMany("OriginalCharges")
+                        .HasForeignKey("AgreementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Charge", "Charge")
+                        .WithMany()
+                        .HasForeignKey("ChargeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Agreement");
+
+                    b.Navigation("Charge");
                 });
 
             modelBuilder.Entity("backend.Models.ApplicationUser", b =>
@@ -2237,6 +3024,11 @@ namespace backend.Migrations
 
             modelBuilder.Entity("backend.Models.Charge", b =>
                 {
+                    b.HasOne("backend.Models.Agreement", "Agreement")
+                        .WithMany("Installments")
+                        .HasForeignKey("AgreementId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("backend.Models.Condominium", "Condominium")
                         .WithMany()
                         .HasForeignKey("CondominiumId")
@@ -2248,6 +3040,16 @@ namespace backend.Migrations
                         .HasForeignKey("CreatedByUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("backend.Models.Person", "ReceiverPerson")
+                        .WithMany()
+                        .HasForeignKey("ReceiverPersonId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("backend.Models.Person", "RecipientPerson")
+                        .WithMany()
+                        .HasForeignKey("RecipientPersonId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("backend.Models.RecurringCharge", "RecurringCharge")
                         .WithMany()
@@ -2264,15 +3066,61 @@ namespace backend.Migrations
                         .HasForeignKey("UnitId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.Navigation("Agreement");
+
                     b.Navigation("Condominium");
 
                     b.Navigation("CreatedByUser");
+
+                    b.Navigation("ReceiverPerson");
+
+                    b.Navigation("RecipientPerson");
 
                     b.Navigation("RecurringCharge");
 
                     b.Navigation("TargetUser");
 
                     b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("backend.Models.ChargeItem", b =>
+                {
+                    b.HasOne("backend.Models.Charge", "Charge")
+                        .WithMany("Items")
+                        .HasForeignKey("ChargeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Charge");
+                });
+
+            modelBuilder.Entity("backend.Models.CommonArea", b =>
+                {
+                    b.HasOne("backend.Models.Building", "Building")
+                        .WithMany()
+                        .HasForeignKey("BuildingId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("backend.Models.Condominium", "Condominium")
+                        .WithMany()
+                        .HasForeignKey("CondominiumId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Building");
+
+                    b.Navigation("Condominium");
+                });
+
+            modelBuilder.Entity("backend.Models.CommonAreaShift", b =>
+                {
+                    b.HasOne("backend.Models.CommonArea", "CommonArea")
+                        .WithMany("Shifts")
+                        .HasForeignKey("CommonAreaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CommonArea");
                 });
 
             modelBuilder.Entity("backend.Models.Condominium", b =>
@@ -2329,6 +3177,51 @@ namespace backend.Migrations
                     b.Navigation("CreatedByUser");
 
                     b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("backend.Models.Expense", b =>
+                {
+                    b.HasOne("backend.Models.Building", "Building")
+                        .WithMany()
+                        .HasForeignKey("BuildingId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("backend.Models.Condominium", "Condominium")
+                        .WithMany()
+                        .HasForeignKey("CondominiumId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.ApplicationUser", "CreatedByUser")
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.ExpenseCategory", "Category")
+                        .WithMany()
+                        .HasForeignKey("ExpenseCategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Building");
+
+                    b.Navigation("Category");
+
+                    b.Navigation("Condominium");
+
+                    b.Navigation("CreatedByUser");
+                });
+
+            modelBuilder.Entity("backend.Models.ExpenseCategory", b =>
+                {
+                    b.HasOne("backend.Models.Condominium", "Condominium")
+                        .WithMany()
+                        .HasForeignKey("CondominiumId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Condominium");
                 });
 
             modelBuilder.Entity("backend.Models.FinancialAccount", b =>
@@ -2401,6 +3294,11 @@ namespace backend.Migrations
                         .HasForeignKey("CondominiumId")
                         .OnDelete(DeleteBehavior.Cascade);
 
+                    b.HasOne("backend.Models.Person", "OwnerPerson")
+                        .WithMany()
+                        .HasForeignKey("OwnerPersonId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("backend.Models.ApplicationUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -2408,6 +3306,8 @@ namespace backend.Migrations
                         .IsRequired();
 
                     b.Navigation("Condominium");
+
+                    b.Navigation("OwnerPerson");
 
                     b.Navigation("User");
                 });
@@ -2666,11 +3566,25 @@ namespace backend.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("backend.Models.Person", "RecipientPerson")
+                        .WithMany()
+                        .HasForeignKey("RecipientPersonId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("backend.Models.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.Navigation("Building");
 
                     b.Navigation("Condominium");
 
                     b.Navigation("CreatedByUser");
+
+                    b.Navigation("RecipientPerson");
+
+                    b.Navigation("Unit");
                 });
 
             modelBuilder.Entity("backend.Models.RecurringChargeUnitValue", b =>
@@ -2701,6 +3615,114 @@ namespace backend.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("backend.Models.RentalContract", b =>
+                {
+                    b.HasOne("backend.Models.Condominium", "Condominium")
+                        .WithMany()
+                        .HasForeignKey("CondominiumId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Person", "ReceiverPerson")
+                        .WithMany()
+                        .HasForeignKey("ReceiverPersonId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("backend.Models.Person", "TenantPerson")
+                        .WithMany()
+                        .HasForeignKey("TenantPersonId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Condominium");
+
+                    b.Navigation("ReceiverPerson");
+
+                    b.Navigation("TenantPerson");
+
+                    b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("backend.Models.RentalContractValueChange", b =>
+                {
+                    b.HasOne("backend.Models.RentalContract", "RentalContract")
+                        .WithMany("ValueChanges")
+                        .HasForeignKey("RentalContractId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("RentalContract");
+                });
+
+            modelBuilder.Entity("backend.Models.Reservation", b =>
+                {
+                    b.HasOne("backend.Models.ApplicationUser", "CanceledByUser")
+                        .WithMany()
+                        .HasForeignKey("CanceledByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("backend.Models.Charge", "Charge")
+                        .WithMany()
+                        .HasForeignKey("ChargeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("backend.Models.CommonArea", "CommonArea")
+                        .WithMany()
+                        .HasForeignKey("CommonAreaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Condominium", "Condominium")
+                        .WithMany()
+                        .HasForeignKey("CondominiumId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.ApplicationUser", "DecidedByUser")
+                        .WithMany()
+                        .HasForeignKey("DecidedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("backend.Models.ApplicationUser", "RequestedByUser")
+                        .WithMany()
+                        .HasForeignKey("RequestedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.CommonAreaShift", "Shift")
+                        .WithMany()
+                        .HasForeignKey("ShiftId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("backend.Models.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CanceledByUser");
+
+                    b.Navigation("Charge");
+
+                    b.Navigation("CommonArea");
+
+                    b.Navigation("Condominium");
+
+                    b.Navigation("DecidedByUser");
+
+                    b.Navigation("RequestedByUser");
+
+                    b.Navigation("Shift");
+
+                    b.Navigation("Unit");
                 });
 
             modelBuilder.Entity("backend.Models.Unit", b =>
@@ -2781,6 +3803,32 @@ namespace backend.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("backend.Models.UtilityCharge", b =>
+                {
+                    b.HasOne("backend.Models.Condominium", "Condominium")
+                        .WithMany()
+                        .HasForeignKey("CondominiumId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Unit", "Unit")
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Condominium");
+
+                    b.Navigation("Unit");
+                });
+
+            modelBuilder.Entity("backend.Models.Agreement", b =>
+                {
+                    b.Navigation("Installments");
+
+                    b.Navigation("OriginalCharges");
+                });
+
             modelBuilder.Entity("backend.Models.ApplicationUser", b =>
                 {
                     b.Navigation("UserCondominiums");
@@ -2799,6 +3847,16 @@ namespace backend.Migrations
             modelBuilder.Entity("backend.Models.Building", b =>
                 {
                     b.Navigation("Units");
+                });
+
+            modelBuilder.Entity("backend.Models.Charge", b =>
+                {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("backend.Models.CommonArea", b =>
+                {
+                    b.Navigation("Shifts");
                 });
 
             modelBuilder.Entity("backend.Models.Condominium", b =>
@@ -2825,6 +3883,11 @@ namespace backend.Migrations
             modelBuilder.Entity("backend.Models.RecurringCharge", b =>
                 {
                     b.Navigation("UnitValues");
+                });
+
+            modelBuilder.Entity("backend.Models.RentalContract", b =>
+                {
+                    b.Navigation("ValueChanges");
                 });
 
             modelBuilder.Entity("backend.Models.UserCondominium", b =>

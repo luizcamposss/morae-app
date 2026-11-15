@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Camera, ChevronDown, MessageSquareText, Search, TriangleAlert } from "lucide-react";
+import { Camera, MessageSquareText, Search, TriangleAlert } from "lucide-react";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { MoraeMark } from "../../shared/components/MoraeMark";
 import { SelectField } from "../../shared/components/SelectField";
@@ -200,22 +200,15 @@ export function AdminOccurrencesPage() {
 
         <div className="flex flex-col gap-3 sm:flex-row">
           {showBuilding && (
-            <label className="relative sm:w-48">
-              <span className="sr-only">Prédio</span>
-              <select
-                value={filters.buildingId}
-                onChange={(event) => updateFilters({ buildingId: event.target.value })}
-                className="w-full appearance-none rounded-full bg-superficie py-2.5 pl-4 pr-9 text-sm font-medium text-tinta shadow-whisper outline-none focus:ring-2 focus:ring-verde focus-visible:outline-none"
-              >
-                <option value="">Todos os prédios</option>
-                {buildings.map((building) => (
-                  <option key={building.id} value={String(building.id)}>
-                    {building.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={16} strokeWidth={1.8} aria-hidden className="pointer-events-none absolute inset-y-0 right-3.5 my-auto text-tinta-suave" />
-            </label>
+            <SelectField
+              label="Prédio"
+              hideLabel
+              variant="pill"
+              className="sm:w-48"
+              value={filters.buildingId}
+              onChange={(event) => updateFilters({ buildingId: event.target.value })}
+              options={[{ value: "", label: "Todos os prédios" }, ...buildings.map((building) => ({ value: String(building.id), label: building.name }))]}
+            />
           )}
           <label className="relative lg:w-72">
             <span className="sr-only">Buscar ocorrência</span>

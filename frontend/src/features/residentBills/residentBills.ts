@@ -37,8 +37,10 @@ export function nextOpenCharge(charges: ChargeResponse[]) {
 }
 
 // "Torre A · 101", or the condominium for charges without a unit.
-export function billPlace(charge: Pick<ChargeResponse, "buildingName" | "unitNumber" | "condominiumName">) {
-  return charge.unitNumber ? [charge.buildingName, charge.unitNumber].filter(Boolean).join(" · ") : charge.condominiumName;
+// Where the bill is from; the owner's rent also says who receives it.
+export function billPlace(charge: Pick<ChargeResponse, "buildingName" | "unitNumber" | "condominiumName" | "receiverName">) {
+  const place = charge.unitNumber ? [charge.buildingName, charge.unitNumber].filter(Boolean).join(" · ") : charge.condominiumName;
+  return charge.receiverName ? `${place} · para ${charge.receiverName}` : place;
 }
 
 export function describeDue(charge: Pick<ChargeResponse, "status" | "daysLate">, dueDate: string) {

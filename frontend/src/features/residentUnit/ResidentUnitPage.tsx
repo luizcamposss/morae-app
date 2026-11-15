@@ -1,6 +1,13 @@
+import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Building2, DoorClosed } from "lucide-react";
+import { Building2, DoorClosed, KeyRound } from "lucide-react";
 import { useAuth } from "../../app/providers/useAuth";
+import { formatCurrency } from "../../shared/lib/currency";
+import { formatCalendarDate } from "../../shared/lib/date";
+import { adjustmentLabel, describeIncludes, getMyRentalContracts, getOwnedRentalContracts, type RentalContract } from "../rentals/rentalService";
+import type { RentalsLocationState } from "../rentals/RentalsPage";
+import { useModuleEnabled } from "../modules/modules";
+import { Button } from "../../shared/components/Button";
 import { PageHeader } from "../../shared/layout/PageHeader";
 import { getMyUnits } from "../me/meService";
 import type { MeUnitResponse } from "../me/types";
@@ -18,9 +25,23 @@ export function ResidentUnitPage() {
   const [peopleByUnit, setPeopleByUnit] = useState<PeopleByUnit>({});
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  // The tenant's rental contracts (only when the condominium uses the rentals module).
+  const [contracts, setContracts] = useState<RentalContract[]>([]);
+  const [ownedContractUnitIds, setOwnedContractUnitIds] = useState<Set<number>>(new Set());
+  const navigate = useNavigate();
+  const hasRentals = useModuleEnabled("rentals");
 
   useEffect(() => {
     let isMounted = true;
+
+    getMyRentalContracts()
+      .then((result) => isMounted && setContracts(result))
+      .catch(() => undefined);
+
+    // Units the owner already rents out: no "Alugar" button for them.
+    getOwnedRentalContracts()
+      .then((result) => isMounted && setOwnedContractUnitIds(new Set(result.filter((contract) => contract.status === 1).map((contract) => contract.unitId))))
+      .catch(() => undefined);
 
     getMyUnits()
       .then(async (result) => {
@@ -77,6 +98,12 @@ export function ResidentUnitPage() {
                 people={unit.unitId in peopleByUnit ? peopleByUnit[unit.unitId] : undefined}
                 currentPersonId={user?.personId}
                 showCondominium={condominiumNames.length > 1}
+                contract={contracts.find((contract) => contract.unitId === unit.unitId)}
+                onRent={
+                  hasRentals && unit.relationshipType === OWNER && !ownedContractUnitIds.has(unit.unitId)
+                    ? () => navigate("/resident/rentals", { state: { rentUnitId: unit.unitId } satisfies RentalsLocationState })
+                    : undefined
+                }
               />
             </li>
           ))}
@@ -92,9 +119,14 @@ type UnitCardProps = {
   people: PersonUnitResponse[] | null | undefined;
   currentPersonId?: number;
   showCondominium: boolean;
+  contract?: RentalContract;
+  // The owner may rent the unit out (rentals module on): opens "Meus aluguéis" with it chosen.
+  onRent?: () => void;
 };
 
-function UnitCard({ unit, people, currentPersonId, showCondominium }: UnitCardProps) {
+const OWNER = 1;
+
+function UnitCard({ unit, people, currentPersonId, showCondominium, contract, onRent }: UnitCardProps) {
   return (
     <article className="overflow-hidden rounded-card bg-superficie shadow-whisper">
       <div className="p-5 sm:p-6">
@@ -107,7 +139,28 @@ function UnitCard({ unit, people, currentPersonId, showCondominium }: UnitCardPr
         </div>
         <p className="mt-3 font-display text-[44px] font-bold leading-none tracking-[-0.02em] tabular-nums text-tinta">{unit.unitNumber}</p>
         <p className="mt-2 text-sm text-tinta-suave">{unitTypeLabel(unit.unitType)}</p>
+        {onRent && (
+          <Button variant="quiet" size="sm" className="mt-4" onClick={onRent}>
+            <KeyRound size={16} strokeWidth={1.8} aria-hidden />
+            Alugar este apartamento
+          </Button>
+        )}
       </div>
+
+      {contract && (
+        <div className="border-t border-linha px-5 py-4 sm:px-6">
+          <h2 className="text-[13px] font-semibold text-tinta-suave">Seu aluguel</h2>
+          <p className="mt-1 font-display text-2xl font-bold tabular-nums text-tinta">{formatCurrency(contract.monthlyRent)}</p>
+          <p className="mt-1 text-sm text-tinta-suave">
+            Vence todo dia {contract.dueDay} · {describeIncludes(contract)}
+          </p>
+          <p className="mt-1 text-[13px] text-tinta-suave">
+            Contrato desde {formatCalendarDate(contract.startDate)}
+            {contract.endDate ? ` até ${formatCalendarDate(contract.endDate)}` : ""}
+            {contract.nextAdjustmentDate ? ` · reajuste (${adjustmentLabel(contract.adjustmentIndex)}) em ${formatCalendarDate(contract.nextAdjustmentDate)}` : ""}
+          </p>
+        </div>
+      )}
 
       <div className="border-t border-linha px-5 py-4 sm:px-6">
         <h2 className="text-[13px] font-semibold text-tinta-suave">Quem mora aqui</h2>

@@ -159,7 +159,7 @@ export function buildTodayItems(data: DashboardData): TodayItem[] {
       tone: "neutral",
       title: `${plural(reminders.total, "lembrete enviado", "lembretes enviados")} hoje`,
       subtitle: describeReminders(reminders),
-      to: "/admin/payments",
+      to: "/admin/finance/accounts",
     });
   }
 

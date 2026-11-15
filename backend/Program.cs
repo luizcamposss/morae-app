@@ -2,10 +2,13 @@ using backend.Converters;
 using backend.Data;
 using backend.Models;
 using backend.Seeders;
+using backend.Services.Agreements;
 using backend.Services.Documents;
+using backend.Services.Expenses;
 using backend.Services.Email;
 using backend.Services.Maintenance;
 using backend.Services.Visits;
+using backend.Services.Reservations;
 using backend.Services.Assemblies;
 using backend.Services.Storage;
 using backend.Services.Jobs;
@@ -48,10 +51,14 @@ using backend.Services.Notifications;
 using backend.Services.MercadoPago;
 using backend.Services.Imports;
 using backend.Services.LandingContacts;
+using backend.Services.Reports;
 
 DotEnv.Load();
 
 var builder = WebApplication.CreateBuilder(args);
+
+// QuestPDF Community is free for eligible organisations under the published revenue threshold.
+QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
 builder.Services.AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new TimeOnlyJsonConverter()))
@@ -188,8 +195,13 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IBuildingService, BuildingService>();
 builder.Services.AddScoped<IChargeService, ChargeService>();
 builder.Services.AddScoped<IChargeBillingService, ChargeBillingService>();
+builder.Services.AddScoped<IAgreementService, AgreementService>();
+builder.Services.AddScoped<backend.Services.Invoices.IInvoiceService, backend.Services.Invoices.InvoiceService>();
+builder.Services.AddScoped<backend.Services.Rentals.IRentalContractService, backend.Services.Rentals.RentalContractService>();
+builder.Services.AddScoped<backend.Services.Consumption.IConsumptionService, backend.Services.Consumption.ConsumptionService>();
 builder.Services.AddScoped<ICondominiumService, CondominiumService>();
 builder.Services.AddScoped<IDelinquencyService, DelinquencyService>();
+builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IInvitationService, InvitationService>();
 builder.Services.AddScoped<IMeService, MeService>();
 builder.Services.AddScoped<INewsService, NewsService>();
@@ -209,9 +221,12 @@ builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IOccurrenceService, OccurrenceService>();
 builder.Services.AddScoped<IUnitService, UnitService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<IExpenseService, ExpenseService>();
 builder.Services.AddScoped<IMaintenancePlanService, MaintenancePlanService>();
 builder.Services.AddScoped<IMaintenanceReminderService, MaintenanceReminderService>();
 builder.Services.AddScoped<IVisitService, VisitService>();
+builder.Services.AddScoped<ICommonAreaService, CommonAreaService>();
+builder.Services.AddScoped<IReservationService, ReservationService>();
 builder.Services.AddScoped<IAssemblyService, AssemblyService>();
 builder.Services.AddScoped<ISpreadsheetImportService, SpreadsheetImportService>();
 builder.Services.AddScoped<ILandingContactService, LandingContactService>();

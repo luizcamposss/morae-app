@@ -65,6 +65,7 @@ function ProfileMenu() {
         aria-expanded={isOpen}
         aria-controls={panelId}
         aria-label={`Perfil de ${displayName}`}
+        data-tour="header:profile"
         className="rounded-full transition-shadow duration-150 hover:ring-4 hover:ring-campo aria-expanded:ring-4 aria-expanded:ring-verde-suave"
       >
         <Avatar name={displayName} photoUrl={user?.profilePhotoUrl} className="size-10 text-sm" />

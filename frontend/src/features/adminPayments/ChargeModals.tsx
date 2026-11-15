@@ -1,30 +1,25 @@
-import { useState, type FormEvent, type ReactNode } from "react";
-import { ChevronDown, CircleCheck, TriangleAlert } from "lucide-react";
+import { type FormEvent, type ReactNode } from "react";
+import { CircleCheck, TriangleAlert } from "lucide-react";
 import { Button } from "../../shared/components/Button";
 import { Modal } from "../../shared/components/Modal";
 import { SelectField } from "../../shared/components/SelectField";
 import { TextField } from "../../shared/components/TextField";
 import { formatCurrency } from "../../shared/lib/currency";
 import { formatCalendarDate, formatDateTime, todayInputDate } from "../../shared/lib/date";
-import type { BuildingResponse } from "../buildings/types";
 import { CHARGE_STATUS } from "../charges/platformRevenue";
 import type { ChargeBatchResult, ChargeResponse } from "../charges/types";
 import { ChargeStatusChip } from "../masterPayments/ChargeStatus";
+import { ChargeCategoryChip } from "../charges/ChargeCategoryChip";
 import type { PaymentMethod } from "../payments/types";
-import type { UnitResponse } from "../units/types";
 import { ChargeTimeline } from "./ChargeTimeline";
 import {
   amountDue,
   formatMonthKey,
   hasLateFees,
   isOpenCharge,
-  nextDueDate,
   paymentMethodOptions,
-  unitLabel,
   type CancelFormState,
-  type GroupChargeForm,
   type ManualPaymentForm,
-  type SingleChargeForm,
 } from "./chargeForm";
 
 function FormError({ message }: { message: string }) {
@@ -65,175 +60,6 @@ type FormModalProps<T> = {
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 };
 
-export function SingleChargeModal({ form, units, error, isSubmitting, onChange, onClose, onSubmit }: FormModalProps<SingleChargeForm> & { units: UnitResponse[] }) {
-  const set = (field: keyof SingleChargeForm, value: string) => onChange({ ...form, [field]: value });
-
-  return (
-    <Modal
-      title="Cobrança avulsa"
-      description="Para uma unidade só, como uma multa de regimento ou uma taxa extra."
-      onClose={onClose}
-      footer={<Footer formId="single-charge" label="Criar cobrança" loadingText="Criando…" isSubmitting={isSubmitting} onClose={onClose} />}
-    >
-      <form id="single-charge" onSubmit={onSubmit} noValidate className="grid gap-4 sm:grid-cols-2">
-        <FormError message={error} />
-        <SelectField
-          className="sm:col-span-2"
-          label="Unidade"
-          value={form.unitId}
-          onChange={(event) => set("unitId", event.target.value)}
-          placeholder="Escolha a unidade"
-          options={units.map((unit) => ({ value: String(unit.id), label: unitLabel(unit) }))}
-        />
-        <TextField
-          className="sm:col-span-2"
-          label="Descrição"
-          value={form.description}
-          onChange={(event) => set("description", event.target.value)}
-          placeholder="Ex.: Taxa extra · pintura"
-          maxLength={255}
-        />
-        <TextField label="Valor (R$)" value={form.value} onChange={(event) => set("value", event.target.value)} placeholder="350,00" inputMode="decimal" />
-        <TextField label="Vencimento" type="date" min={todayInputDate()} value={form.dueDate} onChange={(event) => set("dueDate", event.target.value)} />
-      </form>
-    </Modal>
-  );
-}
-
-type GroupChargeModalProps = FormModalProps<GroupChargeForm> & {
-  mode: "batch" | "recurring";
-  buildings: BuildingResponse[];
-  units: UnitResponse[];
-  billingDueDay: number | null;
-};
-
-// Batch (this month, once) or recurring (every month): same value for the condominium or a building,
-// with optional custom values per unit.
-export function GroupChargeModal({ mode, form, buildings, units, billingDueDay, error, isSubmitting, onChange, onClose, onSubmit }: GroupChargeModalProps) {
-  const [isAdjusting, setIsAdjusting] = useState(Object.keys(form.unitValues).length > 0);
-  const set = (field: keyof Omit<GroupChargeForm, "unitValues">, value: string) => onChange({ ...form, [field]: value });
-  const scopedUnits = form.buildingId ? units.filter((unit) => String(unit.buildingId) === form.buildingId) : units;
-  const adjustedCount = scopedUnits.filter((unit) => form.unitValues[unit.id]?.trim()).length;
-  const isBatch = mode === "batch";
-  const formId = isBatch ? "batch-charge" : "recurring-charge";
-  const dueHint = billingDueDay
-    ? isBatch
-      ? `Em branco: ${formatCalendarDate(nextDueDate(billingDueDay))} (dia ${billingDueDay} do condomínio).`
-      : `Em branco: dia ${billingDueDay}, o do condomínio.`
-    : undefined;
-
-  return (
-    <Modal
-      size="lg"
-      title={isBatch ? "Cobrança em lote" : "Nova recorrência"}
-      description={
-        isBatch
-          ? "Gera uma cobrança para cada unidade de uma vez. Unidades sem ninguém vinculado ficam de fora."
-          : "O Moraê gera as cobranças sozinho todo mês, 10 dias antes do vencimento, até você pausar ou encerrar."
-      }
-      onClose={onClose}
-      footer={
-        <Footer
-          formId={formId}
-          label={isBatch ? `Gerar para ${scopedUnits.length} ${scopedUnits.length === 1 ? "unidade" : "unidades"}` : "Criar recorrência"}
-          loadingText={isBatch ? "Gerando…" : "Criando…"}
-          isSubmitting={isSubmitting}
-          onClose={onClose}
-        />
-      }
-    >
-      <form id={formId} onSubmit={onSubmit} noValidate className="grid gap-4 sm:grid-cols-2">
-        <FormError message={error} />
-        <SelectField
-          className="sm:col-span-2"
-          label="Para quem"
-          value={form.buildingId}
-          onChange={(event) => set("buildingId", event.target.value)}
-          options={[
-            { value: "", label: `Todo o condomínio · ${units.length} unidades` },
-            ...buildings.map((building) => ({ value: String(building.id), label: `${building.name} · ${building.unitCount} unidades` })),
-          ]}
-        />
-        <TextField
-          className="sm:col-span-2"
-          label="Descrição"
-          value={form.description}
-          onChange={(event) => set("description", event.target.value)}
-          placeholder={isBatch ? "Ex.: Taxa de condomínio · novembro" : "Ex.: Taxa de condomínio"}
-          maxLength={255}
-        />
-        <TextField label="Valor por unidade (R$)" value={form.value} onChange={(event) => set("value", event.target.value)} placeholder="500,00" inputMode="decimal" />
-        {isBatch ? (
-          <TextField
-            label="Vencimento (opcional)"
-            type="date"
-            min={todayInputDate()}
-            value={form.dueDate}
-            onChange={(event) => set("dueDate", event.target.value)}
-            hint={dueHint}
-          />
-        ) : (
-          <TextField
-            label="Dia do vencimento (opcional)"
-            value={form.dueDay}
-            onChange={(event) => set("dueDay", event.target.value.replace(/\D/g, "").slice(0, 2))}
-            placeholder={billingDueDay ? String(billingDueDay) : "10"}
-            inputMode="numeric"
-            hint={dueHint}
-          />
-        )}
-
-        <div className="sm:col-span-2">
-          <button
-            type="button"
-            aria-expanded={isAdjusting}
-            onClick={() => setIsAdjusting(!isAdjusting)}
-            className="flex w-full items-center justify-between gap-3 rounded-field bg-campo px-4 py-3 text-left text-sm font-semibold text-tinta transition-colors hover:bg-menu"
-          >
-            <span>
-              Ajustar valor por unidade
-              <span className="ml-2 font-normal text-tinta-suave">{adjustedCount ? `${adjustedCount} com valor próprio` : "opcional"}</span>
-            </span>
-            <ChevronDown size={18} strokeWidth={1.8} aria-hidden className={`shrink-0 transition-transform ${isAdjusting ? "rotate-180" : ""}`} />
-          </button>
-
-          {isAdjusting && (
-            <div className="mt-2 rounded-block border border-linha">
-              <p className="border-b border-linha px-4 py-2.5 text-[13px] text-tinta-suave">
-                Deixe em branco para usar o valor padrão. Ex.: cobertura ou unidade maior.
-              </p>
-              {scopedUnits.length === 0 ? (
-                <p className="px-4 py-5 text-center text-sm text-tinta-suave">Nenhuma unidade neste prédio.</p>
-              ) : (
-                <ul className="max-h-64 divide-y divide-linha overflow-y-auto">
-                  {scopedUnits.map((unit) => (
-                    <li key={unit.id} className="flex items-center justify-between gap-3 px-4 py-2">
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold text-tinta">{unitLabel(unit)}</span>
-                        <span className="block truncate text-xs text-tinta-suave">{unit.responsiblePersonName || "Sem responsável"}</span>
-                      </span>
-                      <label className="shrink-0">
-                        <span className="sr-only">Valor de {unitLabel(unit)}</span>
-                        <input
-                          inputMode="decimal"
-                          value={form.unitValues[unit.id] ?? ""}
-                          onChange={(event) => onChange({ ...form, unitValues: { ...form.unitValues, [unit.id]: event.target.value } })}
-                          placeholder={form.value || "padrão"}
-                          className="w-28 rounded-field bg-campo px-3 py-2 text-right text-sm tabular-nums text-tinta outline-none placeholder:text-tinta-suave/70 focus:bg-superficie focus:ring-2 focus:ring-verde focus-visible:outline-none"
-                        />
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
 // Result of a batch (or of the first month of a recurrence): what was created and who was skipped.
 export function BatchResultModal({ title, result, onClose }: { title: string; result: ChargeBatchResult; onClose: () => void }) {
   return (
@@ -270,7 +96,7 @@ export function BatchResultModal({ title, result, onClose }: { title: string; re
               </li>
             ))}
           </ul>
-          <p className="mt-2 text-[13px] text-tinta-suave">Vincule um morador ou proprietário e crie uma cobrança avulsa para elas.</p>
+          <p className="mt-2 text-[13px] text-tinta-suave">Resolva o vínculo da unidade e use “Lançar cobrança” para cobrar essas unidades.</p>
         </div>
       )}
     </Modal>
@@ -370,6 +196,7 @@ export function ChargeDetailsModal({ charge, place, person, footer, extra, showT
       description={
         <span className="flex flex-wrap items-center gap-2">
           <ChargeStatusChip status={charge.status} />
+          {charge.scope === 2 && <ChargeCategoryChip category={charge.category} />}
           {place}
           {person ? ` · ${person}` : ""}
         </span>
@@ -378,7 +205,9 @@ export function ChargeDetailsModal({ charge, place, person, footer, extra, showT
       footer={footer}
     >
       <dl className="rounded-block bg-campo py-1">
-        <AmountRow label="Valor original" value={formatCurrency(charge.value)} />
+        {/* A monthly bill shows each item, then the total. */}
+        {charge.items?.map((item) => <AmountRow key={item.id} label={item.description} value={formatCurrency(item.amount)} />)}
+        <AmountRow strong={charge.items?.length > 0 && !isOpen} label={charge.items?.length > 0 ? "Total da conta" : "Valor original"} value={formatCurrency(charge.value)} />
         {isOpen && hasLateFees(charge) && (
           <>
             <AmountRow label="Multa" detail={charge.finePercent != null ? `${charge.finePercent}%` : undefined} value={`+ ${formatCurrency(charge.fineAmount)}`} tone="text-vermelho" />
@@ -406,7 +235,7 @@ export function ChargeDetailsModal({ charge, place, person, footer, extra, showT
         <div>
           <dt className="text-xs text-tinta-suave">Origem</dt>
           <dd className="font-semibold text-tinta">
-            {charge.recurringChargeId ? `Recorrência${charge.referenceMonth ? ` · ${formatMonthKey(charge.referenceMonth.slice(0, 7))}` : ""}` : "Lançada pela gestão"}
+            {charge.recurringChargeId ? `Cobrança fixa${charge.referenceMonth ? ` · ${formatMonthKey(charge.referenceMonth.slice(0, 7))}` : ""}` : "Lançada pela gestão"}
           </dd>
         </div>
         <div className="col-span-2">

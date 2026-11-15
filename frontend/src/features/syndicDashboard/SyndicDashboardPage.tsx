@@ -14,6 +14,7 @@ import { getChargesByCondominium } from "../charges/chargeService";
 import { countRemindersToday, describeReminders } from "../charges/reminders";
 import { getNewsByCondominium } from "../news/newsService";
 import { getOccurrencesByCondominium } from "../occurrences/occurrenceService";
+import { useModuleEnabled } from "../modules/modules";
 import { getUnitsByBuilding } from "../units/unitService";
 import { UnitBillingGrid } from "../billingGrid/UnitBillingGrid";
 import { useSyndicAccess } from "../syndicAccess/useSyndicAccess";
@@ -37,6 +38,7 @@ export function SyndicDashboardPage() {
   const { user } = useAuth();
   const { activeCondominium, activeCondominiumId, condominiums, setActiveCondominiumId } = useCondominium();
   const access = useSyndicAccess();
+  const hasOccurrences = useModuleEnabled("occurrences");
   const navigate = useNavigate();
   const location = useLocation();
   const deniedScreen = (location.state as { deniedScreen?: string } | null)?.deniedScreen;
@@ -54,7 +56,7 @@ export function SyndicDashboardPage() {
     Promise.all([
       access.residents || access.finance ? getBuildingsByCondominium(activeCondominiumId) : null,
       access.finance ? getChargesByCondominium(activeCondominiumId) : null,
-      access.maintenance ? getOccurrencesByCondominium(activeCondominiumId) : null,
+      access.maintenance && hasOccurrences ? getOccurrencesByCondominium(activeCondominiumId) : null,
       access.communication ? getNewsByCondominium(activeCondominiumId) : null,
     ])
       .then(async ([buildings, charges, occurrences, news]) => {
@@ -72,7 +74,7 @@ export function SyndicDashboardPage() {
     return () => {
       isMounted = false;
     };
-  }, [activeCondominiumId, access]);
+  }, [activeCondominiumId, access, hasOccurrences]);
 
   const isLoading = !loaded || loaded.condominiumId !== activeCondominiumId;
   const { buildings, charges, occurrences, news, units } = isLoading ? emptyDashboard : loaded.data;
@@ -112,10 +114,10 @@ export function SyndicDashboardPage() {
           tone="red"
           title={plural(overdue.count, "cobrança atrasada", "cobranças atrasadas")}
           subtitle={listUnits(overdue.unitLabels) || formatCurrency(overdue.value)}
-          onClick={() => navigate("/syndic/payments")}
+          onClick={() => navigate("/syndic/finance/accounts")}
         />
       ) : (
-        <GroupedRow key="charges" icon={Receipt} tone="green" title="Cobranças em dia" subtitle="Nenhuma cobrança atrasada" onClick={() => navigate("/syndic/payments")} />
+        <GroupedRow key="charges" icon={Receipt} tone="green" title="Cobranças em dia" subtitle="Nenhuma cobrança atrasada" onClick={() => navigate("/syndic/finance/accounts")} />
       ),
     );
   }
@@ -128,7 +130,7 @@ export function SyndicDashboardPage() {
         icon={Bell}
         title={`${plural(reminders.total, "lembrete enviado", "lembretes enviados")} hoje`}
         subtitle={describeReminders(reminders)}
-        onClick={() => navigate("/syndic/payments")}
+        onClick={() => navigate("/syndic/finance/accounts")}
       />,
     );
   }
@@ -249,7 +251,7 @@ export function SyndicDashboardPage() {
 
       {access?.finance && activeCondominiumId && (
         <div className="mt-10">
-          <UnitBillingGrid units={units ?? []} charges={charges ?? []} paymentsPath="/syndic/payments" isLoading={isLoading} />
+          <UnitBillingGrid units={units ?? []} charges={charges ?? []} paymentsPath="/syndic/finance/accounts" isLoading={isLoading} />
         </div>
       )}
 

@@ -1,3 +1,4 @@
+using backend.Services.Charges;
 using backend.Constants;
 using backend.Data;
 using backend.Enums;
@@ -265,6 +266,11 @@ public class PermissionService : IPermissionService
         if (userCondominium is null)
             return false;
 
+        // A module's permission only works while the module is on, for the Admin too.
+        if (AppModules.ByPermission.TryGetValue(permissionKey, out var module) &&
+            !await IsModuleEnabledAsync(condominiumId, module))
+            return false;
+
         if (userCondominium.Role == AppRoles.Admin)
             return true;
 
@@ -310,8 +316,28 @@ public class PermissionService : IPermissionService
             throw new ForbiddenException("Você não tem acesso a esta pessoa.");
     }
 
+    public async Task<bool> IsModuleEnabledAsync(int condominiumId, string module)
+    {
+        var enabledModules = await _context.Condominiums
+            .AsNoTracking()
+            .Where(c => c.Id == condominiumId)
+            .Select(c => c.EnabledModules)
+            .FirstOrDefaultAsync();
+
+        return AppModules.Parse(enabledModules).Contains(module);
+    }
+
+    public async Task EnsureModuleEnabledAsync(int condominiumId, string module)
+    {
+        if (!await IsModuleEnabledAsync(condominiumId, module))
+            throw new ForbiddenException($"O módulo \"{AppModules.Labels[module]}\" está desligado neste condomínio.");
+    }
+
     public async Task EnsureCondominiumPermissionAsync(int userId, int condominiumId, string permissionKey)
     {
+        if (AppModules.ByPermission.TryGetValue(permissionKey, out var module))
+            await EnsureModuleEnabledAsync(condominiumId, module);
+
         var hasPermission = await HasCondominiumPermissionAsync(userId, condominiumId, permissionKey);
 
         if (!hasPermission)
@@ -419,13 +445,53 @@ public class PermissionService : IPermissionService
             throw new ForbiddenException("Você não tem permissão para fazer isso.");
     }
 
-    // Who may read a condominium charge and its payments: the unit's own residents (a syndic
-    // included, for their own unit), the condominium's Admins, and syndics with finance access
-    // to that unit's building.
-    public async Task EnsureCanReadCondominiumChargeAsync(int userId, int condominiumId, int? unitId)
+    // Who sees and pays a condominium charge as a resident: the recipient when it has one, otherwise
+    // the unit's payer (UnitPayers: the tenant when the contract says so, else the owners).
+    public async Task<bool> IsChargePayerAsync(int userId, Charge charge)
     {
-        if (unitId.HasValue && await IsUnitResidentAsync(userId, unitId.Value))
+        if (!charge.UnitId.HasValue)
+            return false;
+
+        var unitId = charge.UnitId.Value;
+
+        var personId = await _context.Users
+            .AsNoTracking()
+            .Where(user =>
+                user.Id == userId &&
+                _context.PersonUnits.Any(personUnit =>
+                    personUnit.PersonId == user.PersonId &&
+                    personUnit.UnitId == unitId &&
+                    personUnit.Unit.Building.Condominium.Status == Status.Active))
+            .Select(user => (int?)user.PersonId)
+            .FirstOrDefaultAsync();
+
+        if (personId is null)
+            return false;
+
+        // Addressed to one person (e.g. rent to the tenant): only them. Otherwise the unit's payer (#208).
+        return charge.RecipientPersonId.HasValue
+            ? charge.RecipientPersonId == personId
+            : (await UnitPayers.GetPersonIdsAsync(_context, unitId, charge.DueDate)).Contains(personId.Value);
+    }
+
+    // Who may read a condominium charge and its payments: its payers (a syndic included, for their
+    // own unit), the condominium's Admins, and syndics with finance access to that unit's building.
+    public async Task EnsureCanReadCondominiumChargeAsync(int userId, Charge charge)
+    {
+        var condominiumId = charge.CondominiumId;
+        var unitId = charge.UnitId;
+
+        if (await IsChargePayerAsync(userId, charge))
             return;
+
+        // The owner's rent: only its payer and the owner who receives it.
+        if (charge.ReceiverPersonId is { } ownerPersonId)
+        {
+            if (await _context.Users.AsNoTracking().AnyAsync(user => user.Id == userId && user.PersonId == ownerPersonId))
+                return;
+
+            throw new ForbiddenException("Você não tem acesso a esta cobrança.");
+        }
 
         var role = await GetCondominiumRoleAsync(userId, condominiumId);
 

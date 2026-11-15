@@ -1,3 +1,4 @@
+using backend.Services.Invoices;
 using System.Globalization;
 using System;
 using System.Collections.Generic;
@@ -69,6 +70,9 @@ public class ChargeService : IChargeService
         {
             charge.TargetUserId = null;
             charge.UnitId = null;
+            // Category and recipient only matter inside the condominium.
+            charge.Category = ChargeCategory.CondominiumFee;
+            charge.RecipientPersonId = null;
         }
         else
         {
@@ -115,7 +119,10 @@ public class ChargeService : IChargeService
 
         throw new ForbiddenException("Você não tem acesso às mensalidades da plataforma.");
     }
-    public async Task<IEnumerable<ChargeResponseDto>> GetByCondominiumAsync(int userId, int condominiumId)
+    public async Task<IEnumerable<ChargeResponseDto>> GetByCondominiumAsync(
+        int userId,
+        int condominiumId,
+        ChargeCategory? category = null)
     {
         var user = await GetUserOrThrowAsync(userId);
 
@@ -132,7 +139,12 @@ public class ChargeService : IChargeService
         var query = BuildChargeResponseQuery()
             .Where(c =>
                 c.Scope == ChargeScope.Condominium &&
-                c.CondominiumId == condominiumId);
+                c.CondominiumId == condominiumId &&
+                // The owner's rent is private to the owner (#201): the management never lists it.
+                c.ReceiverPersonId == null);
+
+        if (category.HasValue)
+            query = query.Where(c => c.Category == category.Value);
 
         var managedBuildingIds = await _permissionService.GetManagedBuildingIdsAsync(userId, condominiumId);
 
@@ -165,12 +177,32 @@ public class ChargeService : IChargeService
                 c.Scope == ChargeScope.Condominium &&
                 c.UnitId.HasValue &&
                 unitIds.Contains(c.UnitId.Value) &&
+                // A charge addressed to one person (e.g. rent) is only theirs.
+                (c.RecipientPersonId == null || c.RecipientPersonId == user.PersonId) &&
                 c.Condominium.Status == Status.Active)
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
 
+        // The others belong to the unit's payer on their due date (tenant or owners, #208).
+        var rules = await UnitPayers.GetRulesAsync(_context, unitIds);
+        charges = charges
+            .Where(c => c.RecipientPersonId != null || rules[c.UnitId!.Value].For(c.DueDate).Contains(user.PersonId))
+            .ToList();
+
         return await MapWithPaymentInfoAsync(charges);
     }
+    public async Task<IEnumerable<ChargeResponseDto>> GetReceivedAsOwnerAsync(int userId)
+    {
+        var user = await GetUserOrThrowAsync(userId);
+
+        var charges = await BuildChargeResponseQuery()
+            .Where(c => c.ReceiverPersonId == user.PersonId && c.Condominium.Status == Status.Active)
+            .OrderByDescending(c => c.DueDate)
+            .ToListAsync();
+
+        return await MapWithPaymentInfoAsync(charges);
+    }
+
     public async Task<ChargeResponseDto?> GetByIdAsync(int userId, int id)
     {
         var charge = await BuildChargeResponseQuery()
@@ -199,6 +231,13 @@ public class ChargeService : IChargeService
         if (charge.Status == ChargeStatus.Canceled)
             throw new BadRequestException("Esta cobrança já foi cancelada.");
 
+        if (charge.Status == ChargeStatus.Draft)
+            throw new BadRequestException("Esta conta ainda é um rascunho: remova os itens em Contas do mês.");
+
+        // Agreement charges change together with the agreement (cancel the agreement instead).
+        if (charge.Status == ChargeStatus.Renegotiated || charge.AgreementId.HasValue)
+            throw new BadRequestException("Esta cobrança faz parte de um acordo. Para mudar, cancele o acordo.");
+
         charge.Status = ChargeStatus.Canceled;
         charge.CanceledAt = DateTime.UtcNow;
         charge.CancelReason = dto.Reason;
@@ -215,7 +254,9 @@ public class ChargeService : IChargeService
         int condominiumId,
         CreateChargeBatchDto dto)
     {
-        await EnsureBatchTargetValidAsync(userId, condominiumId, dto.BuildingId, dto.UnitValues);
+        var unitIds = dto.UnitIds is { Count: > 0 } ? dto.UnitIds.Distinct().ToList() : null;
+
+        await EnsureBatchTargetValidAsync(userId, condominiumId, dto.BuildingId, dto.UnitValues, unitIds);
 
         var condominium = await _context.Condominiums
             .AsNoTracking()
@@ -234,7 +275,9 @@ public class ChargeService : IChargeService
             dto.UnitValues.ToDictionary(item => item.UnitId, item => item.Value),
             dueDate,
             dto.Description.Trim(),
-            userId));
+            userId,
+            dto.Category ?? ChargeCategory.Apportionment,
+            unitIds));
 
         if (result.CreatedCount == 0 && result.Skipped.Count == 0)
             throw new BadRequestException("Nenhuma unidade encontrada para este lote.");
@@ -246,7 +289,8 @@ public class ChargeService : IChargeService
         int userId,
         int condominiumId,
         int? buildingId,
-        IEnumerable<ChargeUnitValueDto> unitValues)
+        IEnumerable<ChargeUnitValueDto> unitValues,
+        IReadOnlyCollection<int>? unitIds = null)
     {
         if (await _permissionService.IsMasterAsync(userId))
             throw new ForbiddenException("O Master não cria cobranças de condomínio.");
@@ -276,34 +320,68 @@ public class ChargeService : IChargeService
 
         if (unitValueList.Count > 0)
         {
-            var unitIds = unitValueList.Select(item => item.UnitId).ToList();
-            var managedBuildingIds = await _permissionService.GetManagedBuildingIdsAsync(userId, condominiumId);
+            var valueUnitIds = unitValueList.Select(item => item.UnitId).ToList();
 
-            var validCount = await _context.Units
-                .AsNoTracking()
-                .CountAsync(u =>
-                    unitIds.Contains(u.Id) &&
-                    u.Building.CondominiumId == condominiumId &&
-                    (!buildingId.HasValue || u.BuildingId == buildingId.Value) &&
-                    (managedBuildingIds == null || managedBuildingIds.Contains(u.BuildingId)));
-
-            if (validCount != unitIds.Count)
+            if (unitIds is not null && valueUnitIds.Any(id => !unitIds.Contains(id)))
                 throw new BadRequestException("Uma das unidades com valor ajustado não faz parte deste lote.");
+
+            if (await CountTargetUnitsAsync(userId, condominiumId, buildingId, valueUnitIds) != valueUnitIds.Count)
+                throw new BadRequestException("Uma das unidades com valor ajustado não faz parte deste lote.");
+        }
+
+        if (unitIds is not null &&
+            await CountTargetUnitsAsync(userId, condominiumId, buildingId, unitIds) != unitIds.Count)
+        {
+            throw new BadRequestException("Uma das unidades escolhidas não faz parte deste condomínio ou prédio.");
         }
 
         await EnsurePaymentMethodConfiguredAsync(FinancialAccountScope.Condominium, condominiumId);
     }
 
+    // Units of the target (condominium or building) the user may bill, among the given ids.
+    private async Task<int> CountTargetUnitsAsync(
+        int userId,
+        int condominiumId,
+        int? buildingId,
+        IReadOnlyCollection<int> unitIds)
+    {
+        var managedBuildingIds = await _permissionService.GetManagedBuildingIdsAsync(userId, condominiumId);
+
+        return await _context.Units
+            .AsNoTracking()
+            .CountAsync(u =>
+                unitIds.Contains(u.Id) &&
+                u.Building.CondominiumId == condominiumId &&
+                (!buildingId.HasValue || u.BuildingId == buildingId.Value) &&
+                (managedBuildingIds == null || managedBuildingIds.Contains(u.BuildingId)));
+    }
+
+    public async Task EnsureRecipientLinkedAsync(int? recipientPersonId, int unitId)
+    {
+        if (!recipientPersonId.HasValue)
+            return;
+
+        var linked = await _context.PersonUnits
+            .AsNoTracking()
+            .AnyAsync(pu => pu.PersonId == recipientPersonId.Value && pu.UnitId == unitId);
+
+        if (!linked)
+            throw new BadRequestException("Esta pessoa não está vinculada à unidade da cobrança.");
+    }
+
     public async Task<ChargeBatchResultDto> GenerateForUnitsAsync(ChargeGenerationRequest request)
     {
         var allowed = request.AllowedBuildingIds;
+        var onlyUnitIds = request.UnitIds;
+        var recipientPersonId = request.RecipientPersonId;
 
         var units = await _context.Units
             .AsNoTracking()
             .Where(u =>
                 u.Building.CondominiumId == request.CondominiumId &&
                 (!request.BuildingId.HasValue || u.BuildingId == request.BuildingId.Value) &&
-                (allowed == null || allowed.Contains(u.BuildingId)))
+                (allowed == null || allowed.Contains(u.BuildingId)) &&
+                (onlyUnitIds == null || onlyUnitIds.Contains(u.Id)))
             .OrderBy(u => u.Building.Name)
             .ThenBy(u => u.Number)
             .Select(u => new
@@ -312,7 +390,9 @@ public class ChargeService : IChargeService
                 u.Number,
                 BuildingName = u.Building.Name,
                 // Residents/tenants get the charge; with no one living there, the owner does.
-                HasPeople = _context.PersonUnits.Any(pu => pu.UnitId == u.Id)
+                HasPeople = _context.PersonUnits.Any(pu => pu.UnitId == u.Id),
+                RecipientLinked = recipientPersonId == null ||
+                    _context.PersonUnits.Any(pu => pu.UnitId == u.Id && pu.PersonId == recipientPersonId)
             })
             .ToListAsync();
 
@@ -352,6 +432,19 @@ public class ChargeService : IChargeService
                 continue;
             }
 
+            // The recipient moved out: the charge must not fall on the rest of the unit.
+            if (!unit.RecipientLinked)
+            {
+                result.Skipped.Add(new SkippedUnitDto
+                {
+                    UnitId = unit.Id,
+                    UnitNumber = unit.Number,
+                    BuildingName = unit.BuildingName,
+                    Reason = "A pessoa que recebe esta cobrança não está mais vinculada à unidade."
+                });
+                continue;
+            }
+
             var charge = new Charge
             {
                 Scope = ChargeScope.Condominium,
@@ -360,6 +453,8 @@ public class ChargeService : IChargeService
                 Value = request.UnitValues.TryGetValue(unit.Id, out var unitValue) ? unitValue : request.Value,
                 DueDate = dueDate,
                 Description = request.Description,
+                Category = request.Category,
+                RecipientPersonId = recipientPersonId,
                 CreatedByUserId = request.CreatedByUserId,
                 Status = ChargeStatus.Pending,
                 CreatedAt = DateTime.UtcNow,
@@ -489,6 +584,8 @@ public class ChargeService : IChargeService
         if (!unitBelongsToCondominium)
             throw new BadRequestException("Esta unidade não pertence a este condomínio.");
 
+        await EnsureRecipientLinkedAsync(dto.RecipientPersonId, dto.UnitId.Value);
+
         await EnsurePaymentMethodConfiguredAsync(FinancialAccountScope.Condominium, dto.CondominiumId);
     }
 
@@ -519,6 +616,7 @@ public class ChargeService : IChargeService
             .AsNoTracking()
             .AnyAsync(account =>
                 account.CondominiumId == mercadoPagoCondominiumId &&
+                account.OwnerPersonId == null &&
                 account.AccessToken != string.Empty);
 
         if (hasMercadoPago)
@@ -549,7 +647,7 @@ public class ChargeService : IChargeService
             throw new ForbiddenException("Você não tem acesso a esta mensalidade.");
         }
 
-        await _permissionService.EnsureCanReadCondominiumChargeAsync(userId, charge.CondominiumId, charge.UnitId);
+        await _permissionService.EnsureCanReadCondominiumChargeAsync(userId, charge);
     }
 
     private async Task EnsureCanCancelAsync(int userId, Charge charge)
@@ -564,6 +662,15 @@ public class ChargeService : IChargeService
                 throw new ForbiddenException("Você só pode cancelar mensalidades de condomínios cadastrados por você.");
 
             return;
+        }
+
+        // The owner's rent: only the owner who receives it (#201).
+        if (charge.ReceiverPersonId is { } ownerPersonId)
+        {
+            if (user.PersonId == ownerPersonId)
+                return;
+
+            throw new ForbiddenException("Só o proprietário que recebe este aluguel pode fazer isso.");
         }
 
         if (await _userManager.IsInRoleAsync(user, AppRoles.Admin))
@@ -584,11 +691,16 @@ public class ChargeService : IChargeService
         return user;
     }
 
+    // Drafts of monthly bills are left out: only the monthly bills screen (InvoiceService) shows them.
     private IQueryable<Charge> BuildChargeResponseQuery()
     {
         return _context.Charges
             .AsNoTracking()
+            .Where(c => c.Status != ChargeStatus.Draft)
+            .Include(c => c.Items)
+            .Include(c => c.ReceiverPerson)
             .Include(c => c.Condominium)
+            .Include(c => c.RecipientPerson)
             .Include(c => c.Unit)
                 .ThenInclude(u => u!.Building);
     }
@@ -617,13 +729,19 @@ public class ChargeService : IChargeService
         var condominiumIds = responses.Select(charge => charge.CondominiumId).Distinct().ToList();
 
         // CondominiumId null is the platform account (receives the MORAÊ invoices).
-        var connectedReceivers = await _context.MercadoPagoAccounts
+        var ownerIds = responses.Where(charge => charge.ReceiverPersonId.HasValue).Select(charge => charge.ReceiverPersonId!.Value).Distinct().ToList();
+
+        // Platform account = no condominium and no owner; owners' accounts receive their rent.
+        var connectedAccounts = await _context.MercadoPagoAccounts
             .AsNoTracking()
             .Where(account =>
                 account.AccessToken != string.Empty &&
-                (account.CondominiumId == null || condominiumIds.Contains(account.CondominiumId.Value)))
-            .Select(account => account.CondominiumId)
+                ((account.OwnerPersonId == null && (account.CondominiumId == null || condominiumIds.Contains(account.CondominiumId.Value))) ||
+                 (account.OwnerPersonId != null && ownerIds.Contains(account.OwnerPersonId.Value))))
+            .Select(account => new { account.CondominiumId, account.OwnerPersonId })
             .ToListAsync();
+        var connectedReceivers = connectedAccounts.Where(account => account.OwnerPersonId == null).Select(account => account.CondominiumId).ToList();
+        var connectedOwners = connectedAccounts.Where(account => account.OwnerPersonId != null).Select(account => account.OwnerPersonId!.Value).ToHashSet();
 
         var proofs = await _context.PaymentProofs
             .AsNoTracking()
@@ -636,7 +754,9 @@ public class ChargeService : IChargeService
         foreach (var response in responses)
         {
             int? receiver = response.Scope == ChargeScope.Platform ? null : response.CondominiumId;
-            response.OnlinePaymentAvailable = connectedReceivers.Contains(receiver);
+            response.OnlinePaymentAvailable = response.ReceiverPersonId is { } ownerId
+                ? connectedOwners.Contains(ownerId)
+                : connectedReceivers.Contains(receiver);
 
             var chargeProofs = proofsByCharge[response.Id].ToList();
             var latest = chargeProofs.MaxBy(proof => proof.Id);
@@ -656,6 +776,12 @@ public class ChargeService : IChargeService
             .AnyAsync(c =>
                 c.Id == condominiumId &&
                 c.CreatedByUserId == userId);
+    }
+
+    public async Task NotifyNewChargeAsync(Charge charge)
+    {
+        await CreateChargeNotificationsAsync(charge);
+        await _chargeEmailNotifier.QueueNewChargeAsync(charge);
     }
 
     private async Task CreateChargeNotificationsAsync(Charge charge)
@@ -691,22 +817,18 @@ public class ChargeService : IChargeService
 
         if (charge.Scope == ChargeScope.Condominium && charge.UnitId.HasValue)
         {
-            var residentUserIds = await _context.PersonUnits
-                .AsNoTracking()
-                .Where(personUnit => personUnit.UnitId == charge.UnitId.Value)
-                .Join(
-                    _context.Users.AsNoTracking(),
-                    personUnit => personUnit.PersonId,
-                    user => user.PersonId,
-                    (_, user) => user.Id)
-                .Distinct()
-                .ToListAsync();
+            // Same people who get the e-mail: only the recipient when the charge has one.
+            var residentUserIds = await _chargeEmailNotifier.GetPayerUserIdsAsync(charge);
+
+            var isMonthlyBill = charge.Category == ChargeCategory.MonthlyBill;
 
             await _notificationService.CreateManyAsync(
                 residentUserIds,
                 NotificationType.Charge,
-                "Novo boleto disponível",
-                $"Uma cobrança de {charge.Value.ToString("C", CultureInfo.GetCultureInfo("pt-BR"))} foi gerada para sua unidade.",
+                isMonthlyBill ? "Sua conta do mês chegou" : "Novo boleto disponível",
+                isMonthlyBill
+                    ? $"{charge.Description}: {charge.Value.ToString("C", CultureInfo.GetCultureInfo("pt-BR"))}, com o detalhe de cada item."
+                    : $"Uma cobrança de {charge.Value.ToString("C", CultureInfo.GetCultureInfo("pt-BR"))} foi gerada para sua unidade.",
                 "/resident/bills",
                 charge.CondominiumId);
         }

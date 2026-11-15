@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, DoorOpen, Plus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, DoorOpen, Plus } from "lucide-react";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { Button } from "../../shared/components/Button";
 import { ConfirmDialog, type ConfirmRequest } from "../../shared/components/ConfirmDialog";
 import { SelectField } from "../../shared/components/SelectField";
 import { PageHeader } from "../../shared/layout/PageHeader";
+import { DateField } from "../../shared/components/DateField";
 import { todayInputDate } from "../../shared/lib/date";
 import { getBuildingsByCondominium } from "../buildings/buildingService";
 import type { BuildingResponse } from "../buildings/types";
@@ -48,7 +49,6 @@ export function AdminVisitsPage() {
   const [formError, setFormError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
-  const dateInputRef = useRef<HTMLInputElement | null>(null);
 
   // Filters belong to one condominium: switching it in the sidebar starts clean.
   const filters = storedFilters.condominiumId === activeCondominiumId ? storedFilters : emptyFilters(activeCondominiumId);
@@ -181,16 +181,6 @@ export function AdminVisitsPage() {
     });
   }
 
-  function openDatePicker() {
-    const input = dateInputRef.current;
-    if (!input) return;
-    try {
-      input.showPicker();
-    } catch {
-      input.focus();
-    }
-  }
-
   return (
     <>
       <PageHeader overline={activeCondominium ? `${activeCondominium.condominiumName} · agendadas no condomínio` : undefined} title="Visitantes">
@@ -242,25 +232,7 @@ export function AdminVisitsPage() {
           >
             <ChevronRight size={18} strokeWidth={1.8} aria-hidden />
           </button>
-          <span className="relative ml-1">
-            <button
-              type="button"
-              onClick={openDatePicker}
-              aria-label="Escolher outro dia"
-              className="grid size-9 place-items-center rounded-full text-tinta-suave transition-colors hover:bg-superficie hover:text-tinta"
-            >
-              <CalendarDays size={18} strokeWidth={1.8} aria-hidden />
-            </button>
-            <input
-              ref={dateInputRef}
-              type="date"
-              tabIndex={-1}
-              aria-hidden
-              value={selectedDay}
-              onChange={(event) => event.target.value && goToDay(event.target.value)}
-              className="pointer-events-none absolute inset-0 opacity-0"
-            />
-          </span>
+          <DateField iconOnly label="Escolher outro dia" className="ml-1" value={selectedDay} onChange={(event) => event.target.value && goToDay(event.target.value)} />
           {selectedDay !== today && (
             <button type="button" onClick={() => goToDay(today)} className="ml-1 rounded-full px-3 py-1.5 text-sm font-semibold text-tinta transition-colors hover:bg-superficie">
               Hoje

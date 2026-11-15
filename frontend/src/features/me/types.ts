@@ -1,3 +1,5 @@
+import type { Guides } from "../guide/types";
+
 export type MeResponse = {
   userId: number;
   email: string;
@@ -12,6 +14,8 @@ export type MeResponse = {
   // True when every active link of the user points to an inactive condominium (Master excluded).
   isCondominiumInactive: boolean;
   roles: string[];
+  // In-app tutorial: what was already shown and whether screen tips show.
+  guides?: Guides;
 };
 
 export type UpdateMyProfileRequest = {
@@ -30,6 +34,13 @@ export type MeCondominiumResponse = {
   condominiumName: string;
   role: string;
   status: string;
+  // 1 Residential, 2 Rental, 3 Mixed (features/modules).
+  type: number;
+  enabledModules: string[];
+  // Owns a unit there (may rent it out in "Meus aluguéis").
+  isUnitOwner: boolean;
+  // Rents out a unit there as its owner ("Meus aluguéis" shows in the menu only then).
+  hasOwnRentalContracts: boolean;
 };
 
 export type MeUnitResponse = {

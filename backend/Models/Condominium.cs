@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Threading.Tasks;
+using backend.Constants;
 using backend.Enums;
 
 namespace backend.Models;
@@ -49,6 +50,12 @@ public class Condominium
     [StringLength(20)]
     public Status Status { get; set; } = Status.Active;
 
+    public CondominiumType Type { get; set; } = CondominiumType.Residential;
+
+    // Enabled module keys (Constants/AppModules), comma-separated. Read it through AppModules.Parse.
+    [StringLength(300)]
+    public string EnabledModules { get; set; } = AppModules.Serialize(AppModules.All);
+
     public int CreatedByUserId { get; set; }
     public ApplicationUser CreatedByUser { get; set; } = null!;
     public ICollection<Building> Buildings { get; set; } = new List<Building>();
@@ -66,4 +73,18 @@ public class Condominium
     public bool LateFeeEnabled { get; set; }
     public decimal FinePercent { get; set; } = 2m;
     public decimal MonthlyInterestPercent { get; set; } = 1m;
+
+    // Cash the condominium had when it started its accounts in Moraê (monthly balance).
+    // OpeningBalanceMonth (first day of the month) = the month it refers to; movements before it
+    // are left out of the accumulated balance. Null month = counts from the first movement.
+    public decimal OpeningBalance { get; set; }
+
+    // Monthly bills still in draft are sent by the hourly job this many days before they are due.
+    // Null = only when the management clicks "Enviar contas".
+    public int? InvoiceAutoSendDaysBefore { get; set; } = 10;
+
+    // Which of water (3), light (4) and gas (5) the condominium bills per unit, comma-separated (#209).
+    [StringLength(20)]
+    public string BilledUtilities { get; set; } = "3,4";
+    public DateOnly? OpeningBalanceMonth { get; set; }
 }

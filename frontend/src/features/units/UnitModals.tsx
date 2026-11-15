@@ -136,6 +136,8 @@ type UnitDetailsModalProps = {
   condominiumId: number;
   onClose: () => void;
   onEdit: () => void;
+  // Shown when the condominium uses the rentals module.
+  onRent?: () => void;
   onDelete: () => void;
   onChanged: (message: string) => Promise<void>;
 };
@@ -143,7 +145,7 @@ type UnitDetailsModalProps = {
 const emptyPerson: CreatePersonRequest = { name: "", cpf: "", phoneNumber: "" };
 
 // Unit data plus who lives there: list, unlink and link (existing person or a new one).
-export function UnitDetailsModal({ unit, condominiumId, onClose, onEdit, onDelete, onChanged }: UnitDetailsModalProps) {
+export function UnitDetailsModal({ unit, condominiumId, onClose, onEdit, onRent, onDelete, onChanged }: UnitDetailsModalProps) {
   const [linkedPeople, setLinkedPeople] = useState<PersonUnitResponse[]>([]);
   const [availablePersons, setAvailablePersons] = useState<PersonResponse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -252,6 +254,7 @@ export function UnitDetailsModal({ unit, condominiumId, onClose, onEdit, onDelet
           <Button variant="quiet" onClick={onEdit}>
             Editar dados
           </Button>
+          {onRent && <Button onClick={onRent}>Alugar esta unidade</Button>}
         </>
       }
     >

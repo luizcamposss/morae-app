@@ -1,0 +1,168 @@
+import { formatCurrency } from "../../shared/lib/currency";
+import { formatCalendarDate, todayInputDate } from "../../shared/lib/date";
+import { CHARGE_CATEGORIES, categoryLabel } from "../charges/chargeCategories";
+import type { ChargeCategory, ChargeUnitValue } from "../charges/types";
+import type { UnitResponse } from "../units/types";
+import { isValidInputDate, nextDueDate, parseCurrencyInput, unitLabel, validateMoney } from "./chargeForm";
+import { toCents } from "../masterPayments/platformChargeForm";
+
+// "Lançar cobrança" wizard: what (category) → from whom (one unit or many) → how much and when.
+// Into the month's bills (default), a charge of its own now, or a fixed monthly charge.
+export type WizardStep = 1 | 2 | 3 | 4;
+export type ChargeTarget = "unit" | "many";
+export type ManyScope = "all" | "building" | "pick";
+export type Pricing = "same" | "perUnit";
+// Into the unit's bill of a month (default), or a charge of its own due on a date.
+export type Destination = "bill" | "now";
+
+export type NewChargeForm = {
+  category: ChargeCategory | null;
+  target: ChargeTarget;
+  unitId: string;
+  onlyOnePerson: boolean;
+  recipientPersonId: string;
+  manyScope: ManyScope;
+  buildingId: string;
+  pickedUnitIds: number[];
+  pricing: Pricing;
+  value: string;
+  unitValues: Record<number, string>;
+  destination: Destination;
+  billMonth: string; // "YYYY-MM": the bill it goes into
+  repeat: boolean;
+  dueDate: string;
+  dueDay: string;
+  description: string;
+  descriptionEdited: boolean;
+};
+
+export function initialNewChargeForm(billingDueDay: number | null, repeat = false): NewChargeForm {
+  return {
+    category: null,
+    target: "many",
+    unitId: "",
+    onlyOnePerson: false,
+    recipientPersonId: "",
+    manyScope: "all",
+    buildingId: "",
+    pickedUnitIds: [],
+    pricing: "same",
+    value: "",
+    unitValues: {},
+    destination: "bill",
+    billMonth: (billingDueDay ? nextDueDate(billingDueDay) : todayInputDate()).slice(0, 7),
+    repeat,
+    dueDate: billingDueDay ? nextDueDate(billingDueDay) : "",
+    dueDay: billingDueDay ? String(billingDueDay) : "",
+    description: "",
+    descriptionEdited: false,
+  };
+}
+
+const shortMonth = new Intl.DateTimeFormat("pt-BR", { month: "short", timeZone: "UTC" });
+
+// "Rateio · nov/2026" (or just "Taxa de condomínio" for a fixed monthly charge).
+export function suggestedDescription(form: NewChargeForm) {
+  if (!form.category) return "";
+  const label = CHARGE_CATEGORIES[form.category].label;
+  if (form.repeat) return label;
+  const date = form.destination === "bill" ? `${form.billMonth}-01` : form.dueDate;
+  if (!isValidInputDate(date)) return label;
+  const [year, month] = date.split("-").map(Number);
+  return `${label} · ${shortMonth.format(new Date(Date.UTC(year, month - 1, 1))).replace(".", "")}/${year}`;
+}
+
+// A fixed monthly charge = one unit, the whole condominium or a building, never a hand-picked list.
+export function canRepeat(form: NewChargeForm) {
+  return !(form.target === "many" && form.manyScope === "pick");
+}
+
+// Units the charge reaches.
+export function targetUnits(form: NewChargeForm, units: UnitResponse[]) {
+  if (form.target === "unit") return units.filter((unit) => String(unit.id) === form.unitId);
+  if (form.manyScope === "building") return units.filter((unit) => String(unit.buildingId) === form.buildingId);
+  if (form.manyScope === "pick") return units.filter((unit) => form.pickedUnitIds.includes(unit.id));
+  return units;
+}
+
+// What each billed unit pays: [unit, value] for every unit that will get a charge.
+export function billedUnits(form: NewChargeForm, units: UnitResponse[]) {
+  const scoped = targetUnits(form, units);
+  const base = parseCurrencyInput(form.value);
+
+  return scoped.map((unit) => {
+    const custom = form.pricing === "perUnit" ? form.unitValues[unit.id]?.trim() : "";
+    return { unit, value: custom ? parseCurrencyInput(custom) : base };
+  });
+}
+
+export function validateStep(step: WizardStep, form: NewChargeForm, units: UnitResponse[]) {
+  if (step === 1) return form.category ? "" : "Escolha o que você quer cobrar.";
+
+  if (step === 2) {
+    if (form.target === "unit") {
+      if (!form.unitId) return "Escolha a unidade.";
+      if (form.onlyOnePerson && !form.recipientPersonId) return "Escolha a pessoa que vai receber a cobrança.";
+      return "";
+    }
+    if (form.manyScope === "building" && !form.buildingId) return "Escolha o prédio.";
+    if (form.manyScope === "pick" && form.pickedUnitIds.length === 0) return "Escolha pelo menos uma unidade.";
+    return targetUnits(form, units).length ? "" : "Nenhuma unidade neste prédio.";
+  }
+
+  const money = validateMoney(form.value, form.pricing === "perUnit" ? "o valor padrão" : "o valor");
+  if (money) return money;
+  if (form.pricing === "perUnit") {
+    for (const raw of Object.values(form.unitValues)) {
+      if (raw.trim() && validateMoney(raw, "o valor da unidade")) return "Confira os valores por unidade: maiores que zero, com até duas casas.";
+    }
+  }
+
+  if (form.repeat && canRepeat(form)) {
+    const day = Number(form.dueDay);
+    if (!Number.isInteger(day) || day < 1 || day > 31) return "O dia de vencimento vai de 1 a 31.";
+  } else if (form.destination === "bill") {
+    if (!/^\d{4}-\d{2}$/.test(form.billMonth)) return "Escolha o mês da conta.";
+  } else {
+    if (!form.dueDate || !isValidInputDate(form.dueDate)) return "Informe uma data de vencimento válida.";
+    if (form.dueDate < todayInputDate()) return "O vencimento não pode ser anterior a hoje.";
+  }
+
+  const description = form.description.trim();
+  if (description.length < 3) return "A descrição precisa ter pelo menos 3 caracteres.";
+  if (description.length > 255) return "A descrição deve ter no máximo 255 caracteres.";
+  return "";
+}
+
+// "Vai criar 32 cobranças de Água, total R$ 4.210,00, vencimento 10/12/2026."
+export function summarize(form: NewChargeForm, units: UnitResponse[], recipientName?: string) {
+  const billed = billedUnits(form, units);
+  const label = categoryLabel(form.category);
+  const total = billed.reduce((sum, item) => sum + item.value, 0);
+  const forWhom = recipientName ? ` para ${recipientName}` : "";
+
+  if (form.repeat && canRepeat(form)) {
+    const where = form.target === "unit" ? (billed[0] ? unitLabel(billed[0].unit) : "") : `${billed.length} ${billed.length === 1 ? "unidade" : "unidades"}`;
+    return `Vai cobrar ${label}${forWhom} todo mês: ${formatCurrency(total)} por mês (${where}), na conta de cada mês, vencendo dia ${form.dueDay}.`;
+  }
+
+  const count = billed.length;
+  if (form.destination === "bill") {
+    return `Vai lançar ${label}${forWhom} em ${count} ${count === 1 ? "conta" : "contas"} de ${monthName(form.billMonth)}, total ${formatCurrency(total)}.`;
+  }
+  return `Vai criar ${count} ${count === 1 ? "cobrança" : "cobranças"} de ${label}${forWhom}, total ${formatCurrency(total)}, vencimento ${formatCalendarDate(form.dueDate)}.`;
+}
+
+// "dezembro de 2026".
+export function monthName(month: string) {
+  const [year, number] = month.split("-").map(Number);
+  return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, number - 1, 1)));
+}
+
+// Units whose value differs from the default.
+export function unitValuesFor(form: NewChargeForm, units: UnitResponse[]): ChargeUnitValue[] {
+  const billed = billedUnits(form, units);
+  if (form.pricing !== "perUnit") return [];
+  const defaultCents = toCents(parseCurrencyInput(form.value));
+  return billed.filter((item) => toCents(item.value) !== defaultCents).map((item) => ({ unitId: item.unit.id, value: item.value }));
+}

@@ -8,6 +8,8 @@ public interface ICondominiumService
     Task<CondominiumResponseDto> CreateAsync(int userId, CreateCondominiumDto dto);
     Task<IEnumerable<CondominiumResponseDto>> GetAllAsync(int userId);
     Task<IEnumerable<CondominiumResponseDto>> GetMineAsync(int userId);
+    Task<CondominiumModulesDto> GetModulesAsync(int userId, int condominiumId);
+    Task<CondominiumModulesDto> UpdateModulesAsync(int userId, int condominiumId, UpdateCondominiumModulesDto dto);
     Task<CondominiumResponseDto?> GetByIdAsync(int userId, int id);
     Task<bool> UpdateAsync(int userId, int id, UpdateCondominiumDto dto);
     Task<bool> UpdateStatusAsync(int userId, int id, UpdateCondominiumStatusDto dto);

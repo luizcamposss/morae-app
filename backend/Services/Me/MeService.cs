@@ -60,9 +60,52 @@ public class MeService : IMeService
             IsCondominiumInactive = isCondominiumInactive,
             SuspensionReason = isSuspended ? latestSuspension?.SuspensionReason : null,
             SuspendedAt = isSuspended ? latestSuspension?.SuspendedAt : null,
-            Roles = roles
+            Roles = roles,
+            Guides = MapGuides(user)
         };
     }
+
+    public async Task<GuidesDto> UpdateGuidesAsync(int userId, UpdateGuidesDto dto)
+    {
+        var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId)
+            ?? throw new NotFoundException("Usuário não encontrado.");
+
+        var seen = ParseGuides(user.SeenGuides);
+        if (dto.ResetTips)
+            seen.RemoveWhere(key => key.StartsWith("tip:"));
+
+        foreach (var key in dto.MarkSeen ?? [])
+        {
+            var clean = key.Trim().ToLowerInvariant();
+            if (!GuideKey.IsMatch(clean))
+                throw new BadRequestException("Tutorial inválido.");
+            seen.Add(clean);
+        }
+
+        var joined = string.Join(",", seen.Order());
+        if (joined.Length > 2000)
+            throw new BadRequestException("Tutoriais demais marcados como vistos.");
+
+        user.SeenGuides = joined.Length == 0 ? null : joined;
+        if (dto.ShowTips.HasValue)
+            user.ShowTips = dto.ShowTips.Value;
+        user.UpdatedAt = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+        return MapGuides(user);
+    }
+
+    // "tour:admin", "tip:finance-accounts".
+    private static readonly System.Text.RegularExpressions.Regex GuideKey = new("^(tour|tip):[a-z0-9-]{1,40}$");
+
+    private static HashSet<string> ParseGuides(string? value) =>
+        (value ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToHashSet();
+
+    private static GuidesDto MapGuides(ApplicationUser user) => new()
+    {
+        ShowTips = user.ShowTips,
+        Seen = ParseGuides(user.SeenGuides).Order().ToList()
+    };
 
     public async Task<MeResponseDto> UpdateMyProfileAsync(int userId, UpdateMyProfileDto dto)
     {
@@ -189,19 +232,49 @@ public class MeService : IMeService
 
     public async Task<IEnumerable<MeCondominiumResponseDto>> GetMyCondominiumsAsync(int userId)
     {
-        return await _context.UserCondominiums
+        var links = await _context.UserCondominiums
             .AsNoTracking()
             .Where(uc =>
                 uc.UserId == userId &&
                 uc.Status == UserCondominiumStatus.Active)
-            .Select(uc => new MeCondominiumResponseDto
+            .Select(uc => new
             {
-                CondominiumId = uc.CondominiumId,
-                CondominiumName = uc.Condominium.Name,
-                Role = uc.Role,
-                Status = uc.Status
+                uc.CondominiumId,
+                uc.Condominium.Name,
+                uc.Role,
+                uc.Status,
+                uc.Condominium.Type,
+                uc.Condominium.EnabledModules
             })
             .ToListAsync();
+
+        var ownedCondominiumIds = await _context.PersonUnits
+            .AsNoTracking()
+            .Where(link =>
+                link.RelationshipType == UnitRelationshipType.Owner &&
+                _context.Users.Any(user => user.Id == userId && user.PersonId == link.PersonId))
+            .Select(link => link.Unit.Building.CondominiumId)
+            .Distinct()
+            .ToListAsync();
+
+        var rentingCondominiumIds = await _context.RentalContracts
+            .AsNoTracking()
+            .Where(contract => _context.Users.Any(user => user.Id == userId && user.PersonId == contract.ReceiverPersonId))
+            .Select(contract => contract.CondominiumId)
+            .Distinct()
+            .ToListAsync();
+
+        return links.Select(link => new MeCondominiumResponseDto
+        {
+            CondominiumId = link.CondominiumId,
+            CondominiumName = link.Name,
+            Role = link.Role,
+            Status = link.Status,
+            Type = link.Type,
+            EnabledModules = AppModules.Parse(link.EnabledModules),
+            IsUnitOwner = ownedCondominiumIds.Contains(link.CondominiumId),
+            HasOwnRentalContracts = rentingCondominiumIds.Contains(link.CondominiumId)
+        });
     }
     public async Task<MePermissionsResponseDto> GetMyPermissionsAsync(int userId, int condominiumId)
     {

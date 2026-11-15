@@ -177,6 +177,7 @@ export function CondominiumsPage() {
             state: condominium.state,
             emailContact: condominium.emailContact,
             status: condominium.status,
+            type: condominium.type,
             adminName: "",
             adminCpf: "",
             adminPhoneNumber: "",

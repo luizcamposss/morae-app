@@ -33,6 +33,13 @@ public class ChargeEmailNotifier : IChargeEmailNotifier
         var recipients = await GetPayersAsync(charge);
         var condominiumName = await GetCondominiumNameAsync(charge.CondominiumId);
         var unitLabel = await GetUnitLabelAsync(charge.UnitId);
+        var items = await _context.ChargeItems
+            .AsNoTracking()
+            .Where(item => item.ChargeId == charge.Id)
+            .OrderBy(item => item.Id)
+            .Select(item => new { item.Description, item.Amount })
+            .ToListAsync();
+        var itemLines = items.Select(item => (item.Description, item.Amount)).ToList();
 
         foreach (var recipient in recipients.Where(recipient => recipient.BillsEnabled))
         {
@@ -44,7 +51,8 @@ public class ChargeEmailNotifier : IChargeEmailNotifier
                 charge.Description,
                 charge.Value,
                 charge.DueDate,
-                GetChargesUrl(charge));
+                GetChargesUrl(charge),
+                itemLines);
 
             _emailQueue.Enqueue(email.ToMessage(recipient.Email));
         }
@@ -104,12 +112,13 @@ public class ChargeEmailNotifier : IChargeEmailNotifier
 
     public async Task<List<int>> GetPayerUserIdsAsync(Charge charge)
     {
-        return await PayerUsers(charge).Select(user => user.Id).ToListAsync();
+        return await (await PayerUsersAsync(charge)).Select(user => user.Id).ToListAsync();
     }
 
-    // Same people who see the charge in the app: the condominium's Admins for platform charges,
-    // the unit's residents for condominium charges. Only users with an active link to the condominium.
-    private IQueryable<ApplicationUser> PayerUsers(Charge charge)
+    // Same people who see the charge in the app: the condominium's Admins for platform charges;
+    // for condominium charges the recipient when it has one, else the unit's payer (UnitPayers).
+    // Only users with an active link to the condominium.
+    private async Task<IQueryable<ApplicationUser>> PayerUsersAsync(Charge charge)
     {
         if (charge.Scope == ChargeScope.Platform)
         {
@@ -122,8 +131,12 @@ public class ChargeEmailNotifier : IChargeEmailNotifier
         if (charge.UnitId.HasValue)
         {
             var unitId = charge.UnitId.Value;
+            var payerPersonIds = charge.RecipientPersonId is { } recipientPersonId
+                ? [recipientPersonId]
+                : (await UnitPayers.GetPersonIdsAsync(_context, unitId, charge.DueDate)).ToList();
 
             return _context.Users.Where(user =>
+                payerPersonIds.Contains(user.PersonId) &&
                 _context.PersonUnits.Any(personUnit =>
                     personUnit.UnitId == unitId && personUnit.PersonId == user.PersonId) &&
                 user.UserCondominiums.Any(link =>
@@ -136,7 +149,7 @@ public class ChargeEmailNotifier : IChargeEmailNotifier
 
     private async Task<List<Recipient>> GetPayersAsync(Charge charge)
     {
-        var rows = await PayerUsers(charge)
+        var rows = await (await PayerUsersAsync(charge))
             .AsNoTracking()
             .Where(user => user.Email != null && user.Email != "")
             .Select(user => new

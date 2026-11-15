@@ -9,6 +9,8 @@ export type CondominiumResponse = {
   state: string;
   emailContact: string;
   status: number;
+  // 1 Residential, 2 Rental, 3 Mixed (features/modules).
+  type: number;
   adminUserId?: number | null;
   adminName?: string | null;
   adminEmail?: string | null;
@@ -24,6 +26,7 @@ export type CreateCondominiumRequest = {
   city: string;
   state: string;
   emailContact: string;
+  type: number;
 };
 
 export type AdminOnboardingRequest = {
@@ -47,6 +50,8 @@ export type UpdateCondominiumRequest = {
   state: string;
   emailContact: string;
   status: number;
+  // A new type resets the condominium's modules to that type's defaults.
+  type: number;
 };
 
 export type UpdateCondominiumStatusRequest = {

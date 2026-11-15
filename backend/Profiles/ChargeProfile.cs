@@ -15,8 +15,17 @@ public class ChargeProfile : Profile
 {
     public ChargeProfile()
     {
-        CreateMap<CreateChargeDto, Charge>();
+        CreateMap<CreateChargeDto, Charge>()
+            .ForMember(dest => dest.Category, opt => opt.MapFrom(src => src.Category ?? ChargeCategory.Other));
+        CreateMap<ChargeItem, ChargeItemDto>();
+
         CreateMap<Charge, ChargeResponseDto>()
+            .ForMember(
+                dest => dest.ReceiverName,
+                opt => opt.MapFrom(src => src.ReceiverPerson != null ? src.ReceiverPerson.Name : null))
+            .ForMember(
+                dest => dest.Items,
+                opt => opt.MapFrom(src => src.Items.OrderBy(item => item.Id)))
             .ForMember(
                 dest => dest.CondominiumName,
                 opt => opt.MapFrom(src => src.Condominium.Name))
@@ -26,6 +35,9 @@ public class ChargeProfile : Profile
             .ForMember(
                 dest => dest.BuildingName,
                 opt => opt.MapFrom(src => src.Unit != null ? src.Unit.Building.Name : null))
+            .ForMember(
+                dest => dest.RecipientName,
+                opt => opt.MapFrom(src => src.RecipientPerson != null ? src.RecipientPerson.Name : null))
             .ForMember(
                 dest => dest.Status,
                 opt => opt.MapFrom(src =>
@@ -45,6 +57,12 @@ public class ChargeProfile : Profile
             .ForMember(
                 dest => dest.BuildingName,
                 opt => opt.MapFrom(src => src.Building != null ? src.Building.Name : null))
+            .ForMember(
+                dest => dest.UnitNumber,
+                opt => opt.MapFrom(src => src.Unit != null ? src.Unit.Number : null))
+            .ForMember(
+                dest => dest.RecipientName,
+                opt => opt.MapFrom(src => src.RecipientPerson != null ? src.RecipientPerson.Name : null))
             .ForMember(
                 dest => dest.EffectiveDueDay,
                 opt => opt.MapFrom(src => src.DueDay ?? src.Condominium.BillingDueDay))

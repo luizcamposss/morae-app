@@ -4,6 +4,9 @@ using backend.Data;
 using backend.Enums;
 using backend.Models;
 using backend.Services.Email;
+using backend.Services.Agreements;
+using backend.Services.Invoices;
+using backend.Services.Rentals;
 using backend.Services.Assemblies;
 using backend.Services.Charges;
 using backend.Services.Maintenance;
@@ -34,6 +37,9 @@ public class ScheduledTasks : IScheduledTasks
     private readonly IMaintenanceReminderService _maintenanceReminderService;
     private readonly IAssemblyService _assemblyService;
     private readonly IChargeBillingService _chargeBillingService;
+    private readonly IAgreementService _agreementService;
+    private readonly IInvoiceService _invoiceService;
+    private readonly IRentalContractService _rentalContractService;
 
     public ScheduledTasks(
         AppDbContext context,
@@ -42,8 +48,14 @@ public class ScheduledTasks : IScheduledTasks
         ILogger<ScheduledTasks> logger,
         IMaintenanceReminderService maintenanceReminderService,
         IAssemblyService assemblyService,
-        IChargeBillingService chargeBillingService)
+        IChargeBillingService chargeBillingService,
+        IAgreementService agreementService,
+        IInvoiceService invoiceService,
+        IRentalContractService rentalContractService)
     {
+        _rentalContractService = rentalContractService;
+        _invoiceService = invoiceService;
+        _agreementService = agreementService;
         _chargeBillingService = chargeBillingService;
         _assemblyService = assemblyService;
         _maintenanceReminderService = maintenanceReminderService;
@@ -57,6 +69,8 @@ public class ScheduledTasks : IScheduledTasks
     {
         // Each task runs on its own: one failure does not stop the others.
         await RunSafelyAsync("mark overdue charges", MarkOverdueChargesAsync, cancellationToken);
+        // After marking overdue: breaks agreements with an installment late for too long.
+        await RunSafelyAsync("update debt agreements", _agreementService.UpdateAgreementsAsync, cancellationToken);
         await RunSafelyAsync("expire invitations", ExpireInvitationsAsync, cancellationToken);
         await RunSafelyAsync("clean up old data", CleanUpAsync, cancellationToken);
         await RunSafelyAsync("close assemblies", _assemblyService.CloseDueAssembliesAsync, cancellationToken);
@@ -67,6 +81,10 @@ public class ScheduledTasks : IScheduledTasks
         {
             // New charges notify residents (bell + e-mail), so they are generated in the daytime too.
             await RunSafelyAsync("generate recurring charges", _chargeBillingService.GenerateDueRecurringChargesAsync, cancellationToken);
+            // Rent first, so a bill sent automatically today already has it.
+            await RunSafelyAsync("generate rent", _rentalContractService.GenerateDueRentAsync, cancellationToken);
+            await RunSafelyAsync("send rent adjustment reminders", _rentalContractService.SendAdjustmentRemindersAsync, cancellationToken);
+            await RunSafelyAsync("send monthly bills", _invoiceService.SendDueDraftsAsync, cancellationToken);
             await RunSafelyAsync("send due-soon reminders", SendDueSoonRemindersAsync, cancellationToken);
             await RunSafelyAsync("send overdue reminders", SendOverdueRemindersAsync, cancellationToken);
             await RunSafelyAsync("send maintenance reminders", _maintenanceReminderService.SendRemindersAsync, cancellationToken);

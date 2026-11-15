@@ -1,3 +1,4 @@
+import { categoryLabel } from "../charges/chargeCategories";
 import { CircleCheck, QrCode } from "lucide-react";
 import { Button } from "../../shared/components/Button";
 import { formatCurrency } from "../../shared/lib/currency";
@@ -49,7 +50,9 @@ export function NextChargeCard({ charge, isLoading, otherOpenCount = 0, onPay, o
             {isOverdue ? "Cobrança atrasada" : "Próxima cobrança"}
           </p>
           <h2 className="mt-1 truncate text-[15px] font-semibold text-tinta">{charge.description}</h2>
-          <p className="truncate text-[13px] text-tinta-suave">{billPlace(charge)}</p>
+          <p className="truncate text-[13px] text-tinta-suave">
+            {categoryLabel(charge.category)} · {billPlace(charge)}
+          </p>
         </div>
         {otherOpenCount > 0 && (
           <span className="shrink-0 rounded-chip bg-campo px-2 py-0.5 text-xs font-semibold text-tinta-suave">+{otherOpenCount} em aberto</span>
@@ -60,6 +63,17 @@ export function NextChargeCard({ charge, isLoading, otherOpenCount = 0, onPay, o
         {formatCurrency(amountDue(charge))}
       </p>
       <p className={`mt-2 text-[13px] ${isOverdue ? "text-vermelho" : "text-tinta-suave"}`}>{describeDue(charge, formatCalendarDate(charge.dueDate))}</p>
+
+      {charge.items?.length > 0 && (
+        <ul className="mt-4 divide-y divide-linha border-y border-linha text-sm">
+          {charge.items.map((item) => (
+            <li key={item.id} className="flex justify-between gap-3 py-2">
+              <span className="min-w-0 truncate text-tinta-suave">{item.description}</span>
+              <span className="tabular-nums text-tinta">{formatCurrency(item.amount)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {showFees && (
         <p className="mt-1 text-[13px] tabular-nums text-tinta-suave">

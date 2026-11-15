@@ -7,6 +7,7 @@ using backend.DTOs.MercadoPago;
 using backend.Enums;
 using backend.Exceptions;
 using backend.Models;
+using backend.Services.Agreements;
 using backend.Services.Email;
 using backend.Services.Charges;
 using backend.Services.Notifications;
@@ -79,10 +80,11 @@ public class MercadoPagoService : IMercadoPagoService
         _logger = logger;
     }
 
-    public async Task<MercadoPagoOAuthStartResponseDto> StartOAuthAsync(int userId, int? condominiumId)
+    public async Task<MercadoPagoOAuthStartResponseDto> StartOAuthAsync(int userId, int? condominiumId, bool asOwner = false)
     {
         EnsureOAuthConfigured();
-        await EnsureCanManageConnectionAsync(userId, condominiumId);
+        var ownerPersonId = await ResolveConnectionTargetAsync(userId, condominiumId, asOwner);
+        if (ownerPersonId.HasValue) condominiumId = null;
 
         await _context.MercadoPagoOAuthStates
             .Where(item => item.ExpiresAt < DateTime.UtcNow.AddDays(-1))
@@ -98,6 +100,7 @@ public class MercadoPagoService : IMercadoPagoService
             CodeVerifier = codeVerifier,
             UserId = userId,
             CondominiumId = condominiumId,
+            OwnerPersonId = ownerPersonId,
             ExpiresAt = expiresAt
         });
 
@@ -135,7 +138,7 @@ public class MercadoPagoService : IMercadoPagoService
             throw new BadRequestException("Autorização do Mercado Pago inválida ou expirada. Tente conectar novamente.");
         }
 
-        await EnsureCanManageConnectionAsync(userId, oauthState.CondominiumId);
+        await ResolveConnectionTargetAsync(userId, oauthState.CondominiumId, oauthState.OwnerPersonId.HasValue);
 
         oauthState.UsedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
@@ -147,6 +150,7 @@ public class MercadoPagoService : IMercadoPagoService
         var account = await UpsertMercadoPagoAccountAsync(
             userId,
             oauthState.CondominiumId,
+            oauthState.OwnerPersonId,
             credential);
 
         await _context.SaveChangesAsync();
@@ -154,25 +158,27 @@ public class MercadoPagoService : IMercadoPagoService
         return _mapper.Map<MercadoPagoConnectionStatusDto>(account);
     }
 
-    public async Task<MercadoPagoConnectionStatusDto> GetConnectionStatusAsync(int userId, int? condominiumId)
+    public async Task<MercadoPagoConnectionStatusDto> GetConnectionStatusAsync(int userId, int? condominiumId, bool asOwner = false)
     {
-        await EnsureCanManageConnectionAsync(userId, condominiumId);
+        var ownerPersonId = await ResolveConnectionTargetAsync(userId, condominiumId, asOwner);
+        if (ownerPersonId.HasValue) condominiumId = null;
 
         var account = await _context.MercadoPagoAccounts
             .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.CondominiumId == condominiumId);
+            .FirstOrDefaultAsync(item => item.CondominiumId == condominiumId && item.OwnerPersonId == ownerPersonId);
 
         return account is null
             ? new MercadoPagoConnectionStatusDto()
             : _mapper.Map<MercadoPagoConnectionStatusDto>(account);
     }
 
-    public async Task DisconnectAsync(int userId, int? condominiumId)
+    public async Task DisconnectAsync(int userId, int? condominiumId, bool asOwner = false)
     {
-        await EnsureCanManageConnectionAsync(userId, condominiumId);
+        var ownerPersonId = await ResolveConnectionTargetAsync(userId, condominiumId, asOwner);
+        if (ownerPersonId.HasValue) condominiumId = null;
 
         var account = await _context.MercadoPagoAccounts
-            .FirstOrDefaultAsync(item => item.CondominiumId == condominiumId);
+            .FirstOrDefaultAsync(item => item.CondominiumId == condominiumId && item.OwnerPersonId == ownerPersonId);
 
         if (account is null)
             return;
@@ -339,7 +345,12 @@ public class MercadoPagoService : IMercadoPagoService
         }
 
         // Only the side that received the money can give it back.
-        if (trackedPayment.Charge.Scope == ChargeScope.Platform)
+        if (trackedPayment.Charge.ReceiverPersonId is { } ownerPersonId)
+        {
+            if (!await IsPersonOfUserAsync(userId, ownerPersonId))
+                throw new ForbiddenException("Só o proprietário que recebeu pode estornar este aluguel.");
+        }
+        else if (trackedPayment.Charge.Scope == ChargeScope.Platform)
         {
             await _permissionService.EnsureMasterAsync(userId);
 
@@ -485,12 +496,12 @@ public class MercadoPagoService : IMercadoPagoService
             return;
         }
 
-        if (trackedPayment.Charge.Status == ChargeStatus.Canceled)
+        if (trackedPayment.Charge.Status is ChargeStatus.Canceled or ChargeStatus.Renegotiated)
         {
             await MarkForReviewAsync(
                 trackedPayment,
                 "review_required",
-                "Payment was approved for a canceled charge.");
+                "Payment was approved for a canceled or renegotiated charge.");
             return;
         }
 
@@ -538,6 +549,9 @@ public class MercadoPagoService : IMercadoPagoService
                 trackedPayment.ChargeId);
             return;
         }
+
+        // The last installment paid settles the agreement.
+        await AgreementProgress.SyncAsync(_context, trackedPayment.Charge.AgreementId);
 
         await NotifyPayersAsync(
             trackedPayment.Charge,
@@ -605,6 +619,9 @@ public class MercadoPagoService : IMercadoPagoService
         }
 
         await _context.SaveChangesAsync();
+
+        // A refunded installment reopens a completed agreement.
+        await AgreementProgress.SyncAsync(_context, trackedPayment.Charge.AgreementId);
 
         const string title = "Pagamento estornado";
         var message = $"O pagamento da cobrança \"{trackedPayment.Charge.Description}\" foi estornado no Mercado Pago " +
@@ -793,16 +810,8 @@ public class MercadoPagoService : IMercadoPagoService
         if (!charge.UnitId.HasValue)
             return;
 
-        var residentUserIds = await _context.PersonUnits
-            .AsNoTracking()
-            .Where(item => item.UnitId == charge.UnitId.Value)
-            .Join(
-                _context.Users.AsNoTracking(),
-                personUnit => personUnit.PersonId,
-                user => user.PersonId,
-                (_, user) => user.Id)
-            .Distinct()
-            .ToListAsync();
+        // Same people who get the e-mail: only the recipient when the charge has one.
+        var residentUserIds = await _chargeEmailNotifier.GetPayerUserIdsAsync(charge);
 
         await _notificationService.CreateManyAsync(
             residentUserIds,
@@ -825,6 +834,19 @@ public class MercadoPagoService : IMercadoPagoService
                 title,
                 message,
                 "/master/payments");
+            return;
+        }
+
+        // The owner's rent: the owner hears about it, not the condominium's management.
+        if (charge.ReceiverPersonId.HasValue)
+        {
+            await _notificationService.CreateManyAsync(
+                [trackedPayment.MercadoPagoAccount.UserId],
+                NotificationType.Payment,
+                title,
+                message,
+                "/my-rentals",
+                charge.CondominiumId);
             return;
         }
 
@@ -853,16 +875,18 @@ public class MercadoPagoService : IMercadoPagoService
     private async Task<MercadoPagoAccount> UpsertMercadoPagoAccountAsync(
         int userId,
         int? condominiumId,
+        int? ownerPersonId,
         MercadoPagoOAuthCredentialDto credential)
     {
         var account = await _context.MercadoPagoAccounts
-            .FirstOrDefaultAsync(item => item.CondominiumId == condominiumId);
+            .FirstOrDefaultAsync(item => item.CondominiumId == condominiumId && item.OwnerPersonId == ownerPersonId);
 
         if (account is null)
         {
             account = new MercadoPagoAccount
             {
-                CondominiumId = condominiumId
+                CondominiumId = condominiumId,
+                OwnerPersonId = ownerPersonId
             };
 
             _context.MercadoPagoAccounts.Add(account);
@@ -883,16 +907,21 @@ public class MercadoPagoService : IMercadoPagoService
 
     private async Task<MercadoPagoAccount> GetReceiverAccountOrThrowAsync(Charge charge)
     {
-        int? condominiumId = charge.Scope == ChargeScope.Platform
+        // The owner's rent goes to the owner's own account; everything else to the condominium's
+        // (or, for platform charges, to the platform's).
+        int? ownerPersonId = charge.ReceiverPersonId;
+        int? condominiumId = charge.Scope == ChargeScope.Platform || ownerPersonId.HasValue
             ? null
             : charge.CondominiumId;
 
         var account = await _context.MercadoPagoAccounts
-            .FirstOrDefaultAsync(item => item.CondominiumId == condominiumId);
+            .FirstOrDefaultAsync(item => item.CondominiumId == condominiumId && item.OwnerPersonId == ownerPersonId);
 
         if (account is null || string.IsNullOrWhiteSpace(account.AccessToken))
         {
-            throw new BadRequestException(charge.Scope == ChargeScope.Platform
+            throw new BadRequestException(ownerPersonId.HasValue
+                ? "O proprietário ainda não conectou uma conta Mercado Pago para receber o aluguel online."
+                : charge.Scope == ChargeScope.Platform
                 ? "A plataforma ainda não conectou uma conta Mercado Pago para receber pagamentos online."
                 : "O condomínio ainda não conectou uma conta Mercado Pago para receber pagamentos online.");
         }
@@ -952,6 +981,35 @@ public class MercadoPagoService : IMercadoPagoService
         account.UpdatedAt = DateTime.UtcNow;
     }
 
+    // Whose account a connection screen manages. Returns the owner's PersonId when the logged-in
+    // user connects their own account as a unit owner; null for the platform/condominium accounts.
+    private async Task<int?> ResolveConnectionTargetAsync(int userId, int? condominiumId, bool asOwner)
+    {
+        if (!asOwner)
+        {
+            await EnsureCanManageConnectionAsync(userId, condominiumId);
+            return null;
+        }
+
+        var personId = await _context.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId)
+            .Select(user => (int?)user.PersonId)
+            .FirstOrDefaultAsync();
+
+        var isOwner = personId.HasValue && await _context.PersonUnits
+            .AsNoTracking()
+            .AnyAsync(link => link.PersonId == personId && link.RelationshipType == UnitRelationshipType.Owner);
+
+        if (!isOwner)
+            throw new ForbiddenException("Só o proprietário de uma unidade conecta uma conta para receber aluguel.");
+
+        return personId;
+    }
+
+    private async Task<bool> IsPersonOfUserAsync(int userId, int personId) =>
+        await _context.Users.AsNoTracking().AnyAsync(user => user.Id == userId && user.PersonId == personId);
+
     private async Task EnsureCanManageConnectionAsync(int userId, int? condominiumId)
     {
         if (condominiumId is null)
@@ -985,7 +1043,7 @@ public class MercadoPagoService : IMercadoPagoService
         {
             // A syndic pays only their own unit's charges, like any resident.
             if (await _permissionService.IsCondominiumAdminAsync(userId, charge.CondominiumId) ||
-                await IsResidentChargeOwnerAsync(user, charge))
+                await _permissionService.IsChargePayerAsync(userId, charge))
             {
                 return;
             }
@@ -1003,18 +1061,12 @@ public class MercadoPagoService : IMercadoPagoService
 
         if (charge.Status == ChargeStatus.Canceled)
             throw new BadRequestException("Cobranças canceladas não podem ser pagas.");
-    }
 
-    private async Task<bool> IsResidentChargeOwnerAsync(ApplicationUser user, Charge charge)
-    {
-        if (!charge.UnitId.HasValue)
-            return false;
+        if (charge.Status == ChargeStatus.Renegotiated)
+            throw new BadRequestException("Esta cobrança foi renegociada num acordo; pague as parcelas do acordo.");
 
-        return await _context.PersonUnits
-            .AsNoTracking()
-            .AnyAsync(personUnit =>
-                personUnit.PersonId == user.PersonId &&
-                personUnit.UnitId == charge.UnitId.Value);
+        if (charge.Status == ChargeStatus.Draft)
+            throw new BadRequestException("Esta conta ainda não foi enviada.");
     }
 
     private void EnsureOAuthConfigured()

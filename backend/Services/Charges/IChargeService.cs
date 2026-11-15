@@ -1,8 +1,10 @@
+using backend.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using backend.DTOs.Charge;
+using backend.Enums;
 
 namespace backend.Services.Charges;
 
@@ -10,8 +12,11 @@ public interface IChargeService
 {
     Task<ChargeResponseDto> CreateAsync(int userId, CreateChargeDto dto);
     Task<IEnumerable<ChargeResponseDto>> GetPlatformAsync(int userId);
-    Task<IEnumerable<ChargeResponseDto>> GetByCondominiumAsync(int userId, int condominiumId);
+    Task<IEnumerable<ChargeResponseDto>> GetByCondominiumAsync(int userId, int condominiumId, ChargeCategory? category = null);
     Task<IEnumerable<ChargeResponseDto>> GetMineAsync(int userId);
+
+    // Unit owner (#201): the rent bills they receive (sent ones; drafts go out on their own).
+    Task<IEnumerable<ChargeResponseDto>> GetReceivedAsOwnerAsync(int userId);
     Task<ChargeResponseDto?> GetByIdAsync(int userId, int id);
     Task<bool> CancelAsync(int userId, int id, CancelChargeDto dto);
 
@@ -31,7 +36,14 @@ public interface IChargeService
         int userId,
         int condominiumId,
         int? buildingId,
-        IEnumerable<ChargeUnitValueDto> unitValues);
+        IEnumerable<ChargeUnitValueDto> unitValues,
+        IReadOnlyCollection<int>? unitIds = null);
+
+    // Throws when the person is not linked to the unit (a charge addressed to one person).
+    Task EnsureRecipientLinkedAsync(int? recipientPersonId, int unitId);
+
+    // Bell + e-mail to whoever pays a charge that just became visible (e.g. a monthly bill sent).
+    Task NotifyNewChargeAsync(Charge charge);
 }
 
 public record ChargeGenerationRequest(
@@ -43,5 +55,10 @@ public record ChargeGenerationRequest(
     DateTime DueDate,
     string Description,
     int CreatedByUserId,
+    ChargeCategory Category,
+    // Null = every unit of the target; set = only these units.
+    IReadOnlyCollection<int>? UnitIds = null,
+    // Only with a single unit: the person who gets the charge (null = everyone linked to the unit).
+    int? RecipientPersonId = null,
     int? RecurringChargeId = null,
     DateOnly? ReferenceMonth = null);

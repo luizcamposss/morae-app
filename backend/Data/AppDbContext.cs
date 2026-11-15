@@ -52,9 +52,69 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
     public DbSet<RecurringCharge> RecurringCharges { get; set; }
     public DbSet<RecurringChargeUnitValue> RecurringChargeUnitValues { get; set; }
     public DbSet<LandingContact> LandingContacts { get; set; }
+    public DbSet<CommonArea> CommonAreas { get; set; }
+    public DbSet<CommonAreaShift> CommonAreaShifts { get; set; }
+    public DbSet<Reservation> Reservations { get; set; }
+    public DbSet<Agreement> Agreements { get; set; }
+    public DbSet<AgreementCharge> AgreementCharges { get; set; }
+    public DbSet<ExpenseCategory> ExpenseCategories { get; set; }
+    public DbSet<Expense> Expenses { get; set; }
+    public DbSet<ChargeItem> ChargeItems { get; set; }
+    public DbSet<RentalContract> RentalContracts { get; set; }
+    public DbSet<RentalContractValueChange> RentalContractValueChanges { get; set; }
+    public DbSet<UtilityCharge> UtilityCharges { get; set; }
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+        builder.Entity<Charge>()
+            .HasOne(charge => charge.ReceiverPerson)
+            .WithMany()
+            .HasForeignKey(charge => charge.ReceiverPersonId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<MercadoPagoAccount>()
+            .HasOne(account => account.OwnerPerson)
+            .WithMany()
+            .HasForeignKey(account => account.OwnerPersonId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<ChargeItem>()
+            .HasOne(item => item.Charge)
+            .WithMany(charge => charge.Items)
+            .HasForeignKey(item => item.ChargeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<ChargeItem>()
+            .Property(item => item.Amount)
+            .HasPrecision(10, 2);
+
+        builder.Entity<RentalContract>(contract =>
+        {
+            contract.Property(c => c.MonthlyRent).HasPrecision(10, 2);
+            contract.Property(c => c.CondominiumFeeAmount).HasPrecision(10, 2);
+            contract.HasOne(c => c.Condominium).WithMany().HasForeignKey(c => c.CondominiumId).OnDelete(DeleteBehavior.Cascade);
+            contract.HasOne(c => c.Unit).WithMany().HasForeignKey(c => c.UnitId).OnDelete(DeleteBehavior.Restrict);
+            contract.HasOne(c => c.TenantPerson).WithMany().HasForeignKey(c => c.TenantPersonId).OnDelete(DeleteBehavior.Restrict);
+            contract.HasIndex(c => new { c.UnitId, c.Status });
+            contract.HasOne(c => c.ReceiverPerson).WithMany().HasForeignKey(c => c.ReceiverPersonId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        builder.Entity<UtilityCharge>(utility =>
+        {
+            utility.Property(u => u.Amount).HasPrecision(10, 2);
+            utility.HasOne(u => u.Condominium).WithMany().HasForeignKey(u => u.CondominiumId).OnDelete(DeleteBehavior.Cascade);
+            utility.HasOne(u => u.Unit).WithMany().HasForeignKey(u => u.UnitId).OnDelete(DeleteBehavior.Restrict);
+            // One amount per unit, utility and month.
+            utility.HasIndex(u => new { u.UnitId, u.Category, u.Month }).IsUnique();
+        });
+
+        builder.Entity<RentalContractValueChange>(change =>
+        {
+            change.Property(c => c.PreviousValue).HasPrecision(10, 2);
+            change.Property(c => c.NewValue).HasPrecision(10, 2);
+            change.HasOne(c => c.RentalContract).WithMany(c => c.ValueChanges).HasForeignKey(c => c.RentalContractId).OnDelete(DeleteBehavior.Cascade);
+        });
 
         builder.Entity<ApplicationUser>()
             .HasOne(u => u.Person)
@@ -209,10 +269,49 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .HasForeignKey(c => c.RecurringChargeId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        // A removed person stops being the recipient: the charge goes back to the whole unit.
+        builder.Entity<Charge>()
+            .HasOne(c => c.RecipientPerson)
+            .WithMany()
+            .HasForeignKey(c => c.RecipientPersonId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         // Safety net for the recurring generation: one charge per recurrence, unit and month.
         builder.Entity<Charge>()
             .HasIndex(c => new { c.RecurringChargeId, c.UnitId, c.ReferenceMonth })
             .IsUnique();
+
+        builder.Entity<Charge>()
+            .HasOne(c => c.Agreement)
+            .WithMany(a => a.Installments)
+            .HasForeignKey(c => c.AgreementId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Agreement>(agreement =>
+        {
+            agreement.HasOne(a => a.Condominium).WithMany().HasForeignKey(a => a.CondominiumId).OnDelete(DeleteBehavior.Restrict);
+            agreement.HasOne(a => a.Unit).WithMany().HasForeignKey(a => a.UnitId).OnDelete(DeleteBehavior.Restrict);
+            agreement.HasOne(a => a.RecipientPerson).WithMany().HasForeignKey(a => a.RecipientPersonId).OnDelete(DeleteBehavior.SetNull);
+            agreement.HasOne(a => a.CreatedByUser).WithMany().HasForeignKey(a => a.CreatedByUserId).OnDelete(DeleteBehavior.Restrict);
+            agreement.Property(a => a.OriginalAmount).HasPrecision(10, 2);
+            agreement.Property(a => a.FineAmount).HasPrecision(10, 2);
+            agreement.Property(a => a.InterestAmount).HasPrecision(10, 2);
+            agreement.Property(a => a.DiscountValue).HasPrecision(10, 2);
+            agreement.Property(a => a.DiscountAmount).HasPrecision(10, 2);
+            agreement.Property(a => a.TotalAmount).HasPrecision(10, 2);
+            agreement.Property(a => a.DownPayment).HasPrecision(10, 2);
+            agreement.HasIndex(a => new { a.CondominiumId, a.Status });
+        });
+
+        builder.Entity<AgreementCharge>(link =>
+        {
+            link.HasKey(l => new { l.AgreementId, l.ChargeId });
+            link.HasOne(l => l.Agreement).WithMany(a => a.OriginalCharges).HasForeignKey(l => l.AgreementId).OnDelete(DeleteBehavior.Cascade);
+            link.HasOne(l => l.Charge).WithMany().HasForeignKey(l => l.ChargeId).OnDelete(DeleteBehavior.Restrict);
+            link.Property(l => l.Value).HasPrecision(10, 2);
+            link.Property(l => l.FineAmount).HasPrecision(10, 2);
+            link.Property(l => l.InterestAmount).HasPrecision(10, 2);
+        });
 
         builder.Entity<Condominium>()
             .Property(c => c.FinePercent)
@@ -237,6 +336,18 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .WithMany()
             .HasForeignKey(r => r.BuildingId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<RecurringCharge>()
+            .HasOne(r => r.Unit)
+            .WithMany()
+            .HasForeignKey(r => r.UnitId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<RecurringCharge>()
+            .HasOne(r => r.RecipientPerson)
+            .WithMany()
+            .HasForeignKey(r => r.RecipientPersonId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         builder.Entity<RecurringCharge>()
             .HasOne(r => r.CreatedByUser)
@@ -565,6 +676,90 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
             .HasForeignKey(visit => visit.CreatedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.Entity<CommonArea>()
+            .HasIndex(area => new { area.CondominiumId, area.IsActive });
+
+        builder.Entity<CommonArea>()
+            .Property(area => area.Fee)
+            .HasPrecision(10, 2);
+
+        builder.Entity<CommonArea>()
+            .HasOne(area => area.Condominium)
+            .WithMany()
+            .HasForeignKey(area => area.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<CommonArea>()
+            .HasOne(area => area.Building)
+            .WithMany()
+            .HasForeignKey(area => area.BuildingId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<CommonAreaShift>()
+            .HasOne(shift => shift.CommonArea)
+            .WithMany(area => area.Shifts)
+            .HasForeignKey(shift => shift.CommonAreaId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<Reservation>()
+            .HasIndex(reservation => new { reservation.CommonAreaId, reservation.SlotKey })
+            .IsUnique();
+
+        builder.Entity<Reservation>()
+            .HasIndex(reservation => new { reservation.CondominiumId, reservation.Date });
+
+        builder.Entity<Reservation>()
+            .Property(reservation => reservation.Fee)
+            .HasPrecision(10, 2);
+
+        builder.Entity<Reservation>()
+            .HasOne(reservation => reservation.Condominium)
+            .WithMany()
+            .HasForeignKey(reservation => reservation.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Reservation>()
+            .HasOne(reservation => reservation.CommonArea)
+            .WithMany()
+            .HasForeignKey(reservation => reservation.CommonAreaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Reservation>()
+            .HasOne(reservation => reservation.Unit)
+            .WithMany()
+            .HasForeignKey(reservation => reservation.UnitId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Reservation>()
+            .HasOne(reservation => reservation.Shift)
+            .WithMany()
+            .HasForeignKey(reservation => reservation.ShiftId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Reservation>()
+            .HasOne(reservation => reservation.Charge)
+            .WithMany()
+            .HasForeignKey(reservation => reservation.ChargeId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<Reservation>()
+            .HasOne(reservation => reservation.RequestedByUser)
+            .WithMany()
+            .HasForeignKey(reservation => reservation.RequestedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Reservation>()
+            .HasOne(reservation => reservation.DecidedByUser)
+            .WithMany()
+            .HasForeignKey(reservation => reservation.DecidedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Reservation>()
+            .HasOne(reservation => reservation.CanceledByUser)
+            .WithMany()
+            .HasForeignKey(reservation => reservation.CanceledByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.Entity<Assembly>()
             .HasIndex(assembly => new { assembly.CondominiumId, assembly.Status, assembly.VotingEndsAt });
 
@@ -661,6 +856,55 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, IdentityRole<int>
         // Master list, filtered by status and newest first.
         builder.Entity<LandingContact>()
             .HasIndex(contact => new { contact.Status, contact.CreatedAt });
+
+        builder.Entity<Condominium>()
+            .Property(c => c.OpeningBalance)
+            .HasPrecision(12, 2);
+
+        // Also keeps the on-demand creation of the default list from running twice.
+        builder.Entity<ExpenseCategory>()
+            .HasIndex(category => new { category.CondominiumId, category.Name })
+            .IsUnique();
+
+        builder.Entity<ExpenseCategory>()
+            .HasOne(category => category.Condominium)
+            .WithMany()
+            .HasForeignKey(category => category.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.Entity<Expense>()
+            .Property(expense => expense.Amount)
+            .HasPrecision(12, 2);
+
+        builder.Entity<Expense>()
+            .HasIndex(expense => new { expense.CondominiumId, expense.PaidOn });
+
+        // Restrict: a condominium with expenses is not deleted by accident (receipts would be orphaned).
+        builder.Entity<Expense>()
+            .HasOne(expense => expense.Condominium)
+            .WithMany()
+            .HasForeignKey(expense => expense.CondominiumId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // A category in use cannot be deleted (the service explains it).
+        builder.Entity<Expense>()
+            .HasOne(expense => expense.Category)
+            .WithMany()
+            .HasForeignKey(expense => expense.ExpenseCategoryId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // A removed building turns its expenses into condominium-wide ones.
+        builder.Entity<Expense>()
+            .HasOne(expense => expense.Building)
+            .WithMany()
+            .HasForeignKey(expense => expense.BuildingId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        builder.Entity<Expense>()
+            .HasOne(expense => expense.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(expense => expense.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         ApplyUtcDateTimeConvention(builder);
     }

@@ -74,6 +74,7 @@ public class AssemblyService : IAssemblyService
     public async Task<IEnumerable<AssemblyResponseDto>> GetByCondominiumAsync(int userId, int condominiumId)
     {
         await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
+        await _permissionService.EnsureModuleEnabledAsync(condominiumId, AppModules.Assemblies);
 
         var canManage = await CanManageAsync(userId, condominiumId);
 
@@ -100,6 +101,8 @@ public class AssemblyService : IAssemblyService
             ?? throw new NotFoundException("Assembleia não encontrada.");
 
         await _permissionService.EnsureCondominiumAccessAsync(userId, assembly.CondominiumId);
+
+        await _permissionService.EnsureModuleEnabledAsync(assembly.CondominiumId, AppModules.Assemblies);
 
         // Drafts exist only for the management.
         if (assembly.Status == AssemblyStatus.Draft && !await CanManageAsync(userId, assembly.CondominiumId))
@@ -534,6 +537,8 @@ public class AssemblyService : IAssemblyService
 
         await _permissionService.EnsureCondominiumAccessAsync(userId, row.CondominiumId);
 
+        await _permissionService.EnsureModuleEnabledAsync(row.CondominiumId, AppModules.Assemblies);
+
         if (row.Status == AssemblyStatus.Draft && !await CanManageAsync(userId, row.CondominiumId))
             throw new NotFoundException("Opção não encontrada.");
 
@@ -574,7 +579,8 @@ public class AssemblyService : IAssemblyService
                 assembly.ClosingReminderSentAt == null &&
                 assembly.VotingStartsAt <= now &&
                 assembly.VotingEndsAt > now &&
-                assembly.VotingEndsAt <= now.AddHours(24))
+                assembly.VotingEndsAt <= now.AddHours(24) &&
+                assembly.Condominium.EnabledModules.Contains(AppModules.Assemblies))
             .ToListAsync(cancellationToken);
 
         foreach (var assembly in assemblies)
@@ -588,7 +594,7 @@ public class AssemblyService : IAssemblyService
                     personUnit.Unit.Building.CondominiumId == assembly.CondominiumId &&
                     (assembly.VoterRule == AssemblyVoterRule.OwnersAndResidents ||
                      personUnit.RelationshipType == UnitRelationshipType.Owner) &&
-                    !_context.Charges.Any(charge => charge.UnitId == personUnit.UnitId && charge.Status == ChargeStatus.Overdue) &&
+                    !_context.Charges.Any(charge => charge.UnitId == personUnit.UnitId && charge.Status == ChargeStatus.Overdue && charge.ReceiverPersonId == null) &&
                     _context.AssemblyVotes.Count(vote => vote.AssemblyId == assembly.Id && vote.UnitId == personUnit.UnitId) < itemsCount)
                 .SelectMany(personUnit => _context.Users.Where(user => user.PersonId == personUnit.PersonId))
                 .Where(user => user.UserCondominiums.Any(link =>
@@ -682,7 +688,7 @@ public class AssemblyService : IAssemblyService
         return await _context.Units
             .Where(unit =>
                 unit.Building.CondominiumId == condominiumId &&
-                !_context.Charges.Any(charge => charge.UnitId == unit.Id && charge.Status == ChargeStatus.Overdue))
+                !_context.Charges.Any(charge => charge.UnitId == unit.Id && charge.Status == ChargeStatus.Overdue && charge.ReceiverPersonId == null))
             .CountAsync();
     }
 
@@ -764,6 +770,8 @@ public class AssemblyService : IAssemblyService
 
         await _permissionService.EnsureCondominiumAccessAsync(userId, assembly.CondominiumId);
 
+        await _permissionService.EnsureModuleEnabledAsync(assembly.CondominiumId, AppModules.Assemblies);
+
         if (assembly.Status == AssemblyStatus.Draft)
             throw new NotFoundException("Assembleia não encontrada.");
 
@@ -801,7 +809,7 @@ public class AssemblyService : IAssemblyService
                 charge.CondominiumId == assembly.CondominiumId &&
                 charge.UnitId != null &&
                 unitIds.Contains(charge.UnitId.Value) &&
-                charge.Status == ChargeStatus.Overdue)
+                charge.Status == ChargeStatus.Overdue && charge.ReceiverPersonId == null)
             .OrderBy(charge => charge.DueDate)
             .Select(charge => new { UnitId = charge.UnitId!.Value, charge.Description, charge.DueDate })
             .ToListAsync();

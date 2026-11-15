@@ -9,26 +9,30 @@ import type {
 
 const mercadoPagoBasePath = "/api/mercadopago";
 
-// condominiumId null/undefined = platform account (Master); a number = that condominium's account (Admin).
-function buildScopeQuery(condominiumId?: number | null) {
+// condominiumId null/undefined = platform account (Master); a number = that condominium's account (Admin);
+// asOwner = the logged-in unit owner's own account (rent of the units they rent out).
+function buildScopeQuery(condominiumId?: number | null, asOwner = false) {
+  if (asOwner) return "?asOwner=true";
   return condominiumId ? `?condominiumId=${condominiumId}` : "";
 }
 
 export async function getMercadoPagoConnectionStatus(
   condominiumId?: number | null,
+  asOwner = false,
 ): Promise<MercadoPagoConnectionStatus> {
   return apiRequest<MercadoPagoConnectionStatus>(
-    `${mercadoPagoBasePath}/oauth/status${buildScopeQuery(condominiumId)}`,
+    `${mercadoPagoBasePath}/oauth/status${buildScopeQuery(condominiumId, asOwner)}`,
     { auth: true },
   );
 }
 
 export async function startMercadoPagoOAuth(
   condominiumId?: number | null,
+  asOwner = false,
 ): Promise<MercadoPagoOAuthStartResponse> {
   return apiRequest<MercadoPagoOAuthStartResponse>(`${mercadoPagoBasePath}/oauth/connect`, {
     method: "POST",
-    body: { condominiumId: condominiumId ?? null },
+    body: { condominiumId: asOwner ? null : (condominiumId ?? null), asOwner },
     auth: true,
   });
 }
@@ -44,9 +48,9 @@ export async function completeMercadoPagoOAuth(
   });
 }
 
-export async function disconnectMercadoPago(condominiumId?: number | null): Promise<void> {
+export async function disconnectMercadoPago(condominiumId?: number | null, asOwner = false): Promise<void> {
   return apiRequest<void>(
-    `${mercadoPagoBasePath}/oauth/connection${buildScopeQuery(condominiumId)}`,
+    `${mercadoPagoBasePath}/oauth/connection${buildScopeQuery(condominiumId, asOwner)}`,
     { method: "DELETE", auth: true },
   );
 }

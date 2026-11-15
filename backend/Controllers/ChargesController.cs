@@ -4,6 +4,7 @@ using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using backend.DTOs.Charge;
+using backend.Enums;
 using backend.Services.Charges;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -46,13 +47,24 @@ public class ChargesController : ControllerBase
     }
 
     [HttpGet("/api/condominiums/{condominiumId}/charges")]
-    public async Task<IActionResult> GetByCondominium([FromRoute] int condominiumId)
+    public async Task<IActionResult> GetByCondominium(
+        [FromRoute] int condominiumId,
+        [FromQuery] ChargeCategory? category)
     {
         var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-        var charges = await _chargeService.GetByCondominiumAsync(userId, condominiumId);
+        var charges = await _chargeService.GetByCondominiumAsync(userId, condominiumId, category);
 
         return Ok(charges);
+    }
+
+    // Unit owner (#201): rent bills received in the owner's own account.
+    [HttpGet("received-as-owner")]
+    public async Task<IActionResult> GetReceivedAsOwner()
+    {
+        var userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        return Ok(await _chargeService.GetReceivedAsOwnerAsync(userId));
     }
 
     [HttpGet("/api/my/charges")]

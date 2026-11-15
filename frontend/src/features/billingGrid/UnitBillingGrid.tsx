@@ -8,7 +8,7 @@ import { STATUS_ORDER, buildBillingGrid, buildUnitStatuses, type UnitBillingStat
 type UnitBillingGridProps = {
   units: UnitResponse[];
   charges: ChargeResponse[];
-  // Payments screen of the area ("/admin/payments" or "/syndic/payments"); gets ?unit=<id>.
+  // Payments screen of the area ("/admin/finance/accounts" or "/syndic/finance/accounts"); gets ?unit=<id>.
   paymentsPath: string;
   isLoading: boolean;
 };

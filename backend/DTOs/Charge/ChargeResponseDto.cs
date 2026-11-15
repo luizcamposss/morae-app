@@ -20,6 +20,10 @@ public class ChargeResponseDto
     public decimal Value { get; set; }
     public DateTime DueDate { get; set; }
     public string Description { get; set; } = string.Empty;
+    public ChargeCategory Category { get; set; }
+    // Null = billed to everyone linked to the unit.
+    public int? RecipientPersonId { get; set; }
+    public string? RecipientName { get; set; }
     public string? CancelReason { get; set; }
     public ChargeStatus Status { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -49,4 +53,23 @@ public class ChargeResponseDto
     public int PendingProofCount { get; set; }
     public PaymentProofStatus? LatestProofStatus { get; set; }
     public string? LatestProofRejectionReason { get; set; }
+
+    // Installment of a debt agreement (0 = down payment, 1..N = installments).
+    public int? AgreementId { get; set; }
+    public int? AgreementInstallmentNumber { get; set; }
+
+    // Lines of a monthly bill (category MonthlyBill); empty for other charges.
+    public List<ChargeItemDto> Items { get; set; } = [];
+    // Set when a unit owner (not the condominium) receives this charge, e.g. the rent of a mixed condominium.
+    public int? ReceiverPersonId { get; set; }
+    public string? ReceiverName { get; set; }
+    public DateTime? SentAt { get; set; }
+}
+
+public class ChargeItemDto
+{
+    public int Id { get; set; }
+    public ChargeCategory Category { get; set; }
+    public string Description { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
 }

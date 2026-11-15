@@ -22,7 +22,7 @@ public static class ChargeLateFees
         var daysLate = (saoPauloDate.Date - charge.DueDate.Date).Days;
 
         if (daysLate <= 0 ||
-            charge.Status is ChargeStatus.Paid or ChargeStatus.Canceled ||
+            charge.Status is ChargeStatus.Paid or ChargeStatus.Canceled or ChargeStatus.Renegotiated ||
             (charge.FinePercent is null && charge.MonthlyInterestPercent is null))
         {
             return new ChargeLateFeeAmounts(charge.Value, 0m, 0m, Math.Max(daysLate, 0));

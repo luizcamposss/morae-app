@@ -11,6 +11,7 @@ public interface IMeService
     Task<MeResponseDto> GetMeAsync(int userId);
     Task<MeResponseDto> UpdateMyProfileAsync(int userId, UpdateMyProfileDto dto);
     Task<MeResponseDto> UpdateProfilePhotoAsync(int userId, UpdateProfilePhotoDto dto);
+    Task<GuidesDto> UpdateGuidesAsync(int userId, UpdateGuidesDto dto);
     Task<NotificationPreferencesDto> GetNotificationPreferencesAsync(int userId);
     Task<NotificationPreferencesDto> UpdateNotificationPreferencesAsync(int userId, NotificationPreferencesDto dto);
     Task<IEnumerable<MeCondominiumResponseDto>> GetMyCondominiumsAsync(int userId);

@@ -41,4 +41,8 @@ public class CreateCondominiumDto
     [EmailAddress]
     public string EmailContact { get; set; } = string.Empty;
 
+    // Picks the modules that start enabled (Constants/AppModules.DefaultsFor).
+    [EnumDataType(typeof(CondominiumType))]
+    public CondominiumType Type { get; set; } = CondominiumType.Residential;
+
 }

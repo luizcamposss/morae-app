@@ -20,6 +20,16 @@ public class CreateRecurringChargeDto
     [StringLength(255)]
     public string Description { get; set; } = string.Empty;
 
+    // Null = CondominiumFee.
+    [EnumDataType(typeof(ChargeCategory))]
+    public ChargeCategory? Category { get; set; }
+
+    // Set = a recurrence for this unit only (BuildingId and UnitValues are then ignored).
+    public int? UnitId { get; set; }
+
+    // Only with UnitId: the person who gets the charges (null = everyone linked to the unit).
+    public int? RecipientPersonId { get; set; }
+
     public List<ChargeUnitValueDto> UnitValues { get; set; } = [];
 }
 
@@ -29,6 +39,11 @@ public class RecurringChargeResponseDto
     public int CondominiumId { get; set; }
     public int? BuildingId { get; set; }
     public string? BuildingName { get; set; }
+    public int? UnitId { get; set; }
+    public string? UnitNumber { get; set; }
+    public int? RecipientPersonId { get; set; }
+    public string? RecipientName { get; set; }
+    public ChargeCategory Category { get; set; }
     public string Description { get; set; } = string.Empty;
     public decimal Value { get; set; }
     public int? DueDay { get; set; }

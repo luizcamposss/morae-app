@@ -1,8 +1,12 @@
 import type { PixKeyType } from "../financialAccounts/pixKey";
 
-export type ChargeStatus = 0 | 1 | 2 | 3 | 4;
+// 1 Pending, 2 Paid, 3 Overdue, 4 Canceled, 5 Renegotiated (inside a debt agreement)
+export type ChargeStatus = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export type ChargeScope = 1 | 2;
+
+// 1 CondominiumFee, 2 Rent, 3 Water, 4 Electricity, 5 Gas, 6 Apportionment, 7 Fine, 8 Reservation, 9 Agreement, 10 Other
+export type ChargeCategory = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
 
 export type ChargeResponse = {
   id: number;
@@ -17,6 +21,10 @@ export type ChargeResponse = {
   value: number;
   dueDate: string;
   description: string;
+  category: ChargeCategory;
+  // Null = billed to everyone linked to the unit; set = only this person sees and pays it.
+  recipientPersonId?: number | null;
+  recipientName?: string | null;
   cancelReason?: string | null;
   status: ChargeStatus;
   createdAt: string;
@@ -38,6 +46,22 @@ export type ChargeResponse = {
   pendingProofCount: number;
   latestProofStatus?: PaymentProofStatus | null;
   latestProofRejectionReason?: string | null;
+  // Installment of a debt agreement (0 = down payment, 1..N = installments).
+  agreementId?: number | null;
+  agreementInstallmentNumber?: number | null;
+  // Lines of a monthly bill (category 11); empty for other charges.
+  items: ChargeItem[];
+  sentAt?: string | null;
+  // Set when a unit owner (not the condominium) receives it: the rent of a mixed condominium.
+  receiverPersonId?: number | null;
+  receiverName?: string | null;
+};
+
+export type ChargeItem = {
+  id: number;
+  category: ChargeCategory;
+  description: string;
+  amount: number;
 };
 
 // 1 Pending, 2 Accepted, 3 Rejected
@@ -76,6 +100,8 @@ export type CreateChargeRequest = {
   value: number;
   dueDate: string;
   description: string;
+  category?: ChargeCategory | null;
+  recipientPersonId?: number | null;
 };
 
 export type BillingSettings = {
@@ -86,9 +112,16 @@ export type BillingSettings = {
   monthlyInterestPercent: number;
   maxFinePercent: number;
   maxMonthlyInterestPercent: number;
+  // Monthly balance: cash at the start of openingBalanceMonth ("AAAA-MM-01"; null = from the start).
+  openingBalance: number;
+  openingBalanceMonth: string | null;
+  // Monthly bills go out this many days before they are due; null = only by hand.
+  invoiceAutoSendDaysBefore: number | null;
 };
 
-export type UpdateBillingSettingsRequest = Pick<BillingSettings, "billingDueDay" | "lateFeeEnabled" | "finePercent" | "monthlyInterestPercent">;
+// Without openingBalance the API keeps the current one.
+export type UpdateBillingSettingsRequest = Pick<BillingSettings, "billingDueDay" | "lateFeeEnabled" | "finePercent" | "monthlyInterestPercent"> &
+  Partial<Pick<BillingSettings, "openingBalance" | "openingBalanceMonth" | "invoiceAutoSendDaysBefore">> & { invoiceAutoSend?: boolean };
 
 export type ChargeUnitValue = { unitId: number; value: number };
 
@@ -97,6 +130,9 @@ export type CreateChargeBatchRequest = {
   value: number;
   dueDate?: string | null;
   description: string;
+  category?: ChargeCategory | null;
+  // Only these units (e.g. water by meter reading); empty = every unit of the target.
+  unitIds?: number[] | null;
   unitValues?: ChargeUnitValue[];
 };
 
@@ -118,6 +154,12 @@ export type RecurringChargeResponse = {
   condominiumId: number;
   buildingId?: number | null;
   buildingName?: string | null;
+  // Set = a recurrence for this unit only, optionally for one person of it.
+  unitId?: number | null;
+  unitNumber?: string | null;
+  recipientPersonId?: number | null;
+  recipientName?: string | null;
+  category: ChargeCategory;
   description: string;
   value: number;
   dueDay?: number | null;
@@ -137,5 +179,8 @@ export type CreateRecurringChargeRequest = {
   value: number;
   dueDay?: number | null;
   description: string;
+  category?: ChargeCategory | null;
+  unitId?: number | null;
+  recipientPersonId?: number | null;
   unitValues?: ChargeUnitValue[];
 };

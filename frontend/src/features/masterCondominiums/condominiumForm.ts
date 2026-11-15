@@ -5,6 +5,7 @@ import type {
     UpdateCondominiumRequest,
 } from "../condominiums/types";
 import type { MasterUserResponse } from "../masterUsers/types";
+import { CONDOMINIUM_TYPE } from "../modules/modules";
 
 // Form types, validation, input masks and API mapping of the Master condominiums screen.
 export const ACTIVE_STATUS = 1;
@@ -38,6 +39,7 @@ export type FormState = {
     state: string;
     emailContact: string;
     status: number;
+    type: number;
     adminName: string;
     adminCpf: string;
     adminPhoneNumber: string;
@@ -65,6 +67,7 @@ export const emptyForm: FormState = {
     state: "",
     emailContact: "",
     status: ACTIVE_STATUS,
+    type: CONDOMINIUM_TYPE.residential,
     adminName: "",
     adminCpf: "",
     adminPhoneNumber: "",
@@ -167,6 +170,7 @@ export function toCreateRequest(form: FormState): CreateCondominiumRequest {
         city: form.city.trim(),
         state: form.state.trim().toUpperCase(),
         emailContact: form.emailContact.trim(),
+        type: form.type,
     };
 }
 
@@ -192,6 +196,7 @@ export function toUpdateRequest(form: FormState): UpdateCondominiumRequest {
         state: form.state.trim().toUpperCase(),
         emailContact: form.emailContact.trim(),
         status: form.status,
+        type: form.type,
     };
 }
 

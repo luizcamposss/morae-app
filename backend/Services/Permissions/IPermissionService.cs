@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using backend.Models;
 
 namespace backend.Services.Permissions;
 
@@ -27,6 +28,10 @@ public interface IPermissionService
     Task EnsurePersonAccessAsync(int userId, int personId);
     Task EnsureCondominiumPermissionAsync(int userId, int condominiumId, string permissionKey);
 
+    // Modules the condominium turned on (Constants/AppModules). A disabled module keeps its data.
+    Task<bool> IsModuleEnabledAsync(int condominiumId, string module);
+    Task EnsureModuleEnabledAsync(int condominiumId, string module);
+
     // The user's active role in that condominium (Admin, Syndic, Resident) or null. Roles are per
     // condominium: being Syndic in one condominium says nothing about another.
     Task<string?> GetCondominiumRoleAsync(int userId, int condominiumId);
@@ -38,5 +43,7 @@ public interface IPermissionService
     Task<bool> IsPlatformBillingAdminAsync(int userId, int condominiumId);
     Task<bool> HasAnyCondominiumPermissionAsync(int userId, int condominiumId, IEnumerable<string> permissionKeys);
     Task EnsureAnyCondominiumPermissionAsync(int userId, int condominiumId, IEnumerable<string> permissionKeys);
-    Task EnsureCanReadCondominiumChargeAsync(int userId, int condominiumId, int? unitId);
+    // A person linked to the charge's unit; when the charge has a recipient, only that person.
+    Task<bool> IsChargePayerAsync(int userId, Charge charge);
+    Task EnsureCanReadCondominiumChargeAsync(int userId, Charge charge);
 }

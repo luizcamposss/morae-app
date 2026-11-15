@@ -58,4 +58,29 @@ public class Charge
     public int? RecurringChargeId { get; set; }
     public RecurringCharge? RecurringCharge { get; set; }
     public DateOnly? ReferenceMonth { get; set; }
+
+    // Existing charges and platform invoices are condominium fees.
+    [Required]
+    public ChargeCategory Category { get; set; } = ChargeCategory.CondominiumFee;
+
+    // Null = every person linked to the unit sees and pays it. Set = only this person
+    // (e.g. rent billed to the tenant); must be linked to the unit when the charge is created.
+    public int? RecipientPersonId { get; set; }
+    public Person? RecipientPerson { get; set; }
+
+    // Set on the installments of a debt agreement (category Agreement). 0 = down payment, 1..N = installments.
+    public int? AgreementId { get; set; }
+    public Agreement? Agreement { get; set; }
+    public int? AgreementInstallmentNumber { get; set; }
+
+    // Lines of a monthly bill (category MonthlyBill). Empty for every other charge.
+    public ICollection<ChargeItem> Items { get; set; } = [];
+
+    // Who receives the money: null = the condominium; set = a unit owner who rents the unit out
+    // (paid into the owner's Mercado Pago, hidden from the condominium's management).
+    public int? ReceiverPersonId { get; set; }
+    public Person? ReceiverPerson { get; set; }
+
+    // When a monthly bill left the draft and reached the payers.
+    public DateTime? SentAt { get; set; }
 }

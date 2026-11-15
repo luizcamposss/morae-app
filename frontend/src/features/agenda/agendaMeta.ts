@@ -1,4 +1,4 @@
-import { CircleCheck, TriangleAlert, type LucideIcon } from "lucide-react";
+import { CalendarCheck, CircleCheck, TriangleAlert, type LucideIcon } from "lucide-react";
 import { formatCalendarDate, formatTime, toAppDateString } from "../../shared/lib/date";
 import { MAINTENANCE_STATUS, maintenanceCategories, scopeLabel } from "../maintenance/maintenanceMeta";
 import type { MaintenancePlanResponse } from "../maintenance/types";
@@ -6,8 +6,9 @@ import { OCCURRENCE_STATUS, formatPlace, statusMeta } from "../occurrences/occur
 import type { OccurrenceResponse } from "../occurrences/types";
 import { VISIT_STATUS, addDays, formatVisitPlace, visitorTypeMeta, weekdayOf } from "../visits/visitMeta";
 import type { VisitResponse } from "../visits/types";
+import type { ReservationResponse } from "../reservations/types";
 
-export type AgendaKind = "maintenance" | "visit" | "occurrence";
+export type AgendaKind = "maintenance" | "visit" | "occurrence" | "reservation";
 
 export type AgendaView = "twoWeeks" | "month";
 
@@ -30,6 +31,7 @@ export const agendaKinds: Record<AgendaKind, { label: string; path: string; dot:
   maintenance: { label: "Manutenções", path: "preventive-maintenance", dot: "bg-ambar" },
   visit: { label: "Visitas", path: "visitors", dot: "bg-tinta" },
   occurrence: { label: "Ocorrências", path: "occurrences", dot: "bg-vermelho" },
+  reservation: { label: "Reservas", path: "reservations", dot: "bg-verde" },
 };
 
 export const WEEKDAY_HEADERS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
@@ -160,6 +162,20 @@ export function visitItems(visits: VisitResponse[]): AgendaItem[] {
         tone: "bg-campo text-tinta",
       })),
     );
+}
+
+// Approved reservations of common areas (the request already asks only for approved ones).
+export function reservationItems(reservations: ReservationResponse[]): AgendaItem[] {
+  return reservations.map((reservation) => ({
+    key: `reservation-${reservation.id}`,
+    kind: "reservation" as const,
+    date: reservation.date,
+    time: reservation.startTime?.slice(0, 5) ?? null,
+    title: reservation.commonAreaName,
+    subtitle: `${reservation.shiftName} · ${reservation.unitLabel}`,
+    icon: CalendarCheck,
+    tone: "bg-verde-suave text-verde-tinta",
+  }));
 }
 
 // Occurrences have no deadline: they show on the day they were opened, at the time they were opened.

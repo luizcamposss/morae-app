@@ -33,7 +33,7 @@ export function PlatformPlanCard({ summary, errorMessage, condominiumName }: Pla
           {headline.value}
         </p>
         <p className="mt-2 text-[13px] text-tinta-suave">{headline.detail}</p>
-        <ButtonLink to="/admin/payments" variant={hasOpenCharge ? "accent" : "quiet"} fullWidth={hasOpenCharge} size={hasOpenCharge ? "md" : "sm"} className="mt-5">
+        <ButtonLink to="/admin/finance/accounts?view=platform" variant={hasOpenCharge ? "accent" : "quiet"} fullWidth={hasOpenCharge} size={hasOpenCharge ? "md" : "sm"} className="mt-5">
           {hasOpenCharge ? "Pagar agora" : "Ver mensalidades"}
         </ButtonLink>
       </div>
