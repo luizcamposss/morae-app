@@ -1,4 +1,4 @@
-import { CalendarCheck, CalendarDays, DoorOpen, FileText, Gauge, House, KeyRound, Megaphone, SlidersHorizontal, TriangleAlert, Users, Vote, Wallet, Wrench } from "lucide-react";
+import { CalendarCheck, CalendarDays, DoorOpen, FileText, House, KeyRound, Megaphone, SlidersHorizontal, TriangleAlert, Users, Vote, Wallet, Wrench } from "lucide-react";
 import { AdminAssembliesPage } from "../../features/adminAssemblies/AdminAssembliesPage";
 import { AdminAssemblyDetailPage } from "../../features/adminAssemblies/AdminAssemblyDetailPage";
 import { AdminNewsPage } from "../../features/adminNews/AdminNewsPage";
@@ -28,7 +28,8 @@ export const syndicArea: RoleArea = {
     { path: "dashboard", component: SyndicDashboardPage, nav: { label: "Início", icon: House } },
     { path: "residents", component: SyndicResidentsPage, nav: { label: "Moradores", icon: Users }, syndicAccess: "residents" },
     { path: "rentals", component: RentalsPage, nav: { label: "Aluguéis", icon: KeyRound }, syndicAccess: "rentals.manage", module: "rentals" },
-    { path: "utilities", component: UtilitiesPage, nav: { label: "Água, luz e gás", shortLabel: "Consumo", icon: Gauge }, syndicAccess: "finance", module: "consumption" },
+    // Out of the menu for now (Luiz, 2026-11-15): the month sheet opens from Financeiro → Resumo.
+    { path: "utilities", component: UtilitiesPage, syndicAccess: "finance", module: "consumption" },
     { path: "finance", component: FinanceHome, nav: { label: "Financeiro", icon: Wallet } },
     { path: "finance/accounts", component: AdminPaymentsPage, syndicAccess: "finance" },
     { path: "finance/receivables", component: redirectTo("/syndic/finance/accounts") },

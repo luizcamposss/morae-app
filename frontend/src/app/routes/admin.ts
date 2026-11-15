@@ -1,4 +1,4 @@
-import { Briefcase, Building, Building2, CalendarCheck, CalendarDays, DoorOpen, FileSpreadsheet, FileText, Gauge, House, KeyRound, Mail, Megaphone, SlidersHorizontal, TriangleAlert, Users, Vote, Wallet, Wrench } from "lucide-react";
+import { Briefcase, Building, Building2, CalendarCheck, CalendarDays, DoorOpen, FileSpreadsheet, FileText, House, KeyRound, Mail, Megaphone, SlidersHorizontal, TriangleAlert, Users, Vote, Wallet, Wrench } from "lucide-react";
 import { AdminAssembliesPage } from "../../features/adminAssemblies/AdminAssembliesPage";
 import { AdminAssemblyDetailPage } from "../../features/adminAssemblies/AdminAssemblyDetailPage";
 import { AdminDashboardPage } from "../../features/adminDashboard/AdminDashboardPage";
@@ -39,7 +39,8 @@ export const adminArea: RoleArea = {
     { path: "documents", component: DocumentsPage, nav: { label: "Documentos", icon: FileText }, module: "documents" },
     // "Financeiro": monthly bills, receivables, expenses and balance as tabs of one menu entry.
     { path: "rentals", component: RentalsPage, nav: { label: "Aluguéis", icon: KeyRound }, module: "rentals" },
-    { path: "utilities", component: UtilitiesPage, nav: { label: "Água, luz e gás", shortLabel: "Consumo", icon: Gauge }, module: "consumption" },
+    // Out of the menu for now (Luiz, 2026-11-15): the month sheet opens from Financeiro → Resumo.
+    { path: "utilities", component: UtilitiesPage, module: "consumption" },
     { path: "finance", component: FinanceHome, nav: { label: "Financeiro", icon: Wallet } },
     { path: "finance/accounts", component: AdminPaymentsPage },
     { path: "finance/receivables", component: redirectTo("/admin/finance/accounts") },
