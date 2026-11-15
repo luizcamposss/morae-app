@@ -9,7 +9,7 @@ import { parseCurrencyInput } from "../adminPayments/chargeForm";
 import { MonthNavigator } from "../expenses/MonthNavigator";
 import { monthLabel, monthOf, shiftMonth } from "../expenses/expenseMeta";
 import { useIsSyndicArea, useSyndicCan } from "../syndicAccess/useSyndicAccess";
-import { UTILITIES, getUtilityMonth, saveUtilityMonth, saveUtilitySettings, type Utility, type UtilityMonth } from "./consumptionService";
+import { UTILITIES, getUtilityMonth, saveUtilityMonth, type Utility, type UtilityMonth } from "./consumptionService";
 
 // What was typed, per unit and utility ("" = nothing this month).
 type Draft = Record<string, string>;
@@ -68,17 +68,6 @@ export function UtilitiesPage() {
     0,
   );
 
-  async function toggleUtility(utility: Utility) {
-    if (!activeCondominiumId) return;
-    const next = utilities.includes(utility) ? utilities.filter((item) => item !== utility) : [...utilities, utility];
-    try {
-      await saveUtilitySettings(activeCondominiumId, next);
-      reload();
-    } catch (error) {
-      setFeedback({ tone: "error", text: error instanceof Error ? error.message : "Não foi possível salvar." });
-    }
-  }
-
   async function handleSave() {
     if (!activeCondominiumId || changed.length === 0) return;
     const amounts = changed.map((entry) => {
@@ -110,25 +99,6 @@ export function UtilitiesPage() {
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
         <MonthNavigator month={month} maxMonth={shiftMonth(currentMonth, 1)} onChange={setMonth} />
-        {!isSyndic && data?.month && (
-          <div role="group" aria-label="O que o condomínio cobra" className="flex flex-wrap items-center gap-2 sm:ml-auto">
-            <span className="text-[13px] text-tinta-suave">Cobra:</span>
-            {UTILITIES.map((utility) => {
-              const isOn = utilities.includes(utility.value);
-              return (
-                <button
-                  key={utility.value}
-                  type="button"
-                  aria-pressed={isOn}
-                  onClick={() => void toggleUtility(utility.value)}
-                  className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${isOn ? "bg-tinta text-white" : "bg-campo text-tinta-suave hover:text-tinta"}`}
-                >
-                  {utility.label}
-                </button>
-              );
-            })}
-          </div>
-        )}
       </div>
 
       {feedback && (
@@ -144,7 +114,7 @@ export function UtilitiesPage() {
 
       {!isLoading && utilities.length === 0 ? (
         <p className="rounded-card bg-campo px-6 py-10 text-center text-sm text-tinta-suave">
-          {isSyndic ? "A administração ainda não escolheu o que o condomínio cobra por unidade." : "Escolha acima o que o condomínio cobra por unidade: água, luz ou gás."}
+          {isSyndic ? "A administração ainda não escolheu o que o condomínio cobra por unidade." : "Escolha o que o condomínio cobra por unidade em Ajustes → Financeiro → Água, luz e gás."}
         </p>
       ) : (
         <>

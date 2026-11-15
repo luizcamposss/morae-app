@@ -49,3 +49,32 @@ public class UpdateBillingSettingsDto
     [Range(0, 28)]
     public int? InvoiceAutoSendDaysBefore { get; set; }
 }
+
+// The condominium fee charged every month (#211): one value per unit, with exceptions.
+public class CondominiumFeeDto
+{
+    public bool Enabled { get; set; }
+    public decimal Amount { get; set; }
+    // Day it is due (the condominium's due day).
+    public int DueDay { get; set; }
+    public List<CondominiumFeeExceptionDto> Exceptions { get; set; } = [];
+}
+
+public class CondominiumFeeExceptionDto
+{
+    public int UnitId { get; set; }
+    public string UnitLabel { get; set; } = string.Empty;
+    // 0 = the unit is exempt.
+    [Range(0, 1_000_000)]
+    public decimal Amount { get; set; }
+}
+
+public class SaveCondominiumFeeDto
+{
+    public bool Enabled { get; set; }
+
+    [Range(0, 1_000_000)]
+    public decimal Amount { get; set; }
+
+    public List<CondominiumFeeExceptionDto> Exceptions { get; set; } = [];
+}
