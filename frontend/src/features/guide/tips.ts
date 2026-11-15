@@ -9,7 +9,7 @@ const tipTexts: Record<string, Tip> = {
   "/admin/portfolio": { title: "Carteira", body: "Todos os condomínios que você administra lado a lado: recebido, em atraso e o que precisa de atenção em cada um." },
   "/admin/buildings": { title: "Prédios", body: "As torres ou blocos do condomínio. Cada unidade fica dentro de um prédio.", action: "Use “Novo prédio” para cadastrar mais um." },
   "/admin/units": { title: "Unidades", body: "Filtre por prédio e por situação. Clique numa unidade para ver moradores, contas e histórico.", action: "Use “Nova unidade” para cadastrar uma de cada vez. Para muitas, use Importar." },
-  "/admin/people": { title: "Moradores", body: "Donos, inquilinos e quem mais mora. O vínculo de cada pessoa define quem recebe e paga a conta da unidade.", action: "“Novo morador” cadastra a pessoa e já liga a uma unidade." },
+  "/admin/people": { title: "Moradores", body: "Donos, inquilinos e quem mais mora. O vínculo de cada pessoa define quem recebe e paga a conta da unidade.", action: "“Novo morador” cadastra a pessoa. Para ligar a uma unidade, abra a unidade e use “Vincular pessoa”." },
   "/admin/invitations": { title: "Convites", body: "Acompanhe quem já entrou no app e reenvie o convite de quem ainda não criou a senha.", action: "“Novo convite” manda o link por e-mail. Ele vale por 7 dias." },
   "/admin/documents": { title: "Documentos", body: "Atas, regulamentos e contratos do condomínio, por categoria. Os moradores veem em Avisos e documentos." },
   "/admin/rentals": { title: "Aluguéis", body: "Os contratos de aluguel do condomínio. O aluguel entra sozinho na conta do inquilino todo mês, e o reajuste avisa antes.", action: "“Alugar unidade” cria o contrato." },
