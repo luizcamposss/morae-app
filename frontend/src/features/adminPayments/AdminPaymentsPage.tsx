@@ -1,28 +1,27 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChevronRight, Handshake, Plus, Repeat, Search, TriangleAlert, X } from "lucide-react";
+import { ChevronRight, Handshake, Plus, Search, TriangleAlert, X } from "lucide-react";
 import { useModuleEnabled } from "../modules/modules";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { Button, ButtonLink } from "../../shared/components/Button";
 import { ConfirmDialog, type ConfirmRequest } from "../../shared/components/ConfirmDialog";
 import { SelectField } from "../../shared/components/SelectField";
-import { SummaryCard } from "../../shared/components/SummaryCard";
 import { FinanceTabs } from "../finance/FinanceTabs";
 import { PageHeader } from "../../shared/layout/PageHeader";
 import { formatCurrency } from "../../shared/lib/currency";
-import { formatCalendarDate, todayInputDate } from "../../shared/lib/date";
+import { formatCalendarDate } from "../../shared/lib/date";
 import { AGREEMENT_STATUS } from "../agreements/agreementMeta";
 import { cancelAgreement, createAgreement, getAgreementsByCondominium } from "../agreements/agreementService";
 import type { AgreementResponse } from "../agreements/types";
 import { getBuildingsByCondominium } from "../buildings/buildingService";
-import { changeRecurringCharge, createChargeBatch, createRecurringCharge, getBillingSettings, getRecurringCharges } from "../charges/billingService";
+import { createChargeBatch, getBillingSettings } from "../charges/billingService";
 import { cancelCharge, createCharge, getChargesByCondominium, getPlatformCharges } from "../charges/chargeService";
 import { categoryOptions } from "../charges/chargeCategories";
 import { ChargeCategoryChip } from "../charges/ChargeCategoryChip";
 import { PaymentProofChip } from "../charges/PaymentProofChip";
 import { proofState } from "../charges/paymentProof";
-import { CHARGE_STATUS, currentMonthName } from "../charges/platformRevenue";
-import type { ChargeBatchResult, ChargeResponse, RecurringChargeResponse } from "../charges/types";
+import { CHARGE_STATUS } from "../charges/platformRevenue";
+import type { ChargeBatchResult, ChargeResponse } from "../charges/types";
 import { getCondominiumFinancialAccount, getPlatformFinancialAccount } from "../financialAccounts/financialAccountService";
 import { ChargeStatusChip, ChargeStatusTile } from "../masterPayments/ChargeStatus";
 import { MercadoPagoPaymentModal } from "../mercadoPago/MercadoPagoPaymentModal";
@@ -38,7 +37,7 @@ import { BatchResultModal, CancelChargeModal, ChargeDetailsModal, ManualPaymentM
 import { NewChargeWizard } from "./NewChargeWizard";
 import { billedUnits, monthName, targetUnits, unitValuesFor, type NewChargeForm } from "./newChargeForm";
 import { launchCharge } from "../invoices/invoiceService";
-import { RecurringChargesList } from "./RecurringChargesList";
+import { InvoicesBoard } from "../invoices/InvoicesPage";
 import { useIsSyndicArea, useSyndicCan } from "../syndicAccess/useSyndicAccess";
 import {
   amountDue,
@@ -55,13 +54,15 @@ import {
   type ManualPaymentForm,
 } from "./chargeForm";
 
-type View = "charges" | "agreements" | "recurring" | "platform";
-type Tab = "open" | "overdue" | "paid" | "renegotiated" | "canceled" | "all";
+type View = "charges" | "agreements" | "platform";
+type Tab = "draft" | "open" | "overdue" | "paid" | "renegotiated" | "canceled" | "all";
 // The "Lançar cobrança" wizard; repeating = opened from "Cobranças fixas".
 type Wizard = { repeating: boolean } | null;
 type BatchResult = { title: string; result: ChargeBatchResult } | null;
 
 const tabs: Array<{ key: Tab; label: string; statuses: number[] }> = [
+  // Bills of the month still being put together (they go out on their own, #210).
+  { key: "draft", label: "A sair", statuses: [] },
   { key: "open", label: "Em aberto", statuses: [CHARGE_STATUS.pending] },
   { key: "overdue", label: "Atrasadas", statuses: [CHARGE_STATUS.overdue] },
   { key: "paid", label: "Pagas", statuses: [CHARGE_STATUS.paid] },
@@ -72,10 +73,9 @@ const tabs: Array<{ key: Tab; label: string; statuses: number[] }> = [
 
 // The syndic skips what only the Admin can read (Moraê fee, receiving accounts); the API still checks his charges.
 async function fetchPageData(condominiumId: number, isSyndic: boolean) {
-  const [charges, buildings, recurring, settings, platformCharges, platformAccount, account, mercadoPago, agreements] = await Promise.all([
+  const [charges, buildings, settings, platformCharges, platformAccount, account, mercadoPago, agreements] = await Promise.all([
     getChargesByCondominium(condominiumId),
     getBuildingsByCondominium(condominiumId).catch(() => []),
-    getRecurringCharges(condominiumId).catch(() => []),
     getBillingSettings(condominiumId).catch(() => null),
     isSyndic ? [] : getPlatformCharges().catch(() => []),
     isSyndic ? null : getPlatformFinancialAccount().catch(() => null),
@@ -91,7 +91,6 @@ async function fetchPageData(condominiumId: number, isSyndic: boolean) {
     charges,
     buildings,
     units,
-    recurring,
     agreements,
     settings,
     // The Admin sees the platform fees of every condominium they manage; keep the active one.
@@ -110,7 +109,6 @@ const emptyData = (condominiumId: number | null, errorMessage = ""): PageData =>
   charges: [],
   buildings: [],
   units: [],
-  recurring: [],
   agreements: [],
   settings: null,
   platformCharges: [],
@@ -119,7 +117,7 @@ const emptyData = (condominiumId: number | null, errorMessage = ""): PageData =>
   errorMessage,
 });
 
-// Condominium charges (Admin): summary, filters, single and batch charges, recurring charges,
+// Financeiro → Contas (Admin and syndic): bills about to go out, filters, single and batch charges,
 // manual payment (with or without fine/interest), cancel, receipt/refund and the Moraê fee.
 export function AdminPaymentsPage() {
   const { condominiums, activeCondominium, activeCondominiumId, setActiveCondominiumId } = useCondominium();
@@ -127,8 +125,8 @@ export function AdminPaymentsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   // ?unit=<id> (from the dashboard grid): only that unit's charges, every status.
   const unitFilter = Number(searchParams.get("unit")) || null;
-  const [view, setView] = useState<View>("charges");
-  const [tab, setTab] = useState<Tab>(unitFilter ? "all" : "open");
+  const [view, setView] = useState<View>(() => (new URLSearchParams(window.location.search).get("view") === "platform" ? "platform" : "charges"));
+  const [tab, setTab] = useState<Tab>(() => (unitFilter ? "all" : searchParams.get("situacao") === "draft" ? "draft" : searchParams.get("situacao") === "overdue" ? "overdue" : "open"));
   const [search, setSearch] = useState("");
   const [buildingFilter, setBuildingFilter] = useState("");
   const [monthFilter, setMonthFilter] = useState("");
@@ -148,7 +146,6 @@ export function AdminPaymentsPage() {
   const [receiptChargeId, setReceiptChargeId] = useState<number | null>(null);
   const [payingChargeId, setPayingChargeId] = useState<number | null>(null);
   const [hasPaidOnline, setHasPaidOnline] = useState(false);
-  const [busyRecurringId, setBusyRecurringId] = useState<number | null>(null);
   const [confirmRequest, setConfirmRequest] = useState<ConfirmRequest | null>(null);
   const isSyndic = useIsSyndicArea();
   const canCreate = useSyndicCan("charges.create");
@@ -175,8 +172,8 @@ export function AdminPaymentsPage() {
 
   const isLoading = !data || data.condominiumId !== activeCondominiumId;
   const page = isLoading ? emptyData(activeCondominiumId) : data;
-  const { charges, buildings, units, recurring, agreements, settings, platformCharges } = page;
-  const unitById = useMemo(() => new Map(units.map((unit) => [unit.id, unit])), [units]);
+  const { charges, buildings, units, agreements, settings, platformCharges } = page;
+  const unitById = new Map(units.map((unit) => [unit.id, unit]));
   const shownError = errorMessage || page.errorMessage;
   const filteredUnit = unitFilter ? unitById.get(unitFilter) : undefined;
 
@@ -188,25 +185,6 @@ export function AdminPaymentsPage() {
       setErrorMessage(error instanceof Error ? error.message : "Não foi possível atualizar as cobranças.");
     }
   }
-
-  const summary = useMemo(() => {
-    const month = todayInputDate().slice(0, 7);
-    const sum = (list: ChargeResponse[], pick: (charge: ChargeResponse) => number = (charge) => charge.value) =>
-      list.reduce((total, charge) => total + pick(charge), 0);
-    const pending = charges.filter((charge) => charge.status === CHARGE_STATUS.pending);
-    const overdue = charges.filter((charge) => charge.status === CHARGE_STATUS.overdue);
-    const lateUnitIds = new Set(overdue.map((charge) => charge.unitId).filter(Boolean));
-
-    return {
-      receivedThisMonth: sum(charges.filter((charge) => charge.status === CHARGE_STATUS.paid && charge.dueDate.startsWith(month))),
-      toReceive: sum(pending),
-      pendingCount: pending.length,
-      overdue: sum(overdue, amountDue),
-      lateFees: sum(overdue, (charge) => charge.fineAmount + charge.interestAmount),
-      lateUnits: lateUnitIds.size,
-      upToDateUnits: units.filter((unit) => !lateUnitIds.has(unit.id)).length,
-    };
-  }, [charges, units]);
 
   const term = normalizeSearch(search.trim());
   const inScope = charges.filter((charge) => {
@@ -226,8 +204,7 @@ export function AdminPaymentsPage() {
   const visibleCharges = (activeStatuses.length ? inScope.filter((charge) => activeStatuses.includes(charge.status)) : inScope).sort((a, b) =>
     tab === "open" || tab === "overdue" ? a.dueDate.localeCompare(b.dueDate) : b.dueDate.localeCompare(a.dueDate),
   );
-  const months = useMemo(() => chargeMonths(charges), [charges]);
-  const activeRecurring = recurring.filter((item) => item.status !== 3).length;
+  const months = chargeMonths(charges);
   const activeAgreements = agreements.filter((item) => item.status === AGREEMENT_STATUS.active).length;
   const hasAgreementCandidates = agreementCandidates(charges).length > 0;
   const unitLateCharges = unitFilter ? candidatesOfUnit(charges, String(unitFilter)) : [];
@@ -325,21 +302,6 @@ export function AdminPaymentsPage() {
           `${common.description}${label} entrou em ${result.createdCount === 1 ? "1 conta" : `${result.createdCount} contas`} de ${monthName(form.billMonth)} (${formatCurrency(result.total)}).` +
             (result.skipped.length ? ` Sem ninguém vinculado, ficaram de fora: ${result.skipped.join(", ")}.` : ""),
         );
-      } else if (form.repeat) {
-        const created = await createRecurringCharge(activeCondominiumId, {
-          ...common,
-          buildingId,
-          unitId,
-          recipientPersonId,
-          dueDay: Number(form.dueDay),
-          unitValues,
-        });
-        setView("recurring");
-        if (created.generation && created.generation.createdCount + created.generation.skipped.length > 0) {
-          setBatchResult({ title: "Cobrança fixa criada", result: created.generation });
-        } else {
-          setSuccessMessage(`Cobrança fixa criada${label}. Entra sozinha na conta de cada mês (vencimento dia ${created.effectiveDueDay}).`);
-        }
       } else if (unitId) {
         await createCharge({
           ...common,
@@ -423,40 +385,6 @@ export function AdminPaymentsPage() {
     });
   }
 
-  async function runRecurringAction(item: RecurringChargeResponse, action: "pause" | "resume" | "end") {
-    clearMessages();
-    setBusyRecurringId(item.id);
-    try {
-      const updated = await changeRecurringCharge(item.id, action);
-      if (action === "resume" && updated.generation && updated.generation.createdCount + updated.generation.skipped.length > 0) {
-        setBatchResult({ title: "Cobrança fixa retomada", result: updated.generation });
-      } else {
-        setSuccessMessage(
-          action === "pause"
-            ? `"${item.description}" pausada. Nenhuma cobrança nova sai até você retomar.`
-            : action === "resume"
-              ? `"${item.description}" retomada.`
-              : `"${item.description}" encerrada.`,
-        );
-      }
-      await reload();
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Não foi possível alterar a cobrança fixa.");
-    } finally {
-      setBusyRecurringId(null);
-    }
-  }
-
-  function askEnd(item: RecurringChargeResponse) {
-    setConfirmRequest({
-      title: "Encerrar esta cobrança fixa?",
-      description: `"${item.description}" para de entrar nas contas. As que já entraram continuam valendo. Uma cobrança fixa encerrada não volta: para cobrar de novo, crie outra.`,
-      confirmLabel: "Encerrar cobrança fixa",
-      tone: "danger",
-      onConfirm: () => runRecurringAction(item, "end"),
-    });
-  }
-
   function placeOf(charge: ChargeResponse) {
     if (charge.scope === 1) return "Moraê";
     return charge.unitNumber ? `${charge.buildingName} · ${charge.unitNumber}` : charge.condominiumName;
@@ -465,11 +393,11 @@ export function AdminPaymentsPage() {
   const overline = [activeCondominium?.condominiumName, isLoading ? null : `${charges.length} ${charges.length === 1 ? "cobrança" : "cobranças"}`]
     .filter(Boolean)
     .join(" · ");
+  // Contas is the screen; agreements are a second list, and the Moraê fee shows up only when open.
   const views: Array<{ key: View; label: string; count?: number }> = [
-    { key: "charges", label: "Cobranças" },
+    { key: "charges", label: "Contas" },
     ...(hasAgreementsModule || agreements.length > 0 ? [{ key: "agreements" as const, label: "Acordos", count: activeAgreements || undefined }] : []),
-    { key: "recurring", label: "Cobranças fixas", count: activeRecurring },
-    ...(isSyndic ? [] : [{ key: "platform" as const, label: "Mensalidade Moraê", count: openPlatform || undefined }]),
+    ...(!isSyndic && (openPlatform > 0 || view === "platform") ? [{ key: "platform" as const, label: "Mensalidade Moraê", count: openPlatform || undefined }] : []),
   ];
 
   return (
@@ -510,19 +438,6 @@ export function AdminPaymentsPage() {
       {shownError && <p role="alert" className="mb-5 rounded-field bg-vermelho-suave px-4 py-3 text-sm font-medium text-vermelho">{shownError}</p>}
       {successMessage && <p role="status" className="mb-5 rounded-field bg-verde-suave px-4 py-3 text-sm font-medium text-verde-tinta">{successMessage}</p>}
 
-      <SummaryCard
-        items={[
-          { label: "Recebido no mês", value: isLoading ? "–" : formatCurrency(summary.receivedThisMonth), detail: `vencimentos de ${currentMonthName()}`, tone: "good" },
-          { label: "A receber", value: isLoading ? "–" : formatCurrency(summary.toReceive), detail: `${summary.pendingCount} em aberto` },
-          {
-            label: "Em atraso",
-            value: isLoading ? "–" : formatCurrency(summary.overdue),
-            detail: summary.overdue > 0 ? (summary.lateFees > 0 ? `inclui ${formatCurrency(summary.lateFees)} de multa e juros` : `${summary.lateUnits} ${summary.lateUnits === 1 ? "unidade" : "unidades"}`) : "nenhum atraso",
-            tone: summary.overdue > 0 ? "danger" : "neutral",
-          },
-          { label: "Unidades em dia", value: isLoading ? "–" : `${summary.upToDateUnits} de ${units.length}`, detail: summary.lateUnits ? `${summary.lateUnits} com atraso` : "sem atrasos" },
-        ]}
-      />
 
       <div className="-mx-4 mb-4 mt-8 overflow-x-auto px-4 [scrollbar-width:none] lg:mx-0 lg:px-0">
         <div role="tablist" aria-label="O que ver" className="inline-flex gap-1 rounded-block bg-menu p-1">
@@ -564,12 +479,13 @@ export function AdminPaymentsPage() {
                     }`}
                   >
                     {item.label}
-                    <span className={`text-xs font-medium tabular-nums ${tab === item.key ? "text-white/75" : "text-tinta-suave"}`}>{isLoading ? "" : countFor(item.key)}</span>
+                    <span className={`text-xs font-medium tabular-nums ${tab === item.key ? "text-white/75" : "text-tinta-suave"}`}>{isLoading || item.key === "draft" ? "" : countFor(item.key)}</span>
                   </button>
                 ))}
               </div>
             </div>
 
+            {tab !== "draft" && (
             <div className="grid grid-cols-2 gap-3 sm:flex">
               <SelectField
                 label="Prédio"
@@ -607,8 +523,13 @@ export function AdminPaymentsPage() {
                 />
               </label>
             </div>
+            )}
           </div>
 
+          {tab === "draft" ? (
+            <InvoicesBoard />
+          ) : (
+            <>
           {unitFilter && (
             <div className="mb-4 flex">
               <span className="inline-flex items-center gap-1 rounded-full bg-tinta py-1 pl-3.5 pr-1 text-sm font-semibold text-white">
@@ -701,6 +622,8 @@ export function AdminPaymentsPage() {
               })
             )}
           </ul>
+            </>
+          )}
         </>
       )}
 
@@ -722,30 +645,6 @@ export function AdminPaymentsPage() {
             )}
           </div>
           <AgreementsList items={agreements} isLoading={isLoading} onSelect={(agreement) => setSelectedAgreementId(agreement.id)} />
-        </>
-      )}
-
-      {view === "recurring" && (
-        <>
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-tinta-suave">
-              Geradas sozinhas 10 dias antes do vencimento{settings ? ` · vencimento padrão dia ${settings.billingDueDay}` : ""}.
-            </p>
-            {canCreate && <Button variant="quiet" size="sm" onClick={() => openWizard(true)} disabled={isLoading || units.length === 0 || !page.isReceivingReady} className="self-start bg-superficie shadow-whisper hover:bg-campo">
-              <Repeat size={16} strokeWidth={2} aria-hidden />
-              Nova cobrança fixa
-            </Button>}
-          </div>
-          <RecurringChargesList
-            items={recurring}
-            isLoading={isLoading}
-            busyId={busyRecurringId}
-            onCreate={() => openWizard(true)}
-            onPause={(item) => void runRecurringAction(item, "pause")}
-            onResume={(item) => void runRecurringAction(item, "resume")}
-            onEnd={askEnd}
-            canManage={canCreate}
-          />
         </>
       )}
 

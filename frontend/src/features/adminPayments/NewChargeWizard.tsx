@@ -344,16 +344,6 @@ export function NewChargeWizard({ units, buildings, billingDueDay, startRepeatin
             </div>
           )}
 
-          {canRepeat(form) && (
-            <div className="rounded-block border border-linha px-4">
-              <Switch
-                label="Todo mês (cobrança fixa)"
-                description="Entra sozinha na conta de cada mês, até você pausar."
-                checked={form.repeat}
-                onChange={(checked) => update({ repeat: checked })}
-              />
-            </div>
-          )}
 
           {!repeat && (
             <div className="grid gap-2 sm:grid-cols-2">

@@ -175,7 +175,7 @@ export function AdminDashboardPage() {
             <Section
               title="Unidades em atraso"
               note={isLoading || !lateUnits.length ? undefined : `${lateUnits.length} de ${totalUnits}`}
-              footer={lateUnits.length > 0 && <SectionLink to="/admin/finance/receivables">Ver cobranças atrasadas</SectionLink>}
+              footer={lateUnits.length > 0 && <SectionLink to="/admin/finance/accounts">Ver cobranças atrasadas</SectionLink>}
             >
               {isLoading ? (
                 <EmptyRow text="Carregando…" />
@@ -195,7 +195,7 @@ export function AdminDashboardPage() {
           </div>
 
           <div className="mt-10">
-            <UnitBillingGrid units={dashboard.units} charges={dashboard.charges} paymentsPath="/admin/finance/receivables" isLoading={isLoading} />
+            <UnitBillingGrid units={dashboard.units} charges={dashboard.charges} paymentsPath="/admin/finance/accounts" isLoading={isLoading} />
           </div>
 
           <section className="relative mt-10 overflow-hidden rounded-card bg-superficie p-6 shadow-whisper">

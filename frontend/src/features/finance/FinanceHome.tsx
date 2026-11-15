@@ -1,14 +1,14 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { PageHeader } from "../../shared/layout/PageHeader";
-import { InvoicesPage } from "../invoices/InvoicesPage";
+import { FinanceSummaryPage } from "./FinanceSummaryPage";
 import { useFinanceTabs } from "./useFinanceTabs";
 
-// "Financeiro" opens on the monthly bills; a syndic without finance access lands on the first tab he has.
+// "Financeiro" opens on the Resumo; a syndic without finance access lands on the first tab he has.
 export function FinanceHome() {
   const tabs = useFinanceTabs();
   const { pathname } = useLocation();
 
-  if (tabs[0]?.path === "") return <InvoicesPage />;
+  if (tabs[0]?.path === "") return <FinanceSummaryPage />;
 
   if (tabs.length > 0) return <Navigate to={`${pathname.replace(/\/$/, "")}/${tabs[0].path}`} replace />;
 

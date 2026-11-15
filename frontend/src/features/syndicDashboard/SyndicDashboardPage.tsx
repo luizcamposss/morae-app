@@ -114,10 +114,10 @@ export function SyndicDashboardPage() {
           tone="red"
           title={plural(overdue.count, "cobrança atrasada", "cobranças atrasadas")}
           subtitle={listUnits(overdue.unitLabels) || formatCurrency(overdue.value)}
-          onClick={() => navigate("/syndic/finance/receivables")}
+          onClick={() => navigate("/syndic/finance/accounts")}
         />
       ) : (
-        <GroupedRow key="charges" icon={Receipt} tone="green" title="Cobranças em dia" subtitle="Nenhuma cobrança atrasada" onClick={() => navigate("/syndic/finance/receivables")} />
+        <GroupedRow key="charges" icon={Receipt} tone="green" title="Cobranças em dia" subtitle="Nenhuma cobrança atrasada" onClick={() => navigate("/syndic/finance/accounts")} />
       ),
     );
   }
@@ -130,7 +130,7 @@ export function SyndicDashboardPage() {
         icon={Bell}
         title={`${plural(reminders.total, "lembrete enviado", "lembretes enviados")} hoje`}
         subtitle={describeReminders(reminders)}
-        onClick={() => navigate("/syndic/finance/receivables")}
+        onClick={() => navigate("/syndic/finance/accounts")}
       />,
     );
   }
@@ -251,7 +251,7 @@ export function SyndicDashboardPage() {
 
       {access?.finance && activeCondominiumId && (
         <div className="mt-10">
-          <UnitBillingGrid units={units ?? []} charges={charges ?? []} paymentsPath="/syndic/finance/receivables" isLoading={isLoading} />
+          <UnitBillingGrid units={units ?? []} charges={charges ?? []} paymentsPath="/syndic/finance/accounts" isLoading={isLoading} />
         </div>
       )}
 

@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarClock, Pencil, Plus, Send, Trash2 } from "lucide-react";
+import { CalendarClock, Pencil, Send, Trash2 } from "lucide-react";
 import { useCondominium } from "../../app/providers/useCondominium";
-import { Button, ButtonLink } from "../../shared/components/Button";
+import { Button } from "../../shared/components/Button";
 import { ConfirmDialog, type ConfirmRequest } from "../../shared/components/ConfirmDialog";
-import { PageHeader } from "../../shared/layout/PageHeader";
 import { formatCurrency } from "../../shared/lib/currency";
 import { formatCalendarDate, todayInputDate } from "../../shared/lib/date";
 import { CHARGE_CATEGORIES } from "../charges/chargeCategories";
@@ -11,7 +10,6 @@ import { CHARGE_STATUS } from "../charges/platformRevenue";
 import type { ChargeItem } from "../charges/types";
 import { MonthNavigator } from "../expenses/MonthNavigator";
 import { monthLabel, monthOf, shiftMonth } from "../expenses/expenseMeta";
-import { FinanceTabs } from "../finance/FinanceTabs";
 import { StatusChip } from "../settings/StatusChip";
 import { useIsSyndicArea, useSyndicCan } from "../syndicAccess/useSyndicAccess";
 import { InvoiceItemModal } from "./InvoiceItemModal";
@@ -28,12 +26,11 @@ const statusChip: Record<number, { tone: "success" | "warning" | "danger" | "neu
   [CHARGE_STATUS.renegotiated]: { tone: "neutral", label: "Em acordo" },
 };
 
-// "Contas do mês": one bill per unit and payer, with its items. Drafts are put together here
-// and sent to the residents at once (or automatically, days before they are due).
-export function InvoicesPage() {
-  const { activeCondominium, activeCondominiumId } = useCondominium();
+// "A sair" in Financeiro → Contas: the month's bills still being put together (one per unit and
+// payer, with its items). They go out on their own days before they are due, or with "Enviar contas".
+export function InvoicesBoard() {
+  const { activeCondominiumId } = useCondominium();
   const isSyndic = useIsSyndicArea();
-  const financeBase = isSyndic ? "/syndic/finance" : "/admin/finance";
   const canEdit = useSyndicCan("charges.create");
   const currentMonth = monthOf(todayInputDate());
   const [month, setMonth] = useState(currentMonth);
@@ -113,15 +110,6 @@ export function InvoicesPage() {
 
   return (
     <>
-      <PageHeader overline={activeCondominium?.condominiumName} title="Financeiro">
-        {canEdit && (
-          <ButtonLink to={`${financeBase}/receivables?lancar=1`} variant="accent" size="sm">
-            <Plus size={16} strokeWidth={2} aria-hidden />
-            Lançar cobrança
-          </ButtonLink>
-        )}
-      </PageHeader>
-      <FinanceTabs />
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <MonthNavigator month={month} maxMonth={shiftMonth(currentMonth, 3)} onChange={setMonth} />
