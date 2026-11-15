@@ -1,6 +1,7 @@
+import { SelectField } from "../components/SelectField";
 import { useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
-import { ChevronDown, LogOut, Menu, type LucideIcon } from "lucide-react";
+import { LogOut, Menu, type LucideIcon } from "lucide-react";
 import { useAuth } from "../../app/providers/useAuth";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { useSyndicAccess } from "../../features/syndicAccess/useSyndicAccess";
@@ -197,20 +198,14 @@ function CondominiumSwitcher() {
   }
 
   return (
-    <label className="relative mt-5 flex items-center">
-      <span className="sr-only">Condomínio</span>
-      <select
-        value={activeCondominium.condominiumId}
-        onChange={(event) => setActiveCondominiumId(Number(event.target.value))}
-        className="w-full cursor-pointer appearance-none truncate rounded-chip bg-transparent py-1 pr-6 text-sm font-semibold text-tinta hover:text-tinta-forte"
-      >
-        {condominiums.map((condominium) => (
-          <option key={condominium.condominiumId} value={condominium.condominiumId}>
-            {condominium.condominiumName}
-          </option>
-        ))}
-      </select>
-      <ChevronDown size={16} strokeWidth={1.8} aria-hidden className="pointer-events-none absolute right-0 text-tinta-suave" />
-    </label>
+    <SelectField
+      label="Condomínio"
+      hideLabel
+      variant="plain"
+      className="mt-5"
+      value={activeCondominium.condominiumId}
+      onChange={(event) => setActiveCondominiumId(Number(event.target.value))}
+      options={condominiums.map((condominium) => ({ value: String(condominium.condominiumId), label: condominium.condominiumName }))}
+    />
   );
 }
