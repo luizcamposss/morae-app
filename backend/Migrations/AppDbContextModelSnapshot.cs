@@ -2368,6 +2368,9 @@ namespace backend.Migrations
                     b.Property<DateOnly?>("AdjustmentReminderSentFor")
                         .HasColumnType("date");
 
+                    b.Property<int>("CondominiumBillsPaidBy")
+                        .HasColumnType("int");
+
                     b.Property<decimal?>("CondominiumFeeAmount")
                         .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)");

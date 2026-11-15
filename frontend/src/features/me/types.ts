@@ -35,6 +35,8 @@ export type MeCondominiumResponse = {
   enabledModules: string[];
   // Owns a unit there (may rent it out in "Meus aluguéis").
   isUnitOwner: boolean;
+  // Rents out a unit there as its owner ("Meus aluguéis" shows in the menu only then).
+  hasOwnRentalContracts: boolean;
 };
 
 export type MeUnitResponse = {

@@ -21,6 +21,7 @@ public class RentalContractResponseDto
     public bool IncludesGas { get; set; }
     public bool IncludesCondominiumFee { get; set; }
     public decimal? CondominiumFeeAmount { get; set; }
+    public CondominiumBillsPayer CondominiumBillsPaidBy { get; set; }
     public RentAdjustmentIndex AdjustmentIndex { get; set; }
     public DateOnly? NextAdjustmentDate { get; set; }
     public RentalContractStatus Status { get; set; }
@@ -66,6 +67,10 @@ public class SaveRentalContractDto
 
     [Range(0, 1_000_000)]
     public decimal? CondominiumFeeAmount { get; set; }
+
+    // Who pays the unit's condominium bills while rented (default: the tenant).
+    [EnumDataType(typeof(CondominiumBillsPayer))]
+    public CondominiumBillsPayer CondominiumBillsPaidBy { get; set; } = CondominiumBillsPayer.Tenant;
 
     [EnumDataType(typeof(RentAdjustmentIndex))]
     public RentAdjustmentIndex AdjustmentIndex { get; set; } = RentAdjustmentIndex.Ipca;

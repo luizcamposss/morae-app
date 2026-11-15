@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ChevronRight } from "lucide-react";
+import { Check, ChevronRight } from "lucide-react";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { Button } from "../../shared/components/Button";
 import { SelectField } from "../../shared/components/SelectField";
@@ -14,19 +14,17 @@ import { AGREEMENT_STATUS } from "../agreements/agreementMeta";
 import { getMyAgreements } from "../agreements/agreementService";
 import type { AgreementResponse } from "../agreements/types";
 import { getMyCharges } from "../charges/chargeService";
-import { ChargeCategoryChip } from "../charges/ChargeCategoryChip";
 import { PaymentProofChip } from "../charges/PaymentProofChip";
 import { proofState } from "../charges/paymentProof";
 import { CHARGE_STATUS } from "../charges/platformRevenue";
 import type { ChargeResponse } from "../charges/types";
-import { ChargeStatusChip, ChargeStatusTile } from "../masterPayments/ChargeStatus";
+import { ChargeStatusChip } from "../masterPayments/ChargeStatus";
 import { MercadoPagoPaymentModal } from "../mercadoPago/MercadoPagoPaymentModal";
 import { ConsumptionCard } from "../consumption/ConsumptionCard";
 import { useModuleEnabled } from "../modules/modules";
 import { AgreementCard } from "./AgreementCard";
-import { NextChargeCard } from "./NextChargeCard";
 import { PixPaymentModal } from "./PixPaymentModal";
-import { billPlace, billsTabs, filterBills, nextOpenCharge, sortBills, type BillsLocationState, type BillsTab } from "./residentBills";
+import { billPlace, sortBills, type BillsLocationState } from "./residentBills";
 
 type LoadedBills = { charges: ChargeResponse[]; agreements: AgreementResponse[]; errorMessage: string };
 
@@ -37,7 +35,6 @@ export function ResidentBillsPage() {
   const navigate = useNavigate();
   const [loaded, setLoaded] = useState<LoadedBills | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [tab, setTab] = useState<BillsTab>("open");
   const [selectedChargeId, setSelectedChargeId] = useState<number | null>(null);
   // The Início sends the charge to pay in the router state.
   const [payingChargeId, setPayingChargeId] = useState<number | null>(() => (location.state as BillsLocationState)?.payChargeId ?? null);
@@ -79,17 +76,15 @@ export function ResidentBillsPage() {
     (agreement) => agreement.status === AGREEMENT_STATUS.active && (!activeCondominiumId || agreement.condominiumId === activeCondominiumId),
   );
   const openCharges = charges.filter(isOpenCharge);
-  const nextCharge = nextOpenCharge(charges);
-  const visibleCharges = sortBills(filterBills(charges, tab));
+  // Paid, cancelled or in an agreement: folded away, newest first.
+  const pastCharges = charges.filter((charge) => !isOpenCharge(charge)).sort((a, b) => b.dueDate.localeCompare(a.dueDate));
+  const hasOverdue = openCharges.some((charge) => charge.status === CHARGE_STATUS.overdue);
   const selectedCharge = charges.find((charge) => charge.id === selectedChargeId);
   // Without Mercado Pago the payment is a Pix to the condominium's key plus a receipt.
   const payingCharge = (loaded?.charges ?? []).find((charge) => charge.id === payingChargeId);
   const paysByPix = charges.length > 0 && !charges[0].onlinePaymentAvailable;
   const openTotal = openCharges.reduce((total, charge) => total + amountDue(charge), 0);
 
-  function countFor(key: BillsTab) {
-    return filterBills(charges, key).length;
-  }
 
   function pay(charge: ChargeResponse) {
     // The owner's rent is paid online to the owner; never to the condominium's Pix key.
@@ -155,91 +150,127 @@ export function ResidentBillsPage() {
         </p>
       )}
 
-      <NextChargeCard charge={nextCharge} isLoading={isLoading} otherOpenCount={Math.max(openCharges.length - 1, 0)} onPay={pay} onDetails={(charge) => setSelectedChargeId(charge.id)} />
+      {/* What is due now, in one number, and one button to pay it all. */}
+      <section className="rounded-card bg-superficie p-5 shadow-whisper sm:p-6">
+        {isLoading ? (
+          <p className="py-6 text-center text-sm text-tinta-suave">Carregando…</p>
+        ) : openCharges.length === 0 ? (
+          <div className="flex items-center gap-3">
+            <span className="grid size-10 shrink-0 place-items-center rounded-full bg-verde-suave text-verde-tinta">
+              <Check size={20} strokeWidth={2} aria-hidden />
+            </span>
+            <div>
+              <p className="font-semibold text-tinta">Tudo em dia</p>
+              <p className="text-sm text-tinta-suave">Nenhuma conta para pagar agora.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-sm text-tinta-suave">A pagar agora</p>
+              <p className={`font-display text-[36px] font-bold leading-none tabular-nums ${hasOverdue ? "text-vermelho" : "text-tinta"}`}>{formatCurrency(openTotal)}</p>
+              <p className="mt-1 text-[13px] text-tinta-suave">
+                {openCharges.length === 1 ? "1 conta" : `${openCharges.length} contas`}
+                {hasOverdue ? " · com atraso" : ""}
+              </p>
+            </div>
+            <Button variant="accent" onClick={openCharges.length === 1 ? () => pay(openCharges[0]) : payAll}>
+              {openCharges.length === 1 ? "Pagar" : "Pagar tudo"}
+            </Button>
+          </div>
+        )}
+      </section>
 
-      {openCharges.length > 1 && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 px-1">
-          <p className="text-[13px] text-tinta-suave">
-            Total em aberto hoje: <span className="font-semibold tabular-nums text-tinta">{formatCurrency(openTotal)}</span> em {openCharges.length} contas
-          </p>
-          <Button size="sm" onClick={payAll}>
-            Pagar tudo
-          </Button>
-        </div>
+      {sortBills(openCharges).length > 0 && (
+        <ul className="mt-4 flex flex-col gap-3">
+          {sortBills(openCharges).map((charge) => {
+            const isOverdue = charge.status === CHARGE_STATUS.overdue;
+            return (
+              <li key={charge.id} className="rounded-card bg-superficie p-5 shadow-whisper">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-[15px] font-semibold text-tinta">{charge.description}</p>
+                    <p className="text-[13px] text-tinta-suave">Para {charge.receiverName ?? charge.condominiumName}</p>
+                    <p className={`text-[13px] ${isOverdue ? "font-semibold text-vermelho" : "text-tinta-suave"}`}>
+                      {isOverdue ? "Venceu" : "Vence"} {formatCalendarDate(charge.dueDate)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-lg font-bold tabular-nums ${isOverdue ? "text-vermelho" : "text-tinta"}`}>{formatCurrency(amountDue(charge))}</p>
+                    {isOverdue && hasLateFees(charge) && <p className="text-xs tabular-nums text-tinta-suave">com multa e juros</p>}
+                  </div>
+                </div>
+                {charge.items?.length > 0 && (
+                  <ul className="mt-3 divide-y divide-linha border-y border-linha text-sm">
+                    {charge.items.map((item) => (
+                      <li key={item.id} className="flex justify-between gap-3 py-1.5">
+                        <span className="min-w-0 truncate text-tinta-suave">{item.description}</span>
+                        <span className="tabular-nums text-tinta">{formatCurrency(item.amount)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {proofState(charge) && (
+                  <div className="mt-3">
+                    <PaymentProofChip charge={charge} />
+                  </div>
+                )}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button size="sm" onClick={() => pay(charge)}>
+                    Pagar
+                  </Button>
+                  <Button variant="quiet" size="sm" onClick={() => setSelectedChargeId(charge.id)}>
+                    Detalhes
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       )}
 
       {activeAgreements.map((agreement) => (
         <AgreementCard key={agreement.id} agreement={agreement} />
       ))}
 
-      <div className="-mx-4 mb-4 mt-8 overflow-x-auto px-4 [scrollbar-width:none] lg:mx-0 lg:px-0">
-        <div role="tablist" aria-label="Situação das contas" className="inline-flex gap-1">
-          {billsTabs.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              role="tab"
-              aria-selected={tab === item.key}
-              onClick={() => setTab(item.key)}
-              className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${
-                tab === item.key ? "bg-tinta text-white" : "text-tinta-suave hover:bg-menu hover:text-tinta"
-              }`}
-            >
-              {item.label}
-              <span className={`text-xs font-medium tabular-nums ${tab === item.key ? "text-white/75" : "text-tinta-suave"}`}>{isLoading ? "" : countFor(item.key)}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <ul className="divide-y divide-linha overflow-hidden rounded-card bg-superficie shadow-whisper">
-        {visibleCharges.length === 0 ? (
-          <li className="px-5 py-10 text-center text-sm text-tinta-suave">
-            {isLoading ? "Carregando…" : tab === "open" ? "Nenhum boleto em aberto." : tab === "paid" ? "Nenhum boleto pago ainda." : "Nenhum boleto por aqui."}
-          </li>
-        ) : (
-          visibleCharges.map((charge) => {
-            const isOverdue = charge.status === CHARGE_STATUS.overdue;
-            return (
+      {pastCharges.length > 0 && (
+        <details className="mt-6 rounded-card bg-superficie shadow-whisper">
+          <summary className="flex cursor-pointer items-center justify-between px-5 py-4 text-[15px] font-semibold text-tinta">
+            Contas pagas
+            <span className="text-sm font-normal tabular-nums text-tinta-suave">{pastCharges.length}</span>
+          </summary>
+          <ul className="divide-y divide-linha border-t border-linha">
+            {pastCharges.map((charge) => (
               <li key={charge.id}>
                 <button
                   type="button"
                   onClick={() => setSelectedChargeId(charge.id)}
-                  className="flex w-full items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-campo/60"
+                  className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-campo/60"
                 >
-                  <ChargeStatusTile status={charge.status} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[15px] font-semibold text-tinta">{charge.description}</span>
-                    <span className="block truncate text-[13px] text-tinta-suave">
-                      {billPlace(charge)} · {isOverdue ? "venceu" : isOpenCharge(charge) ? "vence" : "vencimento"} {formatCalendarDate(charge.dueDate)}
-                    </span>
-                    <span className="mt-1.5 flex flex-wrap gap-1.5">
-                      <ChargeCategoryChip category={charge.category} />
-                      {proofState(charge) && <PaymentProofChip charge={charge} />}
+                    <span className="block truncate text-sm font-semibold text-tinta">{charge.description}</span>
+                    <span className="block text-[13px] text-tinta-suave">
+                      Para {charge.receiverName ?? charge.condominiumName} · {formatCalendarDate(charge.dueDate)}
                     </span>
                   </span>
                   <span className="text-right">
-                    <span className={`block text-sm font-semibold tabular-nums ${isOverdue ? "text-vermelho" : "text-tinta"}`}>{formatCurrency(amountDue(charge))}</span>
-                    {isOverdue && hasLateFees(charge) ? (
-                      <span className="block text-xs tabular-nums text-tinta-suave">orig. {formatCurrency(charge.value)}</span>
-                    ) : (
-                      <span className="mt-1 flex justify-end">
-                        <ChargeStatusChip status={charge.status} />
-                      </span>
-                    )}
+                    <span className="block text-sm tabular-nums text-tinta">{formatCurrency(charge.value)}</span>
+                    <span className="mt-0.5 flex justify-end">
+                      <ChargeStatusChip status={charge.status} />
+                    </span>
                   </span>
-                  <ChevronRight size={18} strokeWidth={1.8} aria-hidden className="shrink-0 text-tinta-suave" />
+                  <ChevronRight size={16} strokeWidth={1.8} aria-hidden className="shrink-0 text-tinta-suave" />
                 </button>
               </li>
-            );
-          })
-        )}
-      </ul>
+            ))}
+          </ul>
+        </details>
+      )}
 
       <p className="mt-6 px-1 text-[13px] text-tinta-suave">
         {paysByPix
           ? "O condomínio recebe por Pix: pague pela chave no app do seu banco e envie o comprovante. A gestão confere e dá baixa."
-          : "O pagamento é feito pelo Mercado Pago, direto para a conta do condomínio. Com Pix, a baixa acontece sozinha em instantes."}
+          : "Pague com Pix ou cartão pelo app. Com Pix, a conta fica paga em instantes."}
       </p>
 
       {hasConsumption && <ConsumptionCard />}

@@ -182,6 +182,12 @@ public class ChargeService : IChargeService
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
 
+        // The others belong to the unit's payer on their due date (tenant or owners, #208).
+        var rules = await UnitPayers.GetRulesAsync(_context, unitIds);
+        charges = charges
+            .Where(c => c.RecipientPersonId != null || rules[c.UnitId!.Value].For(c.DueDate).Contains(user.PersonId))
+            .ToList();
+
         return await MapWithPaymentInfoAsync(charges);
     }
     public async Task<IEnumerable<ChargeResponseDto>> GetReceivedAsOwnerAsync(int userId)

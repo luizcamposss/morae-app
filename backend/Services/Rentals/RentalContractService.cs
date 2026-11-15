@@ -428,6 +428,9 @@ public class RentalContractService : IRentalContractService
         if (dto.IncludesCondominiumFee && dto.CondominiumFeeAmount is not > 0)
             throw new BadRequestException("Informe o valor da taxa de condomínio que entra na conta.");
 
+        if (!Enum.IsDefined(dto.CondominiumBillsPaidBy))
+            throw new BadRequestException("Diga quem paga as contas do condomínio: o inquilino ou o proprietário.");
+
         if (!Enum.IsDefined(dto.AdjustmentIndex))
             throw new BadRequestException("Escolha como o aluguel é reajustado.");
     }
@@ -441,6 +444,7 @@ public class RentalContractService : IRentalContractService
         contract.IncludesGas = dto.IncludesGas;
         contract.IncludesCondominiumFee = dto.IncludesCondominiumFee;
         contract.CondominiumFeeAmount = dto.IncludesCondominiumFee ? Math.Round(dto.CondominiumFeeAmount!.Value, 2) : null;
+        contract.CondominiumBillsPaidBy = dto.CondominiumBillsPaidBy;
         contract.AdjustmentIndex = dto.AdjustmentIndex;
         contract.NextAdjustmentDate = dto.AdjustmentIndex == RentAdjustmentIndex.None
             ? null
@@ -542,6 +546,7 @@ public class RentalContractService : IRentalContractService
         IncludesGas = contract.IncludesGas,
         IncludesCondominiumFee = contract.IncludesCondominiumFee,
         CondominiumFeeAmount = contract.CondominiumFeeAmount,
+        CondominiumBillsPaidBy = contract.CondominiumBillsPaidBy,
         AdjustmentIndex = contract.AdjustmentIndex,
         NextAdjustmentDate = contract.NextAdjustmentDate,
         Status = contract.Status,

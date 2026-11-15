@@ -1,3 +1,4 @@
+using backend.Services.Charges;
 using backend.Constants;
 using backend.Data;
 using backend.Enums;
@@ -444,25 +445,33 @@ public class PermissionService : IPermissionService
             throw new ForbiddenException("Você não tem permissão para fazer isso.");
     }
 
-    // Who sees and pays a condominium charge as a resident: the people linked to its unit, or only
-    // the recipient when the charge is addressed to one person (e.g. rent billed to the tenant).
+    // Who sees and pays a condominium charge as a resident: the recipient when it has one, otherwise
+    // the unit's payer (UnitPayers: the tenant when the contract says so, else the owners).
     public async Task<bool> IsChargePayerAsync(int userId, Charge charge)
     {
         if (!charge.UnitId.HasValue)
             return false;
 
         var unitId = charge.UnitId.Value;
-        var recipientPersonId = charge.RecipientPersonId;
 
-        return await _context.Users
+        var personId = await _context.Users
             .AsNoTracking()
-            .Where(user => user.Id == userId)
-            .AnyAsync(user =>
-                (recipientPersonId == null || user.PersonId == recipientPersonId) &&
+            .Where(user =>
+                user.Id == userId &&
                 _context.PersonUnits.Any(personUnit =>
                     personUnit.PersonId == user.PersonId &&
                     personUnit.UnitId == unitId &&
-                    personUnit.Unit.Building.Condominium.Status == Status.Active));
+                    personUnit.Unit.Building.Condominium.Status == Status.Active))
+            .Select(user => (int?)user.PersonId)
+            .FirstOrDefaultAsync();
+
+        if (personId is null)
+            return false;
+
+        // Addressed to one person (e.g. rent to the tenant): only them. Otherwise the unit's payer (#208).
+        return charge.RecipientPersonId.HasValue
+            ? charge.RecipientPersonId == personId
+            : (await UnitPayers.GetPersonIdsAsync(_context, unitId, charge.DueDate)).Contains(personId.Value);
     }
 
     // Who may read a condominium charge and its payments: its payers (a syndic included, for their
