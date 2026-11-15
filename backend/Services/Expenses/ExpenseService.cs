@@ -429,7 +429,9 @@ public class ExpenseService : IExpenseService
             .AsNoTracking()
             .Where(payment =>
                 payment.Charge.CondominiumId == condominiumId &&
-                payment.Charge.Scope == ChargeScope.Condominium);
+                payment.Charge.Scope == ChargeScope.Condominium &&
+                // The owner's rent is the owner's money, not the condominium's income.
+                payment.Charge.ReceiverPersonId == null);
     }
 
     private async Task EnsureDefaultCategoriesAsync(int condominiumId)

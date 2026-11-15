@@ -19,6 +19,9 @@ public class InvoiceService : IInvoiceService
 {
     private static readonly CultureInfo PtBr = CultureInfo.GetCultureInfo("pt-BR");
 
+    // The owner's rent bill reaches the tenant this many days before it is due.
+    public const int OwnerSendDaysBefore = 10;
+
     // Items that have their own flow and never go inside a monthly bill.
     private static readonly HashSet<ChargeCategory> NotAllowedItemCategories =
         [ChargeCategory.MonthlyBill, ChargeCategory.Agreement, ChargeCategory.Reservation];
@@ -56,7 +59,9 @@ public class InvoiceService : IInvoiceService
             .Where(charge =>
                 charge.CondominiumId == condominiumId &&
                 charge.ReferenceMonth == start &&
-                charge.Status != ChargeStatus.Canceled);
+                charge.Status != ChargeStatus.Canceled &&
+                // The owner's rent is private to the owner (#201).
+                charge.ReceiverPersonId == null);
 
         if (managedBuildingIds is not null)
             query = query.Where(charge => managedBuildingIds.Contains(charge.Unit!.BuildingId));
@@ -114,6 +119,8 @@ public class InvoiceService : IInvoiceService
                 charge.CondominiumId == request.CondominiumId &&
                 charge.UnitId == request.UnitId &&
                 charge.RecipientPersonId == request.RecipientPersonId &&
+                // A bill never mixes receivers.
+                charge.ReceiverPersonId == request.ReceiverPersonId &&
                 charge.Category == ChargeCategory.MonthlyBill &&
                 charge.Status == ChargeStatus.Draft &&
                 charge.ReferenceMonth == request.Month);
@@ -131,6 +138,7 @@ public class InvoiceService : IInvoiceService
                 CondominiumId = request.CondominiumId,
                 UnitId = request.UnitId,
                 RecipientPersonId = request.RecipientPersonId,
+                ReceiverPersonId = request.ReceiverPersonId,
                 Category = ChargeCategory.MonthlyBill,
                 Status = ChargeStatus.Draft,
                 ReferenceMonth = request.Month,
@@ -270,7 +278,8 @@ public class InvoiceService : IInvoiceService
                 charge.CondominiumId == condominiumId &&
                 charge.Category == ChargeCategory.MonthlyBill &&
                 charge.Status == ChargeStatus.Draft &&
-                charge.ReferenceMonth == start);
+                charge.ReferenceMonth == start &&
+                charge.ReceiverPersonId == null);
 
         if (dto.ChargeIds is { Count: > 0 })
             query = query.Where(charge => dto.ChargeIds.Contains(charge.Id));
@@ -303,6 +312,7 @@ public class InvoiceService : IInvoiceService
             .Where(charge =>
                 charge.Category == ChargeCategory.MonthlyBill &&
                 charge.Status == ChargeStatus.Draft &&
+                charge.ReceiverPersonId == null &&
                 charge.Condominium.Status == Status.Active &&
                 charge.Condominium.InvoiceAutoSendDaysBefore != null)
             .ToListAsync(cancellationToken);
@@ -328,6 +338,49 @@ public class InvoiceService : IInvoiceService
                 _logger.LogWarning("Monthly bills of condominium {CondominiumId} not sent: {Reason}", condominium.Key, exception.Message);
             }
         }
+
+        await SendDueOwnerDraftsAsync(today, cancellationToken);
+    }
+
+    // The owner's rent has nothing to review: it goes out OwnerSendDaysBefore days before it is due,
+    // once the owner has a connected Mercado Pago account (no fine or interest: decided in #201).
+    private async Task SendDueOwnerDraftsAsync(DateTime today, CancellationToken cancellationToken)
+    {
+        var connectedOwners = await _context.MercadoPagoAccounts
+            .AsNoTracking()
+            .Where(account => account.OwnerPersonId != null && account.AccessToken != string.Empty)
+            .Select(account => account.OwnerPersonId!.Value)
+            .ToListAsync(cancellationToken);
+
+        var limit = today.AddDays(OwnerSendDaysBefore);
+        var drafts = await _context.Charges
+            .Where(charge =>
+                charge.Category == ChargeCategory.MonthlyBill &&
+                charge.Status == ChargeStatus.Draft &&
+                charge.ReceiverPersonId != null &&
+                connectedOwners.Contains(charge.ReceiverPersonId.Value) &&
+                charge.Condominium.Status == Status.Active &&
+                charge.DueDate >= today &&
+                charge.DueDate <= limit)
+            .ToListAsync(cancellationToken);
+
+        var sendable = drafts.Where(charge => charge.Value > 0).ToList();
+
+        foreach (var charge in sendable)
+        {
+            charge.Status = ChargeStatus.Pending;
+            charge.SentAt = DateTime.UtcNow;
+            charge.FinePercent = null;
+            charge.MonthlyInterestPercent = null;
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        foreach (var charge in sendable)
+            await _chargeService.NotifyNewChargeAsync(charge);
+
+        if (sendable.Count > 0)
+            _logger.LogInformation("Sent {Count} owner rent bill(s).", sendable.Count);
     }
 
     private async Task<int> SendDraftsAsync(int condominiumId, IReadOnlyCollection<Charge> drafts)
@@ -441,6 +494,9 @@ public class InvoiceService : IInvoiceService
 
     private async Task EnsureCanEditDraftAsync(int userId, Charge charge)
     {
+        if (charge.ReceiverPersonId.HasValue)
+            throw new NotFoundException("Conta não encontrada.");
+
         await EnsureCanEditAsync(userId, charge.CondominiumId);
 
         if (charge.UnitId.HasValue)

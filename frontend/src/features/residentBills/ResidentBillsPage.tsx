@@ -45,6 +45,7 @@ export function ResidentBillsPage() {
   const [receiptChargeId, setReceiptChargeId] = useState<number | null>(null);
   // "Pagar tudo": the open charges still to pay, one payment each (they may go to different receivers).
   const [payQueue, setPayQueue] = useState<number[]>([]);
+  const [ownerNotice, setOwnerNotice] = useState("");
   const hasBalance = useModuleEnabled("expenses");
   const hasConsumption = useModuleEnabled("consumption");
 
@@ -91,6 +92,12 @@ export function ResidentBillsPage() {
   }
 
   function pay(charge: ChargeResponse) {
+    // The owner's rent is paid online to the owner; never to the condominium's Pix key.
+    if (charge.receiverPersonId && !charge.onlinePaymentAvailable) {
+      setOwnerNotice(`O pagamento online de ${charge.description} está indisponível agora. Fale com ${charge.receiverName ?? "o proprietário"}.`);
+      return;
+    }
+    setOwnerNotice("");
     setHasPaidOnline(false);
     setPayingChargeId(charge.id);
   }
@@ -134,6 +141,12 @@ export function ResidentBillsPage() {
           onChange={(event) => setActiveCondominiumId(Number(event.target.value))}
           options={condominiums.map((condominium) => ({ value: String(condominium.condominiumId), label: condominium.condominiumName }))}
         />
+      )}
+
+      {ownerNotice && (
+        <p role="alert" className="mb-6 rounded-field bg-ambar-suave px-4 py-3 text-sm font-medium text-tinta">
+          {ownerNotice}
+        </p>
       )}
 
       {loaded?.errorMessage && (

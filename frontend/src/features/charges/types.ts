@@ -52,6 +52,9 @@ export type ChargeResponse = {
   // Lines of a monthly bill (category 11); empty for other charges.
   items: ChargeItem[];
   sentAt?: string | null;
+  // Set when a unit owner (not the condominium) receives it: the rent of a mixed condominium.
+  receiverPersonId?: number | null;
+  receiverName?: string | null;
 };
 
 export type ChargeItem = {

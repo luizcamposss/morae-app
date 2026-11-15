@@ -139,6 +139,12 @@ Decisões já tomadas com o Luiz. Siga sem perguntar de novo; se algo novo contr
 - Recebimentos dividem a conta do mês pelas categorias dos itens (mesma regra do balanço).
 - PDF com QuestPDF (licença Community: grátis para empresas com receita anual bruta abaixo de US$ 1 milhão; acima disso, licença paga). Excel com ClosedXML (MIT).
 
+## Proprietário recebe o aluguel (#201)
+
+- Condomínio com Aluguéis ligado: o proprietário de uma unidade aluga em **Meus aluguéis** (área do morador) e recebe na **própria conta Mercado Pago**. Só o proprietário cria, edita, reajusta e encerra esses contratos.
+- A conta do aluguel é separada da conta do condomínio (nunca mistura recebedores) e sai para o inquilino 10 dias antes do vencimento, quando a conta do proprietário está conectada; sem conta, espera. **Sem multa e juros automáticos.** Pagamento só pelo app (não usa a chave Pix do condomínio). Taxa de condomínio não entra no aluguel do proprietário; água/luz/gás pela leitura vão numa conta do condomínio para o inquilino.
+- A gestão só vê que a unidade está alugada e por quem; nenhum valor. O aluguel do proprietário não entra em inadimplência, balanço, relatórios nem acordos, e não bloqueia o voto em assembleia.
+
 ## Ficou de fora (não implementar sem o Luiz pedir)
 
 Encomendas, veículos/pets, papel de porteiro/funcionário, registro de entrada/saída, QR code de visitante, voto por fração ideal, "reenviar e-mail" de convite ainda válido.

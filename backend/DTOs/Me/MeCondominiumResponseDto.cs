@@ -15,4 +15,6 @@ public class MeCondominiumResponseDto
     public CondominiumType Type { get; set; }
     // Enabled module keys (Constants/AppModules); screens of other modules are hidden.
     public IReadOnlyList<string> EnabledModules { get; set; } = [];
+    // Owns a unit there: may rent it out and receive the rent in their own account ("Meus aluguéis").
+    public bool IsUnitOwner { get; set; }
 }

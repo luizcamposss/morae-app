@@ -237,6 +237,18 @@ GET    /api/my/consumption                                                (morad
 - Valor = máx(consumo × preço, mínimo). Entra como item "Água (18 m³)" no rascunho da conta do mês: do **inquilino** (vencimento do contrato) quando o contrato de aluguel ativo inclui aquela conta; senão, da unidade. Reenviar a leitura corrige o item enquanto a conta é rascunho; depois de enviada, 400 (`isLocked` na grade).
 - A grade traz `previousReading`, `currentReading`, `consumption`, `amount`, `averageConsumption` (média de até 3 meses anteriores; a tela avisa acima de 2×) e o pagador.
 
+### Proprietário recebe o aluguel (#201)
+```
+GET    /api/my/owned-rental-contracts            (proprietário: contratos das unidades dele)
+POST   /api/my/owned-rental-contracts            (proprietário)  mesmo corpo do contrato; sem taxa de condomínio
+GET    /api/charges/received-as-owner            (proprietário: contas do aluguel que ele recebe)
+POST   /api/mercadopago/oauth/connect            { asOwner: true }  · GET oauth/status?asOwner=true · DELETE oauth/connection?asOwner=true
+```
+- O proprietário (vínculo Proprietário na unidade) conecta o **próprio** Mercado Pago (`MercadoPagoAccount.OwnerPersonId`; plataforma = sem condomínio e sem proprietário). `GET /api/me/condominiums` traz `isUnitOwner`.
+- Contrato do proprietário = `RentalContract.ReceiverPersonId`; reajustar/editar/encerrar usam as rotas de contrato, mas só o proprietário mexe (a gestão recebe 403). Na lista da gestão vem `isOwnerContract: true`, `ownerName` e valores zerados.
+- A conta do aluguel é uma conta do mês com `ReceiverPersonId` (nunca mistura recebedores). Sai sozinha **10 dias antes** do vencimento quando a conta do proprietário está conectada; **sem multa e juros**. Pagamento só online (Pix do condomínio é recusado); baixa manual, cancelamento e estorno só pelo proprietário. `ChargeResponseDto` traz `receiverPersonId`/`receiverName`.
+- A gestão não vê essas contas em nenhuma rota (A receber, Contas do mês, inadimplência, balanço, relatórios, comprovante); elas não entram em acordo nem bloqueiam voto em assembleia.
+
 ### Pagamentos e comprovante
 ```
 GET    /api/charges/{chargeId}/payments

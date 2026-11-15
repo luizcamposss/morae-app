@@ -59,6 +59,8 @@ public class DelinquencyService : IDelinquencyService
             .Where(c =>
                 c.Scope == ChargeScope.Condominium &&
                 c.CondominiumId == condominiumId &&
+                // The owner's rent is private to the owner (#201).
+                c.ReceiverPersonId == null &&
                 c.DueDate.Date < today &&
                 (c.Status == ChargeStatus.Pending || c.Status == ChargeStatus.Overdue));
 

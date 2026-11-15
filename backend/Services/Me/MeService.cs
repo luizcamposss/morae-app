@@ -205,6 +205,15 @@ public class MeService : IMeService
             })
             .ToListAsync();
 
+        var ownedCondominiumIds = await _context.PersonUnits
+            .AsNoTracking()
+            .Where(link =>
+                link.RelationshipType == UnitRelationshipType.Owner &&
+                _context.Users.Any(user => user.Id == userId && user.PersonId == link.PersonId))
+            .Select(link => link.Unit.Building.CondominiumId)
+            .Distinct()
+            .ToListAsync();
+
         return links.Select(link => new MeCondominiumResponseDto
         {
             CondominiumId = link.CondominiumId,
@@ -212,7 +221,8 @@ public class MeService : IMeService
             Role = link.Role,
             Status = link.Status,
             Type = link.Type,
-            EnabledModules = AppModules.Parse(link.EnabledModules)
+            EnabledModules = AppModules.Parse(link.EnabledModules),
+            IsUnitOwner = ownedCondominiumIds.Contains(link.CondominiumId)
         });
     }
     public async Task<MePermissionsResponseDto> GetMyPermissionsAsync(int userId, int condominiumId)

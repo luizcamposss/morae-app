@@ -35,6 +35,8 @@ public record InvoiceItemRequest(
     decimal Amount,
     int CreatedByUserId,
     // Null = the condominium's due day in that month.
-    DateTime? DueDate = null);
+    DateTime? DueDate = null,
+    // Who receives: null = the condominium; set = the unit owner (their rent, kept in a bill of its own).
+    int? ReceiverPersonId = null);
 
 public record InvoiceItemResult(int ChargeId, int ItemId);

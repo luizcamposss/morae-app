@@ -60,6 +60,9 @@ public class ChargeResponseDto
 
     // Lines of a monthly bill (category MonthlyBill); empty for other charges.
     public List<ChargeItemDto> Items { get; set; } = [];
+    // Set when a unit owner (not the condominium) receives this charge, e.g. the rent of a mixed condominium.
+    public int? ReceiverPersonId { get; set; }
+    public string? ReceiverName { get; set; }
     public DateTime? SentAt { get; set; }
 }
 

@@ -38,6 +38,13 @@ public class RentalContractsController : ControllerBase
     public async Task<IActionResult> End([FromRoute] int id, [FromBody] EndRentalContractDto dto) =>
         Ok(await _rentalService.EndAsync(GetUserId(), id, dto));
 
+    [HttpGet("api/my/owned-rental-contracts")]
+    public async Task<IActionResult> GetOwned() => Ok(await _rentalService.GetOwnedAsync(GetUserId()));
+
+    [HttpPost("api/my/owned-rental-contracts")]
+    public async Task<IActionResult> CreateAsOwner([FromBody] SaveRentalContractDto dto) =>
+        Ok(await _rentalService.CreateAsOwnerAsync(GetUserId(), dto));
+
     [HttpGet("api/my/rental-contracts")]
     public async Task<IActionResult> GetMine() => Ok(await _rentalService.GetMineAsync(GetUserId()));
 

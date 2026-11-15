@@ -722,6 +722,9 @@ namespace backend.Migrations
                     b.Property<DateTime?>("OverdueReminderSentAt")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int?>("ReceiverPersonId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("RecipientPersonId")
                         .HasColumnType("int");
 
@@ -757,6 +760,8 @@ namespace backend.Migrations
                     b.HasIndex("CondominiumId");
 
                     b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("ReceiverPersonId");
 
                     b.HasIndex("RecipientPersonId");
 
@@ -1546,6 +1551,9 @@ namespace backend.Migrations
                     b.Property<long?>("MercadoPagoUserId")
                         .HasColumnType("bigint");
 
+                    b.Property<int?>("OwnerPersonId")
+                        .HasColumnType("int");
+
                     b.Property<string>("PublicKey")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1577,6 +1585,8 @@ namespace backend.Migrations
 
                     b.HasIndex("MercadoPagoUserId");
 
+                    b.HasIndex("OwnerPersonId");
+
                     b.HasIndex("UserId");
 
                     b.ToTable("MercadoPagoAccounts");
@@ -1603,6 +1613,9 @@ namespace backend.Migrations
 
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("OwnerPersonId")
+                        .HasColumnType("int");
 
                     b.Property<string>("State")
                         .IsRequired()
@@ -2403,6 +2416,9 @@ namespace backend.Migrations
                     b.Property<DateOnly?>("NextAdjustmentDate")
                         .HasColumnType("date");
 
+                    b.Property<int?>("ReceiverPersonId")
+                        .HasColumnType("int");
+
                     b.Property<DateOnly>("StartDate")
                         .HasColumnType("date");
 
@@ -2421,6 +2437,8 @@ namespace backend.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CondominiumId");
+
+                    b.HasIndex("ReceiverPersonId");
 
                     b.HasIndex("TenantPersonId");
 
@@ -3053,6 +3071,11 @@ namespace backend.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("backend.Models.Person", "ReceiverPerson")
+                        .WithMany()
+                        .HasForeignKey("ReceiverPersonId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("backend.Models.Person", "RecipientPerson")
                         .WithMany()
                         .HasForeignKey("RecipientPersonId")
@@ -3078,6 +3101,8 @@ namespace backend.Migrations
                     b.Navigation("Condominium");
 
                     b.Navigation("CreatedByUser");
+
+                    b.Navigation("ReceiverPerson");
 
                     b.Navigation("RecipientPerson");
 
@@ -3299,6 +3324,11 @@ namespace backend.Migrations
                         .HasForeignKey("CondominiumId")
                         .OnDelete(DeleteBehavior.Cascade);
 
+                    b.HasOne("backend.Models.Person", "OwnerPerson")
+                        .WithMany()
+                        .HasForeignKey("OwnerPersonId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("backend.Models.ApplicationUser", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
@@ -3306,6 +3336,8 @@ namespace backend.Migrations
                         .IsRequired();
 
                     b.Navigation("Condominium");
+
+                    b.Navigation("OwnerPerson");
 
                     b.Navigation("User");
                 });
@@ -3642,6 +3674,11 @@ namespace backend.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("backend.Models.Person", "ReceiverPerson")
+                        .WithMany()
+                        .HasForeignKey("ReceiverPersonId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("backend.Models.Person", "TenantPerson")
                         .WithMany()
                         .HasForeignKey("TenantPersonId")
@@ -3655,6 +3692,8 @@ namespace backend.Migrations
                         .IsRequired();
 
                     b.Navigation("Condominium");
+
+                    b.Navigation("ReceiverPerson");
 
                     b.Navigation("TenantPerson");
 

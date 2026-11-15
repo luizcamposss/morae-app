@@ -475,6 +475,15 @@ public class PermissionService : IPermissionService
         if (await IsChargePayerAsync(userId, charge))
             return;
 
+        // The owner's rent: only its payer and the owner who receives it.
+        if (charge.ReceiverPersonId is { } ownerPersonId)
+        {
+            if (await _context.Users.AsNoTracking().AnyAsync(user => user.Id == userId && user.PersonId == ownerPersonId))
+                return;
+
+            throw new ForbiddenException("Você não tem acesso a esta cobrança.");
+        }
+
         var role = await GetCondominiumRoleAsync(userId, condominiumId);
 
         if (role == AppRoles.Admin)

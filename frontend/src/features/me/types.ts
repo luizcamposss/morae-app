@@ -33,6 +33,8 @@ export type MeCondominiumResponse = {
   // 1 Residential, 2 Rental, 3 Mixed (features/modules).
   type: number;
   enabledModules: string[];
+  // Owns a unit there (may rent it out in "Meus aluguéis").
+  isUnitOwner: boolean;
 };
 
 export type MeUnitResponse = {

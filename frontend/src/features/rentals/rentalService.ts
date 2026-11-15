@@ -1,4 +1,5 @@
 import { apiRequest } from "../../shared/lib/api/apiClient";
+import type { ChargeResponse } from "../charges/types";
 
 // 1 IPCA, 2 IGP-M, 3 agreed value, 4 none.
 export type RentAdjustmentIndex = 1 | 2 | 3 | 4;
@@ -35,6 +36,9 @@ export type RentalContract = {
   lastBilledMonth: string | null;
   endReason: string | null;
   valueChanges: Array<{ previousValue: number | null; newValue: number; effectiveFrom: string; createdAt: string }>;
+  // A unit owner's own contract: the management sees it without values and can't change it.
+  isOwnerContract: boolean;
+  ownerName: string | null;
 };
 
 export type SaveRentalContractRequest = {
@@ -89,4 +93,17 @@ export function adjustRent(id: number, newValue: number) {
 
 export function endRentalContract(id: number, endDate: string, reason: string) {
   return apiRequest<RentalContract>(`/api/rental-contracts/${id}/end`, { method: "POST", body: { endDate, reason: reason || null }, auth: true });
+}
+
+// Unit owner ("Meus aluguéis"): contracts of the units they own, paid into their own account.
+export function getOwnedRentalContracts() {
+  return apiRequest<RentalContract[]>("/api/my/owned-rental-contracts", { auth: true });
+}
+
+export function createOwnedRentalContract(data: SaveRentalContractRequest) {
+  return apiRequest<RentalContract>("/api/my/owned-rental-contracts", { method: "POST", body: data, auth: true });
+}
+
+export function getRentReceivedAsOwner() {
+  return apiRequest<ChargeResponse[]>("/api/charges/received-as-owner", { auth: true });
 }

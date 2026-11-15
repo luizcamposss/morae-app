@@ -20,11 +20,21 @@ type MenuItem = {
 
 // Menu entries come from the role registries; a syndic only sees what the Admin allowed, and
 // nobody sees the modules the condominium turned off.
-function getMenuItems(role: AreaRole, syndicAccess: ReturnType<typeof useSyndicAccess>, enabledModules: string[] | undefined): MenuItem[] {
+function getMenuItems(
+  role: AreaRole,
+  syndicAccess: ReturnType<typeof useSyndicAccess>,
+  enabledModules: string[] | undefined,
+  isUnitOwner: boolean,
+): MenuItem[] {
   const area = roleAreas[role];
 
-  return area.routes.flatMap(({ path, nav, syndicAccess: requirement, module }) => {
-    if (!nav || (requirement && !hasSyndicAccess(syndicAccess, requirement)) || (module && !isModuleEnabled(enabledModules, module))) {
+  return area.routes.flatMap(({ path, nav, syndicAccess: requirement, module, unitOwnerOnly }) => {
+    if (
+      !nav ||
+      (requirement && !hasSyndicAccess(syndicAccess, requirement)) ||
+      (module && !isModuleEnabled(enabledModules, module)) ||
+      (unitOwnerOnly && !isUnitOwner)
+    ) {
       return [];
     }
 
@@ -38,7 +48,7 @@ export function Sidebar() {
   const syndicAccess = useSyndicAccess();
   const primaryRole = getPrimaryRole(user?.roles ?? []);
   const { activeCondominium } = useCondominium();
-  const menuItems = getMenuItems(primaryRole, syndicAccess, activeCondominium?.enabledModules);
+  const menuItems = getMenuItems(primaryRole, syndicAccess, activeCondominium?.enabledModules, Boolean(activeCondominium?.isUnitOwner));
   const mainItems = menuItems.filter((item) => item.placement !== "footer");
   const footerItems = menuItems.filter((item) => item.placement === "footer");
   // The bottom bar fits five slots: past that, the fifth becomes "Mais" and opens every entry.

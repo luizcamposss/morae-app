@@ -11,11 +11,13 @@ import type { PersonUnitResponse } from "../personUnits/types";
 import { FormFeedback } from "../settings/FormFeedback";
 import { relationshipOptions } from "../units/unitForm";
 import type { UnitResponse } from "../units/types";
-import { adjustmentOptions, createRentalContract, updateRentalContract, type RentAdjustmentIndex, type RentalContract } from "./rentalService";
+import { adjustmentOptions, createOwnedRentalContract, createRentalContract, updateRentalContract, type RentAdjustmentIndex, type RentalContract } from "./rentalService";
 
 type Props = {
   condominiumId: number;
-  units: UnitResponse[];
+  units: Array<Pick<UnitResponse, "id" | "buildingName" | "number">>;
+  // A unit owner renting out their own unit: saved in "Meus aluguéis", no condominium fee.
+  ownerMode?: boolean;
   // Editing: unit, tenant, start and rent stay (the rent changes through "Reajustar").
   contract?: RentalContract;
   initialUnitId?: number | null;
@@ -27,7 +29,7 @@ const TENANT = 3;
 const money = (value: number | null | undefined) => (value == null ? "" : value.toFixed(2).replace(".", ","));
 const relationshipLabel = (type: number) => relationshipOptions.find((option) => option.value === type)?.label ?? "Vinculado";
 
-export function RentalContractModal({ condominiumId, units, contract, initialUnitId, onClose, onSaved }: Props) {
+export function RentalContractModal({ condominiumId, units, ownerMode = false, contract, initialUnitId, onClose, onSaved }: Props) {
   const isEdit = Boolean(contract);
   const [unitId, setUnitId] = useState(String(contract?.unitId ?? initialUnitId ?? ""));
   const [tenantId, setTenantId] = useState(String(contract?.tenantPersonId ?? ""));
@@ -98,6 +100,7 @@ export function RentalContractModal({ condominiumId, units, contract, initialUni
     setErrorMessage("");
     try {
       if (contract) await updateRentalContract(contract.id, data);
+      else if (ownerMode) await createOwnedRentalContract(data);
       else await createRentalContract(condominiumId, data);
       onSaved();
       onClose();
@@ -111,7 +114,11 @@ export function RentalContractModal({ condominiumId, units, contract, initialUni
   return (
     <Modal
       title={isEdit ? "Editar contrato" : "Alugar unidade"}
-      description="O aluguel entra sozinho na conta do mês do inquilino, 20 dias antes do vencimento."
+      description={
+        ownerMode
+          ? "O inquilino recebe a conta do aluguel 10 dias antes do vencimento e paga pelo app, direto na sua conta Mercado Pago."
+          : "O aluguel entra sozinho na conta do mês do inquilino, 20 dias antes do vencimento."
+      }
       onClose={onClose}
       footer={
         <>
@@ -167,11 +174,14 @@ export function RentalContractModal({ condominiumId, units, contract, initialUni
 
         <section>
           <h3 className="text-sm font-semibold text-tinta">Também entra na conta do inquilino</h3>
+          {ownerMode && <p className="text-[13px] text-tinta-suave">Água, luz e gás vêm pela leitura da gestão, numa conta do condomínio para o inquilino.</p>}
           <div className="divide-y divide-linha">
             <Switch label="Água" description="Pela leitura do mês" checked={includes.water} onChange={(water) => setIncludes({ ...includes, water })} />
             <Switch label="Luz" description="Pela leitura do mês" checked={includes.electricity} onChange={(electricity) => setIncludes({ ...includes, electricity })} />
             <Switch label="Gás" description="Pela leitura do mês" checked={includes.gas} onChange={(gas) => setIncludes({ ...includes, gas })} />
-            <Switch label="Taxa de condomínio" description="Valor fixo todo mês" checked={includes.fee} onChange={(fee) => setIncludes({ ...includes, fee })} />
+            {!ownerMode && (
+              <Switch label="Taxa de condomínio" description="Valor fixo todo mês" checked={includes.fee} onChange={(fee) => setIncludes({ ...includes, fee })} />
+            )}
           </div>
           {includes.fee && <TextField label="Taxa de condomínio (R$)" value={feeAmount} onChange={(event) => setFeeAmount(event.target.value)} inputMode="decimal" placeholder="0,00" />}
         </section>
