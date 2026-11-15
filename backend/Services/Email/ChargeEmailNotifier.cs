@@ -112,13 +112,13 @@ public class ChargeEmailNotifier : IChargeEmailNotifier
 
     public async Task<List<int>> GetPayerUserIdsAsync(Charge charge)
     {
-        return await PayerUsers(charge).Select(user => user.Id).ToListAsync();
+        return await (await PayerUsersAsync(charge)).Select(user => user.Id).ToListAsync();
     }
 
-    // Same people who see the charge in the app: the condominium's Admins for platform charges,
-    // the unit's residents for condominium charges (only the recipient when the charge has one).
+    // Same people who see the charge in the app: the condominium's Admins for platform charges;
+    // for condominium charges the recipient when it has one, else the unit's payer (UnitPayers).
     // Only users with an active link to the condominium.
-    private IQueryable<ApplicationUser> PayerUsers(Charge charge)
+    private async Task<IQueryable<ApplicationUser>> PayerUsersAsync(Charge charge)
     {
         if (charge.Scope == ChargeScope.Platform)
         {
@@ -131,10 +131,12 @@ public class ChargeEmailNotifier : IChargeEmailNotifier
         if (charge.UnitId.HasValue)
         {
             var unitId = charge.UnitId.Value;
-            var recipientPersonId = charge.RecipientPersonId;
+            var payerPersonIds = charge.RecipientPersonId is { } recipientPersonId
+                ? [recipientPersonId]
+                : (await UnitPayers.GetPersonIdsAsync(_context, unitId, charge.DueDate)).ToList();
 
             return _context.Users.Where(user =>
-                (recipientPersonId == null || user.PersonId == recipientPersonId) &&
+                payerPersonIds.Contains(user.PersonId) &&
                 _context.PersonUnits.Any(personUnit =>
                     personUnit.UnitId == unitId && personUnit.PersonId == user.PersonId) &&
                 user.UserCondominiums.Any(link =>
@@ -147,7 +149,7 @@ public class ChargeEmailNotifier : IChargeEmailNotifier
 
     private async Task<List<Recipient>> GetPayersAsync(Charge charge)
     {
-        var rows = await PayerUsers(charge)
+        var rows = await (await PayerUsersAsync(charge))
             .AsNoTracking()
             .Where(user => user.Email != null && user.Email != "")
             .Select(user => new

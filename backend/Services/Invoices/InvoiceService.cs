@@ -106,6 +106,15 @@ public class InvoiceService : IInvoiceService
     {
         var (category, description, amount) = ValidateItem(request.Category, request.Description, request.Amount);
 
+        // A condominium item of a unit whose tenant pays the condominium goes in the tenant's bill,
+        // together with the rent when the condominium also receives it: one bill, one Pix (#208).
+        if (request.RecipientPersonId is null && request.ReceiverPersonId is null)
+        {
+            var tenants = await UnitPayers.TenantsWhoPayAsync(_context, [request.UnitId]);
+            if (tenants.TryGetValue(request.UnitId, out var tenant) && request.Month >= new DateOnly(tenant.From.Year, tenant.From.Month, 1))
+                request = request with { RecipientPersonId = tenant.PersonId };
+        }
+
         var unitBelongs = await _context.Units
             .AnyAsync(unit => unit.Id == request.UnitId && unit.Building.CondominiumId == request.CondominiumId);
 

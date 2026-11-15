@@ -19,7 +19,7 @@ export const residentArea: RoleArea = {
     { path: "dashboard", component: ResidentDashboardPage, nav: { label: "Início", icon: House } },
     { path: "unit", component: ResidentUnitPage, nav: { label: "Minha unidade", icon: DoorOpen } },
     { path: "bills", component: ResidentBillsPage, nav: { label: "Minhas contas", shortLabel: "Contas", icon: Receipt } },
-    { path: "rentals", component: OwnerRentalsPage, nav: { label: "Meus aluguéis", shortLabel: "Aluguéis", icon: KeyRound }, module: "rentals", unitOwnerOnly: true },
+    { path: "rentals", component: OwnerRentalsPage, nav: { label: "Meus aluguéis", shortLabel: "Aluguéis", icon: KeyRound }, module: "rentals", ownRentalsOnly: true },
     { path: "occurrences", component: ResidentOccurrencesPage, nav: { label: "Ocorrências", icon: TriangleAlert }, module: "occurrences" },
     { path: "visits", component: ResidentVisitsPage, nav: { label: "Visitas", icon: UserPlus }, module: "visitors" },
     { path: "reservations", component: ResidentReservationsPage, nav: { label: "Reservas", icon: CalendarCheck }, module: "reservations" },

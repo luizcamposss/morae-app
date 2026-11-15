@@ -145,6 +145,14 @@ Decisões já tomadas com o Luiz. Siga sem perguntar de novo; se algo novo contr
 - A conta do aluguel é separada da conta do condomínio (nunca mistura recebedores) e sai para o inquilino 10 dias antes do vencimento, quando a conta do proprietário está conectada; sem conta, espera. **Sem multa e juros automáticos.** Pagamento só pelo app (não usa a chave Pix do condomínio). Taxa de condomínio não entra no aluguel do proprietário; água/luz/gás pela leitura vão numa conta do condomínio para o inquilino.
 - A gestão só vê que a unidade está alugada e por quem; nenhum valor. O aluguel do proprietário não entra em inadimplência, balanço, relatórios nem acordos, e não bloqueia o voto em assembleia.
 
+## Financeiro único (#208–#212)
+
+- Regras: tudo o que se paga é uma **conta**; toda conta diz quem paga e quem recebe; ninguém vê conta que não é para pagar; o sistema faz o trabalho repetitivo.
+- **Quem paga as contas do condomínio de uma unidade** (taxa, água, luz, rateio…; regra única em `Services/Charges/UnitPayers.cs`): alugada com "inquilino paga" (padrão do contrato) → o **inquilino**, para contas que vencem **a partir do início do contrato** (dívidas antigas ficam com o proprietário); senão → os **proprietários**; sem proprietário cadastrado → todos os vinculados. O proprietário nunca paga aluguel. Vale para Minhas contas, sininho, e-mail, pagamento e acordos.
+- Itens do condomínio de uma unidade cujo inquilino paga entram na mesma conta do aluguel quando o condomínio também recebe o aluguel (um Pix só).
+- **Minhas contas**: "A pagar agora" + Pagar tudo, contas abertas com itens e para quem, pagas recolhidas, consumo e prestação de contas no fim. **Meus aluguéis** só aparece no menu de quem tem contrato; para começar, "Alugar este apartamento" em Minha unidade.
+- Decidido também: reserva e parcela de acordo continuam **separadas** da conta do mês; envio automático é o padrão (#211); água/luz/gás passam a ser valor digitado (#209).
+
 ## Ficou de fora (não implementar sem o Luiz pedir)
 
 Encomendas, veículos/pets, papel de porteiro/funcionário, registro de entrada/saída, QR code de visitante, voto por fração ideal, "reenviar e-mail" de convite ainda válido.

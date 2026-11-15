@@ -11,7 +11,7 @@ import type { PersonUnitResponse } from "../personUnits/types";
 import { FormFeedback } from "../settings/FormFeedback";
 import { relationshipOptions } from "../units/unitForm";
 import type { UnitResponse } from "../units/types";
-import { adjustmentOptions, createOwnedRentalContract, createRentalContract, updateRentalContract, type RentAdjustmentIndex, type RentalContract } from "./rentalService";
+import { adjustmentOptions, createOwnedRentalContract, createRentalContract, updateRentalContract, type CondominiumBillsPayer, type RentAdjustmentIndex, type RentalContract } from "./rentalService";
 
 type Props = {
   condominiumId: number;
@@ -26,6 +26,11 @@ type Props = {
 };
 
 const TENANT = 3;
+
+const payerOptions: Array<{ value: CondominiumBillsPayer; label: string; hint: string }> = [
+  { value: 1, label: "O inquilino", hint: "Recebe o aluguel e o condomínio, e pode pagar tudo junto." },
+  { value: 2, label: "O proprietário", hint: "O inquilino recebe só o aluguel." },
+];
 const money = (value: number | null | undefined) => (value == null ? "" : value.toFixed(2).replace(".", ","));
 const relationshipLabel = (type: number) => relationshipOptions.find((option) => option.value === type)?.label ?? "Vinculado";
 
@@ -38,10 +43,8 @@ export function RentalContractModal({ condominiumId, units, ownerMode = false, c
   const [dueDay, setDueDay] = useState(String(contract?.dueDay ?? 10));
   const [startDate, setStartDate] = useState(contract?.startDate ?? todayInputDate());
   const [endDate, setEndDate] = useState(contract?.endDate ?? "");
+  const [paidBy, setPaidBy] = useState<CondominiumBillsPayer>(contract?.condominiumBillsPaidBy ?? 1);
   const [includes, setIncludes] = useState({
-    water: contract?.includesWater ?? true,
-    electricity: contract?.includesElectricity ?? true,
-    gas: contract?.includesGas ?? false,
     fee: contract?.includesCondominiumFee ?? false,
   });
   const [feeAmount, setFeeAmount] = useState(money(contract?.condominiumFeeAmount));
@@ -87,9 +90,11 @@ export function RentalContractModal({ condominiumId, units, ownerMode = false, c
       dueDay: day,
       startDate,
       endDate: endDate || null,
-      includesWater: includes.water,
-      includesElectricity: includes.electricity,
-      includesGas: includes.gas,
+      // Water, light and gas follow who pays the condominium (kept for older clients of the API).
+      includesWater: paidBy === 1,
+      includesElectricity: paidBy === 1,
+      includesGas: paidBy === 1,
+      condominiumBillsPaidBy: paidBy,
       includesCondominiumFee: includes.fee,
       condominiumFeeAmount: includes.fee ? parseCurrencyInput(feeAmount) : null,
       adjustmentIndex: adjustment,
@@ -172,19 +177,35 @@ export function RentalContractModal({ condominiumId, units, ownerMode = false, c
           <TextField label="Fim (opcional)" type="date" value={endDate} min={startDate} onChange={(event) => setEndDate(event.target.value)} />
         </div>
 
-        <section>
-          <h3 className="text-sm font-semibold text-tinta">Também entra na conta do inquilino</h3>
-          {ownerMode && <p className="text-[13px] text-tinta-suave">Água, luz e gás vêm pela leitura da gestão, numa conta do condomínio para o inquilino.</p>}
-          <div className="divide-y divide-linha">
-            <Switch label="Água" description="Pela leitura do mês" checked={includes.water} onChange={(water) => setIncludes({ ...includes, water })} />
-            <Switch label="Luz" description="Pela leitura do mês" checked={includes.electricity} onChange={(electricity) => setIncludes({ ...includes, electricity })} />
-            <Switch label="Gás" description="Pela leitura do mês" checked={includes.gas} onChange={(gas) => setIncludes({ ...includes, gas })} />
-            {!ownerMode && (
-              <Switch label="Taxa de condomínio" description="Valor fixo todo mês" checked={includes.fee} onChange={(fee) => setIncludes({ ...includes, fee })} />
-            )}
+        <fieldset>
+          <legend className="text-sm font-semibold text-tinta">Quem paga as contas do condomínio (taxa, água, luz)</legend>
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {payerOptions.map((option) => (
+              <label
+                key={option.value}
+                className={`flex cursor-pointer flex-col rounded-field px-4 py-3 transition-colors ${paidBy === option.value ? "bg-verde-suave ring-2 ring-verde" : "bg-campo hover:bg-menu"}`}
+              >
+                <input type="radio" name="paidBy" className="sr-only" checked={paidBy === option.value} onChange={() => setPaidBy(option.value)} />
+                <span className="text-[15px] font-semibold text-tinta">{option.label}</span>
+                <span className="text-[13px] text-tinta-suave">{option.hint}</span>
+              </label>
+            ))}
           </div>
-          {includes.fee && <TextField label="Taxa de condomínio (R$)" value={feeAmount} onChange={(event) => setFeeAmount(event.target.value)} inputMode="decimal" placeholder="0,00" />}
-        </section>
+        </fieldset>
+
+        {!ownerMode && (
+          <section>
+            <div className="divide-y divide-linha">
+              <Switch
+                label="Cobrar taxa de condomínio junto com o aluguel"
+                description="Valor fixo, na mesma conta do inquilino"
+                checked={includes.fee}
+                onChange={(fee) => setIncludes({ ...includes, fee })}
+              />
+            </div>
+            {includes.fee && <TextField label="Taxa de condomínio (R$)" value={feeAmount} onChange={(event) => setFeeAmount(event.target.value)} inputMode="decimal" placeholder="0,00" />}
+          </section>
+        )}
 
         <SelectField
           label="Reajuste anual"

@@ -87,7 +87,7 @@ public class AgreementService : IAgreementService
             .Distinct()
             .ToListAsync();
 
-        // Same rule as the charges: an agreement addressed to one person is only theirs.
+        // Same rule as the charges: addressed to one person, only theirs.
         var agreements = await BuildQuery()
             .Where(a =>
                 unitIds.Contains(a.UnitId) &&
@@ -95,6 +95,12 @@ public class AgreementService : IAgreementService
                 a.Condominium.Status == Status.Active)
             .OrderByDescending(a => a.CreatedAt)
             .ToListAsync();
+
+        // Otherwise it renegotiates the unit's debts: paid by whoever paid them when it was made.
+        var rules = await UnitPayers.GetRulesAsync(_context, unitIds);
+        agreements = agreements
+            .Where(a => a.RecipientPersonId != null || rules[a.UnitId].For(a.CreatedAt).Contains(personId))
+            .ToList();
 
         return agreements.Select(MapResponse);
     }

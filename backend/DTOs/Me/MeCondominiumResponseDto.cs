@@ -17,4 +17,6 @@ public class MeCondominiumResponseDto
     public IReadOnlyList<string> EnabledModules { get; set; } = [];
     // Owns a unit there: may rent it out and receive the rent in their own account ("Meus aluguéis").
     public bool IsUnitOwner { get; set; }
+    // Rents out a unit there as its owner: "Meus aluguéis" shows in the menu only then (#208).
+    public bool HasOwnRentalContracts { get; set; }
 }

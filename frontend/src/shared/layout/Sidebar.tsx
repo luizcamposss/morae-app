@@ -24,16 +24,16 @@ function getMenuItems(
   role: AreaRole,
   syndicAccess: ReturnType<typeof useSyndicAccess>,
   enabledModules: string[] | undefined,
-  isUnitOwner: boolean,
+  hasOwnRentals: boolean,
 ): MenuItem[] {
   const area = roleAreas[role];
 
-  return area.routes.flatMap(({ path, nav, syndicAccess: requirement, module, unitOwnerOnly }) => {
+  return area.routes.flatMap(({ path, nav, syndicAccess: requirement, module, ownRentalsOnly }) => {
     if (
       !nav ||
       (requirement && !hasSyndicAccess(syndicAccess, requirement)) ||
       (module && !isModuleEnabled(enabledModules, module)) ||
-      (unitOwnerOnly && !isUnitOwner)
+      (ownRentalsOnly && !hasOwnRentals)
     ) {
       return [];
     }
@@ -48,7 +48,7 @@ export function Sidebar() {
   const syndicAccess = useSyndicAccess();
   const primaryRole = getPrimaryRole(user?.roles ?? []);
   const { activeCondominium } = useCondominium();
-  const menuItems = getMenuItems(primaryRole, syndicAccess, activeCondominium?.enabledModules, Boolean(activeCondominium?.isUnitOwner));
+  const menuItems = getMenuItems(primaryRole, syndicAccess, activeCondominium?.enabledModules, Boolean(activeCondominium?.hasOwnRentalContracts));
   const mainItems = menuItems.filter((item) => item.placement !== "footer");
   const footerItems = menuItems.filter((item) => item.placement === "footer");
   // The bottom bar fits five slots: past that, the fifth becomes "Mais" and opens every entry.

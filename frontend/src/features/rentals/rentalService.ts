@@ -1,6 +1,9 @@
 import { apiRequest } from "../../shared/lib/api/apiClient";
 import type { ChargeResponse } from "../charges/types";
 
+// 1 the tenant, 2 the owner: who pays the unit's condominium bills while rented.
+export type CondominiumBillsPayer = 1 | 2;
+
 // 1 IPCA, 2 IGP-M, 3 agreed value, 4 none.
 export type RentAdjustmentIndex = 1 | 2 | 3 | 4;
 
@@ -30,6 +33,7 @@ export type RentalContract = {
   includesGas: boolean;
   includesCondominiumFee: boolean;
   condominiumFeeAmount: number | null;
+  condominiumBillsPaidBy: CondominiumBillsPayer;
   adjustmentIndex: RentAdjustmentIndex;
   nextAdjustmentDate: string | null;
   status: number;
@@ -53,6 +57,7 @@ export type SaveRentalContractRequest = {
   includesGas: boolean;
   includesCondominiumFee: boolean;
   condominiumFeeAmount: number | null;
+  condominiumBillsPaidBy: CondominiumBillsPayer;
   adjustmentIndex: RentAdjustmentIndex;
   nextAdjustmentDate: string | null;
 };
@@ -61,14 +66,9 @@ export function adjustmentLabel(index: RentAdjustmentIndex) {
   return adjustmentOptions.find((option) => option.value === index)?.label ?? "Sem reajuste";
 }
 
-// "Aluguel + água + luz" — what the tenant's monthly bill brings.
-export function describeIncludes(contract: Pick<RentalContract, "includesWater" | "includesElectricity" | "includesGas" | "includesCondominiumFee">) {
-  const parts = ["aluguel"];
-  if (contract.includesCondominiumFee) parts.push("condomínio");
-  if (contract.includesWater) parts.push("água");
-  if (contract.includesElectricity) parts.push("luz");
-  if (contract.includesGas) parts.push("gás");
-  return parts.join(" + ").replace(/^./, (first) => first.toUpperCase());
+// "Inquilino paga o condomínio" — who pays the unit's condominium bills while rented.
+export function describeIncludes(contract: Pick<RentalContract, "condominiumBillsPaidBy">) {
+  return contract.condominiumBillsPaidBy === 2 ? "Proprietário paga o condomínio" : "Inquilino paga o condomínio";
 }
 
 export function getRentalContracts(condominiumId: number) {

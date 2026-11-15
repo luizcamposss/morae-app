@@ -17,3 +17,10 @@ public enum RentAdjustmentIndex
     Agreed = 3,
     None = 4
 }
+
+// Who pays the condominium's bills (fee, water, light…) of a rented unit.
+public enum CondominiumBillsPayer
+{
+    Tenant = 1,
+    Owner = 2
+}

@@ -34,6 +34,9 @@ public class RentalContract
     // Null = open-ended. The last month billed is the one of the end date.
     public DateOnly? EndDate { get; set; }
 
+    // Who pays the unit's condominium bills while the contract is active (#208).
+    public CondominiumBillsPayer CondominiumBillsPaidBy { get; set; } = CondominiumBillsPayer.Tenant;
+
     // What else the tenant pays in the same bill.
     public bool IncludesWater { get; set; }
     public bool IncludesElectricity { get; set; }

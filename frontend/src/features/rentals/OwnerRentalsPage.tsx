@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { useCondominium } from "../../app/providers/useCondominium";
 import { Button } from "../../shared/components/Button";
@@ -12,24 +13,39 @@ import type { MeUnitResponse } from "../me/types";
 import { MercadoPagoConnectionPanel } from "../mercadoPago/MercadoPagoConnectionPanel";
 import { StatusChip } from "../settings/StatusChip";
 import { RentalContractModal } from "./RentalContractModal";
-import { AdjustModal, EndModal } from "./RentalsPage";
+import { AdjustModal, EndModal, type RentalsLocationState } from "./RentalsPage";
 import { RENTAL_STATUS, adjustmentLabel, describeIncludes, getOwnedRentalContracts, getRentReceivedAsOwner, type RentalContract } from "./rentalService";
 
 const OWNER = 1;
 
-type Dialog = { kind: "new" } | { kind: "edit" | "adjust" | "end"; contract: RentalContract } | null;
+type Dialog = { kind: "new"; unitId?: number } | { kind: "edit" | "adjust" | "end"; contract: RentalContract } | null;
 
 // "Meus aluguéis": a unit owner rents out their own unit and receives the rent in their own
 // Mercado Pago account. The condominium's management never sees these values.
 export function OwnerRentalsPage() {
-  const { activeCondominium, activeCondominiumId } = useCondominium();
+  const { activeCondominium, activeCondominiumId, refreshCondominiums } = useCondominium();
   const [contracts, setContracts] = useState<RentalContract[] | null>(null);
   const [bills, setBills] = useState<ChargeResponse[]>([]);
   const [units, setUnits] = useState<MeUnitResponse[]>([]);
   const [error, setError] = useState("");
-  const [dialog, setDialog] = useState<Dialog>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  // Opened from "Alugar este apartamento" (Minha unidade) with the unit already chosen.
+  const [dialog, setDialog] = useState<Dialog>(() => {
+    const unitId = (location.state as RentalsLocationState)?.rentUnitId;
+    return unitId ? { kind: "new", unitId } : null;
+  });
   const [reloadKey, setReloadKey] = useState(0);
-  const reload = useCallback(() => setReloadKey((value) => value + 1), []);
+  // A new contract may be the first one: the menu then gains "Meus aluguéis".
+  const reload = useCallback(() => {
+    setReloadKey((value) => value + 1);
+    void refreshCondominiums();
+  }, [refreshCondominiums]);
+
+  useEffect(() => {
+    // Forget the router state, so a refresh does not open the form again.
+    if ((location.state as RentalsLocationState)?.rentUnitId) navigate(location.pathname, { replace: true, state: null });
+  }, [location.state, location.pathname, navigate]);
 
   useEffect(() => {
     let isMounted = true;
@@ -170,6 +186,7 @@ export function OwnerRentalsPage() {
           units={ownedUnits}
           ownerMode
           contract={dialog.kind === "edit" ? dialog.contract : undefined}
+          initialUnitId={dialog.kind === "new" ? dialog.unitId : undefined}
           onClose={() => setDialog(null)}
           onSaved={reload}
         />

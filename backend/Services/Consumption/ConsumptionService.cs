@@ -279,7 +279,7 @@ public class ConsumptionService : IConsumptionService
             .ToList();
     }
 
-    // Tenant who pays this utility, per unit: an active rental contract that includes it.
+    // Tenant who pays the condominium's bills, per unit (active contract with the tenant paying).
     private async Task<Dictionary<int, Payer>> PayersAsync(int condominiumId, ChargeCategory category)
     {
         var contracts = await _context.RentalContracts
@@ -287,9 +287,8 @@ public class ConsumptionService : IConsumptionService
             .Where(contract =>
                 contract.CondominiumId == condominiumId &&
                 contract.Status == RentalContractStatus.Active &&
-                (category == ChargeCategory.Water ? contract.IncludesWater :
-                 category == ChargeCategory.Electricity ? contract.IncludesElectricity :
-                 contract.IncludesGas))
+                // The tenant pays the condominium's bills when the contract says so (#208).
+                contract.CondominiumBillsPaidBy == CondominiumBillsPayer.Tenant)
             .Select(contract => new { contract.UnitId, contract.TenantPersonId, contract.TenantPerson.Name, contract.DueDay })
             .ToListAsync();
 
