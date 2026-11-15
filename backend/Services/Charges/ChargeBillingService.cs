@@ -119,6 +119,115 @@ public class ChargeBillingService : IChargeBillingService
         return _mapper.Map<IEnumerable<RecurringChargeResponseDto>>(recurring);
     }
 
+    public async Task<CondominiumFeeDto> GetFeeAsync(int userId, int condominiumId)
+    {
+        // Residents see it too: it is what their bill brings every month.
+        await _permissionService.EnsureCondominiumAccessAsync(userId, condominiumId);
+
+        return await BuildFeeResponseAsync(condominiumId, await FindFeeAsync(condominiumId));
+    }
+
+    public async Task<CondominiumFeeDto> SaveFeeAsync(int userId, int condominiumId, SaveCondominiumFeeDto dto)
+    {
+        await _permissionService.EnsureCondominiumAdminAsync(userId, condominiumId);
+
+        var fee = await FindFeeAsync(condominiumId, tracked: true);
+
+        if (!dto.Enabled)
+        {
+            if (fee is not null)
+            {
+                fee.Status = RecurringChargeStatus.Ended;
+                fee.EndedAt = DateTime.UtcNow;
+                fee.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+            }
+
+            return await BuildFeeResponseAsync(condominiumId, null);
+        }
+
+        if (dto.Amount <= 0)
+            throw new BadRequestException("Informe o valor da taxa de condomínio.");
+
+        var unitIds = dto.Exceptions.Select(item => item.UnitId).Distinct().ToList();
+
+        if (unitIds.Count != dto.Exceptions.Count)
+            throw new BadRequestException("Cada unidade aparece uma vez só nas exceções.");
+
+        var validUnits = await _context.Units.CountAsync(unit => unitIds.Contains(unit.Id) && unit.Building.CondominiumId == condominiumId);
+
+        if (validUnits != unitIds.Count)
+            throw new BadRequestException("Uma das unidades não é deste condomínio.");
+
+        await _chargeService.EnsureCondominiumPaymentMethodAsync(condominiumId);
+
+        if (fee is null)
+        {
+            fee = new RecurringCharge
+            {
+                CondominiumId = condominiumId,
+                Category = ChargeCategory.CondominiumFee,
+                Description = "Taxa de condomínio",
+                Status = RecurringChargeStatus.Active,
+                CreatedByUserId = userId,
+                CreatedAt = DateTime.UtcNow
+            };
+            _context.RecurringCharges.Add(fee);
+        }
+        else
+        {
+            _context.RecurringChargeUnitValues.RemoveRange(fee.UnitValues);
+            fee.UnitValues.Clear();
+        }
+
+        fee.Value = Math.Round(dto.Amount, 2);
+        fee.UpdatedAt = DateTime.UtcNow;
+
+        foreach (var exception in dto.Exceptions)
+            fee.UnitValues.Add(new RecurringChargeUnitValue { UnitId = exception.UnitId, Value = Math.Round(exception.Amount, 2) });
+
+        await _context.SaveChangesAsync();
+
+        // The month already in the window gets it right away (a value change applies from the next month).
+        await GenerateForRecurringAsync(fee.Id, AppTimeZone.Today);
+
+        return await BuildFeeResponseAsync(condominiumId, await FindFeeAsync(condominiumId));
+    }
+
+    // The active fixed charge of the whole condominium with the fee category.
+    private Task<RecurringCharge?> FindFeeAsync(int condominiumId, bool tracked = false)
+    {
+        IQueryable<RecurringCharge> query = _context.RecurringCharges.Include(r => r.UnitValues).ThenInclude(item => item.Unit).ThenInclude(unit => unit.Building);
+        if (!tracked) query = query.AsNoTracking();
+
+        return query
+            .Where(r =>
+                r.CondominiumId == condominiumId &&
+                r.Category == ChargeCategory.CondominiumFee &&
+                r.UnitId == null &&
+                r.BuildingId == null &&
+                r.Status != RecurringChargeStatus.Ended)
+            .OrderByDescending(r => r.CreatedAt)
+            .FirstOrDefaultAsync();
+    }
+
+    private async Task<CondominiumFeeDto> BuildFeeResponseAsync(int condominiumId, RecurringCharge? fee)
+    {
+        var dueDay = await _context.Condominiums.Where(c => c.Id == condominiumId).Select(c => c.BillingDueDay).FirstAsync();
+
+        return new CondominiumFeeDto
+        {
+            Enabled = fee is { Status: RecurringChargeStatus.Active },
+            Amount = fee?.Value ?? 0,
+            DueDay = fee?.DueDay ?? dueDay,
+            Exceptions = fee?.UnitValues
+                .OrderBy(item => item.Unit.Building.Name)
+                .ThenBy(item => item.Unit.Number)
+                .Select(item => new CondominiumFeeExceptionDto { UnitId = item.UnitId, UnitLabel = $"{item.Unit.Building.Name} · {item.Unit.Number}", Amount = item.Value })
+                .ToList() ?? []
+        };
+    }
+
     public async Task<RecurringChargeResponseDto> CreateRecurringAsync(
         int userId,
         int condominiumId,
@@ -298,6 +407,10 @@ public class ChargeBillingService : IChargeBillingService
             }
 
             var amount = values.GetValueOrDefault(unit.Id, recurring.Value);
+
+            // An exception of 0 = the unit is exempt.
+            if (amount <= 0)
+                continue;
 
             await _invoiceService.AddItemToDraftAsync(new InvoiceItemRequest(
                 recurring.CondominiumId,

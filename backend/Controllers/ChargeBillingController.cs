@@ -36,6 +36,18 @@ public class ChargeBillingController : ControllerBase
         return Ok(await _billingService.UpdateSettingsAsync(GetUserId(), condominiumId, dto));
     }
 
+    [HttpGet("condominiums/{condominiumId}/condominium-fee")]
+    public async Task<IActionResult> GetFee([FromRoute] int condominiumId)
+    {
+        return Ok(await _billingService.GetFeeAsync(GetUserId(), condominiumId));
+    }
+
+    [HttpPut("condominiums/{condominiumId}/condominium-fee")]
+    public async Task<IActionResult> SaveFee([FromRoute] int condominiumId, [FromBody] SaveCondominiumFeeDto dto)
+    {
+        return Ok(await _billingService.SaveFeeAsync(GetUserId(), condominiumId, dto));
+    }
+
     [HttpPost("condominiums/{condominiumId}/charges/batch")]
     public async Task<IActionResult> CreateBatch(
         [FromRoute] int condominiumId,

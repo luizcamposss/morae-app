@@ -236,6 +236,14 @@ GET    /api/my/consumption                                                (morad
 - Módulo `consumption`. Sem leitura de relógio nem preço: a gestão digita o valor em R$ de cada unidade (3 Água, 4 Luz, 5 Gás; quais aparecem = `utilities` do condomínio, padrão água e luz).
 - Cada valor vira item "Água"/"Luz"/"Gás" no rascunho da conta do mês de quem paga as contas da unidade (#208). Mudar o valor troca o item; `null`/0 tira; depois que a conta sai, o valor trava (400, `isLocked`).
 
+### Taxa de condomínio (#211)
+```
+GET    /api/condominiums/{condominiumId}/condominium-fee     (qualquer membro ativo)
+PUT    /api/condominiums/{condominiumId}/condominium-fee     (só Admin)  { enabled, amount, exceptions: [{ unitId, amount }] }
+```
+- A taxa do mês é **uma** cobrança fixa do condomínio inteiro (categoria Taxa de condomínio): valor por unidade e exceções (0 = isenta), vencimento no dia do condomínio. Salvar edita a mesma cobrança fixa; `enabled: false` encerra. Novo valor vale para as próximas contas.
+- Ajustes → **Financeiro** junta: taxa de condomínio, vencimento/multa/juros, envio das contas, água/luz/gás (o que cobra; `PUT utilities/settings`) e prestação de contas. Recebimento (Mercado Pago, Pix) continua no mesmo Ajustes.
+
 ### Lançar cobrança (#209)
 ```
 POST   /api/condominiums/{condominiumId}/invoices/launch                  (charges.create)  { month, category, description, units: [{ unitId, amount }] }
